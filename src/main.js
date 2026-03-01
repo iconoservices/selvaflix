@@ -505,27 +505,35 @@ function updateServer(serverKey, season = 1, episode = 1) {
 
     let url = "";
     const type = currentPlayerMovie.type || 'movie';
-    const isSeries = type === 'series' || type === 'tv';
+    const isSeries = type === 'series' || type === 'tv' || type === 'anime';
+
+    let s = season;
+    let e = episode;
+
+    if (isSeries) {
+      if (!s) s = document.getElementById('series-season').value || 1;
+      if (!e) e = document.getElementById('series-episode').value || 1;
+    }
 
     switch (serverKey) {
       case 'vidsrc':
         url = isSeries
-          ? `https://vidsrc.xyz/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}&lang=es`
+          ? `https://vidsrc.xyz/embed/tv?tmdb=${tmdbId}&season=${s}&episode=${e}&lang=es`
           : `https://vidsrc.xyz/embed/movie?tmdb=${tmdbId}&lang=es`;
         break;
       case 'superembed':
         url = isSeries
-          ? `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${season}&e=${episode}&lang=es`
+          ? `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${s}&e=${e}&lang=es`
           : `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&lang=es`;
         break;
       case 'smashy':
         url = isSeries
-          ? `https://player.smashy.stream/tv/${tmdbId}?s=${season}&e=${episode}&lang=es`
+          ? `https://player.smashy.stream/tv/${tmdbId}?s=${s}&e=${e}&lang=es`
           : `https://player.smashy.stream/movie/${tmdbId}?lang=es`;
         break;
       case 'autoembed':
         url = isSeries
-          ? `https://autoembed.co/tv/tmdb/${tmdbId}?s=${season}&e=${episode}&lang=es`
+          ? `https://autoembed.co/tv/tmdb/${tmdbId}?s=${s}&e=${e}&lang=es`
           : `https://autoembed.co/movie/tmdb/${tmdbId}?lang=es`;
         break;
       default:

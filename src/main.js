@@ -227,7 +227,7 @@ function openPlayer(movieId) {
   });
 }
 
-function updateServer(serverKey, skipCountdown = false) {
+function updateServer(serverKey) {
   if (!currentPlayerMovie || !currentPlayerMovie.tmdbId) return;
 
   const loadIframe = () => {
@@ -235,7 +235,6 @@ function updateServer(serverKey, skipCountdown = false) {
     const loader = document.getElementById('player-loader');
     const tmdbId = currentPlayerMovie.tmdbId;
 
-    // Visual active state
     document.querySelectorAll('.server-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.server === serverKey);
     });
@@ -254,7 +253,6 @@ function updateServer(serverKey, skipCountdown = false) {
     }
 
     iframe.src = url;
-    // Probando los limites del Sandbox: Bloqueando popups pero permitiendo lo basico
     iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-presentation');
 
     iframe.onload = () => {
@@ -265,12 +263,7 @@ function updateServer(serverKey, skipCountdown = false) {
     };
   };
 
-  if (skipCountdown) {
-    loadIframe();
-  } else {
-    // Si cambia de servidor, le volvemos a mostrar el anuncio de "Consejo"
-    startAdCountdown(loadIframe);
-  }
+  loadIframe();
 }
 
 // Exported Actions
@@ -287,10 +280,25 @@ window.deleteMovie = async (id) => {
 function initApp() {
   const container = document.getElementById('main-content');
   container.innerHTML = '';
-  renderRow('Recien Cosechadas', movieDatabase.trending);
 
-  document.getElementById('hero-title').innerText = "Cocona Fugitiva";
-  document.getElementById('hero-title').style.opacity = "1";
+  // Sort and filter categories
+  const allMovies = [...movieDatabase.trending].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+  // Hero Update
+  if (allMovies.length > 0) {
+    const featured = allMovies[0];
+    document.getElementById('hero-title').innerText = featured.title;
+    document.getElementById('hero-subtitle').innerText = featured.year || "Recién llegada a la selva";
+    document.getElementById('hero-section').style.backgroundImage = `linear-gradient(to right, rgba(0,0,0,0.9), transparent), url(${featured.img})`;
+    document.getElementById('hero-play-btn').onclick = () => openPlayer(featured.id);
+  }
+
+  // Rows
+  const recent = allMovies.slice(0, 10);
+  const trending = allMovies.slice(10, 25);
+
+  renderRow('Recién Cosechadas 🥥', recent);
+  if (trending.length > 0) renderRow('Más Jugosas de la Selva 🍹', trending);
 }
 
 // Initial Setup

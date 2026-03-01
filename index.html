@@ -55,27 +55,7 @@
       </div>
     </main>
 
-    <!-- MOVIES VIEW -->
-    <main id="movies-view" style="display: none; padding-top: 100px;">
-      <div class="content-sections" id="movies-content"></div>
-    </main>
-
-    <!-- SERIES VIEW -->
-    <main id="series-view" style="display: none; padding-top: 100px;">
-      <div class="content-sections" id="series-content"></div>
-    </main>
-
-    <!-- LIVE TV VIEW -->
-    <main id="tv-view" style="display: none; padding-top: 100px;">
-      <section class="category-row">
-        <div class="row-header">
-          <h2 class="row-title">Canales en la Selva 📺</h2>
-        </div>
-        <div class="movie-list" id="main-channels">
-          <!-- Channels will be injected here -->
-        </div>
-      </section>
-    </main>
+    <!-- Se removieron los viejos containers de views, ahorra reusamos main-content 🍿 -->
 
     <!-- Admin View -->
     <section id="admin-view" class="admin-section">
@@ -196,9 +176,17 @@
               <label>URL del Video (Embed / M3U8)</label>
               <input type="url" id="m-embed" class="form-control" placeholder="Deja vacio para usar Multi-Servidor">
             </div>
-            <div class="form-group">
-              <label>Año / Calificación</label>
-              <input type="text" id="m-meta" class="form-control" placeholder="2024 / 4.8">
+            <div class="form-group" style="display: flex; gap: 10px;">
+              <div style="flex: 1;">
+                <label>Año</label>
+                <select id="m-year" class="form-control">
+                  <!-- Llenado por script -->
+                </select>
+              </div>
+              <div style="flex: 1;">
+                <label>Calificación</label>
+                <input type="text" id="m-rating" class="form-control" placeholder="Ej: 4.8">
+              </div>
             </div>
             <button type="submit" id="submit-btn" class="btn btn-primary" style="width: 100%;">¡Guardar Cambios!
               🍿</button>
@@ -259,29 +247,6 @@
     <!-- Premium Player Modal -->
     <div id="player-modal" class="player-modal">
       <div id="close-player" class="player-close">&times;</div>
-
-      <!-- NEW: Your Custom Ad Space (Full Modal) -->
-      <div id="ad-overlay" class="ad-overlay">
-        <div class="ad-content">
-          <span class="ad-badge">CONSEJO DE SUPERVIVENCIA 🕵️‍♂️</span>
-          <div id="ad-custom-html">
-            <h3 style="color: var(--primary); margin-bottom: 10px;">¡Guía del Explorador! 🥥</h3>
-            <p style="color: white; font-size: 0.85rem; margin-bottom: 10px;">
-              Los servidores gratuitos pueden abrir <b>ventanas nuevas</b> al dar Play.
-            </p>
-            <div
-              style="padding: 15px; background: rgba(255,122,0,0.05); border-radius: 10px; border: 1px dashed var(--primary); margin-bottom: 15px; text-align: left;">
-              <p style="font-size: 0.8rem; margin-bottom: 5px;">🔥 <b>¿Qué hacer?</b></p>
-              <ul style="font-size: 0.75rem; color: var(--text-muted); padding-left: 15px;">
-                <li>Si se abre otra pestaña, <b>ciérrala</b> y vuelve aquí.</li>
-                <li>Dale "Play" de nuevo. (A veces toma 2 intentos).</li>
-                <li>¡Usa <b>Brave Browser</b> para saltarte todo esto!</li>
-              </ul>
-            </div>
-          </div>
-          <button id="skip-ad-btn" class="btn btn-primary" style="width: 100%;">Cargando...</button>
-        </div>
-      </div>
 
       <div class="video-layout">
         <div class="video-container">
@@ -394,7 +359,7 @@
       <a href="#" class="nav-item" onclick="window.location.hash='live'">🔴</a>
     </nav>
   </div>
-  <script type="module" src="/src/main.js?v=2.4"></script>
+  <script type="module" src="/src/main.js?v=2.5"></script>
 </body>
 
 </html>

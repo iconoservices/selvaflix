@@ -29,10 +29,12 @@ let currentPlayerMovie = null;
 
 // Firebase Listener (Real-time sync)
 const yearSelect = document.getElementById('discover-year');
-if (yearSelect) {
+const mYearSelect = document.getElementById('m-year');
+if (yearSelect || mYearSelect) {
   const currentYear = new Date().getFullYear();
   for (let i = currentYear; i >= 1980; i--) {
-    yearSelect.insertAdjacentHTML('beforeend', `<option value="${i}">${i}</option>`);
+    if (yearSelect) yearSelect.insertAdjacentHTML('beforeend', `<option value="${i}">${i}</option>`);
+    if (mYearSelect) mYearSelect.insertAdjacentHTML('beforeend', `<option value="${i}">${i}</option>`);
   }
 }
 onSnapshot(moviesCol, (snapshot) => {
@@ -48,64 +50,36 @@ onSnapshot(moviesCol, (snapshot) => {
 
 // Routing Logic
 function showView(active) {
-  ['home-view', 'movies-view', 'series-view', 'tv-view', 'admin-view'].forEach(v => {
-    const el = document.getElementById(v);
-    if (el) el.style.display = (v === active) ? 'block' : 'none';
-  });
+  const adminEl = document.getElementById('admin-view');
+  const homeEl = document.getElementById('home-view');
+
+  if (active === 'admin-view') {
+    if (adminEl) adminEl.style.display = 'block';
+    if (homeEl) homeEl.style.display = 'none';
+  } else {
+    if (adminEl) adminEl.style.display = 'none';
+    if (homeEl) homeEl.style.display = 'block';
+  }
+
   document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
-  const navMap = { 'home-view': 'nav-home', 'movies-view': 'nav-movies', 'series-view': 'nav-series', 'tv-view': 'nav-live' };
-  if (navMap[active]) document.getElementById(navMap[active])?.classList.add('active');
+  const navMap = { '': 'nav-home', 'movies': 'nav-movies', 'series': 'nav-series', 'live': 'nav-live' };
+  const hash = window.location.hash.replace('#', '');
+  if (navMap[hash]) document.getElementById(navMap[hash])?.classList.add('active');
 }
 
 function handleRouting() {
   const hash = window.location.hash.replace('#', '');
-  if (hash === 'admin') { showView('admin-view'); renderInventory(); }
-  else if (hash === 'live') { showView('tv-view'); renderChannels(); }
-  else if (hash === 'movies') { showView('movies-view'); renderMoviesView(); }
-  else if (hash === 'series') { showView('series-view'); renderSeriesView(); }
-  else { showView('home-view'); initApp(); }
-}
-
-function renderMoviesView() {
-  const container = document.getElementById('movies-content');
-  container.innerHTML = '';
-  const movies = [...movieDatabase.trending]
-    .filter(c => c.type === 'movie' || !c.type)
-    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-
-  if (movies.length === 0) {
-    container.innerHTML = '<p style="padding:50px;text-align:center;color:var(--text-muted);">La cartelera está vacía... 🎬</p>';
-    return;
+  if (hash === 'admin') {
+    showView('admin-view');
+    renderInventory();
+  } else {
+    showView('home-view');
+    initApp(hash);
   }
-
-  const section = document.createElement('section');
-  section.className = 'category-row';
-  section.innerHTML = `<div class="row-header"><h2 class="row-title">Todas las Películas 🎬</h2></div>`;
-  container.appendChild(section);
-  _renderCardsInto(section, movies);
 }
 
-function renderSeriesView() {
-  const container = document.getElementById('series-content');
-  container.innerHTML = '';
-  const series = [...movieDatabase.trending]
-    .filter(c => c.type === 'series' || c.type === 'tv' || c.type === 'anime')
-    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-
-  if (series.length === 0) {
-    container.innerHTML = '<p style="padding:50px;text-align:center;color:var(--text-muted);">No hay series por aquí... 🏆</p>';
-    return;
-  }
-
-  const section = document.createElement('section');
-  section.className = 'category-row';
-  section.innerHTML = `<div class="row-header"><h2 class="row-title">Series y Animes de la Jungla 🏆⛩️</h2></div>`;
-  container.appendChild(section);
-  _renderCardsInto(section, series);
-}
-
-function renderChannels() {
-  const container = document.getElementById('main-channels');
+function renderChannels(container) {
+  if (!container) return;
   const liveChannels = [...movieDatabase.trending]
     .filter(c => c.type === 'live' || (c.embed && !c.tmdbId))
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
@@ -117,7 +91,7 @@ function renderChannels() {
 
   container.innerHTML = liveChannels.map(ch => `
     <div class="tv-card" onclick="window.handleChannelClick('${ch.embed}')">
-      <img src="${ch.img}" alt="${ch.title}" onerror="this.src='https://via.placeholder.com/600x400/111/FF7A00?text=SIN+SEÑAL'">
+      <img src="${ch.img}" alt="${ch.title}" style="width:100%;height:100%;object-fit:cover;" onerror="this.src='https://via.placeholder.com/600x400/111/FF7A00?text=SIN+SEÑAL'">
       <div class="tv-info">
         <h3 style="font-size:0.95rem;">${ch.title}</h3>
         <p style="font-size:0.7rem;color:var(--primary);">&#x25cf; EN VIVO</p>
@@ -413,33 +387,14 @@ async function collectUserData(action, details = {}) {
 }
 
 // Player Logic & Multi-Server
-function startAdCountdown(callback) {
-  const adOverlay = document.getElementById('ad-overlay');
-  const skipBtn = document.getElementById('skip-ad-btn');
-
-  adOverlay.style.display = 'flex';
-  let countdown = 5;
-  skipBtn.innerText = `Cerrando en ${countdown}...`;
-  skipBtn.disabled = true;
-
-  const timer = setInterval(() => {
-    countdown--;
-    if (countdown <= 0) {
-      clearInterval(timer);
-      skipBtn.innerText = "Continuar a la Selva 🍿";
-      skipBtn.disabled = false;
-    } else {
-      skipBtn.innerText = `Cerrando en ${countdown}...`;
-    }
-  }, 1000);
-
-  // El listener del boton de skip ya esta configurado en initApp
-  // pero necesitamos asegurarnos de que ejecute el callback cuando se limpie
-  const skipHandler = () => {
-    if (callback) callback();
-    skipBtn.removeEventListener('click', skipHandler);
-  };
-  skipBtn.addEventListener('click', skipHandler);
+function startPlayer(movie) {
+  if (movie.tmdbId) {
+    document.getElementById('server-switcher').style.display = 'flex';
+    updateServer('vidsrc');
+  } else {
+    document.getElementById('server-switcher').style.display = 'none';
+    document.getElementById('player-iframe').src = movie.embed || "";
+  }
 }
 
 async function openPlayer(movieId) {
@@ -484,15 +439,7 @@ async function openPlayer(movieId) {
     document.getElementById('series-episode').innerHTML = Array.from({ length: 24 }, (_, i) => `<option value="${i + 1}">Capítulo ${i + 1}</option>`).join('');
   }
 
-  startAdCountdown(() => {
-    if (movie.tmdbId) {
-      document.getElementById('server-switcher').style.display = 'flex';
-      updateServer('vidsrc');
-    } else {
-      document.getElementById('server-switcher').style.display = 'none';
-      document.getElementById('player-iframe').src = movie.embed || "";
-    }
-  });
+  startPlayer(movie);
 }
 
 function updateServer(serverKey, season = 1, episode = 1) {
@@ -581,6 +528,33 @@ window.deleteMovie = async (id) => {
   }
 };
 
+window.selectAllCoconas = (isChecked) => {
+  document.querySelectorAll('.coco-check').forEach(cb => cb.checked = isChecked);
+};
+
+window.deleteSelectedCoconas = async () => {
+  const checkboxes = document.querySelectorAll('.coco-check:checked');
+  if (checkboxes.length === 0) { alert("¡No has seleccionado ninguna cocoña! 🐒"); return; }
+
+  if (confirm(`¿Seguro que quieres quemar estas ${checkboxes.length} coconas de la selva? 🔥`)) {
+    try {
+      const btn = document.getElementById('btn-delete-selected');
+      if (btn) btn.innerText = "Borrando... 🔥";
+      for (const cb of checkboxes) {
+        const id = cb.dataset.id;
+        if (id) await deleteDoc(doc(db, "movies", id));
+      }
+      alert("¡Limpieza completada! 🧹🪓");
+    } catch (e) {
+      console.error(e);
+      alert("Algo falló al borrar. 🐒");
+    } finally {
+      const btn = document.getElementById('btn-delete-selected');
+      if (btn) btn.innerHTML = "🗑️ Borrar Seleccionados";
+    }
+  }
+};
+
 window.editMovie = (id) => {
   const movie = movieDatabase.trending.find(m => m.id === id);
   if (!movie) return;
@@ -591,7 +565,8 @@ window.editMovie = (id) => {
   document.getElementById('m-img').value = movie.img;
   document.getElementById('m-tmdb-id').value = movie.tmdbId || "";
   document.getElementById('m-embed').value = movie.embed || "";
-  document.getElementById('m-meta').value = `${movie.year || '2024'} / ${movie.rating || '4.8'}`;
+  document.getElementById('m-year').value = (movie.year || '2024').toString().split('-')[0];
+  document.getElementById('m-rating').value = movie.rating || '4.8';
   document.getElementById('m-type').value = movie.type || 'movie';
 
   // Actualizar preview
@@ -842,7 +817,7 @@ function updateHeroCarousel() {
   currentHeroIndex = (currentHeroIndex + 1) % heroPool.length;
 }
 
-function initApp() {
+function initApp(filterType = '') {
   const container = document.getElementById('main-content');
   container.innerHTML = '';
 
@@ -855,15 +830,21 @@ function initApp() {
   });
 
   // Pool de Recomendados (Hero Carousel - 3 items)
-  heroPool = allContent
-    .filter(c => (c.type === 'movie' || !c.type) && !window._brokenIds.has(c.id))
-    .slice(0, 3);
+  heroPool = allContent.filter(c => !window._brokenIds.has(c.id));
+
+  if (filterType === 'series') heroPool = heroPool.filter(c => c.type === 'series' || c.type === 'tv' || c.type === 'anime');
+  else if (filterType === 'live') heroPool = heroPool.filter(c => c.type === 'live');
+  else heroPool = heroPool.filter(c => c.type === 'movie' || !c.type); // Default and movies
+
+  heroPool = heroPool.slice(0, 3);
 
   if (heroPool.length > 0) {
     currentHeroIndex = 0;
     updateHeroCarousel();
     if (heroTimer) clearInterval(heroTimer);
     heroTimer = setInterval(updateHeroCarousel, 5000); // Cambio cada 5 segundos
+  } else {
+    document.getElementById('hero-section').style.display = 'none';
   }
 
   const releases = allContent.filter(c => c.type !== 'live').slice(0, 20);
@@ -872,12 +853,32 @@ function initApp() {
   const anime = allContent.filter(c => c.type === 'anime' || (c.title && c.title.toLowerCase().includes('anime'))).slice(0, 30);
   const liveChannels = allContent.filter(c => c.type === 'live');
 
-  // Rows Estilo Netflix
-  if (releases.length > 0) renderRow('Lo más nuevo en SelvaFlix ✨', releases);
-  if (movies.length > 0) renderRow('Cosecha de Películas 🎬', movies);
-  if (series.length > 0) renderRow('Series que no te puedes perder 🏆', series);
-  if (anime.length > 0) renderRow('Zonas Anime y Calificadas ⛩️', anime);
-  if (liveChannels.length > 0) renderRow('Canales en Vivo 🔴', liveChannels);
+  // Rows Estilo Netflix basados en el filtro
+  if (filterType === 'movies') {
+    if (movies.length > 0) renderRow('Todas las Películas 🎬', movies);
+  } else if (filterType === 'series') {
+    if (series.length > 0) renderRow('Series que no te puedes perder 🏆', series);
+    if (anime.length > 0) renderRow('Zonas Anime y Calificadas ⛩️', anime);
+  } else if (filterType === 'live') {
+    renderRow('Canales en Vivo 🔴', []); // Create section
+    const sec = container.lastElementChild;
+    const list = sec.querySelector('.movie-list');
+    list.id = 'main-channels';
+    renderChannels(list);
+  } else {
+    // HOME ALL
+    if (releases.length > 0) renderRow('Lo más nuevo en SelvaFlix ✨', releases);
+    if (movies.length > 0) renderRow('Cosecha de Películas 🎬', movies);
+    if (series.length > 0) renderRow('Series que no te puedes perder 🏆', series);
+    if (anime.length > 0) renderRow('Zonas Anime y Calificadas ⛩️', anime);
+    if (liveChannels.length > 0) {
+      renderRow('Canales en Vivo 🔴', []);
+      const sec = container.lastElementChild;
+      const list = sec.querySelector('.movie-list');
+      list.id = 'main-channels';
+      renderChannels(list);
+    }
+  }
 }
 
 // Initial Setup
@@ -919,8 +920,8 @@ document.addEventListener('DOMContentLoaded', () => {
       img: document.getElementById('m-img').value,
       tmdbId: document.getElementById('m-tmdb-id').value,
       embed: document.getElementById('m-embed').value,
-      year: document.getElementById('m-meta').value.split('/')[0].trim(),
-      rating: document.getElementById('m-meta').value.split('/')[1]?.trim() || '4.8',
+      year: document.getElementById('m-year').value || new Date().getFullYear().toString(),
+      rating: document.getElementById('m-rating').value || '4.8',
       type: document.getElementById('m-type').value || 'movie',
       status: 'healthy',
       updatedAt: Date.now()
@@ -973,29 +974,27 @@ document.addEventListener('DOMContentLoaded', () => {
     iframe.src = ""; // Detener audio/video al cerrar
   });
 
-  document.getElementById('skip-ad-btn').addEventListener('click', () => {
-    document.getElementById('ad-overlay').style.display = 'none';
-  });
-
   // Discovery Handlers
   document.getElementById('btn-discover-movies').addEventListener('click', () => discoverContent('movie'));
   document.getElementById('btn-discover-series').addEventListener('click', () => discoverContent('tv'));
   document.getElementById('btn-discover-live').addEventListener('click', () => discoverContent('live'));
   document.getElementById('btn-mass-seed').addEventListener('click', () => window.massSeedMovies());
 
-  // Detectar dispositivo para recomendar bloqueador
+  // Detectar dispositivo para recomendar bloqueador (opcional mantenido temporalmente si quiere recomdar brave globalmente, 
+  // pero ya no hay pantalla de anuncios forzada)
   const userAgent = navigator.userAgent || navigator.vendor || window.opera;
   const adblockLink = document.getElementById('adblock-link');
   const adblockText = document.getElementById('adblock-text');
 
-  if (/android/i.test(userAgent)) {
-    adblockLink.href = "https://play.google.com/store/apps/details?id=com.brave.browser";
-    adblockLink.innerText = "Brave para Android";
-  } else if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
-    adblockLink.href = "https://apps.apple.com/us/app/brave-private-web-browser/id1052879175";
-    adblockLink.innerText = "Brave para iPhone/iPad";
-  } else {
-    adblockLink.href = "https://brave.com/";
-    adblockLink.innerText = "Brave Browser o uBlock Origin";
+  if (adblockLink && adblockText) {
+    if (/android/i.test(userAgent)) {
+      adblockLink.href = "https://play.google.com/store/apps/details?id=com.brave.browser";
+      adblockText.innerText = "Recomendamos usar Brave Browser en Android para evitar anuncios molestos de los servidores de video.";
+    } else if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
+      adblockLink.href = "https://apps.apple.com/us/app/brave-private-web-browser/id1052879175";
+      adblockText.innerText = "Recomendamos descargar Brave Browser en tu iPhone o iPad.";
+    } else {
+      adblockText.innerText = "En PC, recomendamos instalar la extension uBlock Origin para una selva sin anuncios.";
+    }
   }
 });

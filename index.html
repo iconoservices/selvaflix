@@ -22,8 +22,8 @@
         <li><a href="#">En Vivo</a></li>
       </ul>
       <div class="nav-actions">
-        <input type="text" placeholder="Buscar en la selva..." class="search-bar">
-        <div class="user-profile"></div>
+        <input type="text" placeholder="Buscar en la selva..." class="search-bar" id="global-search">
+        <div class="user-profile" onclick="window.location.hash = 'admin'" title="Oficina Admin">⚙️</div>
       </div>
     </nav>
 
@@ -55,25 +55,38 @@
       <div class="admin-grid">
         <!-- Add/Edit Form -->
         <div class="admin-card">
+          <h2 class="admin-title">🔍 Buscador Inteligente (TMDB)</h2>
+          <div class="form-group" style="display: flex; gap: 10px;">
+            <input type="text" id="tmdb-search-input" class="form-control"
+              placeholder="Escribe el nombre de la peli...">
+            <button class="btn btn-secondary" id="btn-tmdb-search">Buscar</button>
+          </div>
+          <div id="tmdb-results" style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 15px;">
+            <!-- TMDB Results injected here -->
+          </div>
+
           <h2 class="admin-title">💾 Guardar Pelicula</h2>
           <form id="movie-form">
             <div class="form-group">
-              <label>Título de la Película</label>
-              <input type="text" id="m-title" class="form-control" placeholder="Ej: Selva de Cristal" required>
+              <label>Título / ID de TMDB</label>
+              <div style="display: flex; gap: 10px;">
+                <input type="text" id="m-title" class="form-control" placeholder="Ej: Selva de Cristal" required>
+                <input type="text" id="m-tmdb-id" class="form-control" placeholder="ID TMDB" style="width: 100px;">
+              </div>
             </div>
             <div class="form-group">
               <label>URL de la Imagen (Póster)</label>
               <input type="url" id="m-img" class="form-control" placeholder="https://..." required>
             </div>
             <div class="form-group">
-              <label>URL del Video (Embed)</label>
-              <input type="url" id="m-embed" class="form-control" placeholder="https://youtube.com/embed/..." required>
+              <label>URL del Video (Embed Manual)</label>
+              <input type="url" id="m-embed" class="form-control" placeholder="Deja vacio para usar Multi-Servidor">
             </div>
             <div class="form-group">
-              <label>Año / Temporada</label>
-              <input type="text" id="m-meta" class="form-control" placeholder="2024 o 1 Temporada">
+              <label>Año / Calificación</label>
+              <input type="text" id="m-meta" class="form-control" placeholder="2024 / 4.8">
             </div>
-            <button type="submit" class="btn btn-primary" style="width: 100%;">Guardar en la Selva</button>
+            <button type="submit" class="btn btn-primary" style="width: 100%;">¡Cosechar y Guardar! 🍿</button>
           </form>
         </div>
 
@@ -108,6 +121,14 @@
         </div>
 
         <iframe id="player-iframe" src="" allowfullscreen></iframe>
+      </div>
+
+      <!-- Server Switcher -->
+      <div class="server-switcher" id="server-switcher">
+        <span style="color: var(--primary); font-weight: 700; margin-right: 10px;">SERVIDOR:</span>
+        <button class="server-btn active" data-server="vidsrc">Vidsrc</button>
+        <button class="server-btn" data-server="superembed">SuperEmbed</button>
+        <button class="server-btn" data-server="2embed">2Embed</button>
       </div>
     </div>
 

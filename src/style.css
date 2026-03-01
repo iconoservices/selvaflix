@@ -513,7 +513,65 @@ iframe {
   transition: opacity 0.8s ease;
 }
 
+/* TMDB Results */
+.tmdb-item {
+  min-width: 120px;
+  cursor: pointer;
+  transition: var(--transition);
+  opacity: 0.7;
+}
+
+.tmdb-item:hover {
+  opacity: 1;
+  transform: translateY(-5px);
+}
+
+.tmdb-item img {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+}
+
+.tmdb-item p {
+  font-size: 0.7rem;
+  margin-top: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Server Switcher */
+.server-switcher {
+  margin-top: 25px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  animation: fadeInUp 0.8s ease;
+}
+
+.server-btn {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: var(--transition);
+}
+
+.server-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.server-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  box-shadow: 0 0 15px var(--primary-glow);
+}
+
 .loader-logo {
+
   font-size: 3rem;
   font-family: 'Outfit', sans-serif;
   font-weight: 800;

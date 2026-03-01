@@ -437,9 +437,8 @@ function updateServer(serverKey) {
     }
 
     iframe.src = url;
-    // Sandbox balanceado: allow-scripts, allow-same-origin y allow-forms son esenciales.
-    // Quitamos 'allow-top-navigation' para evitar redirecciones masivas, pero dejamos popups para que los players no se bloqueen.
-    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-presentation allow-popups allow-popups-to-escape-sandbox');
+    // Sandbox balanceado: allow-top-navigation-by-user-activation es VITAL para que los selectores de episodios funcionen en las series.
+    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-presentation allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation');
 
     iframe.onload = () => {
       setTimeout(() => {
@@ -626,6 +625,52 @@ window.quickSeedManual = async (ch, type) => {
   alert("¡Canal Agregado! 📺");
 };
 
+window.massSeedMovies = async () => {
+  const confirmed = confirm("¿Seguro que quieres sembrar 100+ películas de un solo golpe? 🚜🍿\nEsto llenará tu catálogo con lo más popular del mundo.");
+  if (!confirmed) return;
+
+  const btn = document.getElementById('btn-mass-seed');
+  const originalText = btn.innerText;
+  btn.disabled = true;
+  btn.innerText = "🚜 Cosechando... (Paciencia)";
+
+  let addedCount = 0;
+
+  try {
+    for (let p = 1; p <= 6; p++) {
+      btn.innerText = `🚜 Cosechando pág ${p}/6...`;
+      const res = await fetch(`${TMDB_URL}/movie/popular?api_key=${TMDB_API_KEY}&language=es-ES&page=${p}`);
+      const data = await res.json();
+
+      for (const s of data.results) {
+        const exists = movieDatabase.trending.find(m => m.tmdbId == s.id);
+        if (!exists) {
+          const mData = {
+            title: s.title,
+            img: TMDB_IMG_URL + s.poster_path,
+            tmdbId: s.id.toString(),
+            embed: "",
+            year: (s.release_date || "2024").split('-')[0],
+            rating: s.vote_average?.toFixed(1) || "8.1",
+            type: 'movie',
+            status: 'healthy',
+            createdAt: Date.now()
+          };
+          await addDoc(moviesCol, mData);
+          addedCount++;
+        }
+      }
+    }
+    alert(`¡Mega-Cosecha completada! 🌴🍿\nSe añadieron ${addedCount} nuevas películas a tu selva.`);
+  } catch (err) {
+    console.error(err);
+    alert("Hubo un cansancio en la cosecha de 100 pelis 🐒");
+  } finally {
+    btn.disabled = false;
+    btn.innerText = originalText;
+  }
+};
+
 function initApp() {
   const container = document.getElementById('main-content');
   container.innerHTML = '';
@@ -748,6 +793,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-discover-movies').addEventListener('click', () => discoverContent('movie'));
   document.getElementById('btn-discover-series').addEventListener('click', () => discoverContent('tv'));
   document.getElementById('btn-discover-live').addEventListener('click', () => discoverContent('live'));
+  document.getElementById('btn-mass-seed').addEventListener('click', () => window.massSeedMovies());
 
   // Detectar dispositivo para recomendar bloqueador
   const userAgent = navigator.userAgent || navigator.vendor || window.opera;

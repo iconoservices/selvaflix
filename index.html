@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SelvaFlix | Tu Cine, Tu Naturaleza</title>
+  <meta name="description" content="La mejor plataforma de streaming tropical. Películas, series y TV en vivo.">
+</head>
+
+<body>
+  <div id="app">
+    <nav class="navbar">
+      <div class="logo">
+        <span>SELVA</span><span>FLIX</span>
+      </div>
+      <ul class="nav-links">
+        <li><a href="#" class="active">Inicio</a></li>
+        <li><a href="#">Películas</a></li>
+        <li><a href="#">Series</a></li>
+        <li><a href="#">En Vivo</a></li>
+      </ul>
+      <div class="nav-actions">
+        <input type="text" placeholder="Buscar en la selva..." class="search-bar">
+        <div class="user-profile"></div>
+      </div>
+    </nav>
+
+    <main>
+      <section class="hero" id="hero-section">
+        <div class="hero-overlay"></div>
+        <div class="hero-content">
+          <h1 class="hero-title" id="hero-title">Cocona Fugitiva</h1>
+          <p class="hero-description" id="hero-desc">Descubre las historias mas jugosas del cine tropical.</p>
+          <div class="hero-btns">
+            <button class="btn btn-primary">Reproducir</button>
+            <button class="btn btn-secondary">Mas Información</button>
+          </div>
+        </div>
+      </section>
+
+      <div class="content-sections" id="main-content">
+        <!-- Rows will be injected here -->
+      </div>
+    </main>
+
+    <!-- Premium Player Modal -->
+    <div id="player-modal" class="player-modal">
+      <div id="close-player" class="player-close">&times;</div>
+
+      <div class="video-container">
+        <!-- The Jungle Mist Loader -->
+        <div id="player-loader" class="loader-overlay">
+          <div class="loader-logo">SELVAFLIX</div>
+          <div class="loader-text">Explorando la selva...</div>
+        </div>
+
+        <iframe id="player-iframe" src="" allowfullscreen></iframe>
+      </div>
+    </div>
+
+    <nav class="mobile-nav">
+      <a href="#" class="nav-item">🏠</a>
+      <a href="#" class="nav-item">🎬</a>
+      <a href="#" class="nav-item">📺</a>
+      <a href="#" class="nav-item">🌐</a>
+    </nav>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+
+</html>

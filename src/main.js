@@ -216,61 +216,51 @@ function openPlayer(movieId) {
   const modal = document.getElementById('player-modal');
   modal.style.display = 'flex';
 
-  startAdCountdown(() => {
-    if (movie.tmdbId) {
-      document.getElementById('server-switcher').style.display = 'flex';
-      updateServer('vidsrc', true); // true para saltarse el countdown interno si ya paso el de openPlayer
-    } else {
-      document.getElementById('server-switcher').style.display = 'none';
-      document.getElementById('player-iframe').src = movie.embed || "";
-    }
-  });
+  // Cargamos directo sin anuncio previo para que el usuario no espere
+  if (movie.tmdbId) {
+    document.getElementById('server-switcher').style.display = 'flex';
+    updateServer('vidsrc', true); // Cargamos vidsrc directo
+  } else {
+    document.getElementById('server-switcher').style.display = 'none';
+    document.getElementById('player-iframe').src = movie.embed || "";
+  }
 }
 
-function updateServer(serverKey, skipCountdown = false) {
+function updateServer(serverKey, skipCountdown = true) {
   if (!currentPlayerMovie || !currentPlayerMovie.tmdbId) return;
 
-  const loadIframe = () => {
-    const iframe = document.getElementById('player-iframe');
-    const loader = document.getElementById('player-loader');
-    const tmdbId = currentPlayerMovie.tmdbId;
+  // Cargamos el iframe de una vez
+  const iframe = document.getElementById('player-iframe');
+  const loader = document.getElementById('player-loader');
+  const tmdbId = currentPlayerMovie.tmdbId;
 
-    // Visual active state
-    document.querySelectorAll('.server-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.server === serverKey);
-    });
+  // Visual active state
+  document.querySelectorAll('.server-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.server === serverKey);
+  });
 
-    loader.style.display = 'flex';
-    loader.style.opacity = '1';
+  loader.style.display = 'flex';
+  loader.style.opacity = '1';
 
-    let url = "";
-    switch (serverKey) {
-      case 'vidsrc': url = `https://vidsrc.xyz/embed/movie?tmdb=${tmdbId}&lang=es`; break;
-      case 'superembed': url = `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&lang=es`; break;
-      case 'smashy': url = `https://player.smashy.stream/movie/${tmdbId}?lang=es`; break;
-      case 'autoembed': url = `https://autoembed.co/movie/tmdb/${tmdbId}?lang=es`; break;
-      case '2embed': url = `https://www.2embed.cc/embed/${tmdbId}`; break;
-      default: url = `https://vidsrc.xyz/embed/movie?tmdb=${tmdbId}&lang=es`;
-    }
-
-    iframe.src = url;
-    // Probando los limites del Sandbox: Bloqueando popups pero permitiendo lo basico
-    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-presentation');
-
-    iframe.onload = () => {
-      setTimeout(() => {
-        loader.style.opacity = '0';
-        setTimeout(() => loader.style.display = 'none', 800);
-      }, 1500);
-    };
-  };
-
-  if (skipCountdown) {
-    loadIframe();
-  } else {
-    // Si cambia de servidor, le volvemos a mostrar el anuncio de "Consejo"
-    startAdCountdown(loadIframe);
+  let url = "";
+  switch (serverKey) {
+    case 'vidsrc': url = `https://vidsrc.xyz/embed/movie?tmdb=${tmdbId}&lang=es`; break;
+    case 'superembed': url = `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&lang=es`; break;
+    case 'smashy': url = `https://player.smashy.stream/movie/${tmdbId}?lang=es`; break;
+    case 'autoembed': url = `https://autoembed.co/movie/tmdb/${tmdbId}?lang=es`; break;
+    case '2embed': url = `https://www.2embed.cc/embed/${tmdbId}`; break;
+    default: url = `https://vidsrc.xyz/embed/movie?tmdb=${tmdbId}&lang=es`;
   }
+
+  iframe.src = url;
+  iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-presentation');
+
+  iframe.onload = () => {
+    setTimeout(() => {
+      loader.style.opacity = '0';
+      setTimeout(() => loader.style.display = 'none', 800);
+    }, 1500);
+  };
 }
 
 // Exported Actions

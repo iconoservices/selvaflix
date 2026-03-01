@@ -97,17 +97,29 @@
             <!-- TMDB Results injected here -->
           </div>
 
-          <div style="margin-bottom: 20px;">
-            <button class="btn btn-secondary" id="btn-discover-series"
-              style="width: 100%; background: var(--primary); color: white; border: none;">
-              🌱 Sembrar Series Populares (Auto-Descubrimiento)
+          <div style="margin-bottom: 25px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+              <button class="btn" id="btn-discover-movies"
+                style="background: rgba(231, 76, 60, 0.8); color: white; border: none; font-size: 0.8rem; padding: 10px;">
+                🎬 Descubrir Pelis
+              </button>
+              <button class="btn" id="btn-discover-series"
+                style="background: rgba(155, 89, 182, 0.8); color: white; border: none; font-size: 0.8rem; padding: 10px;">
+                🏆 Descubrir Series
+              </button>
+            </div>
+            <button class="btn" id="btn-discover-live"
+              style="width: 100%; background: #2ECC71; color: white; border: none; font-size: 0.8rem; padding: 10px; margin-bottom: 15px;">
+              🔴 Señales de TV Sugeridas
             </button>
             <div id="discover-container"
-              style="display: none; margin-top: 15px; background: rgba(0,0,0,0.3); border-radius: 12px; padding: 15px; border: 1px solid var(--glass-border);">
-              <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 15px;">👇 Toca una serie para
-                guardarla instantáneamente en tu selva:</p>
-              <div id="discover-list" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <!-- Series suggestions injected here -->
+              style="display: none; background: rgba(0,0,0,0.4); border-radius: 12px; padding: 15px; border: 1px solid var(--glass-border);">
+              <p id="discover-status"
+                style="font-size: 0.8rem; color: var(--primary); margin-bottom: 10px; font-weight: bold;">🥥 Cosechando
+                sugerencias...</p>
+              <div id="discover-list"
+                style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-height: 400px; overflow-y: auto;">
+                <!-- Results injected here -->
               </div>
             </div>
           </div>
@@ -120,6 +132,7 @@
               <select id="m-type" class="form-control">
                 <option value="movie">🎬 Película</option>
                 <option value="series">🏆 Serie</option>
+                <option value="anime">⛩️ Anime</option>
                 <option value="live">🔴 Canal en Vivo (M3U8)</option>
               </select>
             </div>
@@ -260,7 +273,7 @@
       <a href="#" class="nav-item" onclick="window.location.hash='live'">🔴</a>
     </nav>
   </div>
-  <script type="module" src="/src/main.js?v=1.2"></script>
+  <script type="module" src="/src/main.js?v=1.4"></script>
 </body>
 
 </html>

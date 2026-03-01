@@ -63,6 +63,12 @@ function renderMoviesView() {
   const movies = [...movieDatabase.trending]
     .filter(c => c.type === 'movie' || !c.type)
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+  if (movies.length === 0) {
+    container.innerHTML = '<p style="padding:50px;text-align:center;color:var(--text-muted);">La cartelera está vacía... 🎬</p>';
+    return;
+  }
+
   const section = document.createElement('section');
   section.className = 'category-row';
   section.innerHTML = `<div class="row-header"><h2 class="row-title">Todas las Películas 🎬</h2></div>`;
@@ -74,11 +80,17 @@ function renderSeriesView() {
   const container = document.getElementById('series-content');
   container.innerHTML = '';
   const series = [...movieDatabase.trending]
-    .filter(c => c.type === 'series' || c.type === 'tv')
+    .filter(c => c.type === 'series' || c.type === 'tv' || c.type === 'anime')
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+  if (series.length === 0) {
+    container.innerHTML = '<p style="padding:50px;text-align:center;color:var(--text-muted);">No hay series por aquí... 🏆</p>';
+    return;
+  }
+
   const section = document.createElement('section');
   section.className = 'category-row';
-  section.innerHTML = `<div class="row-header"><h2 class="row-title">Series de la Jungla 🏆</h2></div>`;
+  section.innerHTML = `<div class="row-header"><h2 class="row-title">Series y Animes de la Jungla 🏆⛩️</h2></div>`;
   container.appendChild(section);
   _renderCardsInto(section, series);
 }
@@ -90,7 +102,7 @@ function renderChannels() {
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
   if (liveChannels.length === 0) {
-    container.innerHTML = '<p style="color:var(--text-muted);padding:50px;">Buscando señal... 📡</p>';
+    container.innerHTML = '<p style="color:var(--text-muted);padding:50px;text-align:center;width:100%;">Buscando señal... 📡</p>';
     return;
   }
 
@@ -173,7 +185,12 @@ function renderInventory() {
 
 function _renderInventoryRows(items) {
   const list = document.getElementById('inventory-list');
-  const typeEmoji = { movie: '🎬', series: '🏆', live: '🔴' };
+  const typeMaps = {
+    movie: { e: '🎬', t: 'Peli' },
+    series: { e: '🏆', t: 'Serie' },
+    live: { e: '🔴', t: 'TV' },
+    anime: { e: '⛩️', t: 'Anime' }
+  };
 
   if (items.length === 0) {
     list.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:30px;color:var(--text-muted);">No se encontraron coconas con ese filtro... 🍃</td></tr>';
@@ -182,9 +199,14 @@ function _renderInventoryRows(items) {
 
   list.innerHTML = items.map(m => {
     const isBroken = window._brokenIds.has(m.id);
+    const meta = typeMaps[m.type] || typeMaps.movie;
     return `
       <tr style="${isBroken ? 'background: rgba(231, 76, 60, 0.05);' : ''}">
-        <td>${typeEmoji[m.type] || '🎬'}</td>
+        <td>
+          <div style="background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 4px; font-size: 0.6rem; text-align: center;">
+            ${meta.e} ${meta.t}
+          </div>
+        </td>
         <td style="display: flex; align-items: center; gap: 10px;">
           <div style="position: relative;">
             <img src="${m.img}" 
@@ -196,13 +218,13 @@ function _renderInventoryRows(items) {
         </td>
         <td>
           <span style="color: ${m.status === 'healthy' ? '#2ECC71' : '#E74C3C'}">
-            ${isBroken ? '⚠️ Error de Link' : (m.status === 'healthy' ? '● Activo' : '● Mant.')}
+            ${isBroken ? '⚠️ Error Link' : (m.status === 'healthy' ? '● Activo' : '● Mant.')}
           </span>
         </td>
         <td>
           <div style="display: flex; gap: 5px;">
-            <button class="action-btn btn-edit" onclick="window.editMovie('${m.id}')" title="Editar Imagen y Datos">✏️</button>
-            <button class="action-btn btn-delete" onclick="window.deleteMovie('${m.id}')" title="Borrar de la Selva">🗑️</button>
+            <button class="action-btn btn-edit" onclick="window.editMovie('${m.id}')">✏️</button>
+            <button class="action-btn btn-delete" onclick="window.deleteMovie('${m.id}')">🗑️</button>
           </div>
         </td>
       </tr>
@@ -473,54 +495,82 @@ window.suggestImage = (url) => {
   document.getElementById('m-img-preview').src = url;
 };
 
-// --- Discovery Tool ---
-async function discoverSeries() {
+// --- Discovery & Seeding Tool ---
+async function discoverContent(topic) {
   const list = document.getElementById('discover-list');
-  list.innerHTML = '<p style="grid-column: 1/3; color: var(--primary);">Buscando los mejores brotes de la selva... 📡</p>';
+  const status = document.getElementById('discover-status');
+  const container = document.getElementById('discover-container');
+
+  container.style.display = 'block';
+  status.innerText = `🥥 Cosechando ${topic === 'movie' ? 'Películas' : (topic === 'tv' ? 'Series' : 'Canales')}...`;
+  list.innerHTML = '';
+
+  if (topic === 'live') {
+    const peruvianChannels = [
+      { name: "Latina TV", img: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Latina_Televisi%C3%B3n_logo.svg/1024px-Latina_Televisi%C3%B3n_logo.svg.png", embed: "https://ejemplo.com/m3u8-player?url=https://stream.latina.pe/live.m3u8" },
+      { name: "América TV", img: "https://logodownload.org/wp-content/uploads/2018/11/america-tv-logo.png", embed: "https://ejemplo.com/m3u8-player?url=https://stream.america.pe/live.m3u8" },
+      { name: "Panamericana", img: "https://upload.wikimedia.org/wikipedia/commons/4/45/Panamericana_Televisi%C3%B3n_-_Logo_2016.png", embed: "https://ejemplo.com/m3u8-player?url=https://stream.panamericana.pe/live.m3u8" },
+      { name: "ATV", img: "https://upload.wikimedia.org/wikipedia/commons/c/c5/ATV_Red_Nacional.png", embed: "https://ejemplo.com/m3u8-player?url=https://stream.atv.pe/live.m3u8" }
+    ];
+    status.innerText = "📺 Selecciona canales para agregar:";
+    list.innerHTML = peruvianChannels.map(ch => `
+      <div style="background: rgba(255,255,255,0.05); padding: 8px; border-radius: 8px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--glass-border);">
+        <img src="${ch.img}" style="width: 40px; height: 40px; object-fit: contain; background: white; padding: 2px;">
+        <div style="flex: 1; overflow: hidden;">
+          <p style="font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: bold;">${ch.name}</p>
+          <button onclick="window.quickSeedManual(${JSON.stringify(ch).replace(/"/g, '&quot;')}, 'live')" style="background: #2ECC71; border: none; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.65rem; cursor: pointer; margin-top: 4px;">➕ Agregar</button>
+        </div>
+      </div>
+    `).join('');
+    return;
+  }
 
   try {
-    const res = await fetch(`${TMDB_URL}/tv/popular?api_key=${TMDB_API_KEY}&language=es-ES&page=1`);
+    const endpoint = topic === 'movie' ? 'movie/popular' : 'tv/popular';
+    const res = await fetch(`${TMDB_URL}/${endpoint}?api_key=${TMDB_API_KEY}&language=es-ES&page=1`);
     const data = await res.json();
 
+    status.innerText = `💡 Toca para sembrar ${topic === 'movie' ? 'Película' : 'Serie'}:`;
     list.innerHTML = data.results.slice(0, 10).map(s => `
       <div style="background: rgba(255,255,255,0.05); padding: 8px; border-radius: 8px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--glass-border);">
-        <img src="${TMDB_IMG_URL + s.poster_path}" style="width: 40px; height: 60px; object-fit: cover; border-radius: 4px;">
+        <img src="${TMDB_IMG_URL + s.poster_path}" style="width: 35px; height: 50px; object-fit: cover; border-radius: 4px;">
         <div style="flex: 1; overflow: hidden;">
-          <p style="font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: bold;">${s.name}</p>
-          <button onclick="window.quickSeedSeries(${JSON.stringify(s).replace(/"/g, '&quot;')})" style="background: var(--primary); border: none; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.65rem; cursor: pointer; margin-top: 4px;">➕ Sembrar</button>
+          <p style="font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: bold;">${s.title || s.name}</p>
+          <button onclick="window.quickSeedContent(${JSON.stringify(s).replace(/"/g, '&quot;')}, '${topic}')" style="background: var(--primary); border: none; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.6rem; cursor: pointer;">➕ Sembrar</button>
         </div>
       </div>
     `).join('');
   } catch (err) {
-    list.innerHTML = '<p style="grid-column: 1/3; color: #E74C3C;">Error al conectar con la antena TMDB 🐒</p>';
+    status.innerText = "❌ Error al conectar con TMDB";
   }
 }
 
-window.quickSeedSeries = async (s) => {
+window.quickSeedContent = async (s, type) => {
   const exists = movieDatabase.trending.find(m => m.tmdbId == s.id);
-  if (exists) {
-    alert(`¡La serie "${s.name}" ya está en tu jardín! 🌴`);
-    return;
-  }
+  if (exists) { alert(`¡"${s.title || s.name}" ya estaba en el jardín!`); return; }
 
-  const seriesData = {
-    title: s.name,
+  const data = {
+    title: s.title || s.name,
     img: TMDB_IMG_URL + s.poster_path,
     tmdbId: s.id.toString(),
-    embed: "", // Multi-server auto
-    year: (s.first_air_date || "2024").split('-')[0],
+    embed: "",
+    year: (s.release_date || s.first_air_date || "2024").split('-')[0],
     rating: s.vote_average?.toFixed(1) || "8.5",
-    type: 'series',
+    type: type,
     status: 'healthy',
     createdAt: Date.now()
   };
+  await addDoc(moviesCol, data);
+  alert("¡Sembrado con éxito! 🌴");
+};
 
-  try {
-    await addDoc(moviesCol, seriesData);
-    alert(`¡"${s.name}" sembrada con éxito! 🏆🦁`);
-  } catch (e) {
-    alert("Error al sembrar 🐒");
-  }
+window.quickSeedManual = async (ch, type) => {
+  const exists = movieDatabase.trending.find(m => m.title == ch.name);
+  if (exists) { alert("Este canal ya existe."); return; }
+  const data = { ...ch, title: ch.name, type, status: 'healthy', createdAt: Date.now() };
+  delete data.name;
+  await addDoc(moviesCol, data);
+  alert("¡Canal Agregado! 📺");
 };
 
 function initApp() {
@@ -528,21 +578,27 @@ function initApp() {
   container.innerHTML = '';
 
   const allContent = [...movieDatabase.trending].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-  const movies = allContent.filter(c => c.type === 'movie' || !c.type);
-  const series = allContent.filter(c => c.type === 'series' || c.type === 'tv');
 
-  // Hero Update (Latest Movie)
-  if (movies.length > 0) {
-    const featured = movies[0];
+  // Clasificación para Home Estilo Netflix
+  const featured = allContent.find(c => c.type === 'movie' || !c.type) || allContent[0];
+  const releases = allContent.slice(0, 10);
+  const movies = allContent.filter(c => c.type === 'movie' || !c.type).slice(0, 15);
+  const series = allContent.filter(c => c.type === 'series' || c.type === 'tv').slice(0, 15);
+  const anime = allContent.filter(c => c.title.toLowerCase().includes('anime') || (c.type === 'series' && c.rating > 8.5)).slice(0, 10);
+
+  // Hero Update
+  if (featured) {
     document.getElementById('hero-title').innerText = featured.title;
-    document.getElementById('hero-subtitle').innerText = featured.year || "Recién Cosechada";
+    document.getElementById('hero-subtitle').innerText = featured.year || "Novedad en la Selva";
     document.getElementById('hero-section').style.backgroundImage = `linear-gradient(to right, rgba(0,0,0,0.95), transparent), url(${featured.img})`;
     document.getElementById('hero-play-btn').onclick = () => openPlayer(featured.id);
   }
 
-  // Rows
-  if (movies.length > 0) renderRow('Películas Estreno 🎬', movies.slice(0, 15));
-  if (series.length > 0) renderRow('Series de la Jungla 🏎️', series);
+  // Rows Estilo Netflix
+  if (releases.length > 0) renderRow('Lo más nuevo en SelvaFlix ✨', releases);
+  if (series.length > 0) renderRow('Series que no te puedes perder 🏆', series);
+  if (anime.length > 0) renderRow('Zonas Anime y Calificadas ⛩️', anime);
+  if (movies.length > 0) renderRow('Cosecha de Películas 🎬', movies);
 }
 
 // Initial Setup
@@ -624,21 +680,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('ad-overlay').style.display = 'none';
   });
 
-  document.getElementById('close-player').addEventListener('click', () => {
-    document.getElementById('player-modal').style.display = 'none';
-    document.getElementById('player-iframe').src = '';
-  });
-
-  // Discovery Toggle
-  document.getElementById('btn-discover-series').addEventListener('click', () => {
-    const container = document.getElementById('discover-container');
-    if (container.style.display === 'none') {
-      container.style.display = 'block';
-      discoverSeries();
-    } else {
-      container.style.display = 'none';
-    }
-  });
+  // Discovery Handlers
+  document.getElementById('btn-discover-movies').addEventListener('click', () => discoverContent('movie'));
+  document.getElementById('btn-discover-series').addEventListener('click', () => discoverContent('tv'));
+  document.getElementById('btn-discover-live').addEventListener('click', () => discoverContent('live'));
 
   // Detectar dispositivo para recomendar bloqueador
   const userAgent = navigator.userAgent || navigator.vendor || window.opera;

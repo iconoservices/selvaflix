@@ -473,6 +473,56 @@ window.suggestImage = (url) => {
   document.getElementById('m-img-preview').src = url;
 };
 
+// --- Discovery Tool ---
+async function discoverSeries() {
+  const list = document.getElementById('discover-list');
+  list.innerHTML = '<p style="grid-column: 1/3; color: var(--primary);">Buscando los mejores brotes de la selva... 📡</p>';
+
+  try {
+    const res = await fetch(`${TMDB_URL}/tv/popular?api_key=${TMDB_API_KEY}&language=es-ES&page=1`);
+    const data = await res.json();
+
+    list.innerHTML = data.results.slice(0, 10).map(s => `
+      <div style="background: rgba(255,255,255,0.05); padding: 8px; border-radius: 8px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--glass-border);">
+        <img src="${TMDB_IMG_URL + s.poster_path}" style="width: 40px; height: 60px; object-fit: cover; border-radius: 4px;">
+        <div style="flex: 1; overflow: hidden;">
+          <p style="font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: bold;">${s.name}</p>
+          <button onclick="window.quickSeedSeries(${JSON.stringify(s).replace(/"/g, '&quot;')})" style="background: var(--primary); border: none; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.65rem; cursor: pointer; margin-top: 4px;">➕ Sembrar</button>
+        </div>
+      </div>
+    `).join('');
+  } catch (err) {
+    list.innerHTML = '<p style="grid-column: 1/3; color: #E74C3C;">Error al conectar con la antena TMDB 🐒</p>';
+  }
+}
+
+window.quickSeedSeries = async (s) => {
+  const exists = movieDatabase.trending.find(m => m.tmdbId == s.id);
+  if (exists) {
+    alert(`¡La serie "${s.name}" ya está en tu jardín! 🌴`);
+    return;
+  }
+
+  const seriesData = {
+    title: s.name,
+    img: TMDB_IMG_URL + s.poster_path,
+    tmdbId: s.id.toString(),
+    embed: "", // Multi-server auto
+    year: (s.first_air_date || "2024").split('-')[0],
+    rating: s.vote_average?.toFixed(1) || "8.5",
+    type: 'series',
+    status: 'healthy',
+    createdAt: Date.now()
+  };
+
+  try {
+    await addDoc(moviesCol, seriesData);
+    alert(`¡"${s.name}" sembrada con éxito! 🏆🦁`);
+  } catch (e) {
+    alert("Error al sembrar 🐒");
+  }
+};
+
 function initApp() {
   const container = document.getElementById('main-content');
   container.innerHTML = '';
@@ -577,6 +627,17 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('close-player').addEventListener('click', () => {
     document.getElementById('player-modal').style.display = 'none';
     document.getElementById('player-iframe').src = '';
+  });
+
+  // Discovery Toggle
+  document.getElementById('btn-discover-series').addEventListener('click', () => {
+    const container = document.getElementById('discover-container');
+    if (container.style.display === 'none') {
+      container.style.display = 'block';
+      discoverSeries();
+    } else {
+      container.style.display = 'none';
+    }
   });
 
   // Detectar dispositivo para recomendar bloqueador

@@ -97,6 +97,21 @@
             <!-- TMDB Results injected here -->
           </div>
 
+          <div style="margin-bottom: 20px;">
+            <button class="btn btn-secondary" id="btn-discover-series"
+              style="width: 100%; background: var(--primary); color: white; border: none;">
+              🌱 Sembrar Series Populares (Auto-Descubrimiento)
+            </button>
+            <div id="discover-container"
+              style="display: none; margin-top: 15px; background: rgba(0,0,0,0.3); border-radius: 12px; padding: 15px; border: 1px solid var(--glass-border);">
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 15px;">👇 Toca una serie para
+                guardarla instantáneamente en tu selva:</p>
+              <div id="discover-list" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <!-- Series suggestions injected here -->
+              </div>
+            </div>
+          </div>
+
           <h2 class="admin-title">💾 Guardar / Editar Coconas</h2>
           <form id="movie-form">
             <input type="hidden" id="m-db-id"> <!-- Para edición -->

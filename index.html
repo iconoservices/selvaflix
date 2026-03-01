@@ -151,6 +151,11 @@
                   <button type="button" class="btn"
                     style="background: #3498DB; padding: 5px 10px; font-size: 0.7rem; color: white; border: none;"
                     onclick="window.openLogoSearch()">🌐 Buscar</button>
+                  <button type="button" class="btn"
+                    style="background: #27AE60; padding: 5px 10px; font-size: 0.7rem; color: white; border: none;"
+                    onclick="document.getElementById('m-file').click()">📤 Subir</button>
+                  <input type="file" id="m-file" accept="image/*" style="display: none;"
+                    onchange="window.handleImageUpload(this.files[0])">
                 </div>
               </div>
               <img id="m-img-preview" src="https://via.placeholder.com/100x150?text=Prev"
@@ -278,7 +283,7 @@
       <a href="#" class="nav-item" onclick="window.location.hash='live'">🔴</a>
     </nav>
   </div>
-  <script type="module" src="/src/main.js?v=1.5"></script>
+  <script type="module" src="/src/main.js?v=1.6"></script>
 </body>
 
 </html>

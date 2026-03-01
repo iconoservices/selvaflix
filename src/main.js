@@ -1,6 +1,7 @@
 import './style.css'
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from "firebase/firestore";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 // --- Firebase Configuration ---
 const firebaseConfig = {
@@ -15,6 +16,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const storage = getStorage(app);
 const moviesCol = collection(db, "movies");
 
 // --- TMDB API Config ---
@@ -500,6 +502,30 @@ window.openLogoSearch = () => {
   if (!title) { alert("¡Escribe el nombre del canal primero! 🐒"); return; }
   const query = encodeURIComponent(`${title} channel logo png transparent`);
   window.open(`https://www.google.com/search?q=${query}&tbm=isch`, '_blank');
+};
+
+window.handleImageUpload = async (file) => {
+  if (!file) return;
+  const preview = document.getElementById('m-img-preview');
+  const imgInput = document.getElementById('m-img');
+
+  if (file.size > 2 * 1024 * 1024) { alert("¡Ufff! Esa cocoña pesa mucho. Usa una imagen menos de 2MB. 🌴🐜"); return; }
+
+  preview.src = 'https://via.placeholder.com/100x150?text=Subiendo...';
+
+  try {
+    const storageRef = ref(storage, `posters/${Date.now()}_${file.name}`);
+    const snapshot = await uploadBytes(storageRef, file);
+    const url = await getDownloadURL(snapshot.ref);
+
+    imgInput.value = url;
+    preview.src = url;
+    alert("¡Subida con éxito a la nube de SelvaFlix! ☁️🦁");
+  } catch (err) {
+    console.error(err);
+    alert("Error al subir a la nube. ¿Tienes activado Firebase Storage? 🐒☁️");
+    preview.src = 'https://via.placeholder.com/100x150?text=Error';
+  }
 };
 
 // --- Discovery & Seeding Tool ---

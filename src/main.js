@@ -495,6 +495,13 @@ window.suggestImage = (url) => {
   document.getElementById('m-img-preview').src = url;
 };
 
+window.openLogoSearch = () => {
+  const title = document.getElementById('m-title').value;
+  if (!title) { alert("¡Escribe el nombre del canal primero! 🐒"); return; }
+  const query = encodeURIComponent(`${title} channel logo png transparent`);
+  window.open(`https://www.google.com/search?q=${query}&tbm=isch`, '_blank');
+};
+
 // --- Discovery & Seeding Tool ---
 async function discoverContent(topic) {
   const list = document.getElementById('discover-list');
@@ -506,22 +513,42 @@ async function discoverContent(topic) {
   list.innerHTML = '';
 
   if (topic === 'live') {
+    const categories = [
+      { name: "Deportes ⚽", img: "https://via.placeholder.com/400x225/111/fff?text=DEPORTES+TV", embed: "" },
+      { name: "Cine y Pelis 🍿", img: "https://via.placeholder.com/400x225/111/fff?text=CINE+TOTAL", embed: "" },
+      { name: "Noticias 📡", img: "https://via.placeholder.com/400x225/111/fff?text=NOTICIAS+24/7", embed: "" },
+      { name: "Cultural 🌿", img: "https://via.placeholder.com/400x225/111/fff?text=CULTURA+Y+NATURA", embed: "" }
+    ];
+
     const peruvianChannels = [
       { name: "Latina TV", img: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Latina_Televisi%C3%B3n_logo.svg/1024px-Latina_Televisi%C3%B3n_logo.svg.png", embed: "https://ejemplo.com/m3u8-player?url=https://stream.latina.pe/live.m3u8" },
       { name: "América TV", img: "https://logodownload.org/wp-content/uploads/2018/11/america-tv-logo.png", embed: "https://ejemplo.com/m3u8-player?url=https://stream.america.pe/live.m3u8" },
       { name: "Panamericana", img: "https://upload.wikimedia.org/wikipedia/commons/4/45/Panamericana_Televisi%C3%B3n_-_Logo_2016.png", embed: "https://ejemplo.com/m3u8-player?url=https://stream.panamericana.pe/live.m3u8" },
-      { name: "ATV", img: "https://upload.wikimedia.org/wikipedia/commons/c/c5/ATV_Red_Nacional.png", embed: "https://ejemplo.com/m3u8-player?url=https://stream.atv.pe/live.m3u8" }
+      { name: "ATV", img: "https://upload.wikimedia.org/wikipedia/commons/c/c5/ATV_Red_Nacional.png", embed: "https://stream.atv.pe/live.m3u8" },
+      { name: "Willax", img: "https://willax.tv/img/willax-logo.png", embed: "https://stream.willax.tv/live.m3u8" },
+      { name: "TV Perú", img: "https://upload.wikimedia.org/wikipedia/commons/2/29/TV_Per%C3%BA_logo_2020.png", embed: "https://stream.tvperu.gob.pe/live.m3u8" }
     ];
-    status.innerText = "📺 Selecciona canales para agregar:";
-    list.innerHTML = peruvianChannels.map(ch => `
-      <div style="background: rgba(255,255,255,0.05); padding: 8px; border-radius: 8px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--glass-border);">
-        <img src="${ch.img}" style="width: 40px; height: 40px; object-fit: contain; background: white; padding: 2px;">
-        <div style="flex: 1; overflow: hidden;">
-          <p style="font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: bold;">${ch.name}</p>
-          <button onclick="window.quickSeedManual(${JSON.stringify(ch).replace(/"/g, '&quot;')}, 'live')" style="background: #2ECC71; border: none; color: white; padding: 3px 8px; border-radius: 4px; font-size: 0.65rem; cursor: pointer; margin-top: 4px;">➕ Agregar</button>
+
+    status.innerText = "📺 Categorías y Canales Sugeridos:";
+    list.innerHTML = `
+      <p style="grid-column: 1/-1; font-size: 0.7rem; color: var(--text-muted); margin-top: 10px;">Iconos de Categoría (Para canales manuales):</p>
+      ${categories.map(c => `
+        <div class="tmdb-item" onclick="window.suggestImage('${c.img}')" style="min-width: 80px; background: rgba(255,255,255,0.05); padding: 5px; border-radius: 8px;">
+          <img src="${c.img}" style="width: 100%; height: 50px; object-fit: cover; border-radius: 4px;">
+          <p style="font-size: 0.6rem; text-align: center; margin-top: 5px;">${c.name}</p>
         </div>
-      </div>
-    `).join('');
+      `).join('')}
+      <p style="grid-column: 1/-1; font-size: 0.7rem; color: var(--text-muted); margin-top: 10px;">Canales Peruanos:</p>
+      ${peruvianChannels.map(ch => `
+        <div style="background: rgba(255,255,255,0.05); padding: 8px; border-radius: 8px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--glass-border);">
+          <img src="${ch.img}" style="width: 35px; height: 35px; object-fit: contain; background: white; padding: 2px; border-radius: 4px;">
+          <div style="flex: 1; overflow: hidden;">
+            <p style="font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: bold;">${ch.name}</p>
+            <button onclick="window.quickSeedManual(${JSON.stringify(ch).replace(/"/g, '&quot;')}, 'live')" style="background: #2ECC71; border: none; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.6rem; cursor: pointer;">➕ Sembrar</button>
+          </div>
+        </div>
+      `).join('')}
+    `;
     return;
   }
 

@@ -146,7 +146,12 @@
             <div class="form-group" style="display: flex; gap: 15px; align-items: start;">
               <div style="flex: 1;">
                 <label>URL de la Imagen (Póster)</label>
-                <input type="url" id="m-img" class="form-control" placeholder="https://..." required>
+                <div style="display: flex; gap: 5px;">
+                  <input type="url" id="m-img" class="form-control" placeholder="https://..." required>
+                  <button type="button" class="btn"
+                    style="background: #3498DB; padding: 5px 10px; font-size: 0.7rem; color: white; border: none;"
+                    onclick="window.openLogoSearch()">🌐 Buscar</button>
+                </div>
               </div>
               <img id="m-img-preview" src="https://via.placeholder.com/100x150?text=Prev"
                 style="width: 70px; border-radius: 8px; border: 1px solid var(--glass-border);">
@@ -273,7 +278,7 @@
       <a href="#" class="nav-item" onclick="window.location.hash='live'">🔴</a>
     </nav>
   </div>
-  <script type="module" src="/src/main.js?v=1.4"></script>
+  <script type="module" src="/src/main.js?v=1.5"></script>
 </body>
 
 </html>

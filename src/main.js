@@ -176,23 +176,11 @@ async function collectUserData(action, details = {}) {
 }
 
 // Player Logic & Multi-Server
-function openPlayer(movieId) {
-  const allMovies = [...movieDatabase.trending];
-  const movie = allMovies.find(m => m.id === movieId);
-  if (!movie) return;
-
-  collectUserData("watch_attempt", { title: movie.title, id: movie.id });
-
-  currentPlayerMovie = movie;
-  const modal = document.getElementById('player-modal');
-
-  // Mostrar Anuncio/Aviso antes del player
+function startAdCountdown(callback) {
   const adOverlay = document.getElementById('ad-overlay');
   const skipBtn = document.getElementById('skip-ad-btn');
 
   adOverlay.style.display = 'flex';
-  modal.style.display = 'flex';
-
   let countdown = 5;
   skipBtn.innerText = `Cerrando en ${countdown}...`;
   skipBtn.disabled = true;
@@ -208,53 +196,81 @@ function openPlayer(movieId) {
     }
   }, 1000);
 
-  // Reset switcher ... (rest of logic)
-  const switcher = document.getElementById('server-switcher');
-  if (movie.tmdbId) {
-    switcher.style.display = 'flex';
-    updateServer('vidsrc');
-  } else {
-    switcher.style.display = 'none';
-    const iframe = document.getElementById('player-iframe');
-    iframe.src = movie.embed || "";
-  }
+  // El listener del boton de skip ya esta configurado en initApp
+  // pero necesitamos asegurarnos de que ejecute el callback cuando se limpie
+  const skipHandler = () => {
+    if (callback) callback();
+    skipBtn.removeEventListener('click', skipHandler);
+  };
+  skipBtn.addEventListener('click', skipHandler);
 }
 
-function updateServer(serverKey) {
+function openPlayer(movieId) {
+  const allMovies = [...movieDatabase.trending];
+  const movie = allMovies.find(m => m.id === movieId);
+  if (!movie) return;
+
+  collectUserData("watch_attempt", { title: movie.title, id: movie.id });
+
+  currentPlayerMovie = movie;
+  const modal = document.getElementById('player-modal');
+  modal.style.display = 'flex';
+
+  startAdCountdown(() => {
+    if (movie.tmdbId) {
+      document.getElementById('server-switcher').style.display = 'flex';
+      updateServer('vidsrc', true); // true para saltarse el countdown interno si ya paso el de openPlayer
+    } else {
+      document.getElementById('server-switcher').style.display = 'none';
+      document.getElementById('player-iframe').src = movie.embed || "";
+    }
+  });
+}
+
+function updateServer(serverKey, skipCountdown = false) {
   if (!currentPlayerMovie || !currentPlayerMovie.tmdbId) return;
 
-  const iframe = document.getElementById('player-iframe');
-  const loader = document.getElementById('player-loader');
-  const tmdbId = currentPlayerMovie.tmdbId;
+  const loadIframe = () => {
+    const iframe = document.getElementById('player-iframe');
+    const loader = document.getElementById('player-loader');
+    const tmdbId = currentPlayerMovie.tmdbId;
 
-  // Visual active state
-  document.querySelectorAll('.server-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.server === serverKey);
-  });
+    // Visual active state
+    document.querySelectorAll('.server-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.server === serverKey);
+    });
 
-  loader.style.display = 'flex';
-  loader.style.opacity = '1';
+    loader.style.display = 'flex';
+    loader.style.opacity = '1';
 
-  let url = "";
-  switch (serverKey) {
-    case 'vidsrc': url = `https://vidsrc.xyz/embed/movie?tmdb=${tmdbId}&lang=es`; break;
-    case 'superembed': url = `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&lang=es`; break;
-    case 'smashy': url = `https://player.smashy.stream/movie/${tmdbId}?lang=es`; break;
-    case 'autoembed': url = `https://autoembed.co/movie/tmdb/${tmdbId}?lang=es`; break;
-    case '2embed': url = `https://www.2embed.cc/embed/${tmdbId}`; break;
-    default: url = `https://vidsrc.xyz/embed/movie?tmdb=${tmdbId}&lang=es`;
-  }
+    let url = "";
+    switch (serverKey) {
+      case 'vidsrc': url = `https://vidsrc.xyz/embed/movie?tmdb=${tmdbId}&lang=es`; break;
+      case 'superembed': url = `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&lang=es`; break;
+      case 'smashy': url = `https://player.smashy.stream/movie/${tmdbId}?lang=es`; break;
+      case 'autoembed': url = `https://autoembed.co/movie/tmdb/${tmdbId}?lang=es`; break;
+      case '2embed': url = `https://www.2embed.cc/embed/${tmdbId}`; break;
+      default: url = `https://vidsrc.xyz/embed/movie?tmdb=${tmdbId}&lang=es`;
+    }
 
-  iframe.src = url;
-  // Probando los limites del Sandbox: Bloqueando popups pero permitiendo lo basico
-  iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-presentation');
+    iframe.src = url;
+    // Probando los limites del Sandbox: Bloqueando popups pero permitiendo lo basico
+    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-presentation');
 
-  iframe.onload = () => {
-    setTimeout(() => {
-      loader.style.opacity = '0';
-      setTimeout(() => loader.style.display = 'none', 800);
-    }, 1500);
+    iframe.onload = () => {
+      setTimeout(() => {
+        loader.style.opacity = '0';
+        setTimeout(() => loader.style.display = 'none', 800);
+      }, 1500);
+    };
   };
+
+  if (skipCountdown) {
+    loadIframe();
+  } else {
+    // Si cambia de servidor, le volvemos a mostrar el anuncio de "Consejo"
+    startAdCountdown(loadIframe);
+  }
 }
 
 // Exported Actions
@@ -322,12 +338,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('skip-ad-btn').addEventListener('click', () => {
     document.getElementById('ad-overlay').style.display = 'none';
-    // Cargar el server por defecto solo despues del anuncio
-    if (currentPlayerMovie && currentPlayerMovie.tmdbId) {
-      updateServer('vidsrc');
-    } else {
-      document.getElementById('player-iframe').src = currentPlayerMovie.embed || "";
-    }
   });
 
   document.getElementById('close-player').addEventListener('click', () => {

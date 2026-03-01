@@ -638,6 +638,40 @@ iframe {
   left: 15px;
 }
 
+/* Side Banners (Desktop Only) */
+.side-banner {
+  position: fixed;
+  top: 100px;
+  width: 160px;
+  height: 600px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed var(--glass-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  text-align: center;
+  padding: 20px;
+  z-index: 50;
+  pointer-events: none;
+  /* Dejar interactuar con lo de atras si no hay anuncio real */
+}
+
+.left-banner {
+  left: 20px;
+}
+
+.right-banner {
+  right: 20px;
+}
+
+@media (max-width: 1400px) {
+  .side-banner {
+    display: none;
+  }
+}
+
 .ad-notice a {
   text-decoration: underline;
   font-weight: bold;

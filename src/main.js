@@ -348,7 +348,9 @@ function updateServer(serverKey) {
     }
 
     iframe.src = url;
-    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-presentation');
+    // Agregamos permisos de popups para que los servidores no bloqueen el video.
+    // El navegador (especialmente Brave) igual se encargará de bloquear los anuncios molestos.
+    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-presentation allow-popups allow-popups-to-escape-sandbox');
 
     iframe.onload = () => {
       setTimeout(() => {

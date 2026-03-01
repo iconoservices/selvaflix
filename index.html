@@ -112,10 +112,35 @@
               style="width: 100%; background: #2ECC71; color: white; border: none; font-size: 0.8rem; padding: 10px; margin-bottom: 10px;">
               🔴 Señales de TV Sugeridas
             </button>
-            <button class="btn" id="btn-mass-seed"
-              style="width: 100%; background: #FF9F43; color: #fff; border: none; font-size: 0.8rem; padding: 10px; margin-bottom: 15px; font-weight: bold; border-radius: 8px;">
-              🚜 Mega-Cosecha (100+ Películas TMDB)
-            </button>
+            <div
+              style="display: flex; gap: 8px; margin-bottom: 12px; align-items: center; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; border: 1px dashed var(--glass-border);">
+              <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: bold;">CANTIDAD:</span>
+              <select id="mass-seed-amount" class="form-control" style="flex: 1; padding: 4px; font-size: 0.75rem;">
+                <option value="1">20 Pelis (1 pág)</option>
+                <option value="3">60 Pelis (3 págs)</option>
+                <option value="5">100 Pelis (5 págs)</option>
+                <option value="15">300 Pelis (Mega-Cosecha)</option>
+              </select>
+              <button class="btn" id="btn-mass-seed"
+                style="flex: 2; background: #FF9F43; color: #fff; padding: 8px; font-weight: bold; border-radius: 6px;">
+                🚜 Sembrar TMDB
+              </button>
+            </div>
+
+            <!-- Discovery Filters -->
+            <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+              <input type="number" id="discover-year" class="form-control" placeholder="Año (Opcional)"
+                style="flex: 1; font-size: 0.75rem;">
+              <select id="discover-genre" class="form-control" style="flex: 1; font-size: 0.75rem;">
+                <option value="">Cualquier Género</option>
+                <option value="28">Acción</option>
+                <option value="16">Animación</option>
+                <option value="35">Comedia</option>
+                <option value="27">Terror</option>
+                <option value="10749">Romance</option>
+                <option value="878">Sci-Fi</option>
+              </select>
+            </div>
             <div id="discover-container"
               style="display: none; background: rgba(0,0,0,0.4); border-radius: 12px; padding: 15px; border: 1px solid var(--glass-border);">
               <p id="discover-status"
@@ -186,10 +211,18 @@
           <div style="margin-bottom: 15px; display: flex; gap: 10px;">
             <input type="text" id="inventory-search" class="form-control" placeholder="🔍 Buscar por nombre..."
               oninput="window.filterInventory(this.value)" style="flex: 2;">
-            <select id="inventory-filter" class="form-control" onchange="window.filterInventoryByCategory(this.value)"
+            <select id="inventory-type-filter" class="form-control" onchange="window.filterInventoryByCategory()"
               style="flex: 1;">
-              <option value="all">🌐 Ver Todo</option>
-              <option value="broken">🔴 Imagen Rota / Error</option>
+              <option value="all">Tipo: Todos</option>
+              <option value="movie">🎬 Peli</option>
+              <option value="series">🏆 Serie</option>
+              <option value="anime">⛩️ Anime</option>
+              <option value="live">🔴 TV</option>
+            </select>
+            <select id="inventory-filter" class="form-control" onchange="window.filterInventoryByCategory()"
+              style="flex: 1;">
+              <option value="all">Salud: Todas</option>
+              <option value="broken">🔴 Con Errores</option>
               <option value="missing">🟠 Sin ID TMDB</option>
             </select>
             <button id="btn-bulk-delete" class="btn" onclick="window.bulkDeleteCurrentFilter()"
@@ -359,7 +392,7 @@
       <a href="#" class="nav-item" onclick="window.location.hash='live'">🔴</a>
     </nav>
   </div>
-  <script type="module" src="/src/main.js?v=2.1"></script>
+  <script type="module" src="/src/main.js?v=2.2"></script>
 </body>
 
 </html>

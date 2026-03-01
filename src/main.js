@@ -145,14 +145,12 @@ function handleGlobalSearch(query) {
 }
 
 // Render Movie Rows
-function _renderCardsInto(section, data) {
+function _renderCardsInto(container, data) {
   if (!data || data.length === 0) {
-    section.insertAdjacentHTML('beforeend', '<p style="color:var(--text-muted);padding:30px;">La selva está vacía aquí... 🌿</p>');
+    container.innerHTML = '<p style="color:var(--text-muted);padding:30px;">La selva está vacía aquí... 🌿</p>';
     return;
   }
-  const list = document.createElement('div');
-  list.className = 'movie-list';
-  list.innerHTML = data.map(item => `
+  container.innerHTML = data.map(item => `
     <div class="movie-card" data-id="${item.id}" onclick="window.handleCardClick('${item.id}')">
       ${item.status === 'maintenance' ? '<div class="badge-maintenance">Mantenimiento</div>' : ''}
       <img src="${item.img}" alt="${item.title}" class="card-img" loading="lazy"
@@ -163,7 +161,6 @@ function _renderCardsInto(section, data) {
       </div>
     </div>
   `).join('');
-  section.appendChild(list);
 }
 
 function renderRow(title, data) {
@@ -171,9 +168,24 @@ function renderRow(title, data) {
   if (!data || data.length === 0) return;
   const section = document.createElement('section');
   section.className = 'category-row';
-  section.innerHTML = `<div class="row-header"><h2 class="row-title">${title}</h2></div>`;
+  section.innerHTML = `
+    <div class="row-header"><h2 class="row-title">${title}</h2></div>
+    <div class="row-container">
+      <button class="row-arrow row-arrow-left">◀</button>
+      <div class="movie-list"></div>
+      <button class="row-arrow row-arrow-right">▶</button>
+    </div>
+  `;
   container.appendChild(section);
-  _renderCardsInto(section, data);
+
+  const list = section.querySelector('.movie-list');
+  _renderCardsInto(list, data);
+
+  const leftBtn = section.querySelector('.row-arrow-left');
+  const rightBtn = section.querySelector('.row-arrow-right');
+
+  leftBtn.onclick = () => list.scrollBy({ left: -list.offsetWidth * 0.8, behavior: 'smooth' });
+  rightBtn.onclick = () => list.scrollBy({ left: list.offsetWidth * 0.8, behavior: 'smooth' });
 }
 
 // Admin: Render Inventory Table
@@ -241,10 +253,17 @@ window.markAsBroken = (id) => {
   }
 };
 
-window.filterInventoryByCategory = (category) => {
+window.filterInventoryByCategory = () => {
+  const type = document.getElementById('inventory-type-filter').value;
+  const category = document.getElementById('inventory-filter').value;
   const searchInput = document.getElementById('inventory-search');
   const query = searchInput ? searchInput.value.toLowerCase() : '';
+
   let filtered = _allInventoryItems.filter(m => m.title.toLowerCase().includes(query));
+
+  if (type !== 'all') {
+    filtered = filtered.filter(m => m.type === type || (type === 'movie' && !m.type));
+  }
 
   if (category === 'broken') {
     filtered = filtered.filter(m => window._brokenIds.has(m.id) || !m.img || m.img.includes('placeholder'));
@@ -253,12 +272,15 @@ window.filterInventoryByCategory = (category) => {
   }
 
   _renderInventoryRows(filtered);
-  // Mostrar/Ocultar botón de borrado masivo
+
   const bulkBtn = document.getElementById('btn-bulk-delete');
   if (bulkBtn) {
     bulkBtn.style.display = (category === 'broken') ? 'block' : 'none';
     bulkBtn.innerText = `🗑️ Borrar ${filtered.length} con Error`;
   }
+
+  const statusEl = document.getElementById('inventory-status');
+  if (statusEl) statusEl.innerText = `Viendo ${filtered.length} coconas.`;
 };
 
 window.bulkDeleteCurrentFilter = async () => {
@@ -413,7 +435,7 @@ function startAdCountdown(callback) {
   skipBtn.addEventListener('click', skipHandler);
 }
 
-function openPlayer(movieId) {
+async function openPlayer(movieId) {
   const allMovies = [...movieDatabase.trending];
   const movie = allMovies.find(m => m.id === movieId);
   if (!movie) return;
@@ -427,9 +449,32 @@ function openPlayer(movieId) {
   const isSeries = movie.type === 'series' || movie.type === 'tv' || movie.type === 'anime';
   const nav = document.getElementById('series-navigator');
   if (nav) nav.style.display = isSeries ? 'flex' : 'none';
-  if (isSeries) {
-    document.getElementById('series-season').value = 1;
-    document.getElementById('series-episode').value = 1;
+  if (isSeries && movie.tmdbId) {
+    try {
+      const resp = await fetch(`${TMDB_URL}/tv/${movie.tmdbId}?api_key=${TMDB_API_KEY}&language=es-ES`);
+      const details = await resp.json();
+      const sSel = document.getElementById('series-season');
+      const eSel = document.getElementById('series-episode');
+
+      if (details.seasons) {
+        sSel.innerHTML = details.seasons
+          .filter(s => s.season_number > 0)
+          .map(s => `<option value="${s.season_number}">${s.name || `Temp ${s.season_number}`}</option>`).join('');
+
+        const updateE = (sNum) => {
+          const s = details.seasons.find(x => x.season_number == sNum);
+          const count = s ? s.episode_count : 24;
+          eSel.innerHTML = Array.from({ length: count }, (_, i) => `<option value="${i + 1}">Capítulo ${i + 1}</option>`).join('');
+        };
+
+        updateE(details.seasons.find(s => s.season_number > 0)?.season_number || 1);
+        sSel.onchange = () => { updateE(sSel.value); window.changeEpisode(); };
+      }
+    } catch (e) { console.error("TMDB Error:", e); }
+  } else if (isSeries) {
+    // Fallback if no TMDB ID
+    document.getElementById('series-season').innerHTML = '<option value="1">Temp 1</option>';
+    document.getElementById('series-episode').innerHTML = Array.from({ length: 24 }, (_, i) => `<option value="${i + 1}">Capítulo ${i + 1}</option>`).join('');
   }
 
   startAdCountdown(() => {
@@ -590,12 +635,16 @@ async function discoverContent(topic) {
   const list = document.getElementById('discover-list');
   const status = document.getElementById('discover-status');
   const container = document.getElementById('discover-container');
+  const year = document.getElementById('discover-year').value;
+  const genre = document.getElementById('discover-genre').value;
 
   container.style.display = 'block';
-  status.innerText = `🥥 Cosechando ${topic === 'movie' ? 'Películas' : (topic === 'tv' ? 'Series' : 'Canales')}...`;
+  status.innerText = `🥥 Cosechando sugerencias...`;
   list.innerHTML = '';
 
   if (topic === 'live') {
+    // ... (Keep existing live channels code) ...
+
     const categories = [
       { name: "Deportes ⚽", img: "https://via.placeholder.com/400x225/111/fff?text=DEPORTES+TV", embed: "" },
       { name: "Cine y Pelis 🍿", img: "https://via.placeholder.com/400x225/111/fff?text=CINE+TOTAL", embed: "" },
@@ -636,12 +685,25 @@ async function discoverContent(topic) {
   }
 
   try {
-    const endpoint = topic === 'movie' ? 'movie/popular' : 'tv/popular';
-    const res = await fetch(`${TMDB_URL}/${endpoint}?api_key=${TMDB_API_KEY}&language=es-ES&page=1`);
+    const isTv = topic === 'tv' || topic === 'series';
+    let url = `${TMDB_URL}/discover/${isTv ? 'tv' : 'movie'}?api_key=${TMDB_API_KEY}&language=es-ES&sort_by=popularity.desc&page=1`;
+
+    if (year) url += `&${isTv ? 'first_air_date_year' : 'primary_release_year'}=${year}`;
+    if (genre) url += `&with_genres=${genre}`;
+
+    const res = await fetch(url);
     const data = await res.json();
 
-    status.innerText = `💡 Toca para sembrar ${topic === 'movie' ? 'Película' : 'Serie'}:`;
-    list.innerHTML = data.results.slice(0, 10).map(s => `
+    const existingIds = new Set(movieDatabase.trending.map(m => m.tmdbId));
+    const newItems = data.results.filter(s => !existingIds.has(s.id.toString()));
+
+    if (newItems.length === 0) {
+      status.innerText = "🍃 No hay nada nuevo por aquí con esos filtros.";
+      return;
+    }
+
+    status.innerText = `💡 Toca para sembrar (Mostrando ${newItems.length} nuevas):`;
+    list.innerHTML = newItems.slice(0, 12).map(s => `
       <div style="background: rgba(255,255,255,0.05); padding: 8px; border-radius: 8px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--glass-border);">
         <img src="${TMDB_IMG_URL + s.poster_path}" style="width: 35px; height: 50px; object-fit: cover; border-radius: 4px;">
         <div style="flex: 1; overflow: hidden;">
@@ -684,47 +746,53 @@ window.quickSeedManual = async (ch, type) => {
 };
 
 window.massSeedMovies = async () => {
-  const confirmed = confirm("¿Seguro que quieres sembrar 300+ películas de un solo golpe? 🚜🍿\nEsto llenará tu catálogo masivamente con lo más popular.");
+  const pages = parseInt(document.getElementById('mass-seed-amount').value) || 1;
+  const year = document.getElementById('discover-year').value;
+  const genre = document.getElementById('discover-genre').value;
+
+  const confirmed = confirm(`¿Quieres sembrar hasta ${pages * 20} películas? 🚜🍿`);
   if (!confirmed) return;
 
   const btn = document.getElementById('btn-mass-seed');
   const originalText = btn.innerText;
   btn.disabled = true;
-  btn.innerText = "🚜 Cosechando... (Paciencia)";
 
+  const existingIds = new Set(movieDatabase.trending.map(m => m.tmdbId));
   let addedCount = 0;
 
   try {
-    // Subimos a 15 páginas para asegurar >200 pelis nuevas
-    for (let p = 1; p <= 15; p++) {
-      btn.innerText = `🚜 Cosechando pág ${p}/15... (${addedCount} nuevas)`;
-      const res = await fetch(`${TMDB_URL}/movie/popular?api_key=${TMDB_API_KEY}&language=es-ES&page=${p}`);
+    for (let p = 1; p <= pages; p++) {
+      btn.innerText = `🚜 Cosechando pág ${p}/${pages}...`;
+      let url = `${TMDB_URL}/discover/movie?api_key=${TMDB_API_KEY}&language=es-ES&sort_by=popularity.desc&page=${p}`;
+      if (year) url += `&primary_release_year=${year}`;
+      if (genre) url += `&with_genres=${genre}`;
+
+      const res = await fetch(url);
       const data = await res.json();
 
       for (const s of data.results) {
-        const exists = movieDatabase.trending.find(m => m.tmdbId == s.id);
-        if (!exists) {
+        if (!existingIds.has(s.id.toString())) {
           const mData = {
             title: s.title,
             img: TMDB_IMG_URL + s.poster_path,
             tmdbId: s.id.toString(),
             embed: "",
             year: (s.release_date || "2024").split('-')[0],
-            rating: s.vote_average?.toFixed(1) || "8.1",
+            rating: s.vote_average?.toFixed(1) || "7.5",
             type: 'movie',
             status: 'healthy',
             createdAt: Date.now()
           };
           await addDoc(moviesCol, mData);
-          movieDatabase.trending.push({ ...mData, id: 'temp-' + Date.now() }); // Evitar duplicar en el mismo loop
+          existingIds.add(s.id.toString());
           addedCount++;
         }
       }
     }
-    alert(`¡Mega-Cosecha completada! 🌴🍿\nSe añadieron ${addedCount} nuevas películas a tu selva.`);
+    alert(`¡Cosecha completada! 🌴🍿\nSe añadieron ${addedCount} nuevas coconas.`);
   } catch (err) {
     console.error(err);
-    alert("Hubo un cansancio en la cosecha masiva 🐒");
+    alert("Algo falló en la cosecha 🐒");
   } finally {
     btn.disabled = false;
     btn.innerText = originalText;

@@ -854,12 +854,24 @@ iframe {
 
 @media (max-width: 768px) {
   .navbar {
-    height: 60px;
+    height: 70px;
+    padding: 0 15px;
   }
 
-  .nav-links,
-  .nav-actions .search-bar {
+  .nav-links {
     display: none;
+  }
+
+  .nav-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .search-bar {
+    width: 130px;
+    /* Un poco mas pequeña para que quepa el logo */
+    font-size: 0.8rem;
+    padding: 6px 12px;
   }
 
   .mobile-nav {
@@ -871,23 +883,70 @@ iframe {
   }
 
   .movie-card {
-    min-width: 140px;
-    height: 210px;
+    min-width: 130px;
+    height: 195px;
   }
 
   .card-title {
-    font-size: 0.95rem;
-    line-height: 1.2;
+    font-size: 0.85rem;
   }
 
-  .card-info {
-    padding: 12px;
-  }
-
-  /* Ocultar redundancia en movil si ya hay guia lateral */
   .ad-notice {
     display: none;
   }
+}
+
+/* Row Arrows for Desktop */
+.row-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.row-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 45px;
+  height: 45px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--glass-border);
+  color: white;
+  border-radius: 50%;
+  cursor: pointer;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(10px);
+  transition: var(--transition);
+  opacity: 0;
+}
+
+.category-row:hover .row-arrow {
+  opacity: 1;
+}
+
+.row-arrow:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.row-arrow-left {
+  left: 10px;
+}
+
+.row-arrow-right {
+  right: 10px;
+}
+
+@media (max-width: 1024px) {
+  .row-arrow {
+    display: none;
+  }
+
+  /* On touch devices we use natural scroll */
 }
 
 /* Fix mobile nav padding */

@@ -1,6 +1,6 @@
 import './style.css'
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc } from "firebase/firestore";
+import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc } from "firebase/firestore";
 
 // --- Firebase Configuration ---
 const firebaseConfig = {
@@ -177,14 +177,20 @@ function _renderInventoryRows(items) {
   list.innerHTML = items.map(m => `
     <tr>
       <td>${typeEmoji[m.type] || '🎬'}</td>
-      <td>${m.title}</td>
+      <td style="display: flex; align-items: center; gap: 10px;">
+        <img src="${m.img}" style="width: 40px; height: 60px; object-fit: cover; border-radius: 4px;" onerror="this.src='https://via.placeholder.com/40x60'">
+        <span>${m.title}</span>
+      </td>
       <td>
         <span style="color: ${m.status === 'healthy' ? '#2ECC71' : '#E74C3C'}">
           ${m.status === 'healthy' ? '● Activo' : '● Mant.'}
         </span>
       </td>
       <td>
-        <button class="action-btn btn-delete" onclick="window.deleteMovie('${m.id}')">Borrar</button>
+        <div style="display: flex; gap: 5px;">
+          <button class="action-btn btn-edit" onclick="window.editMovie('${m.id}')">Editar</button>
+          <button class="action-btn btn-delete" onclick="window.deleteMovie('${m.id}')">Borrar</button>
+        </div>
       </td>
     </tr>
   `).join('');
@@ -363,9 +369,9 @@ function updateServer(serverKey) {
     }
 
     iframe.src = url;
-    // Máxima compatibilidad: Agregamos modals y top-navigation para servidores que lo requieren.
-    // Navegadores como Brave seguirán protegiendo al usuario de los redireccionamientos automáticos.
-    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-presentation allow-popups allow-popups-to-escape-sandbox allow-modals allow-top-navigation-by-user-activation');
+    // Sandbox balanceado: allow-scripts, allow-same-origin y allow-forms son esenciales.
+    // Quitamos 'allow-top-navigation' para evitar redirecciones masivas, pero dejamos popups para que los players no se bloqueen.
+    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-presentation allow-popups allow-popups-to-escape-sandbox');
 
     iframe.onload = () => {
       setTimeout(() => {
@@ -382,11 +388,37 @@ function updateServer(serverKey) {
 window.handleCardClick = (id) => openPlayer(id);
 
 window.deleteMovie = async (id) => {
-  try {
-    await deleteDoc(doc(db, "movies", id));
-  } catch (e) {
-    console.error("Error eliminando pelicula: ", e);
+  if (confirm("¿Seguro que quieres eliminar esta joya de la selva? 🥥?")) {
+    try {
+      await deleteDoc(doc(db, "movies", id));
+    } catch (e) {
+      console.error("Error eliminando pelicula: ", e);
+    }
   }
+};
+
+window.editMovie = (id) => {
+  const movie = movieDatabase.trending.find(m => m.id === id);
+  if (!movie) return;
+
+  // Llenar formulario
+  document.getElementById('m-db-id').value = movie.id;
+  document.getElementById('m-title').value = movie.title;
+  document.getElementById('m-img').value = movie.img;
+  document.getElementById('m-tmdb-id').value = movie.tmdbId || "";
+  document.getElementById('m-embed').value = movie.embed || "";
+  document.getElementById('m-meta').value = `${movie.year || '2024'} / ${movie.rating || '4.8'}`;
+  document.getElementById('m-type').value = movie.type || 'movie';
+
+  // Actualizar preview
+  document.getElementById('m-img-preview').src = movie.img;
+
+  // Cambiar botones
+  document.getElementById('submit-btn').innerText = "¡Actualizar en la Selva! 🔄";
+  document.getElementById('cancel-edit').style.display = "block";
+
+  // Hacer scroll al formulario
+  document.getElementById('movie-form').scrollIntoView({ behavior: 'smooth' });
 };
 
 function initApp() {
@@ -451,10 +483,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Movie Form Submit (Save to Firebase)
+  // Movie Form Submit (Add or Update)
   document.getElementById('movie-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const newMovie = {
+    const dbId = document.getElementById('m-db-id').value;
+    const movieData = {
       title: document.getElementById('m-title').value,
       img: document.getElementById('m-img').value,
       tmdbId: document.getElementById('m-tmdb-id').value,
@@ -463,18 +496,41 @@ document.addEventListener('DOMContentLoaded', () => {
       rating: document.getElementById('m-meta').value.split('/')[1]?.trim() || '4.8',
       type: document.getElementById('m-type').value || 'movie',
       status: 'healthy',
-      createdAt: Date.now()
+      updatedAt: Date.now()
     };
 
     try {
-      await addDoc(moviesCol, newMovie);
+      if (dbId) {
+        // ACTUALIZAR
+        await updateDoc(doc(db, "movies", dbId), movieData);
+        alert('¡Actualización Exitosa! 🌴🔄');
+      } else {
+        // AGREGAR
+        movieData.createdAt = Date.now();
+        await addDoc(moviesCol, movieData);
+        alert('¡Cosecha Exitosa! 🌴🍿');
+      }
+
+      // Reset
       e.target.reset();
+      document.getElementById('m-db-id').value = "";
+      document.getElementById('m-img-preview').src = 'https://via.placeholder.com/150x220?text=Previsualización';
+      document.getElementById('submit-btn').innerText = "¡Guardar en la Selva! 🌴✨";
+      document.getElementById('cancel-edit').style.display = "none";
       document.getElementById('tmdb-results').innerHTML = '';
-      alert('¡Cosecha Exitosa en la Nube de Firebase! ☁️🌴🍿');
+
     } catch (error) {
-      console.error("Error añadiendo documento: ", error);
-      alert('Uy, hubo un problema guardando en la selva 🐒');
+      console.error("Error en operación: ", error);
+      alert('Uy, hubo un problema en la selva 🐒');
     }
+  });
+
+  document.getElementById('cancel-edit').addEventListener('click', () => {
+    document.getElementById('movie-form').reset();
+    document.getElementById('m-db-id').value = "";
+    document.getElementById('m-img-preview').src = 'https://via.placeholder.com/150x220?text=Previsualización';
+    document.getElementById('submit-btn').innerText = "¡Guardar en la Selva! 🌴✨";
+    document.getElementById('cancel-edit').style.display = "none";
   });
 
   document.getElementById('server-switcher').addEventListener('click', (e) => {

@@ -97,8 +97,9 @@
             <!-- TMDB Results injected here -->
           </div>
 
-          <h2 class="admin-title">💾 Guardar Pelicula / Serie / Canal</h2>
+          <h2 class="admin-title">💾 Guardar / Editar Coconas</h2>
           <form id="movie-form">
+            <input type="hidden" id="m-db-id"> <!-- Para edición -->
             <div class="form-group">
               <label>Tipo de Contenido</label>
               <select id="m-type" class="form-control">
@@ -130,7 +131,10 @@
               <label>Año / Calificación</label>
               <input type="text" id="m-meta" class="form-control" placeholder="2024 / 4.8">
             </div>
-            <button type="submit" class="btn btn-primary" style="width: 100%;">¡Cosechar y Guardar! 🍿</button>
+            <button type="submit" id="submit-btn" class="btn btn-primary" style="width: 100%;">¡Guardar Cambios!
+              🍿</button>
+            <button type="button" id="cancel-edit" class="btn btn-secondary"
+              style="width: 100%; margin-top: 10px; display: none;">Cancelar Edición</button>
           </form>
         </div>
 

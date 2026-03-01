@@ -16,9 +16,10 @@
         <span>SELVA</span><span>FLIX</span>
       </div>
       <ul class="nav-links">
-        <li><a href="#" class="active" onclick="window.location.hash = ''">Inicio</a></li>
-        <li><a href="#" onclick="window.location.hash = 'movies'">Películas</a></li>
-        <li><a href="#" onclick="window.location.hash = 'live'">En Vivo 🔴</a></li>
+        <li><a href="#" id="nav-home" class="active" onclick="window.location.hash = ''">Inicio</a></li>
+        <li><a href="#" id="nav-movies" onclick="window.location.hash = 'movies'">Películas</a></li>
+        <li><a href="#" id="nav-series" onclick="window.location.hash = 'series'">Series</a></li>
+        <li><a href="#" id="nav-live" onclick="window.location.hash = 'live'">En Vivo 🔴</a></li>
       </ul>
       <div class="nav-actions">
         <input type="text" placeholder="Buscar en la selva..." class="search-bar" id="global-search">
@@ -54,6 +55,16 @@
       </div>
     </main>
 
+    <!-- MOVIES VIEW -->
+    <main id="movies-view" style="display: none; padding-top: 100px;">
+      <div class="content-sections" id="movies-content"></div>
+    </main>
+
+    <!-- SERIES VIEW -->
+    <main id="series-view" style="display: none; padding-top: 100px;">
+      <div class="content-sections" id="series-content"></div>
+    </main>
+
     <!-- LIVE TV VIEW -->
     <main id="tv-view" style="display: none; padding-top: 100px;">
       <section class="category-row">
@@ -79,15 +90,23 @@
           <h2 class="admin-title">🔍 Buscador Inteligente (TMDB)</h2>
           <div class="form-group" style="display: flex; gap: 10px;">
             <input type="text" id="tmdb-search-input" class="form-control"
-              placeholder="Escribe el nombre de la peli...">
+              placeholder="Escribe el nombre de la peli o serie...">
             <button class="btn btn-secondary" id="btn-tmdb-search">Buscar</button>
           </div>
           <div id="tmdb-results" style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 15px;">
             <!-- TMDB Results injected here -->
           </div>
 
-          <h2 class="admin-title">💾 Guardar Pelicula</h2>
+          <h2 class="admin-title">💾 Guardar Pelicula / Serie / Canal</h2>
           <form id="movie-form">
+            <div class="form-group">
+              <label>Tipo de Contenido</label>
+              <select id="m-type" class="form-control">
+                <option value="movie">🎬 Película</option>
+                <option value="series">🏆 Serie</option>
+                <option value="live">🔴 Canal en Vivo (M3U8)</option>
+              </select>
+            </div>
             <div class="form-group">
               <label>Título / ID de TMDB</label>
               <div style="display: flex; gap: 10px;">
@@ -100,7 +119,7 @@
               <input type="url" id="m-img" class="form-control" placeholder="https://..." required>
             </div>
             <div class="form-group">
-              <label>URL del Video (Embed Manual)</label>
+              <label>URL del Video (Embed / M3U8)</label>
               <input type="url" id="m-embed" class="form-control" placeholder="Deja vacio para usar Multi-Servidor">
             </div>
             <div class="form-group">
@@ -114,10 +133,15 @@
         <!-- Inventory Table -->
         <div class="admin-card" style="overflow-x: auto;">
           <h2 class="admin-title">📦 Inventario de Coconas</h2>
+          <div style="margin-bottom: 15px;">
+            <input type="text" id="inventory-search" class="form-control" placeholder="🔍 Buscar en inventario..."
+              oninput="window.filterInventory(this.value)">
+          </div>
           <table class="admin-table">
             <thead>
               <tr>
-                <th>Peli</th>
+                <th>Tipo</th>
+                <th>Titulo</th>
                 <th>Estado</th>
                 <th>Acciones</th>
               </tr>
@@ -128,6 +152,7 @@
           </table>
         </div>
       </div>
+
     </section>
 
     <!-- Premium Player Modal -->
@@ -200,10 +225,10 @@
     </div>
 
     <nav class="mobile-nav">
-      <a href="#" class="nav-item">🏠</a>
-      <a href="#" class="nav-item">🎬</a>
-      <a href="#" class="nav-item">📺</a>
-      <a href="#" class="nav-item">🌐</a>
+      <a href="#" class="nav-item" onclick="window.location.hash=''">🏠</a>
+      <a href="#" class="nav-item" onclick="window.location.hash='movies'">🎬</a>
+      <a href="#" class="nav-item" onclick="window.location.hash='series'">📺</a>
+      <a href="#" class="nav-item" onclick="window.location.hash='live'">🔴</a>
     </nav>
   </div>
   <script type="module" src="/src/main.js"></script>

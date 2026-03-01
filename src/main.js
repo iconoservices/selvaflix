@@ -27,53 +27,79 @@ let currentPlayerMovie = null;
 
 // Firebase Listener (Real-time sync)
 onSnapshot(moviesCol, (snapshot) => {
-  movieDatabase.trending = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-  const hash = window.location.hash;
-  if (hash === '#admin') renderInventory();
-  else if (hash === '#live') renderChannels();
+  movieDatabase.trending = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+  const hash = window.location.hash.replace('#', '');
+  if (hash === 'admin') renderInventory();
+  else if (hash === 'live') renderChannels();
+  else if (hash === 'movies') renderMoviesView();
+  else if (hash === 'series') renderSeriesView();
   else initApp();
 });
 
 
 // Routing Logic
-function handleRouting() {
-  const hash = window.location.hash;
-  const homeView = document.getElementById('home-view');
-  const adminView = document.getElementById('admin-view');
+function showView(active) {
+  ['home-view', 'movies-view', 'series-view', 'tv-view', 'admin-view'].forEach(v => {
+    const el = document.getElementById(v);
+    if (el) el.style.display = (v === active) ? 'block' : 'none';
+  });
+  document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+  const navMap = { 'home-view': 'nav-home', 'movies-view': 'nav-movies', 'series-view': 'nav-series', 'tv-view': 'nav-live' };
+  if (navMap[active]) document.getElementById(navMap[active])?.classList.add('active');
+}
 
-  if (hash === '#admin') {
-    homeView.style.display = 'none';
-    adminView.style.display = 'block';
-    document.getElementById('tv-view').style.display = 'none';
-    renderRow('Canales', []); // Clear rows
-    renderInventory();
-  } else if (hash === '#live') {
-    homeView.style.display = 'none';
-    adminView.style.display = 'none';
-    document.getElementById('tv-view').style.display = 'block';
-    renderChannels();
-  } else {
-    homeView.style.display = 'block';
-    adminView.style.display = 'none';
-    document.getElementById('tv-view').style.display = 'none';
-    initApp();
-  }
+function handleRouting() {
+  const hash = window.location.hash.replace('#', '');
+  if (hash === 'admin') { showView('admin-view'); renderInventory(); }
+  else if (hash === 'live') { showView('tv-view'); renderChannels(); }
+  else if (hash === 'movies') { showView('movies-view'); renderMoviesView(); }
+  else if (hash === 'series') { showView('series-view'); renderSeriesView(); }
+  else { showView('home-view'); initApp(); }
+}
+
+function renderMoviesView() {
+  const container = document.getElementById('movies-content');
+  container.innerHTML = '';
+  const movies = [...movieDatabase.trending]
+    .filter(c => c.type === 'movie' || !c.type)
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const section = document.createElement('section');
+  section.className = 'category-row';
+  section.innerHTML = `<div class="row-header"><h2 class="row-title">Todas las Películas 🎬</h2></div>`;
+  container.appendChild(section);
+  _renderCardsInto(section, movies);
+}
+
+function renderSeriesView() {
+  const container = document.getElementById('series-content');
+  container.innerHTML = '';
+  const series = [...movieDatabase.trending]
+    .filter(c => c.type === 'series' || c.type === 'tv')
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const section = document.createElement('section');
+  section.className = 'category-row';
+  section.innerHTML = `<div class="row-header"><h2 class="row-title">Series de la Jungla 🏆</h2></div>`;
+  container.appendChild(section);
+  _renderCardsInto(section, series);
 }
 
 function renderChannels() {
   const container = document.getElementById('main-channels');
-  const dummyChannels = [
-    { id: 'ch1', title: 'Latina TV', img: 'https://via.placeholder.com/300x150?text=LATINA+TV', embed: 'https://ejemplo.com/m3u8-player?url=https://stream.latina.pe/live.m3u8' },
-    { id: 'ch2', title: 'America TV', img: 'https://via.placeholder.com/300x150?text=AMERICA+TV', embed: 'https://ejemplo.com/m3u8-player?url=https://stream.america.pe/live.m3u8' },
-    { id: 'ch3', title: 'Panamericana', img: 'https://via.placeholder.com/300x150?text=PANAMERICANA', embed: 'https://ejemplo.com/m3u8-player?url=https://stream.panamericana.pe/live.m3u8' }
-  ];
+  const liveChannels = [...movieDatabase.trending]
+    .filter(c => c.type === 'live' || (c.embed && !c.tmdbId))
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
-  container.innerHTML = dummyChannels.map(ch => `
+  if (liveChannels.length === 0) {
+    container.innerHTML = '<p style="color:var(--text-muted);padding:50px;">Buscando señal... 📡</p>';
+    return;
+  }
+
+  container.innerHTML = liveChannels.map(ch => `
     <div class="tv-card" onclick="window.handleChannelClick('${ch.embed}')">
-      <img src="${ch.img}" alt="${ch.title}">
+      <img src="${ch.img}" alt="${ch.title}" onerror="this.src='https://via.placeholder.com/600x400/111/FF7A00?text=SIN+SEÑAL'">
       <div class="tv-info">
-        <h3 style="font-size: 0.9rem;">${ch.title}</h3>
+        <h3 style="font-size:0.95rem;">${ch.title}</h3>
+        <p style="font-size:0.7rem;color:var(--primary);">&#x25cf; EN VIVO</p>
       </div>
     </div>
   `).join('');
@@ -105,43 +131,56 @@ function handleGlobalSearch(query) {
 }
 
 // Render Movie Rows
+function _renderCardsInto(section, data) {
+  if (!data || data.length === 0) {
+    section.insertAdjacentHTML('beforeend', '<p style="color:var(--text-muted);padding:30px;">La selva está vacía aquí... 🌿</p>');
+    return;
+  }
+  const list = document.createElement('div');
+  list.className = 'movie-list';
+  list.innerHTML = data.map(item => `
+    <div class="movie-card" data-id="${item.id}" onclick="window.handleCardClick('${item.id}')">
+      ${item.status === 'maintenance' ? '<div class="badge-maintenance">Mantenimiento</div>' : ''}
+      <img src="${item.img}" alt="${item.title}" class="card-img" loading="lazy"
+        onerror="this.parentElement.style.border='2px solid #E74C3C'; this.src='https://via.placeholder.com/500x750/1a1a1a/E74C3C?text=Sin+Imagen';">
+      <div class="card-info">
+        <h3 class="card-title">${item.title}</h3>
+        <p class="card-meta">${item.year || 'Estreno'} • ★ ${item.rating || '4.8'}</p>
+      </div>
+    </div>
+  `).join('');
+  section.appendChild(list);
+}
+
 function renderRow(title, data) {
   const container = document.getElementById('main-content');
   if (!data || data.length === 0) return;
-
-  const rowHtml = `
-    <section class="category-row">
-      <div class="row-header">
-        <h2 class="row-title">${title}</h2>
-      </div>
-      <div class="movie-list">
-        ${data.map(item => `
-          <div class="movie-card" data-id="${item.id}" onclick="window.handleCardClick('${item.id}')">
-            ${item.status === 'maintenance' ? '<div class="badge-maintenance">Mantenimiento</div>' : ''}
-            <img src="${item.img}" alt="${item.title}" class="card-img" loading="lazy" onerror="this.src='https://via.placeholder.com/500x750?text=No+Poster'">
-            <div class="card-info">
-              <h3 class="card-title">${item.title}</h3>
-              <p class="card-meta">${item.year || 'Estreno'} • ★ ${item.rating || '4.8'}</p>
-            </div>
-          </div>
-        `).join('')}
-      </div>
-    </section>
-  `;
-  container.insertAdjacentHTML('beforeend', rowHtml);
+  const section = document.createElement('section');
+  section.className = 'category-row';
+  section.innerHTML = `<div class="row-header"><h2 class="row-title">${title}</h2></div>`;
+  container.appendChild(section);
+  _renderCardsInto(section, data);
 }
 
 // Admin: Render Inventory Table
+let _allInventoryItems = [];
+
 function renderInventory() {
   const list = document.getElementById('inventory-list');
-  const allMovies = [...movieDatabase.trending];
+  _allInventoryItems = [...movieDatabase.trending];
+  _renderInventoryRows(_allInventoryItems);
+}
 
-  list.innerHTML = allMovies.map(m => `
+function _renderInventoryRows(items) {
+  const list = document.getElementById('inventory-list');
+  const typeEmoji = { movie: '🎬', series: '🏆', live: '🔴' };
+  list.innerHTML = items.map(m => `
     <tr>
+      <td>${typeEmoji[m.type] || '🎬'}</td>
       <td>${m.title}</td>
       <td>
         <span style="color: ${m.status === 'healthy' ? '#2ECC71' : '#E74C3C'}">
-          ${m.status === 'healthy' ? '● Activo' : '● Mantenimiento'}
+          ${m.status === 'healthy' ? '● Activo' : '● Mant.'}
         </span>
       </td>
       <td>
@@ -150,6 +189,11 @@ function renderInventory() {
     </tr>
   `).join('');
 }
+
+window.filterInventory = (query) => {
+  const filtered = _allInventoryItems.filter(m => m.title.toLowerCase().includes(query.toLowerCase()));
+  _renderInventoryRows(filtered);
+};
 
 // TMDB Search Integration
 async function searchTMDB(query) {
@@ -393,7 +437,7 @@ document.addEventListener('DOMContentLoaded', () => {
       embed: document.getElementById('m-embed').value,
       year: document.getElementById('m-meta').value.split('/')[0].trim(),
       rating: document.getElementById('m-meta').value.split('/')[1]?.trim() || '4.8',
-      type: document.getElementById('m-tmdb-id').value ? 'movie' : 'live', // Auto-detection basica
+      type: document.getElementById('m-type').value || 'movie',
       status: 'healthy',
       createdAt: Date.now()
     };

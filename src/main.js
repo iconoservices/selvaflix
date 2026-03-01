@@ -206,9 +206,12 @@ function updateServer(serverKey) {
     default: url = `https://vidsrc.xyz/embed/movie?tmdb=${tmdbId}`;
   }
 
-  iframe.src = url;
-  // Probando los limites del Sandbox: Bloqueando popups pero permitiendo lo basico
-  iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-presentation');
+  // TESTING CONCLUSION:
+  // Vidsrc: Gives black screen 'Unavailable' or redirect error
+  // SuperEmbed: Throws 'Sandboxing is not allowed!' orange text message
+  // 2Embed: Video thumbnail loads, but Play button does absolutely nothing (popup blocked)
+  // Verdict: We must completely remove the sandbox attribute for any of them to work.
+  iframe.removeAttribute('sandbox');
 
   iframe.onload = () => {
     setTimeout(() => {

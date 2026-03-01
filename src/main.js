@@ -236,10 +236,10 @@ window.filterInventory = (query) => {
 };
 
 // TMDB Search Integration
-async function searchTMDB(query) {
+async function searchTMDB(query, isSuggestion = false) {
   if (!query) return;
   const resultsDiv = document.getElementById('tmdb-results');
-  resultsDiv.innerHTML = '<p style="color: var(--primary);">Buscando en Hollywood... 📡</p>';
+  if (!isSuggestion) resultsDiv.innerHTML = '<p style="color: var(--primary);">Buscando en Hollywood... 📡</p>';
 
   try {
     let data;
@@ -261,18 +261,28 @@ async function searchTMDB(query) {
       return;
     }
 
-    resultsDiv.innerHTML = data.results.slice(0, 5).map(m => {
-      const title = m.title || m.name || "Sin Título";
-      const date = m.release_date || m.first_air_date || "2024-01-01";
-      const type = m.media_type === 'tv' ? 'series' : 'movie';
-      return `
+    resultsDiv.innerHTML = (isSuggestion ? '<p style="width:100%; font-size:0.8rem; color:var(--primary); margin-bottom:5px;">💡 Sugerencias de Imagen:</p>' : '') +
+      data.results.slice(0, 5).map(m => {
+        const title = m.title || m.name || "Sin Título";
+        const type = m.media_type === 'tv' ? 'series' : 'movie';
+        const imgUrl = TMDB_IMG_URL + m.poster_path;
+
+        if (isSuggestion) {
+          return `
+          <div class="tmdb-item" onclick="window.suggestImage('${imgUrl}')" style="min-width: 80px;">
+            <img src="${imgUrl}" alt="${title}" style="height: 120px;" onerror="this.src='https://via.placeholder.com/80x120'">
+          </div>
+        `;
+        }
+
+        return `
         <div class="tmdb-item" onclick="window.selectTMDBMovie(${JSON.stringify(m).replace(/"/g, '&quot;')})">
-          <img src="${TMDB_IMG_URL + m.poster_path}" alt="${title}" onerror="this.src='https://via.placeholder.com/150x225'">
+          <img src="${imgUrl}" alt="${title}" onerror="this.src='https://via.placeholder.com/150x225'">
           <p style="font-size:0.7rem;">[${type === 'series' ? 'Serie' : 'Peli'}]</p>
           <p>${title}</p>
         </div>
       `;
-    }).join('');
+      }).join('');
   } catch (err) {
     resultsDiv.innerHTML = '<p style="color: #E74C3C;">Error al conectar con TMDB (Revisa el ID) 🐒</p>';
   }
@@ -451,8 +461,16 @@ window.editMovie = (id) => {
   document.getElementById('submit-btn').innerText = "¡Actualizar en la Selva! 🔄";
   document.getElementById('cancel-edit').style.display = "block";
 
+  // Sugerir imágenes automáticamente al editar
+  if (movie.title) searchTMDB(movie.title, true);
+
   // Hacer scroll al formulario
   document.getElementById('movie-form').scrollIntoView({ behavior: 'smooth' });
+};
+
+window.suggestImage = (url) => {
+  document.getElementById('m-img').value = url;
+  document.getElementById('m-img-preview').src = url;
 };
 
 function initApp() {

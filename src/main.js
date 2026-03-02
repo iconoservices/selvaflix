@@ -1111,6 +1111,8 @@ window.massSeedMovies = async (contentType) => {
       let url = `${TMDB_URL}/discover/${endpoint}?api_key=${TMDB_API_KEY}&language=${lang}&sort_by=popularity.desc&page=${pageNum}`;
       if (year && year !== '') url += `&${isTv ? 'first_air_date_year' : 'primary_release_year'}=${year}`;
       if (genre && genre !== '') url += `&with_genres=${genre}`;
+      const origLang = document.getElementById('discover-orig-lang')?.value || '';
+      if (origLang !== '') url += `&with_original_language=${origLang}`;
 
       const res = await fetch(url);
       if (!res.ok) throw new Error(`TMDB respondió con error ${res.status}`);

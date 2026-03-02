@@ -65,6 +65,25 @@
       <div class="content-sections" id="main-content">
         <!-- Rows will be injected here -->
       </div>
+
+      <nav class="bottom-nav">
+        <button class="bottom-nav-item active" id="btn-nav-home" onclick="window.setFilter('')">
+          <i>🏠</i>
+          <span>Inicio</span>
+        </button>
+        <button class="bottom-nav-item" id="btn-nav-movies" onclick="window.setFilter('movies')">
+          <i>🎬</i>
+          <span>Películas</span>
+        </button>
+        <button class="bottom-nav-item" id="btn-nav-series" onclick="window.setFilter('series')">
+          <i>🏆</i>
+          <span>Series</span>
+        </button>
+        <button class="bottom-nav-item" id="btn-nav-live" onclick="window.setFilter('live')">
+          <i>🔴</i>
+          <span>En Vivo</span>
+        </button>
+      </nav>
     </main>
 
     <!-- Se removieron los viejos containers de views, ahorra reusamos main-content 🍿 -->

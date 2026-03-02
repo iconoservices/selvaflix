@@ -136,12 +136,21 @@ function handleRouting() {
     renderInventory();
   } else {
     showView('home-view');
+    const hashVal = hash || '';
+
+    // Top filters
     const idMap = { '': 'filter-all', 'movies': 'filter-movies', 'series': 'filter-series', 'live': 'filter-live' };
     ['filter-all', 'filter-movies', 'filter-series', 'filter-live'].forEach(id => document.getElementById(id)?.classList.remove('active'));
-    document.getElementById(idMap[hash] || 'filter-all')?.classList.add('active');
+    document.getElementById(idMap[hashVal])?.classList.add('active');
+
+    // Bottom nav (Mobile)
+    const btmMap = { '': 'btn-nav-home', 'movies': 'btn-nav-movies', 'series': 'btn-nav-series', 'live': 'btn-nav-live' };
+    ['btn-nav-home', 'btn-nav-movies', 'btn-nav-series', 'btn-nav-live'].forEach(id => document.getElementById(id)?.classList.remove('active'));
+    document.getElementById(btmMap[hashVal])?.classList.add('active');
+
     const genreBar = document.getElementById('genre-bar');
-    if (genreBar) genreBar.style.display = (hash === 'movies' || hash === 'series') ? 'flex' : 'none';
-    initApp(hash, '');
+    if (genreBar) genreBar.style.display = (hashVal === 'movies' || hashVal === 'series') ? 'flex' : 'none';
+    initApp(hashVal, '');
   }
 }
 
@@ -813,15 +822,15 @@ function startWarningOverlay(movie) {
     if (skipBtn && !isAdmin) skipBtn.innerText = `Cerrando en ${timeLeft}...`;
 
     if (timeLeft <= 0) {
-      clearInterval(timer);
       finish();
     }
   }, 1000);
 
   function finish() {
-    clearInterval(timer);
+    if (timer) clearInterval(timer);
     localStorage.setItem(storageKey, 'true');
     if (adOverlay) adOverlay.style.display = 'none';
+    if (skipBtn) skipBtn.onclick = null; // Clear handler
     startPlayer(movie);
   }
 
@@ -944,10 +953,10 @@ function updateServer(serverKey, season = 1, episode = 1) {
 
     switch (serverKey) {
       case 'latino-1':
-        // Vidhide (Excelente para PelisPlus style)
+        // Vidhide (Excelente para PelisPlus style) - v1 es más compatible
         url = isSeries
-          ? `https://vidhideapi.com/v2/embed/tv?tmdb=${tmdbId}&season=${s}&episode=${e}&lang=es`
-          : `https://vidhideapi.com/v2/embed/movie?tmdb=${tmdbId}&lang=es`;
+          ? `https://vidhideapi.com/v1/embed/tv?tmdb=${tmdbId}&season=${s}&episode=${e}&lang=es`
+          : `https://vidhideapi.com/v1/embed/movie?tmdb=${tmdbId}&lang=es`;
         break;
       case 'latino-2':
         // Streamwish (Velocidad pura)

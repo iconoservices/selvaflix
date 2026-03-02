@@ -163,8 +163,21 @@ h3,
   }
 
   .filter-bar {
-    display: none !important;
-    /* Hide the top filter bar on mobile to use the bottom nav */
+    padding: 10px 15px;
+    background: var(--bg-deep);
+    border-bottom: 1px solid var(--glass-border);
+    margin-top: 70px;
+    /* Offset for navbar */
+    position: sticky;
+    top: 70px;
+    z-index: 100;
+  }
+
+  .filter-btn {
+    white-space: nowrap;
+    padding: 6px 14px;
+    font-size: 0.75rem;
+    flex-shrink: 0;
   }
 }
 

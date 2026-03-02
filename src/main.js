@@ -953,40 +953,40 @@ function updateServer(serverKey, season = 1, episode = 1) {
 
     switch (serverKey) {
       case 'latino-1':
-        // Vidhide (Excelente para PelisPlus style) - v1 es más compatible
-        url = isSeries
-          ? `https://vidhideapi.com/v1/embed/tv?tmdb=${tmdbId}&season=${s}&episode=${e}&lang=es`
-          : `https://vidhideapi.com/v1/embed/movie?tmdb=${tmdbId}&lang=es`;
-        break;
-      case 'latino-2':
-        // Streamwish (Velocidad pura)
-        url = isSeries
-          ? `https://awish.pro/e/tv/${tmdbId}/${s}/${episode}`
-          : `https://awish.pro/e/movie/${tmdbId}`;
-        break;
-      case 'latino-3':
-        // Voe.sx (Alta Calidad)
-        url = isSeries
-          ? `https://voe.sx/e/tv/${tmdbId}/${s}/${e}`
-          : `https://voe.sx/e/movie/${tmdbId}`;
-        break;
-      case 'latino-4':
-        // Netu (Clásico estable)
-        url = isSeries
-          ? `https://hls.netu.tv/e/tv/${tmdbId}/${s}/${e}`
-          : `https://hls.netu.tv/e/movie/${tmdbId}`;
-        break;
-      case 'latino-5':
-        // Vidsrc.me (El mejor fallback para auto-detección)
+        // Vidsrc.me (El líder en auto-detección de Latino)
         url = isSeries
           ? `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&season=${s}&episode=${e}&ds_lang=es`
           : `https://vidsrc.me/embed/movie?tmdb=${tmdbId}&ds_lang=es`;
         break;
-      case 'latino-6':
-        // Vidsrc.xyz (Backup)
+      case 'latino-2':
+        // Vidsrc.to (Famoso por su estabilidad)
+        url = isSeries
+          ? `https://vidsrc.to/embed/tv/${tmdbId}/${s}/${e}`
+          : `https://vidsrc.to/embed/movie/${tmdbId}`;
+        break;
+      case 'latino-3':
+        // Vidsrc.xyz (Genial para contenido nuevo)
         url = isSeries
           ? `https://vidsrc.xyz/embed/tv?tmdb=${tmdbId}&season=${s}&episode=${e}&ds_lang=es`
           : `https://vidsrc.xyz/embed/movie?tmdb=${tmdbId}&ds_lang=es`;
+        break;
+      case 'latino-4':
+        // Embed.su (Excelente motor alternativo)
+        url = isSeries
+          ? `https://embed.su/embed/tv/${tmdbId}/${s}/${e}`
+          : `https://embed.su/embed/movie/${tmdbId}`;
+        break;
+      case 'latino-5':
+        // Vidsrc.pro (Muy pocos anuncios)
+        url = isSeries
+          ? `https://vidsrc.pro/embed/tv?tmdb=${tmdbId}&season=${s}&episode=${e}`
+          : `https://vidsrc.pro/embed/movie?tmdb=${tmdbId}`;
+        break;
+      case 'latino-6':
+        // Multiembed (Busca en múltiples fuentes)
+        url = isSeries
+          ? `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${s}&e=${e}`
+          : `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1`;
         break;
       case 'english-1':
         url = isSeries

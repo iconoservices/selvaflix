@@ -19,6 +19,15 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 const moviesCol = collection(db, "movies");
 
+// --- Service Worker Registration ---
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('🌴 Selva PWA: Service Worker Activo'))
+      .catch(err => console.error('Error registrando SW:', err));
+  });
+}
+
 // --- TMDB API Config ---
 const TMDB_API_KEY = '15d2ea6d0dc1d476efbca3eba2b9bbfb'; // Clave publica para demos
 const TMDB_URL = 'https://api.themoviedb.org/3';
@@ -1803,23 +1812,114 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // PWA Install Prompt
+  // --- PWA ASYMMETRIC LOGIC (ZERO SPAM) ---
   const installBtn = document.getElementById('pwa-install-btn');
+  const smartBanner = document.getElementById('pwa-smart-banner');
+  const closeBanner = document.getElementById('pwa-banner-close');
+  const installBannerBtn = document.getElementById('pwa-banner-install-btn');
+  const iosGuide = document.getElementById('ios-install-guide');
+  const closeIosGuide = document.getElementById('ios-guide-close');
+
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+  // 1. Detect device
+  const isIos = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+
+  // 2. Courtship logic (Increment visits)
+  let visitCount = parseInt(localStorage.getItem('pwa_visit_count') || '0') + 1;
+  localStorage.setItem('pwa_visit_count', visitCount);
+  const lastVisit = parseInt(localStorage.getItem('pwa_last_visit') || '0');
+  const now = Date.now();
+  const timeSinceLastVisit = now - lastVisit;
+  localStorage.setItem('pwa_last_visit', now);
+
+  const shouldShowBanner = () => {
+    if (isStandalone) return false;
+    if (localStorage.getItem('pwa_installed')) return false;
+
+    // Visita 1: Despues de 5 segundos
+    if (visitCount === 1) return true;
+
+    // Visita 2: Scroll al 50% (handled via scroll listener)
+    if (visitCount === 2) return false;
+
+    // Visita 3: Tras 20 segundos (handled via timeout)
+    if (visitCount === 3) return false;
+
+    // Visita 4+: Una si, una no, o tras 48h
+    if (visitCount >= 4) {
+      const wait48h = timeSinceLastVisit > (48 * 60 * 60 * 1000);
+      return (visitCount % 2 === 0) || wait48h;
+    }
+    return false;
+  };
+
+  const showInstaller = () => {
+    if (isStandalone) return;
+    if (isIos) {
+      if (iosGuide) iosGuide.style.display = 'flex';
+    } else if (deferredPrompt) {
+      if (smartBanner) smartBanner.style.display = 'block';
+    }
+  };
+
+  // Listeners
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
-    if (installBtn) installBtn.style.display = 'flex';
+    if (installBtn) {
+      installBtn.style.display = 'flex';
+      installBtn.classList.add('pulse');
+    }
+
+    // Trigger courtship banners
+    if (shouldShowBanner()) {
+      setTimeout(showInstaller, 5000);
+    }
   });
 
+  // Visita 2: Scroll 50% logic
+  window.addEventListener('scroll', () => {
+    if (visitCount === 2 && !localStorage.getItem('pwa_banner_seen_v2')) {
+      const scrollPercent = (window.scrollY + window.innerHeight) / document.documentElement.scrollHeight;
+      if (scrollPercent > 0.5) {
+        localStorage.setItem('pwa_banner_seen_v2', 'true');
+        showInstaller();
+      }
+    }
+  });
+
+  // Visita 3: Timeout 20s
+  if (visitCount === 3) {
+    setTimeout(showInstaller, 20000);
+  }
+
+  // Action: Install Button Click
   if (installBtn) {
-    installBtn.addEventListener('click', async () => {
-      if (!deferredPrompt) return;
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        deferredPrompt = null;
-        installBtn.style.display = 'none';
+    installBtn.addEventListener('click', showInstaller);
+  }
+
+  if (installBannerBtn) {
+    installBannerBtn.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          deferredPrompt = null;
+          if (smartBanner) smartBanner.style.display = 'none';
+          if (installBtn) installBtn.style.display = 'none';
+          localStorage.setItem('pwa_installed', 'true');
+        }
       }
     });
   }
+
+  if (closeBanner) closeBanner.onclick = () => smartBanner.style.display = 'none';
+  if (closeIosGuide) closeIosGuide.onclick = () => iosGuide.style.display = 'none';
+
+  window.addEventListener('appinstalled', () => {
+    localStorage.setItem('pwa_installed', 'true');
+    if (installBtn) installBtn.style.display = 'none';
+    if (smartBanner) smartBanner.style.display = 'none';
+  });
 });

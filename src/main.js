@@ -1882,7 +1882,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Manejar Instalación
   const executeInstall = async () => {
-    if (!deferredPrompt) return;
+    if (!deferredPrompt) {
+      // Fallback para iOS o navegadores que no disparan el evento rápido
+      if (isStandalone) return;
+      alert("Para instalar SelvaFlix:\n\n📱 Android: Busca 'Instalar App' en el menú (⋮) de tu navegador.\n\n🍎 iPhone: Toca el botón 'Compartir' (↑) y elige 'Agregar a inicio'.");
+      return;
+    }
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
     if (outcome === 'accepted') {
@@ -1893,6 +1898,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     deferredPrompt = null;
   };
+
+  // Inicialización del botón de Navbar
+  if (navInstallBtn) {
+    navInstallBtn.style.display = isStandalone ? 'none' : 'flex';
+  }
 
   if (navInstallBtn) navInstallBtn.addEventListener('click', executeInstall);
   if (bannerInstallBtn) bannerInstallBtn.addEventListener('click', executeInstall);

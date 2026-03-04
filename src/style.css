@@ -243,17 +243,18 @@ h3,
 /* ─── PWA Radar Banner (Glassmorphism) ─────────────────────── */
 .pwa-banner {
   position: fixed;
-  bottom: -150px;
-  /* Hidden by default */
+  bottom: -200px;
+  /* Offset more to hide completely */
   left: 0;
   right: 0;
   padding: 15px;
-  z-index: 10001;
-  transition: bottom 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  z-index: 99999;
+  /* Max priority */
+  transition: bottom 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .pwa-banner.active {
-  bottom: 80px;
+  bottom: 85px !important;
   /* Above bottom nav */
 }
 

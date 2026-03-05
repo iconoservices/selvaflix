@@ -307,6 +307,33 @@ export const SelvaStream = {
         this.renderControls();
     },
 
+    // ── Centro de Seguridad y Recomendaciones ──
+    getProtectionData() {
+        const ua = navigator.userAgent;
+        if (/Android/i.test(ua)) {
+            return {
+                name: 'Descargar Brave (Recomendado)',
+                link: 'https://play.google.com/store/apps/details?id=com.brave.browser',
+                icon: '📱',
+                desc: 'Protege tu Android bloqueando pop-ups de raíz.'
+            };
+        } else if (/iPhone|iPad|iPod/i.test(ua)) {
+            return {
+                name: 'Instalar AdGuard iOS',
+                link: 'https://apps.apple.com/app/adguard-adblock-privacy/id1047223162',
+                icon: '🛡️',
+                desc: 'La mejor defensa para Safari contra publicidad móvil.'
+            };
+        } else {
+            return {
+                name: 'uBlock Origin (Lo mejor en PC)',
+                link: 'https://ublockorigin.com/',
+                icon: '💻',
+                desc: 'La extensión más potente y ligera para tu navegador.'
+            };
+        }
+    },
+
     renderControls() {
         const root = document.getElementById('player-controls-root');
         if (!root) return;
@@ -316,6 +343,7 @@ export const SelvaStream = {
         const activeBtn = document.querySelector('.server-btn.active');
         const currentServer = activeBtn ? activeBtn.dataset.server : 'latino-5';
         const isCompatibleMode = localStorage.getItem(`selva_compat_${currentServer}`) === 'true';
+        const protection = this.getProtectionData();
 
         root.innerHTML = `
             <div class="player-controls">
@@ -350,6 +378,14 @@ export const SelvaStream = {
                     <button class="shield-btn ${isCompatibleMode ? 'shield-warning' : 'shield-protected'}" onclick="SelvaStream.toggleCompatibleMode()">
                         ${isCompatibleMode ? '⚠️ Modo Compatible (Anuncios)' : '🛡️ Modo Selva (Protegido)'}
                     </button>
+                </div>
+
+                <div class="protection-center">
+                    <h4>🛡️ Centro de Protección Selva</h4>
+                    <p>${protection.desc}</p>
+                    <a href="${protection.link}" target="_blank" class="protection-link">
+                        ${protection.icon} ${protection.name}
+                    </a>
                 </div>
 
                 <a id="selva-download-btn" href="#" target="_blank" class="selva-download-btn" style="display:none;">

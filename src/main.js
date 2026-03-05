@@ -49,7 +49,6 @@ let currentHeroIndex = 0;
 let heroTimer = null;
 let currentPlayerMovie = null;
 window._brokenIds = new Set();
-window._hasSeenWarning = false;
 let pendingSeeds = [];
 let deferredPrompt;
 
@@ -181,22 +180,6 @@ window.setGenre = (genreId) => {
   initApp(_currentFilter, genreId);
 };
 
-// Admin: Select all visible inventory cards
-window.selectAllVisible = (checked = true) => {
-  document.querySelectorAll('#inventory-grid .selva-check').forEach(cb => {
-    cb.checked = checked;
-  });
-  window.updateSelectedCount();
-};
-
-window.updateSelectedCount = () => {
-  const selected = document.querySelectorAll('.selva-check:checked').length;
-  const btn = document.getElementById('btn-delete-selected');
-  const countSpan = document.getElementById('selected-count');
-
-  if (countSpan) countSpan.innerText = selected;
-  if (btn) btn.style.display = selected > 0 ? 'inline-block' : 'none';
-};
 
 function showView(active) {
   const adminEl = document.getElementById('admin-view');
@@ -411,7 +394,6 @@ function renderGallery(title, groups) {
 let _allInventoryItems = [];
 let _inventoryPage = 1;
 const _inventoryPerPage = 50;
-window._brokenIds = new Set();
 
 function renderInventory() {
   _allInventoryItems = [...movieDatabase.trending].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
@@ -740,8 +722,9 @@ window.deleteSelectedCoconas = async () => {
   if (bar) bar.style.width = "0%";
 };
 
-window.selectAllCoconas = (checked) => {
+window.selectAllVisible = (checked) => {
   document.querySelectorAll('.selva-check').forEach(c => c.checked = checked);
+  window.updateSelectedCount();
 };
 
 window.runBotHealthCheck = async () => {
@@ -857,7 +840,6 @@ window.searchTMDB = async function (query, isSuggestion = false) {
 }
 
 // Re-defining as global window.searchTMDB for consistency
-window.searchTMDB = window.searchTMDB;
 
 window.selectTMDBMovie = (index) => {
   const m = _tmdbLastResults[index];
@@ -987,48 +969,6 @@ window.deleteMovie = async (id) => {
   }
 };
 
-window.selectAllCoconas = (isChecked) => {
-  document.querySelectorAll('.coco-check').forEach(cb => cb.checked = isChecked);
-};
-
-window.deleteSelectedCoconas = async () => {
-  const checkboxes = document.querySelectorAll('.coco-check:checked');
-  if (checkboxes.length === 0) { alert("¡No has seleccionado ninguna cocoña! 🐒"); return; }
-
-  if (confirm(`¿Seguro que quieres quemar estas ${checkboxes.length} coconas de la selva? 🔥`)) {
-    try {
-      const btn = document.getElementById('btn-delete-selected');
-      if (btn) btn.innerText = "Borrando... 🔥";
-      for (const cb of checkboxes) {
-        const id = cb.dataset.id;
-        if (id) await deleteDoc(doc(db, "movies", id));
-      }
-      alert("¡Limpieza completada! 🧹🪓");
-    } catch (e) {
-      console.error(e);
-      alert("Algo falló al borrar. 🐒");
-    } finally {
-      const btn = document.getElementById('btn-delete-selected');
-      if (btn) btn.innerHTML = "🗑️ Borrar Seleccionados";
-    }
-  }
-};
-
-window.bulkDeleteCurrentFilter = () => {
-  const type = document.getElementById('inventory-type-filter').value;
-  const category = document.getElementById('inventory-filter').value;
-
-  if (category !== 'broken' && category !== 'missing') {
-    alert("Para usar 'Borrar Errores', primero debes filtrar la Salud por 'Con Errores' o 'Sin ID TMDB'. 🐒");
-    return;
-  }
-
-  // Select all checkboxes that are currently VISIBLE in the inventory list and check them
-  document.querySelectorAll('.coco-check').forEach(cb => cb.checked = true);
-
-  // Call the delete logic
-  window.deleteSelectedCoconas();
-};
 
 window.editMovie = (id) => {
   const movie = movieDatabase.trending.find(m => m.id === id);
@@ -1681,7 +1621,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Pegado directo de imágenes (Clipboard)
-  document.getElementById('m-img').addEventListener('paste', (e) => {
+  document.getElementById('m-img')?.addEventListener('paste', (e) => {
     const items = (e.clipboardData || e.originalEvent.clipboardData).items;
     for (const item of items) {
       if (item.type.indexOf('image') !== -1) {

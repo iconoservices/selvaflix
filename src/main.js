@@ -45,6 +45,7 @@ const TMDB_IMG_URL = 'https://image.tmdb.org/t/p/w500';
 
 let movieDatabase = { trending: [] };
 let heroPool = [];
+let currentHeroIndex = 0;
 let currentPlayerMovie = null;
 window._brokenIds = new Set();
 window._hasSeenWarning = false;
@@ -1338,10 +1339,9 @@ window.confirmBatchSeed = async () => {
 };
 
 let heroTimer = null;
-let currentHeroIndex = 0;
 
 function updateHeroCarousel() {
-  if (heroPool.length === 0) return;
+  if (!heroPool || heroPool.length === 0) return;
   const section = document.getElementById('hero-section');
   if (!section) return;
 

@@ -50,10 +50,10 @@ window._hasSeenWarning = false;
 let pendingSeeds = [];
 let deferredPrompt;
 
-// --- Firebase Listener (Real-time sync) ---
+// --- Data Loading System (15-Minute Cache) v4.2 ---
 /* 
-   🔗 El "Hilo de Ariadna": Mantenemos una conexión viva con la base de datos. 
-   Si el Admin añade una peli, el frontend se entera sin que el usuario mueva un dedo.
+   🔗 El "Hilo de Ariadna": Mantenemos una conexión inteligente con la base de datos.
+   Para evitar el sangrado de lecturas, servimos un caché de 15 minutos a los exploradores comunes.
 */
 const yearSelect = document.getElementById('discover-year');
 const mYearSelect = document.getElementById('m-year');
@@ -64,20 +64,59 @@ if (yearSelect || mYearSelect) {
     if (mYearSelect) mYearSelect.insertAdjacentHTML('beforeend', `<option value="${i}">${i}</option>`);
   }
 }
-onSnapshot(moviesCol, (snapshot) => {
-  const isFirstLoad = movieDatabase.trending.length === 0;
-  movieDatabase.trending = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 
-  // Actualización silenciosa de estadísticas si estamos en modo admin
+async function loadSelvaFlixData() {
+  const CACHE_KEY = 'selvaflix_data_cache';
+  const CACHE_TIME_KEY = 'selvaflix_data_timestamp';
+  const FIFTEEN_MINUTES = 15 * 60 * 1000;
+
+  // 1. Revisar si hay un caché válido
+  const cachedData = sessionStorage.getItem(CACHE_KEY);
+  const cacheTimestamp = sessionStorage.getItem(CACHE_TIME_KEY);
+  const now = Date.now();
+
+  let data = null;
+
+  if (cachedData && cacheTimestamp && (now - parseInt(cacheTimestamp) < FIFTEEN_MINUTES)) {
+    console.log("🟢 Sirviendo datos desde el Caché de Supervivencia (0 lecturas a Firebase)");
+    data = JSON.parse(cachedData);
+  } else {
+    // 2. Si no hay caché o caducó, pedir a Firebase
+    console.log("🔥 Haciendo expedición a Firebase (Solicitando datos frescos)");
+    try {
+      const snapshot = await getDocs(moviesCol);
+      data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      // Guardar en el búnker (SessionStorage) para que viva mientras la pestaña esté abierta
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify(data));
+      sessionStorage.setItem(CACHE_TIME_KEY, now.toString());
+    } catch (error) {
+      console.error("❌ Error en la expedición de datos:", error);
+      // Fallback: Si Firebase falla, intentar cargar el último caché aunque esté viejo
+      if (cachedData) {
+        console.warn("⚠️ Usando caché antiguo por fallo de conexión.");
+        data = JSON.parse(cachedData);
+      } else {
+        return; // Muerte súbita, no hay datos
+      }
+    }
+  }
+
+  // 3. Procesar e inyectar
+  const isFirstLoad = movieDatabase.trending.length === 0;
+  movieDatabase.trending = data;
+
   if (document.getElementById('admin-view')?.style.display === 'block') {
     _updateDetailedStats(movieDatabase.trending);
   }
 
-  // Solo renderizamos automáticamente en la carga inicial
   if (isFirstLoad) {
     handleRouting();
   }
-});
+}
+
+// Iniciar recolección al cargar
+loadSelvaFlixData();
 
 
 // ─── Filter / Routing ────────────────────────────────────────────

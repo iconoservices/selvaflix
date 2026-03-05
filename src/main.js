@@ -281,23 +281,40 @@ function handleGlobalSearch(query) {
   }
 }
 
-// Render Movie Rows
+// Render Movie Rows in Chunks (v4.4)
 function _renderCardsInto(container, data) {
   if (!data || data.length === 0) {
     container.innerHTML = '<p style="color:var(--text-muted);padding:30px;">La selva está vacía aquí... 🌿</p>';
     return;
   }
-  container.innerHTML = data.map(item => `
-    <div class="movie-card" data-id="${item.id}" onclick="window.handleCardClick('${item.id}')">
-      ${item.status === 'maintenance' ? '<div class="badge-maintenance">Mantenimiento</div>' : ''}
-      <img src="${item.img}" alt="${item.title}" class="card-img" loading="lazy"
-        onerror="this.parentElement.style.border='2px solid #E74C3C'; this.src='https://via.placeholder.com/500x750/1a1a1a/E74C3C?text=Sin+Imagen';">
-      <div class="card-info">
-        <h3 class="card-title">${item.title}</h3>
-        <p class="card-meta">${item.year || 'Estreno'} • ★ ${item.rating || '4.8'}</p>
-      </div>
-    </div>
-  `).join('');
+
+  const CHUNK_SIZE = 12;
+  let currentIndex = 0;
+  container.innerHTML = '';
+
+  function renderNextChunk() {
+    const chunk = data.slice(currentIndex, currentIndex + CHUNK_SIZE);
+    const html = chunk.map(item => `
+        <div class="movie-card" data-id="${item.id}" onclick="window.handleCardClick('${item.id}')">
+          ${item.status === 'maintenance' ? '<div class="badge-maintenance">Mantenimiento</div>' : ''}
+          <img src="${item.img}" alt="${item.title}" class="card-img" loading="lazy"
+            onerror="this.parentElement.style.border='2px solid #E74C3C'; this.src='https://via.placeholder.com/500x750/1a1a1a/E74C3C?text=Sin+Imagen';">
+          <div class="card-info">
+            <h3 class="card-title">${item.title}</h3>
+            <p class="card-meta">${item.year || 'Estreno'} • ★ ${item.rating || '4.8'}</p>
+          </div>
+        </div>
+      `).join('');
+
+    container.insertAdjacentHTML('beforeend', html);
+    currentIndex += CHUNK_SIZE;
+
+    if (currentIndex < data.length) {
+      requestAnimationFrame(renderNextChunk);
+    }
+  }
+
+  renderNextChunk();
 }
 
 function renderRow(title, data, seeAllHash = '') {
@@ -337,7 +354,7 @@ function renderRow(title, data, seeAllHash = '') {
   }
 }
 
-// Galería de página completa (para filtros de películas / series)
+// Galería de página completa con Chunking (v4.4)
 function renderGallery(title, groups) {
   const container = document.getElementById('main-content');
   container.innerHTML = '';
@@ -355,17 +372,32 @@ function renderGallery(title, groups) {
     container.appendChild(section);
 
     const grid = section.querySelector('.gallery-grid');
-    grid.innerHTML = items.map(item => `
-      <div class="movie-card gallery-card" data-id="${item.id}" onclick="window.handleCardClick('${item.id}')">
-        ${item.status === 'maintenance' ? '<div class="badge-maintenance">Mantenimiento</div>' : ''}
-        <img src="${item.img}" alt="${item.title}" class="card-img" loading="lazy"
-          onerror="this.parentElement.style.border='2px solid #E74C3C'; this.src='https://via.placeholder.com/500x750/1a1a1a/E74C3C?text=Sin+Imagen';">
-        <div class="card-info">
-          <h3 class="card-title">${item.title}</h3>
-          <p class="card-meta">${item.year || 'Estreno'} • ★ ${item.rating || '4.8'}</p>
+    const CHUNK_SIZE = 12;
+    let currentIndex = 0;
+
+    function renderNextChunk() {
+      const chunk = items.slice(currentIndex, currentIndex + CHUNK_SIZE);
+      const html = chunk.map(item => `
+        <div class="movie-card gallery-card" data-id="${item.id}" onclick="window.handleCardClick('${item.id}')">
+          ${item.status === 'maintenance' ? '<div class="badge-maintenance">Mantenimiento</div>' : ''}
+          <img src="${item.img}" alt="${item.title}" class="card-img" loading="lazy"
+            onerror="this.parentElement.style.border='2px solid #E74C3C'; this.src='https://via.placeholder.com/500x750/1a1a1a/E74C3C?text=Sin+Imagen';">
+          <div class="card-info">
+            <h3 class="card-title">${item.title}</h3>
+            <p class="card-meta">${item.year || 'Estreno'} • ★ ${item.rating || '4.8'}</p>
+          </div>
         </div>
-      </div>
-    `).join('');
+      `).join('');
+
+      grid.insertAdjacentHTML('beforeend', html);
+      currentIndex += CHUNK_SIZE;
+
+      if (currentIndex < items.length) {
+        requestAnimationFrame(renderNextChunk);
+      }
+    }
+
+    renderNextChunk();
   });
 
   if (container.children.length === 0) {
@@ -1388,13 +1420,36 @@ function startHeroAutoRotation() {
   }, 10000); // Rota cada 10 segundos
 }
 
+function renderSkeletons() {
+  const container = document.getElementById('main-content');
+  if (!container) return;
+  container.innerHTML = `
+    <div class="skeleton-row">
+      <div class="skeleton-title"></div>
+      <div style="display:flex; gap:15px; overflow:hidden;">
+        ${'<div class="skeleton-card"></div>'.repeat(6)}
+      </div>
+    </div>
+    <div class="skeleton-row">
+      <div class="skeleton-title"></div>
+      <div style="display:flex; gap:15px; overflow:hidden;">
+        ${'<div class="skeleton-card"></div>'.repeat(6)}
+      </div>
+    </div>
+  `;
+}
+
 function initApp(filterType = '', genreId = '') {
   if (!movieDatabase.trending.length) return;
-  // Actividad: Vista de página
-  collectUserData("page_view", { page: filterType || 'home' });
 
   const container = document.getElementById('main-content');
-  container.innerHTML = '';
+  if (container) {
+    container.innerHTML = '';
+    renderSkeletons(); // Flash visual instantáneo
+  }
+
+  // Actividad: Vista de página
+  collectUserData("page_view", { page: filterType || 'home' });
 
   // ORDEN INTELIGENTE: Salud -> Fecha de Creación
   let allContent = [...movieDatabase.trending].sort((a, b) => {
@@ -1422,6 +1477,7 @@ function initApp(filterType = '', genreId = '') {
 
   heroPool = heroPool.slice(0, 3);
 
+  // Hero Carousel Priority (v4.4)
   if (heroPool.length > 0) {
     document.getElementById('hero-section').style.display = 'flex';
     updateHeroCarousel();
@@ -1436,7 +1492,7 @@ function initApp(filterType = '', genreId = '') {
     if (movies.length > 0) {
       renderGallery('🎬 Películas', [{ label: `🎬 Películas${genreId ? ' · filtradas' : ''}`, items: movies }]);
     } else {
-      container.insertAdjacentHTML('beforeend', '<p style="padding:80px;text-align:center;color:var(--text-muted);">No hay películas con ese filtro 🌿</p>');
+      if (container) container.innerHTML = '<p style="padding:80px;text-align:center;color:var(--text-muted);">No hay películas con ese filtro 🌿</p>';
     }
 
   } else if (filterType === 'series') {
@@ -1448,6 +1504,7 @@ function initApp(filterType = '', genreId = '') {
     ]);
 
   } else if (filterType === 'live') {
+    if (container) container.innerHTML = '';
     renderRow('Canales en Vivo 🔴', []);
     const sec = container.lastElementChild;
     const list = sec.querySelector('.movie-list');
@@ -1456,6 +1513,7 @@ function initApp(filterType = '', genreId = '') {
 
   } else {
     // HOME: filas de muestra + 'Ver todos'
+    if (container) container.innerHTML = ''; // Los skeletons cumplieron su misión
     const movies = allContent.filter(c => c.type === 'movie' || !c.type).slice(0, 12);
     const series = allContent.filter(c => c.type === 'series' || c.type === 'tv').slice(0, 12);
     const anime = allContent.filter(c => c.type === 'anime').slice(0, 12);

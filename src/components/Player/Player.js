@@ -69,6 +69,19 @@ export const SelvaStream = {
                 <span id="adblock-text">🛡️ <b>¿Publicidad Intrusiva?</b> Para disfrutar la selva en paz usa </span>
                 <a href="https://brave.com/" target="_blank" style="color: var(--primary);">Brave Browser</a>.
             </div>
+
+            <!-- 🧪 Custom Safety Notice (v4.0) -->
+            <div id="selva-safety-modal" class="safety-notice-modal">
+                <div class="notice-card">
+                    <span class="notice-icon">🛡️</span>
+                    <h3>Activar Escudo Total</h3>
+                    <p>Vas a blindar el reproductor al 100%. Esto bloqueará la publicidad, pero <b>podría evitar que algunos videos carguen</b> adecuadamente.<br><br>¿Deseas activar la protección máxima?</p>
+                    <div class="notice-actions">
+                        <button class="notice-btn btn-cancel" onclick="SelvaStream.closeSafetyModal()">Cancelar</button>
+                        <button class="notice-btn btn-confirm" onclick="SelvaStream.confirmShieldActivation()">Activar Blindaje</button>
+                    </div>
+                </div>
+            </div>
         `;
 
         // Eventos básicos
@@ -241,12 +254,14 @@ export const SelvaStream = {
 
         const cleanUrl = this.sanitizeUrl(url);
 
-        // ── Pacto de Carga (Sandbox Dinámico) ──
-        const isCompatibleMode = localStorage.getItem(`selva_compat_${serverKey}`) === 'true';
-        if (isCompatibleMode) {
-            iframe.setAttribute('sandbox', 'allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-presentation');
-        } else {
+        // ── Lógica Inversa v4.0 (Default Compatible / Popups ON) ──
+        const isShieldOn = localStorage.getItem(`selva_shield_${serverKey}`) === 'true';
+        if (isShieldOn) {
+            // Modo Protegido: Sandbox Estricto
             iframe.setAttribute('sandbox', 'allow-forms allow-scripts allow-same-origin allow-popups-to-escape-sandbox allow-presentation');
+        } else {
+            // Modo Compatible (PREDETERMINADO): Sandbox con Popups
+            iframe.setAttribute('sandbox', 'allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-presentation');
         }
 
         iframe.src = cleanUrl;
@@ -278,29 +293,43 @@ export const SelvaStream = {
         }
     },
 
-    // ── Shield Toggle (Interruptor de Protección) ──
-    toggleCompatibleMode() {
+    // ── Shield Toggle v4.0 (Custom UI) ──
+    toggleShield() {
         const activeBtn = document.querySelector('.server-btn.active');
         if (!activeBtn) return;
         const serverKey = activeBtn.dataset.server;
-        const isCurrentlyCompatible = localStorage.getItem(`selva_compat_${serverKey}`) === 'true';
+        const isShieldOn = localStorage.getItem(`selva_shield_${serverKey}`) === 'true';
 
-        if (!isCurrentlyCompatible) {
-            // El usuario quiere relajar la seguridad
-            const consent = confirm('⚠️ ATENCIÓN:\n\nVas a entrar en Modo Compatible.\nEsto permite que el video cargue, pero el servidor podría lanzarte ventanas de publicidad.\n\nSelvaFlix no podrá bloquear los pop-ups en este modo para este servidor.\n\n¿Estás de acuerdo con asumir el riesgo?');
-            if (consent) {
-                localStorage.setItem(`selva_compat_${serverKey}`, 'true');
-                console.warn(`🔓 Pacto de Carga: Modo Compatible ACTIVADO para ${serverKey}.`);
-            } else {
-                return; // Acción cancelada por el usuario
-            }
+        if (!isShieldOn) {
+            // Abrir Modal de Aviso personalizado en lugar de confirm()
+            const modal = document.getElementById('selva-safety-modal');
+            modal.classList.add('active');
         } else {
-            // El usuario quiere volver a blindarse
-            localStorage.removeItem(`selva_compat_${serverKey}`);
-            console.log(`🛡️ Modo Selva: Escudos RESTAURADOS para ${serverKey}.`);
+            // Desactivar escudo es directo
+            localStorage.removeItem(`selva_shield_${serverKey}`);
+            console.log(`🔓 Modo Compatible: Escudos relajados para ${serverKey}.`);
+            this.refreshState(serverKey);
         }
+    },
 
-        // Recargar con el nuevo estado (el iframe y el toggle se actualizan)
+    confirmShieldActivation() {
+        const activeBtn = document.querySelector('.server-btn.active');
+        if (!activeBtn) return;
+        const serverKey = activeBtn.dataset.server;
+
+        localStorage.setItem(`selva_shield_${serverKey}`, 'true');
+        console.warn(`🛡️ Modo Seguro: Escudos al 100% para ${serverKey}.`);
+
+        this.closeSafetyModal();
+        this.refreshState(serverKey);
+    },
+
+    closeSafetyModal() {
+        const modal = document.getElementById('selva-safety-modal');
+        modal.classList.remove('active');
+    },
+
+    refreshState(serverKey) {
         const s = document.getElementById('selva-season')?.value || 1;
         const e = document.getElementById('selva-episode')?.value || 1;
         this.updateServer(serverKey, s, e);
@@ -342,7 +371,7 @@ export const SelvaStream = {
 
         const activeBtn = document.querySelector('.server-btn.active');
         const currentServer = activeBtn ? activeBtn.dataset.server : 'latino-5';
-        const isCompatibleMode = localStorage.getItem(`selva_compat_${currentServer}`) === 'true';
+        const isShieldOn = localStorage.getItem(`selva_shield_${currentServer}`) === 'true';
         const protection = this.getProtectionData();
 
         root.innerHTML = `
@@ -375,8 +404,8 @@ export const SelvaStream = {
                 </div>
 
                 <div class="shield-toggle-container">
-                    <button class="shield-btn ${isCompatibleMode ? 'shield-warning' : 'shield-protected'}" onclick="SelvaStream.toggleCompatibleMode()">
-                        ${isCompatibleMode ? '⚠️ Modo Compatible (Anuncios)' : '🛡️ Modo Selva (Protegido)'}
+                    <button class="shield-btn ${isShieldOn ? 'shield-protected' : 'shield-warning'}" onclick="SelvaStream.toggleShield()">
+                        ${isShieldOn ? '🛡️ Escudo al 100% (Modo Seguro)' : '🛡️ Escudo Desactivado (Compatible)'}
                     </button>
                 </div>
 

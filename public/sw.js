@@ -1,4 +1,9 @@
-const CACHE_NAME = 'selvaflix-cache-v1.2';
+/* 
+   🌊 Estrategia "Network First": 
+   Priorizamos siempre la fruta fresca del árbol (datos de la red). 
+   Si el árbol está seco (sin internet), sacamos las conservas de la mochila (caché).
+*/
+const CACHE_NAME = 'selvaflix-cache-v1.3';
 const STATIC_ASSETS = [
     '/',
     '/index.html',

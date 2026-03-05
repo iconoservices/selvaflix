@@ -1,4 +1,8 @@
 import './style.css'
+/* 
+   🌴 Perla de Sabiduría: Firebase es nuestro "Puesto de Vigilancia". 
+   Mantiene un ojo en los datos y nos avisa al instante cuando algo cambia en la selva.
+*/
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, query, orderBy, limit, getDocs } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -20,6 +24,10 @@ const storage = getStorage(app);
 const moviesCol = collection(db, "movies");
 
 // --- Service Worker Registration ---
+/* 
+   🧹 El "Conserje Invisible": Este pequeño script corre en segundo plano. 
+   Su trabajo es asegurarse de que la app abra rápido y tenga comida (datos) incluso si cae un diluvio y se va el internet.
+*/
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
@@ -40,7 +48,11 @@ window._hasSeenWarning = false;
 let pendingSeeds = [];
 let deferredPrompt;
 
-// Firebase Listener (Real-time sync)
+// --- Firebase Listener (Real-time sync) ---
+/* 
+   🔗 El "Hilo de Ariadna": Mantenemos una conexión viva con la base de datos. 
+   Si el Admin añade una peli, el frontend se entera sin que el usuario mueva un dedo.
+*/
 const yearSelect = document.getElementById('discover-year');
 const mYearSelect = document.getElementById('m-year');
 if (yearSelect || mYearSelect) {
@@ -111,14 +123,14 @@ window.setGenre = (genreId) => {
 
 // Admin: Select all visible inventory cards
 window.selectAllVisible = (checked = true) => {
-  document.querySelectorAll('#inventory-grid .coco-check').forEach(cb => {
+  document.querySelectorAll('#inventory-grid .selva-check').forEach(cb => {
     cb.checked = checked;
   });
   window.updateSelectedCount();
 };
 
 window.updateSelectedCount = () => {
-  const selected = document.querySelectorAll('.coco-check:checked').length;
+  const selected = document.querySelectorAll('.selva-check:checked').length;
   const btn = document.getElementById('btn-delete-selected');
   const countSpan = document.getElementById('selected-count');
 
@@ -344,16 +356,16 @@ function _renderInventoryRows(items) {
   if (!grid) return;
 
   if (items.length === 0) {
-    grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:50px; color:var(--text-muted); background:rgba(255,255,255,0.02); border-radius:15px; border:1px dashed #333;">No se encontraron coconas con ese filtro... 🍃🥥</div>';
+    grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:50px; color:var(--text-muted); background:rgba(255,255,255,0.02); border-radius:15px; border:1px dashed #333;">No se encontraron tesoros con ese filtro... 🍃🕵️‍♂️</div>';
     if (loadMore) loadMore.style.display = 'none';
-    if (status) status.innerText = "0 coconas encontradas.";
+    if (status) status.innerText = "0 títulos encontrados.";
     return;
   }
 
   const end = _inventoryPage * _inventoryPerPage;
   const visibleItems = items.slice(0, end);
 
-  if (status) status.innerText = `Mostrando ${visibleItems.length} de ${items.length} coconas totales.`;
+  if (status) status.innerText = `Mostrando ${visibleItems.length} de ${items.length} títulos totales.`;
   if (loadMore) loadMore.style.display = end < items.length ? 'block' : 'none';
 
   grid.innerHTML = visibleItems.map(m => {
@@ -363,7 +375,7 @@ function _renderInventoryRows(items) {
 
     return `
       <div class="admin-inv-card" data-id="${m.id}" style="background: rgba(255,255,255,0.03); border: 1px solid ${isBroken ? '#E74C3C' : 'var(--glass-border)'}; border-radius: 12px; padding: 10px; position: relative; transition: transform 0.2s ease; border: 1px solid rgba(255,255,255,0.05);">
-        <input type="checkbox" class="coco-check" data-id="${m.id}" onchange="window.updateSelectedCount()" style="position: absolute; top: 10px; right: 10px; z-index: 5; width: 16px; height: 16px; cursor:pointer; accent-color: var(--primary);">
+        <input type="checkbox" class="selva-check" data-id="${m.id}" onchange="window.updateSelectedCount()" style="position: absolute; top: 10px; right: 10px; z-index: 5; width: 16px; height: 16px; cursor:pointer; accent-color: var(--primary);">
         
         <div style="position: relative; aspect-ratio: 2/3; border-radius: 8px; overflow: hidden; margin-bottom: 8px; background: #111; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
             <img src="${m.img}" 
@@ -394,7 +406,7 @@ function _renderInventoryRows(items) {
 }
 
 window.updateSelectedCount = () => {
-  const selected = document.querySelectorAll('.coco-check:checked').length;
+  const selected = document.querySelectorAll('.selva-check:checked').length;
   const btn = document.getElementById('btn-delete-selected');
   const countSpan = document.getElementById('selected-count');
   if (btn && countSpan) {
@@ -579,7 +591,7 @@ window.bulkDeleteCurrentFilter = async () => {
   );
 
   if (toDelete.length === 0) return;
-  if (!confirm(`¿Estás seguro de borrar ${toDelete.length} coconas con error de tu selva? 🌴🗑️`)) return;
+  if (!confirm(`¿Estás seguro de borrar ${toDelete.length} títulos con error de tu selva? 🌴🗑️`)) return;
 
   const overlay = document.getElementById('delete-progress-overlay');
   const bar = document.getElementById('progress-bar-fill');
@@ -606,8 +618,8 @@ window.bulkDeleteCurrentFilter = async () => {
 };
 
 window.deleteSelectedCoconas = async () => {
-  const selected = Array.from(document.querySelectorAll('.coco-check:checked')).map(cb => cb.dataset.id);
-  if (selected.length === 0) { alert("¡No has seleccionado ninguna cocoña para pelar! 🐒"); return; }
+  const selected = Array.from(document.querySelectorAll('.selva-check:checked')).map(cb => cb.dataset.id);
+  if (selected.length === 0) { alert("¡No has seleccionado ninguna joya para pelar! 🐒"); return; }
 
   const confirmed = confirm(`¿Estás seguro de que quieres eliminar ${selected.length} elementos para siempre? 🔥`);
   if (!confirmed) return;
@@ -637,7 +649,7 @@ window.deleteSelectedCoconas = async () => {
 };
 
 window.selectAllCoconas = (checked) => {
-  document.querySelectorAll('.coco-check').forEach(c => c.checked = checked);
+  document.querySelectorAll('.selva-check').forEach(c => c.checked = checked);
 };
 
 window.runBotHealthCheck = async () => {
@@ -693,7 +705,7 @@ window.runBotHealthCheck = async () => {
 
   setTimeout(() => {
     if (overlay) overlay.style.display = 'none';
-    alert(`🤖 INFORME DE LA EXPEDICIÓN:\n- Revisadas: ${items.length} coconas.\n- Detectadas con fallas/caídas: ${brokenCount}.\n\nUsa el filtro 'Salud -> Con Errores' para limpiarlas.`);
+    alert(`🤖 INFORME DE LA EXPEDICIÓN:\n- Revisadas: ${items.length} títulos.\n- Detectadas con fallas/caídas: ${brokenCount}.\n\nUsa el filtro 'Salud -> Con Errores' para limpiarlas.`);
     if (window.filterInventoryByCategory) window.filterInventoryByCategory();
   }, 800);
 };

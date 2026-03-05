@@ -4,6 +4,38 @@ Este documento es el registro oficial de cambios, errores solucionados y decisio
 
 ---
 
+## [1.6] - 2026-03-04
+### 🛡️ Punto de Restauración (Safe Point)
+- **Resumen**: Backup completo antes de la **Operación: Caza del Vampiro** (Optimización de Firebase).
+- **Estado**: La app SelvaFlix v1.5 funciona correctamente pero presenta un consumo excesivo de cuota en Firebase. Este es el último punto estable antes de la reescritura de los Listeners.
+
+---
+
+
+## [1.5] - 2026-03-04
+### 🧠 Implementación de Memoria y Conocimiento (GPS Pro)
+- **Resumen**: Establecimiento de la arquitectura de documentación proactiva y gestión de conocimiento.
+- **Cambios**:
+  - `MAP.md`: Creación del GPS del proyecto para navegación rápida y decisiones técnicas.
+  - `KI_PWA_STRATEGY.md`: Documentación de los "secretos" de la implementación PWA asimétrica.
+  - `src/main.js` & `public/sw.js`: Inyección de "Perlas de Sabiduría" (comentarios con contexto y metáforas).
+  - Adoptado el rol de **Arquitecto de Memoria Pro**.
+- **UX/PX Radar**: Mejora radical en la Experiencia del Desarrollador (PX) para garantizar que el proyecto sea mantenible a largo plazo.
+
+## [1.4] - 2026-03-04
+### 🚀 Sincronización Cerebral y Rebranding: SelvaFlix
+- **Resumen**: Transición completa de la identidad del proyecto de "Cocona TV" a **SelvaFlix**.
+- **Cambios**:
+  - `package.json`: Actualizado nombre del proyecto a `selvaflix`.
+  - `index.html`: Sincronización de títulos, SEO y etiquetas de administración.
+  - `src/main.js`: ADN de Marca actualizado; reemplazo de terminología "Coconas" por "Títulos/Tesoros" y refactorización de clases (`.selva-check`).
+  - `src/style.css`: Actualización de clases y comentarios de marca.
+  - `public/sw.js`: Bump de caché para asegurar la limpieza del branding viejo en los navegadores de los usuarios.
+- **Bugs & Soluciones**:
+  - *Asunto*: Nombres de archivos y carpetas quedaron desalineados tras el cambio manual de la carpeta raíz.
+  - *Solución*: Se realizó un barrido completo de todas las referencias de ruta y marca para garantizar integridad total.
+
+
 ## [1.3] - 2026-03-04
 ### 🚀 Implementación PWA Inteligente
 - **Resumen**: Conversión del sitio en una App instalable con lógica de "cortejo" no intrusiva.

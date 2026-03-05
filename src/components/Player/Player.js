@@ -148,11 +148,13 @@ export const SelvaStream = {
     /**
      * Abre el reproductor con el contenido seleccionado.
      */
+    // Abre el reproductor con el contenido seleccionado.
     async open(movie) {
         this.currentPlayerMovie = movie;
         this.init();
         const modal = document.getElementById('player-modal');
         modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden'; // Bloqueo de scroll
 
         // Reset loader
         const loader = document.getElementById('player-loader');
@@ -429,6 +431,7 @@ export const SelvaStream = {
         const iframe = document.getElementById('player-iframe');
         if (modal) modal.style.display = 'none';
         if (iframe) iframe.src = '';
+        document.body.style.overflow = ''; // Restaurar scroll
     }
 };
 

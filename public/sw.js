@@ -1,23 +1,27 @@
 /* 
-   🌊 Estrategia "Network First": 
-   Priorizamos siempre la fruta fresca del árbol (datos de la red). 
-   Si el árbol está seco (sin internet), sacamos las conservas de la mochila (caché).
+   🌊 Estrategia "Network First" Elite (v2.1): 
+   1. Prioridad absoluta a la red (Fruta fresca).
+   2. Respaldo inteligente en Caché (Conservas).
+   3. Rescate Visual: Fallback para imágenes rotas.
+   4. Blindaje contra Opaque Responses (CORS).
 */
-const CACHE_NAME = 'selvaflix-cache-v1.3';
+
+const CACHE_NAME = 'selvaflix-cache-v2.1';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
     '/manifest.json',
     '/icon_192.png',
-    '/icon_512.png',
     '/vite.svg'
 ];
+
+const FALLBACK_IMAGE = '/icon_192.png'; // Nuestra imagen de rescate
 
 // Install Event
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
-            console.log('🌴 Selva Cache abierta');
+            console.log('🌴 Selva Cache v2.1: Armando mochila de supervivencia');
             return cache.addAll(STATIC_ASSETS);
         })
     );
@@ -31,7 +35,7 @@ self.addEventListener('activate', (event) => {
             return Promise.all(
                 cacheNames.map((cache) => {
                     if (cache !== CACHE_NAME) {
-                        console.log('🧹 Limpiando cache antigua');
+                        console.log('🧹 Selva: Quemando rastro de versiones antiguas');
                         return caches.delete(cache);
                     }
                 })
@@ -41,21 +45,25 @@ self.addEventListener('activate', (event) => {
     self.clients.claim();
 });
 
-// Fetch Event (Network First Strategy)
+// Fetch Event (Network First Strategy Refined)
 self.addEventListener('fetch', (event) => {
-    // Solo cachear peticiones GET
+    // Solo procesar peticiones GET
     if (event.request.method !== 'GET') return;
 
-    // No cachear peticiones de Firebase o TMDB directo (usamos Network Only para datos frescos)
+    // Detectar origen y destino
     const url = new URL(event.request.url);
+    const isImage = event.request.destination === 'image';
+
+    // EXCLUSIÓN: Datos en tiempo real (Firebase/TMDB) -> Siempre a la Red Directo (No cachear)
     if (url.origin.includes('firebase') || url.origin.includes('themoviedb.org')) {
-        return; // Dejar que el navegador maneje la peticion normalmente (Network Only)
+        return;
     }
 
     event.respondWith(
         fetch(event.request)
             .then((networkResponse) => {
-                // Clonar y guardar en cache si la respuesta es valida
+                // ESTRATEGIA SELECTIVA: Solo guardamos en caché si status es 200 (OK).
+                // Status 0 (Opaque Responses de dominios externos sin CORS) pasan directo sin ensuciar la caché.
                 if (networkResponse && networkResponse.status === 200) {
                     const responseClone = networkResponse.clone();
                     caches.open(CACHE_NAME).then((cache) => {
@@ -64,13 +72,23 @@ self.addEventListener('fetch', (event) => {
                 }
                 return networkResponse;
             })
-            .catch(() => {
-                // Si falla la red, intentar buscar en cache
-                return caches.match(event.request).then((cachedResponse) => {
-                    if (cachedResponse) return cachedResponse;
+            .catch(async () => {
+                // FALLBACK: La red ha caído. Buscamos en el búnker (Caché).
+                const cachedResponse = await caches.match(event.request);
+                if (cachedResponse) return cachedResponse;
 
-                    // Si no hay nada en cache y es una navegacion, podrías retornar un offline.html
-                    // return caches.match('/offline.html');
+                // RESCATE FINAL: Si no hay red ni caché, devolvemos una Response válida.
+
+                // 1. Caso: Imagen (Portadas de películas que fallan)
+                if (isImage) {
+                    return caches.match(FALLBACK_IMAGE);
+                }
+
+                // 2. Caso: Fallo total (Evitamos el TypeError 'Failed to convert value to Response')
+                return new Response('La selva está temporalmente inaccesible. 🌴⛈️', {
+                    status: 503,
+                    statusText: 'Service Unavailable',
+                    headers: new Headers({ 'Content-Type': 'text/plain; charset=utf-8' })
                 });
             })
     );

@@ -63,11 +63,18 @@ if (yearSelect || mYearSelect) {
   }
 }
 onSnapshot(moviesCol, (snapshot) => {
+  const isFirstLoad = movieDatabase.trending.length === 0;
   movieDatabase.trending = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+
+  // Actualización silenciosa de estadísticas si estamos en modo admin
   if (document.getElementById('admin-view')?.style.display === 'block') {
     _updateDetailedStats(movieDatabase.trending);
   }
-  handleRouting();
+
+  // Solo renderizamos automáticamente en la carga inicial
+  if (isFirstLoad) {
+    handleRouting();
+  }
 });
 
 
@@ -812,7 +819,7 @@ function startPlayer(movie) {
     // Load default latino-1
     const s = document.getElementById('series-season') ? (document.getElementById('series-season').value || 1) : 1;
     const e = document.getElementById('series-episode') ? (document.getElementById('series-episode').value || 1) : 1;
-    updateServer('latino-1', s, e);
+    updateServer('latino-5', s, e);
   } else {
     document.getElementById('server-switcher').style.display = 'none';
     const iframe = document.getElementById('player-iframe');

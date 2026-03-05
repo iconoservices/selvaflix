@@ -46,6 +46,7 @@ const TMDB_IMG_URL = 'https://image.tmdb.org/t/p/w500';
 let movieDatabase = { trending: [] };
 let heroPool = [];
 let currentHeroIndex = 0;
+let heroTimer = null;
 let currentPlayerMovie = null;
 window._brokenIds = new Set();
 window._hasSeenWarning = false;
@@ -1370,7 +1371,6 @@ window.confirmBatchSeed = async () => {
   document.getElementById('discover-container').style.display = 'none';
 };
 
-let heroTimer = null;
 
 function updateHeroCarousel() {
   if (!heroPool || heroPool.length === 0) return;
@@ -1481,7 +1481,7 @@ function initApp(filterType = '', genreId = '') {
   if (heroPool.length > 0) {
     document.getElementById('hero-section').style.display = 'flex';
     updateHeroCarousel();
-    startHeroAutoRotation();
+    // La rotación iniciará al final para no estorbar el pintado inicial
   } else {
     document.getElementById('hero-section').style.display = 'none';
   }
@@ -1531,6 +1531,11 @@ function initApp(filterType = '', genreId = '') {
       list.id = 'main-channels';
       renderChannels(list);
     }
+  }
+
+  // 🚀 Encendido del motor de rotación (al final para liberar el hilo principal)
+  if (heroPool.length > 3) {
+    startHeroAutoRotation();
   }
 }
 

@@ -67,53 +67,62 @@ if (yearSelect || mYearSelect) {
 }
 
 async function loadSelvaFlixData() {
-  const CACHE_KEY = 'selvaflix_data_cache';
-  const CACHE_TIME_KEY = 'selvaflix_data_timestamp';
+  const CACHE_KEY = 'selvaflix_full_database';
+  const CACHE_TIME_KEY = 'selvaflix_cache_timestamp';
   const FIFTEEN_MINUTES = 15 * 60 * 1000;
 
   // 1. Revisar si hay un caché válido
-  const cachedData = sessionStorage.getItem(CACHE_KEY);
+  const cachedStored = sessionStorage.getItem(CACHE_KEY);
   const cacheTimestamp = sessionStorage.getItem(CACHE_TIME_KEY);
   const now = Date.now();
 
-  let data = null;
+  let hydratedObject = null;
 
-  if (cachedData && cacheTimestamp && (now - parseInt(cacheTimestamp) < FIFTEEN_MINUTES)) {
-    console.log("🟢 Sirviendo datos desde el Caché de Supervivencia (0 lecturas a Firebase)");
-    data = JSON.parse(cachedData);
-  } else {
+  if (cachedStored && cacheTimestamp && (now - parseInt(cacheTimestamp) < FIFTEEN_MINUTES)) {
+    try {
+      hydratedObject = JSON.parse(cachedStored);
+
+      // �️ Vigía Inteligente: Validar que el objeto tenga cara y ojos
+      if (!hydratedObject || !Array.isArray(hydratedObject.trending)) {
+        throw new Error("Caché incompleto o corrupto");
+      }
+
+      console.log(`🟢 Objeto rehidratado: { trending: ${hydratedObject.trending.length} }. (0 lecturas)`);
+      movieDatabase = hydratedObject;
+    } catch (e) {
+      console.warn("⚠️ Fallo en rehidratación, limpiando búnker para fetch fresco...");
+      sessionStorage.removeItem(CACHE_KEY);
+      sessionStorage.removeItem(CACHE_TIME_KEY);
+      hydratedObject = null;
+    }
+  }
+
+  if (!hydratedObject) {
     // 2. Si no hay caché o caducó, pedir a Firebase
     console.log("🔥 Haciendo expedición a Firebase (Solicitando datos frescos)");
     try {
       const snapshot = await getDocs(moviesCol);
-      data = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      const moviesArray = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 
-      // Guardar en el búnker (SessionStorage) para que viva mientras la pestaña esté abierta
-      sessionStorage.setItem(CACHE_KEY, JSON.stringify(data));
+      // Actualizamos el organismo
+      movieDatabase.trending = moviesArray;
+
+      // Guardar el Espejo Completo
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify(movieDatabase));
       sessionStorage.setItem(CACHE_TIME_KEY, now.toString());
     } catch (error) {
       console.error("❌ Error en la expedición de datos:", error);
-      // Fallback: Si Firebase falla, intentar cargar el último caché aunque esté viejo
-      if (cachedData) {
-        console.warn("⚠️ Usando caché antiguo por fallo de conexión.");
-        data = JSON.parse(cachedData);
-      } else {
-        return; // Muerte súbita, no hay datos
-      }
+      return; // Muerte súbita
     }
   }
 
-  // 3. Procesar e inyectar
-  const isFirstLoad = movieDatabase.trending.length === 0;
-  movieDatabase.trending = data;
-
+  // 3. Renderizar
   if (document.getElementById('admin-view')?.style.display === 'block') {
     _updateDetailedStats(movieDatabase.trending);
   }
 
-  if (isFirstLoad) {
-    handleRouting();
-  }
+  // Nota: handleRouting ya sabe si es la primera vez al revisar el DOM
+  handleRouting();
 }
 
 // Iniciar recolección al cargar

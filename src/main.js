@@ -44,6 +44,7 @@ const TMDB_URL = 'https://api.themoviedb.org/3';
 const TMDB_IMG_URL = 'https://image.tmdb.org/t/p/w500';
 
 let movieDatabase = { trending: [] };
+let heroPool = [];
 let currentPlayerMovie = null;
 window._brokenIds = new Set();
 window._hasSeenWarning = false;
@@ -1328,7 +1329,6 @@ window.confirmBatchSeed = async () => {
 };
 
 let heroTimer = null;
-let heroPool = [];
 let currentHeroIndex = 0;
 
 function updateHeroCarousel() {
@@ -1380,6 +1380,7 @@ function startHeroAutoRotation() {
 }
 
 function initApp(filterType = '', genreId = '') {
+  if (!movieDatabase.trending.length) return;
   // Actividad: Vista de página
   collectUserData("page_view", { page: filterType || 'home' });
 
@@ -1580,7 +1581,7 @@ window.autoSuggestLogo = async () => {
 
 // Initial Setup
 document.addEventListener('DOMContentLoaded', () => {
-  handleRouting();
+  // Nota: handleRouting se dispara automáticamente cuando loadSelvaFlixData termina de cargar
   window.addEventListener('hashchange', handleRouting);
 
   const btnDiscoverMovies = document.getElementById('btn-discover-movies');

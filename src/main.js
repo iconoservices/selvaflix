@@ -1679,19 +1679,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('cancel-edit').style.display = "none";
   });
 
-  document.getElementById('server-switcher').addEventListener('click', (e) => {
-    if (e.target.classList.contains('server-btn')) {
-      updateServer(e.target.dataset.server);
-    }
-  });
-
-  document.getElementById('close-player').addEventListener('click', () => {
-    const modal = document.getElementById('player-modal');
-    const iframe = document.getElementById('player-iframe');
-    modal.style.display = 'none';
-    iframe.src = ""; // Detener audio/video al cerrar
-  });
-
   // Detectar dispositivo para recomendar bloqueador (opcional mantenido temporalmente si quiere recomdar brave globalmente, 
   // pero ya no hay pantalla de anuncios forzada)
   const userAgent = navigator.userAgent || navigator.vendor || window.opera;

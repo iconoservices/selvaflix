@@ -121,29 +121,26 @@ export const SelvaStream = {
         }
     },
 
-    /**
-     * Rescate de emergencia si el servidor actual bloquea el iframe.
-     */
+    // Rescate de emergencia temporalmente desactivado para depuración de pantalla negra
     handlePlayerError() {
-        console.warn("⚠️ Servidor bloqueado u hostil detectado. Activando Fallback...");
-        const activeBtn = document.querySelector('.server-btn.active');
-        const currentServer = activeBtn ? activeBtn.dataset.server : '';
+        console.warn("⚠️ Servidor bloqueado u hostil detectado. Análisis nativo (Fallback desactivado).");
+        // const activeBtn = document.querySelector('.server-btn.active');
+        // const currentServer = activeBtn ? activeBtn.dataset.server : '';
 
         // Si falló el PRO (5) o S1, saltamos directo al confiable Streamwish (S2)
-        if (currentServer === 'latino-5' || currentServer === 'latino-1') {
-            const s = document.getElementById('selva-season')?.value || 1;
-            const e = document.getElementById('selva-episode')?.value || 1;
-            console.log("🔄 Saltando automáticamente al Servidor 2 (Respaldo)");
+        // if (currentServer === 'latino-5' || currentServer === 'latino-1') {
+        //     const s = document.getElementById('selva-season')?.value || 1;
+        //     const e = document.getElementById('selva-episode')?.value || 1;
+        //     console.log("🔄 Saltando automáticamente al Servidor 2 (Respaldo)");
 
-            // Actualizamos visualmente el botón a "Saturado"
-            if (activeBtn) {
-                activeBtn.innerText = "⏳ Vuelve en 1h";
-                activeBtn.style.background = "rgba(231, 76, 60, 0.4)";
-                activeBtn.style.borderColor = "#c0392b";
-            }
+        //     if (activeBtn) {
+        //         activeBtn.innerText = "⏳ Vuelve en 1h";
+        //         activeBtn.style.background = "rgba(231, 76, 60, 0.4)";
+        //         activeBtn.style.borderColor = "#c0392b";
+        //     }
 
-            this.updateServer('latino-2', s, e);
-        }
+        //     this.updateServer('latino-2', s, e);
+        // }
     },
     /**
      * Abre el reproductor con el contenido seleccionado.
@@ -256,14 +253,15 @@ export const SelvaStream = {
 
         const cleanUrl = this.sanitizeUrl(url);
 
-        // ── Lógica Inversa v4.0 (Default Compatible / Popups ON) ──
+        // ── Lógica Inversa v4.3 (Operación Limpieza: Remoción Total de Sandbox en Compatible) ──
         const isShieldOn = localStorage.getItem(`selva_shield_${serverKey}`) === 'true';
         if (isShieldOn) {
-            // Modo Protegido: Sandbox Estricto
+            // Modo Protegido: Sandbox Estricto (Protege, pero rompe servidores)
             iframe.setAttribute('sandbox', 'allow-forms allow-scripts allow-same-origin allow-popups-to-escape-sandbox allow-presentation');
         } else {
-            // Modo Compatible (PREDETERMINADO): Sandbox con Popups
-            iframe.setAttribute('sandbox', 'allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-presentation');
+            // Modo Compatible (PREDETERMINADO): Destruimos la jaula para que fluya
+            iframe.removeAttribute('sandbox');
+            console.warn(`⚠️ Sandbox destruido temporalmente para el servidor: ${serverKey}`);
         }
 
         iframe.src = cleanUrl;

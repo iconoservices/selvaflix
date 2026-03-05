@@ -1,4 +1,6 @@
 import './style.css'
+import { SelvaStream } from './components/Player/Player.js'
+import './components/Player/Player.css'
 /* 
    🌴 Perla de Sabiduría: Firebase es nuestro "Puesto de Vigilancia". 
    Mantiene un ojo en los datos y nos avisa al instante cuando algo cambia en la selva.
@@ -814,17 +816,7 @@ async function collectUserData(action, details = {}) {
 // Player Logic & Multi-Server
 function startPlayer(movie) {
   collectUserData("play_start", { title: movie.title, type: movie.type });
-  if (movie.tmdbId) {
-    document.getElementById('server-switcher').style.display = 'flex';
-    // Load default latino-1
-    const s = document.getElementById('series-season') ? (document.getElementById('series-season').value || 1) : 1;
-    const e = document.getElementById('series-episode') ? (document.getElementById('series-episode').value || 1) : 1;
-    updateServer('latino-5', s, e);
-  } else {
-    document.getElementById('server-switcher').style.display = 'none';
-    const iframe = document.getElementById('player-iframe');
-    iframe.src = movie.embed || "";
-  }
+  SelvaStream.open(movie);
 }
 
 function startWarningOverlay(movie) {
@@ -892,164 +884,12 @@ window.openPlayer = async (movieId) => {
   collectUserData("watch_attempt", { title: movie.title, id: movie.id });
 
   currentPlayerMovie = movie;
-  const modal = document.getElementById('player-modal');
-  modal.style.display = 'flex';
 
-  const isSeries = movie.type === 'series' || movie.type === 'tv' || movie.type === 'anime';
-  const nav = document.getElementById('series-navigator');
-  if (nav) nav.style.display = isSeries ? 'flex' : 'none';
-  if (isSeries && movie.tmdbId) {
-    try {
-      const resp = await fetch(`${TMDB_URL}/tv/${movie.tmdbId}?api_key=${TMDB_API_KEY}&language=es-PE`);
-      const details = await resp.json();
-      const sSel = document.getElementById('series-season');
-      const eSel = document.getElementById('series-episode');
-
-      if (details.seasons) {
-        sSel.innerHTML = details.seasons
-          .filter(s => s.season_number > 0)
-          .map(s => `<option value="${s.season_number}">${s.name || `Temp ${s.season_number}`}</option>`).join('');
-
-        const updateE = (sNum) => {
-          const s = details.seasons.find(x => x.season_number == sNum);
-          const count = s ? s.episode_count : 24;
-          eSel.innerHTML = Array.from({ length: count }, (_, i) => `<option value="${i + 1}">Capítulo ${i + 1}</option>`).join('');
-        };
-
-        updateE(details.seasons.find(s => s.season_number > 0)?.season_number || 1);
-        sSel.onchange = () => { updateE(sSel.value); window.changeEpisode(); };
-      }
-    } catch (e) { console.error("TMDB Error:", e); }
-  } else if (isSeries) {
-    // Fallback if no TMDB ID
-    document.getElementById('series-season').innerHTML = '<option value="1">Temp 1</option>';
-    document.getElementById('series-episode').innerHTML = Array.from({ length: 24 }, (_, i) => `<option value="${i + 1}">Capítulo ${i + 1}</option>`).join('');
-  }
-
-  // ─── Botón de Descarga ────────────────────────────────────────
-  const downloadBtn = document.getElementById('download-btn');
-  if (downloadBtn) {
-    const embed = movie.embed || '';
-    const isDirectFile = /\.(mp4|mkv|avi|webm|mov|m3u8)(\?.*)?$/i.test(embed);
-    if (isDirectFile && embed) {
-      downloadBtn.href = embed;
-      downloadBtn.setAttribute('download', movie.title || 'video');
-      downloadBtn.style.display = 'inline-flex';
-      downloadBtn.innerHTML = '⬇️ Descargar';
-    } else if (embed) {
-      // Streaming server: offer to open in new tab
-      downloadBtn.href = embed;
-      downloadBtn.removeAttribute('download');
-      downloadBtn.style.display = 'inline-flex';
-      downloadBtn.innerHTML = '🔗 Abrir en nueva pestaña';
-    } else {
-      downloadBtn.style.display = 'none';
-    }
-  }
-
+  // Iniciar la secuencia de seguridad y comerciales antes del Play
   startWarningOverlay(movie);
-
-  // No immediate updateServer here. startWarningOverlay -> startPlayer will handle it after 5 seconds.
 }
 
-function updateServer(serverKey, season = 1, episode = 1) {
-  if (!currentPlayerMovie || !currentPlayerMovie.tmdbId) return;
-
-  const loadIframe = () => {
-    const iframe = document.getElementById('player-iframe');
-    const loader = document.getElementById('player-loader');
-    const tmdbId = currentPlayerMovie.tmdbId;
-
-    document.querySelectorAll('.server-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.server === serverKey);
-    });
-
-    loader.style.display = 'flex';
-    loader.style.opacity = '1';
-
-    let url = "";
-    const type = currentPlayerMovie.type || 'movie';
-    const isSeries = type === 'series' || type === 'tv' || type === 'anime';
-
-    let s = season;
-    let e = episode;
-
-    if (isSeries) {
-      if (!s) s = document.getElementById('series-season').value || 1;
-      if (!e) e = document.getElementById('series-episode').value || 1;
-    }
-
-    switch (serverKey) {
-      case 'latino-1':
-        // Vidsrc.me (El líder en auto-detección de Latino)
-        url = isSeries
-          ? `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&season=${s}&episode=${e}&ds_lang=es`
-          : `https://vidsrc.me/embed/movie?tmdb=${tmdbId}&ds_lang=es`;
-        break;
-      case 'latino-2':
-        // Vidsrc.to (Famoso por su estabilidad)
-        url = isSeries
-          ? `https://vidsrc.to/embed/tv/${tmdbId}/${s}/${e}`
-          : `https://vidsrc.to/embed/movie/${tmdbId}`;
-        break;
-      case 'latino-3':
-        // Vidsrc.xyz (Genial para contenido nuevo)
-        url = isSeries
-          ? `https://vidsrc.xyz/embed/tv?tmdb=${tmdbId}&season=${s}&episode=${e}&ds_lang=es`
-          : `https://vidsrc.xyz/embed/movie?tmdb=${tmdbId}&ds_lang=es`;
-        break;
-      case 'latino-4':
-        // Embed.su (Excelente motor alternativo)
-        url = isSeries
-          ? `https://embed.su/embed/tv/${tmdbId}/${s}/${e}`
-          : `https://embed.su/embed/movie/${tmdbId}`;
-        break;
-      case 'latino-5':
-        // Vidsrc.pro (Muy pocos anuncios)
-        url = isSeries
-          ? `https://vidsrc.pro/embed/tv?tmdb=${tmdbId}&season=${s}&episode=${e}`
-          : `https://vidsrc.pro/embed/movie?tmdb=${tmdbId}`;
-        break;
-      case 'latino-6':
-        // Multiembed (Busca en múltiples fuentes)
-        url = isSeries
-          ? `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${s}&e=${e}`
-          : `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1`;
-        break;
-      case 'english-1':
-        url = isSeries
-          ? `https://vidsrc.xyz/embed/tv?tmdb=${tmdbId}&season=${s}&episode=${e}`
-          : `https://vidsrc.xyz/embed/movie?tmdb=${tmdbId}`;
-        break;
-      case 'english-2':
-        url = isSeries
-          ? `https://www.2embed.cc/embed/${tmdbId}&s=${s}&e=${e}`
-          : `https://www.2embed.cc/embed/${tmdbId}`;
-        break;
-      default:
-        url = `https://vidsrc.xyz/embed/${isSeries ? 'tv' : 'movie'}?tmdb=${tmdbId}`;
-    }
-
-    iframe.src = url;
-    iframe.removeAttribute('sandbox'); // Remove sandbox to allow the player to load normally
-
-    iframe.onload = () => {
-      setTimeout(() => {
-        loader.style.opacity = '0';
-        setTimeout(() => loader.style.display = 'none', 800);
-      }, 1500);
-    };
-  };
-
-  loadIframe();
-}
-
-window.changeEpisode = () => {
-  const s = document.getElementById('series-season').value || 1;
-  const e = document.getElementById('series-episode').value || 1;
-  const activeServer = document.querySelector('.server-btn.active').dataset.server;
-  updateServer(activeServer, s, e);
-};
+// La lógica de servidores y episodios ahora vive en SelvaStream Engine 🍿
 
 // Exported Actions
 window.handleCardClick = (id) => openPlayer(id);

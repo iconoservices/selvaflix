@@ -648,24 +648,22 @@ window.filterInventoryByCategory = () => {
 
   const bulkBtn = document.getElementById('btn-bulk-delete');
   if (bulkBtn) {
-    bulkBtn.style.display = (category === 'broken' && filtered.length > 0) ? 'inline-block' : 'none';
-    bulkBtn.innerText = `🗑️ Borrar ${filtered.length} con Error`;
+    if (category === 'broken' && filtered.length > 0) {
+      bulkBtn.style.display = 'inline-block';
+      bulkBtn.innerText = `🗑️ Borrar ${filtered.length} con Error`;
+      bulkBtn.onclick = () => window.bulkDeleteMovies(filtered);
+    } else if (query === 'nuke' || (type === 'all' && category === 'all' && query === '')) {
+      // Solo mostramos el botón de borrar todo en casos específicos para evitar accidentes
+      bulkBtn.style.display = 'none'; // Por ahora lo mantenemos oculto a menos que se necesite
+    } else {
+      bulkBtn.style.display = 'none';
+    }
   }
 };
 
-window.bulkDeleteCurrentFilter = async () => {
-  const filter = document.getElementById('inventory-filter').value;
-  if (filter !== 'broken') return;
-
-  const searchInput = document.getElementById('inventory-search');
-  const query = searchInput ? searchInput.value.toLowerCase() : '';
-  const toDelete = _allInventoryItems.filter(m =>
-    m.title.toLowerCase().includes(query) &&
-    (window._brokenIds.has(m.id) || !m.img || m.img.includes('placeholder'))
-  );
-
-  if (toDelete.length === 0) return;
-  if (!confirm(`¿Estás seguro de borrar ${toDelete.length} títulos con error de tu selva? 🌴🗑️`)) return;
+window.bulkDeleteMovies = async (toDelete) => {
+  if (!toDelete || toDelete.length === 0) return;
+  if (!confirm(`¿Estás seguro de borrar ${toDelete.length} títulos de tu selva? 🌴🗑️ Esta acción es irreversible.`)) return;
 
   const overlay = document.getElementById('delete-progress-overlay');
   const bar = document.getElementById('progress-bar-fill');
@@ -687,8 +685,27 @@ window.bulkDeleteCurrentFilter = async () => {
   }
 
   if (overlay) overlay.style.display = 'none';
-  alert(`¡Limpieza completada! Se fueron ${count} intrusos.`);
+
+  // 🔥 Parche de Sincronización Real (v4.5.5): Limpiamos caché para evitar "Fantasmas"
+  sessionStorage.removeItem('selvaflix_full_database');
+  sessionStorage.removeItem('selvaflix_cache_timestamp');
+
+  // Recargamos los datos para que la vista refleje la realidad de Firebase inmediatamente
+  await loadSelvaFlixData();
+
+  alert(`¡Limpieza completada! Se fueron ${count} tesoros de la selva.`);
   if (bar) bar.style.width = "0%";
+};
+
+window.nukeDatabase = async () => {
+  const items = _allInventoryItems;
+  if (items.length === 0) { alert("¡La selva ya está vacía! 🌴"); return; }
+
+  if (confirm(`⚠️ ¡ALERTA ROJA! ⚠️\nVas a eliminar ABSOLUTAMENTE TODO el contenido de la base de datos (${items.length} títulos).\n¿ESTÁS SEGURO?`)) {
+    if (confirm("¿Confirmas que quieres quemar toda la selva? 🔥 Esta acción NO se puede deshacer.")) {
+      await window.bulkDeleteMovies(items);
+    }
+  }
 };
 
 window.deleteSelectedCoconas = async () => {

@@ -48,7 +48,7 @@ export const SelvaStream = {
                         <div class="spinner-tropical"></div>
                     </div>
                     <iframe id="player-iframe" src="" 
-                        sandbox="allow-forms allow-scripts allow-same-origin allow-popups-to-escape-sandbox allow-presentation"
+                        allow="autoplay; fullscreen; picture-in-picture; encrypted-media; gyroscope; accelerometer; clipboard-write"
                         allowfullscreen>
                     </iframe>
                 </div>
@@ -146,6 +146,9 @@ export const SelvaStream = {
      * Abre el reproductor con el contenido seleccionado.
      */
     // Abre el reproductor con el contenido seleccionado.
+    /**
+     * Abre el reproductor con el contenido seleccionado.
+     */
     async open(movie) {
         this.currentPlayerMovie = movie;
         this.init();
@@ -208,7 +211,7 @@ export const SelvaStream = {
         const s = document.getElementById('selva-season')?.value || 1;
         const e = document.getElementById('selva-episode')?.value || 1;
         const activeBtn = document.querySelector('.server-btn.active');
-        const server = activeBtn ? activeBtn.dataset.server : 'latino-5';
+        const server = activeBtn ? activeBtn.dataset.server : (localStorage.getItem('selva_pref_lang') === 'english' ? 'english-1' : 'latino-1');
         this.updateServer(server, s, e);
     },
 
@@ -217,8 +220,13 @@ export const SelvaStream = {
         const iframe = document.getElementById('player-iframe');
 
         if (movie.tmdbId) {
-            // Activar rotación de servidores
-            this.updateServer('latino-5');
+            // Prioridad Inteligente (v4.5.3)
+            const pref = localStorage.getItem('selva_pref_lang') || 'latino';
+            if (pref === 'english') {
+                this.updateServer('english-1');
+            } else {
+                this.updateServer('latino-1'); // S1 es muy estable en Latino con parámetros
+            }
         } else {
             const cleanUrl = this.sanitizeUrl(movie.embed);
             iframe.src = cleanUrl;
@@ -238,17 +246,21 @@ export const SelvaStream = {
         loader.style.display = 'flex';
         loader.style.opacity = '1';
 
+        // Preferencia Rey (Aumenta probabilidad de audio correcto)
+        const pref = localStorage.getItem('selva_pref_lang') || 'latino';
+        const langParam = pref === 'latino' ? '&ds_lang=es' : '';
+
         let url = "";
         switch (serverKey) {
-            case 'latino-1': url = isSeries ? `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}&ds_lang=es` : `https://vidsrc.me/embed/movie?tmdb=${tmdbId}&ds_lang=es`; break;
+            case 'latino-1': url = isSeries ? `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}${langParam}` : `https://vidsrc.me/embed/movie?tmdb=${tmdbId}${langParam}`; break;
             case 'latino-2': url = isSeries ? `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}` : `https://vidsrc.to/embed/movie/${tmdbId}`; break;
-            case 'latino-3': url = isSeries ? `https://vidsrc.xyz/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}&ds_lang=es` : `https://vidsrc.xyz/embed/movie?tmdb=${tmdbId}&ds_lang=es`; break;
+            case 'latino-3': url = isSeries ? `https://vidsrc.xyz/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}${langParam}` : `https://vidsrc.xyz/embed/movie?tmdb=${tmdbId}${langParam}`; break;
             case 'latino-4': url = isSeries ? `https://embed.su/embed/tv/${tmdbId}/${season}/${episode}` : `https://embed.su/embed/movie/${tmdbId}`; break;
-            case 'latino-5': url = isSeries ? `https://vidsrc.pro/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}` : `https://vidsrc.pro/embed/movie?tmdb=${tmdbId}`; break;
+            case 'latino-5': url = isSeries ? `https://vidsrc.pro/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}${langParam.replace('ds_lang', 'lang')}` : `https://vidsrc.pro/embed/movie?tmdb=${tmdbId}${langParam.replace('ds_lang', 'lang')}`; break;
             case 'latino-6': url = isSeries ? `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${season}&e=${episode}` : `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1`; break;
             case 'english-1': url = isSeries ? `https://vidsrc.xyz/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}` : `https://vidsrc.xyz/embed/movie?tmdb=${tmdbId}`; break;
             case 'english-2': url = isSeries ? `https://www.2embed.cc/embed/${tmdbId}&s=${season}&e=${episode}` : `https://www.2embed.cc/embed/${tmdbId}`; break;
-            default: url = `https://vidsrc.xyz/embed/${isSeries ? 'tv' : 'movie'}?tmdb=${tmdbId}`;
+            default: url = `https://vidsrc.xyz/embed/${isSeries ? 'tv' : 'movie'}?tmdb=${tmdbId}${langParam}`;
         }
 
         const cleanUrl = this.sanitizeUrl(url);
@@ -256,21 +268,30 @@ export const SelvaStream = {
         // ── Lógica Inversa v4.3 (Operación Limpieza: Remoción Total de Sandbox en Compatible) ──
         const isShieldOn = localStorage.getItem(`selva_shield_${serverKey}`) === 'true';
         if (isShieldOn) {
-            // Modo Protegido: Sandbox Estricto (Protege, pero rompe servidores)
             iframe.setAttribute('sandbox', 'allow-forms allow-scripts allow-same-origin allow-popups-to-escape-sandbox allow-presentation');
         } else {
-            // Modo Compatible (PREDETERMINADO): Destruimos la jaula para que fluya
             iframe.removeAttribute('sandbox');
-            console.warn(`⚠️ Sandbox destruido temporalmente para el servidor: ${serverKey}`);
         }
 
         iframe.src = cleanUrl;
         this.updateDownloadBtn(cleanUrl);
 
-        // Actualizar UI de botones
         document.querySelectorAll('.server-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.server === serverKey);
         });
+    },
+
+    setPreference(lang) {
+        localStorage.setItem('selva_pref_lang', lang);
+        const s = document.getElementById('selva-season')?.value || 1;
+        const e = document.getElementById('selva-episode')?.value || 1;
+
+        // Re-cargar el servidor actual con la nueva preferencia de idioma
+        const activeBtn = document.querySelector('.server-btn.active');
+        const currentServer = activeBtn ? activeBtn.dataset.server : 'latino-1';
+
+        this.updateServer(currentServer, s, e);
+        this.renderControls();
     },
 
     updateDownloadBtn(url) {
@@ -301,13 +322,10 @@ export const SelvaStream = {
         const isShieldOn = localStorage.getItem(`selva_shield_${serverKey}`) === 'true';
 
         if (!isShieldOn) {
-            // Abrir Modal de Aviso personalizado en lugar de confirm()
             const modal = document.getElementById('selva-safety-modal');
             modal.classList.add('active');
         } else {
-            // Desactivar escudo es directo
             localStorage.removeItem(`selva_shield_${serverKey}`);
-            console.log(`🔓 Modo Compatible: Escudos relajados para ${serverKey}.`);
             this.refreshState(serverKey);
         }
     },
@@ -318,8 +336,6 @@ export const SelvaStream = {
         const serverKey = activeBtn.dataset.server;
 
         localStorage.setItem(`selva_shield_${serverKey}`, 'true');
-        console.warn(`🛡️ Modo Seguro: Escudos al 100% para ${serverKey}.`);
-
         this.closeSafetyModal();
         this.refreshState(serverKey);
     },
@@ -370,12 +386,20 @@ export const SelvaStream = {
         const isSeries = ['series', 'tv', 'anime'].includes(this.currentPlayerMovie.type);
 
         const activeBtn = document.querySelector('.server-btn.active');
-        const currentServer = activeBtn ? activeBtn.dataset.server : 'latino-5';
+        const currentServer = activeBtn ? activeBtn.dataset.server : 'latino-1';
         const isShieldOn = localStorage.getItem(`selva_shield_${currentServer}`) === 'true';
         const protection = this.getProtectionData();
 
+        // Preferencia de Idioma (v4.5.3)
+        const pref = localStorage.getItem('selva_pref_lang') || 'latino';
+
         root.innerHTML = `
             <div class="player-controls">
+                <div class="pref-selector" style="display:flex; justify-content:center; gap:10px; margin-bottom:15px; background: rgba(255,122,0,0.05); padding:10px; border-radius:12px; border:1px solid rgba(255,122,0,0.15);">
+                    <button class="pref-btn ${pref === 'latino' ? 'active' : ''}" onclick="SelvaStream.setPreference('latino')" style="flex:1; background:${pref === 'latino' ? 'var(--primary)' : 'rgba(255,255,255,0.05)'}; border:none; color:${pref === 'latino' ? 'black' : 'white'}; padding:8px; border-radius:8px; font-weight:bold; cursor:pointer;">🇲🇽 LATINO</button>
+                    <button class="pref-btn ${pref === 'english' ? 'active' : ''}" onclick="SelvaStream.setPreference('english')" style="flex:1; background:${pref === 'english' ? 'var(--primary)' : 'rgba(255,255,255,0.05)'}; border:none; color:${pref === 'english' ? 'black' : 'white'}; padding:8px; border-radius:8px; font-weight:bold; cursor:pointer;">🇺🇸 SUB/ENGLISH</button>
+                </div>
+
                 ${isSeries ? `
                     <div class="series-navigator">
                         <select id="selva-season" class="selva-select">
@@ -389,17 +413,12 @@ export const SelvaStream = {
                 
                 <div class="server-switcher">
                     <div class="server-group">
-                        <span>🇲🇽/🇪🇸 ESPAÑOL:</span>
-                        <button class="server-btn ${currentServer === 'latino-5' ? 'active' : ''}" data-server="latino-5" onclick="SelvaStream.updateServer('latino-5'); SelvaStream.renderControls();">🔥 Pro (VIP)</button>
-                        <button class="server-btn ${currentServer === 'latino-1' ? 'active' : ''}" data-server="latino-1" onclick="SelvaStream.updateServer('latino-1'); SelvaStream.renderControls();">S1</button>
+                        <span>${pref === 'latino' ? '🇲🇽 PRIORIDAD LATINO:' : '🌐 SERVIDORES:'}</span>
+                        <button class="server-btn ${currentServer === 'latino-1' ? 'active' : ''}" data-server="latino-1" onclick="SelvaStream.updateServer('latino-1'); SelvaStream.renderControls();">S1 (VIP)</button>
+                        <button class="server-btn ${currentServer === 'latino-5' ? 'active' : ''}" data-server="latino-5" onclick="SelvaStream.updateServer('latino-5'); SelvaStream.renderControls();">S5</button>
                         <button class="server-btn ${currentServer === 'latino-2' ? 'active' : ''}" data-server="latino-2" onclick="SelvaStream.updateServer('latino-2'); SelvaStream.renderControls();">S2</button>
                         <button class="server-btn ${currentServer === 'latino-4' ? 'active' : ''}" data-server="latino-4" onclick="SelvaStream.updateServer('latino-4'); SelvaStream.renderControls();">S4</button>
-                        <button class="server-btn ${currentServer === 'latino-6' ? 'active' : ''}" data-server="latino-6" onclick="SelvaStream.updateServer('latino-6'); SelvaStream.renderControls();">S6 (Auto)</button>
-                    </div>
-                    <div class="server-group" style="margin-top: 10px;">
-                        <span style="color: var(--text-muted);">🇺🇸 SUB / EN:</span>
-                        <button class="server-btn ${currentServer === 'english-1' ? 'active' : ''}" data-server="english-1" onclick="SelvaStream.updateServer('english-1'); SelvaStream.renderControls();">EN (Def)</button>
-                        <button class="server-btn ${currentServer === 'english-2' ? 'active' : ''}" data-server="english-2" onclick="SelvaStream.updateServer('english-2'); SelvaStream.renderControls();">EN (Alt)</button>
+                        <button class="server-btn ${currentServer === 'latino-6' ? 'active' : ''}" data-server="latino-6" onclick="SelvaStream.updateServer('latino-6'); SelvaStream.renderControls();">S6</button>
                     </div>
                 </div>
 

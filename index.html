@@ -312,7 +312,7 @@
               style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
               <h2 class="admin-title" style="margin:0;">📦 Inventario de Títulos</h2>
               <div style="display: flex; gap: 8px; flex-wrap:wrap;">
-                <button class="btn" onclick="window.selectAllVisible()"
+                <button class="btn" onclick="window.selectAllVisible(true)"
                   style="background: #2C3E50; color: white; border: none; font-size: 0.75rem; padding: 7px 13px; border-radius: 8px; font-weight: bold;">
                   ☑️ Sel. Todo
                 </button>
@@ -328,9 +328,13 @@
                   style="background: #E67E22; color: white; border: none; font-size: 0.75rem; padding: 7px 13px; border-radius: 8px; font-weight: bold; display: none;">
                   🗑️ Borrar (<span id="selected-count">0</span>)
                 </button>
-                <button id="btn-bulk-delete" class="btn" onclick="window.bulkDeleteCurrentFilter()"
+                <button id="btn-bulk-delete" class="btn"
                   style="display: none; background: #E74C3C; color: white; border: none; font-size: 0.75rem; padding: 7px 13px; border-radius: 8px; font-weight: bold;">
                   🗑️ Borrar Filtrados
+                </button>
+                <button class="btn" onclick="window.nukeDatabase()"
+                  style="background: #C0392B; color: white; border: none; font-size: 0.75rem; padding: 7px 13px; border-radius: 8px; font-weight: bold;">
+                  🔥 Limpiar Selva (Todo)
                 </button>
               </div>
             </div>

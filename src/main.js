@@ -858,7 +858,7 @@ window.searchTMDB = async function (query, isSuggestion = false) {
 
 // Re-defining as global window.searchTMDB for consistency
 
-window.selectTMDBMovie = (index) => {
+window.selectTMDBMovie = async (index) => {
   const m = _tmdbLastResults[index];
   if (!m) return;
 
@@ -870,8 +870,19 @@ window.selectTMDBMovie = (index) => {
   document.getElementById('m-img').value = m.poster_path ? (TMDB_IMG_URL + m.poster_path) : "";
   document.getElementById('m-tmdb-id').value = m.id;
   document.getElementById('m-type').value = type;
-  document.getElementById('m-meta').value = `${date.split('-')[0]} / ${m.vote_average || '8.0'}`;
+  document.getElementById('m-year').value = date.split('-')[0];
+  document.getElementById('m-rating').value = m.vote_average || '8.0';
   document.getElementById('m-embed').value = "";
+
+  // Operación IMDB-Latino: Obtener ID real
+  try {
+    const extResp = await fetch(`${TMDB_URL}/${type === 'series' ? 'tv' : 'movie'}/${m.id}/external_ids?api_key=${TMDB_API_KEY}`);
+    const extData = await extResp.json();
+    document.getElementById('m-imdb-id').value = extData.imdb_id || "";
+  } catch (e) {
+    console.warn("No se pudo obtener IMDB ID en selección manual.");
+    document.getElementById('m-imdb-id').value = "";
+  }
 
   const preview = document.getElementById('m-img-preview');
   if (preview) {
@@ -996,6 +1007,7 @@ window.editMovie = (id) => {
   document.getElementById('m-title').value = movie.title;
   document.getElementById('m-img').value = movie.img;
   document.getElementById('m-tmdb-id').value = movie.tmdbId || "";
+  document.getElementById('m-imdb-id').value = movie.imdbId || ""; // Operación IMDB-Latino
   document.getElementById('m-embed').value = movie.embed || "";
   document.getElementById('m-year').value = (movie.year || '2024').toString().split('-')[0];
   document.getElementById('m-rating').value = movie.rating || '4.8';
@@ -1143,10 +1155,21 @@ window.quickSeedContent = async (s, type) => {
   const exists = movieDatabase.trending.find(m => m.tmdbId == s.id);
   if (exists) { alert(`¡"${s.title || s.name}" ya estaba en el jardín!`); return; }
 
+  // Operación IMDB-Latino (v4.6.0): Obtener imdbId heredado
+  let imdbId = "";
+  try {
+    const extResp = await fetch(`${TMDB_URL}/${type === 'movie' ? 'movie' : 'tv'}/${s.id}/external_ids?api_key=${TMDB_API_KEY}`);
+    const extData = await extResp.json();
+    imdbId = extData.imdb_id || "";
+  } catch (e) {
+    console.warn("No se pudo obtener IMDB ID para siembra rápida.");
+  }
+
   const data = {
     title: s.title || s.name,
     img: TMDB_IMG_URL + s.poster_path,
     tmdbId: s.id.toString(),
+    imdbId: imdbId,
     embed: "",
     year: (s.release_date || s.first_air_date || "2024").split('-')[0],
     rating: s.vote_average?.toFixed(1) || "8.5",
@@ -1305,8 +1328,20 @@ window.confirmBatchSeed = async () => {
   for (const ch of checks) {
     const idx = ch.dataset.idx;
     const s = pendingSeeds[idx];
+
+    // Operación IMDB-Latino (v4.6.0): Obtener imdbId heredado
+    let imdbId = "";
+    try {
+      const extResp = await fetch(`${TMDB_URL}/${s.type === 'movie' ? 'movie' : 'tv'}/${s.tmdbId}/external_ids?api_key=${TMDB_API_KEY}`);
+      const extData = await extResp.json();
+      imdbId = extData.imdb_id || "";
+    } catch (e) {
+      console.warn(`No se pudo obtener IMDB ID para ${s.title}`);
+    }
+
     const mData = {
       ...s,
+      imdbId: imdbId,
       embed: "",
       status: 'healthy',
       createdAt: Date.now()
@@ -1663,6 +1698,7 @@ document.addEventListener('DOMContentLoaded', () => {
       title,
       img,
       tmdbId: document.getElementById('m-tmdb-id').value.trim(),
+      imdbId: document.getElementById('m-imdb-id').value.trim(), // Operación IMDB-Latino
       embed: document.getElementById('m-embed').value.trim(),
       year: document.getElementById('m-year').value || new Date().getFullYear().toString(),
       rating: document.getElementById('m-rating').value || '7.0',
@@ -1688,6 +1724,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Reset form
       e.target.reset();
       document.getElementById('m-db-id').value = "";
+      document.getElementById('m-imdb-id').value = ""; // Operación IMDB-Latino
       document.getElementById('m-img-preview').src = 'https://via.placeholder.com/150x220?text=Previsualización';
       document.getElementById('cancel-edit').style.display = "none";
       document.getElementById('tmdb-results').innerHTML = '';
@@ -1704,6 +1741,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('cancel-edit').addEventListener('click', () => {
     document.getElementById('movie-form').reset();
     document.getElementById('m-db-id').value = "";
+    document.getElementById('m-imdb-id').value = ""; // Operación IMDB-Latino
     document.getElementById('m-img-preview').src = 'https://via.placeholder.com/150x220?text=Previsualización';
     document.getElementById('submit-btn').innerText = "¡Guardar en la Selva! 🌴✨";
     document.getElementById('cancel-edit').style.display = "none";

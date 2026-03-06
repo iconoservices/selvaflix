@@ -16,6 +16,9 @@
   <meta name="apple-mobile-web-app-title" content="SelvaFlix">
   <link rel="apple-touch-icon" href="/icon_192.png">
   <meta name="theme-color" content="#050505">
+
+  <!-- Motor Selva P2P (WebTorrent) -->
+  <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
 </head>
 
 <body>
@@ -248,7 +251,8 @@
 
             <h2 class="admin-title">💾 Guardar / Editar Títulos</h2>
             <form id="movie-form">
-              <input type="hidden" id="m-db-id"> <!-- Para edición -->
+              <input type="hidden" id="m-db-id"> <!-- Para edición interna Firebase -->
+              <input type="hidden" id="m-imdb-id"> <!-- Operación IMDB-Latino -->
               <div class="form-group">
                 <label>Tipo de Contenido</label>
                 <select id="m-type" class="form-control">

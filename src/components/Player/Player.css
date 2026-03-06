@@ -413,3 +413,88 @@
     background: rgba(255, 255, 255, 0.1);
     color: white;
 }
+
+/* 🛰️ Addon Discovery Styles v5.0 */
+.addon-discovery-section {
+    margin: 20px 0;
+    width: 100%;
+}
+
+.addon-search-btn {
+    width: 100%;
+    background: linear-gradient(135deg, var(--primary), #FF5400);
+    color: black;
+    border: none;
+    padding: 12px;
+    border-radius: 12px;
+    font-weight: 800;
+    font-family: 'Outfit', sans-serif;
+    cursor: pointer;
+    box-shadow: 0 10px 20px rgba(255, 122, 0, 0.3);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.addon-search-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 15px 30px rgba(255, 122, 0, 0.5);
+}
+
+.external-streams-container {
+    margin-top: 15px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 15px;
+    display: none;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.stream-item {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 15px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-left: 4px solid var(--primary);
+}
+
+.stream-item:hover {
+    background: rgba(255, 122, 0, 0.1);
+    border-color: var(--primary);
+    transform: scale(1.02);
+}
+
+.stream-name {
+    color: var(--primary);
+    font-weight: 900;
+    font-size: 0.8rem;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+}
+
+.stream-title {
+    color: white;
+    font-size: 0.75rem;
+    font-weight: bold;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.stream-meta {
+    color: #888;
+    font-size: 0.6rem;
+    margin-top: 5px;
+}
+
+.addon-loader {
+    text-align: center;
+    padding: 20px;
+    font-size: 0.9rem;
+    color: var(--primary);
+    font-weight: bold;
+}

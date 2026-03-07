@@ -251,7 +251,7 @@ export const SelvaStream = {
             if (pref === 'english') {
                 this.updateServer('english-1');
             } else {
-                this.updateServer('latino-1'); // S1 disparará Debrid Auto
+                this.updateServer('latino-1');
             }
         } else {
             const cleanUrl = this.sanitizeUrl(movie.embed);
@@ -285,13 +285,6 @@ export const SelvaStream = {
 
         loader.style.display = 'flex';
         loader.style.opacity = '1';
-
-        // Intercept S1 Auto-Debrid
-        if (serverKey === 'latino-1') {
-            iframe.style.display = 'none';
-            this.loadDebridAuto(idValue, type);
-            return;
-        }
 
         // Preferencia Rey (Aumenta probabilidad de audio correcto)
         const pref = localStorage.getItem('selva_pref_lang') || 'latino';
@@ -850,15 +843,13 @@ export const SelvaStream = {
             statusText.innerText = '📡 [Fase 1/3] Autenticando ADN del Torrent en Europa...';
 
             const magnet = `magnet:?xt=urn:btih:${infoHash}`;
-            const body1 = new URLSearchParams({ magnet: magnet });
+            const formData1 = new FormData();
+            formData1.append('magnet', magnet);
 
             const r1 = await fetch('https://api.real-debrid.com/rest/1.0/torrents/addMagnet', {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${rdToken}`,
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
-                body: body1
+                headers: { 'Authorization': `Bearer ${rdToken}` },
+                body: formData1
             });
             const data1 = await r1.json();
             if (!data1.id) throw new Error('Real-Debrid rechazó el Torrent');
@@ -875,14 +866,12 @@ export const SelvaStream = {
                 const videoFiles = data2.files.filter(f => f.path.endsWith('.mp4') || f.path.endsWith('.mkv'));
                 const fileId = videoFiles.length > 0 ? (videoFiles.sort((a, b) => b.bytes - a.bytes))[0].id : 'all';
 
-                const body2 = new URLSearchParams({ files: fileId });
+                const formData2 = new FormData();
+                formData2.append('files', fileId);
                 await fetch(`https://api.real-debrid.com/rest/1.0/torrents/selectFiles/${torrentId}`, {
                     method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${rdToken}`,
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: body2
+                    headers: { 'Authorization': `Bearer ${rdToken}` },
+                    body: formData2
                 });
 
                 r2 = await fetch(`https://api.real-debrid.com/rest/1.0/torrents/info/${torrentId}`, {
@@ -894,14 +883,12 @@ export const SelvaStream = {
             statusText.innerText = '📡 [Fase 3/3] Desbloqueando Enlaces de Transferencia...';
 
             if (data2.links && data2.links.length > 0) {
-                const body3 = new URLSearchParams({ link: data2.links[0] });
+                const formData3 = new FormData();
+                formData3.append('link', data2.links[0]);
                 const r3 = await fetch('https://api.real-debrid.com/rest/1.0/unrestrict/link', {
                     method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${rdToken}`,
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: body3
+                    headers: { 'Authorization': `Bearer ${rdToken}` },
+                    body: formData3
                 });
                 const data3 = await r3.json();
 

@@ -284,7 +284,7 @@ export const SelvaStream = {
 
         let url = "";
         switch (serverKey) {
-            case 'latino-1': url = isSeries ? `https://multiembed.mov/direct/tv.php?${hasImdb ? `imdb=${idValue}` : `tmdb=${idValue}`}&s=${season}&e=${episode}${langParam}` : `https://multiembed.mov/direct/movie.php?${hasImdb ? `imdb=${idValue}` : `tmdb=${idValue}`}${langParam}`; break;
+            case 'latino-1': url = isSeries ? `https://vidsrc.me/embed/tv?${hasImdb ? `imdb=${idValue}` : `tmdb=${idValue}`}&season=${season}&episode=${episode}${langParam}` : `https://vidsrc.me/embed/movie?${hasImdb ? `imdb=${idValue}` : `tmdb=${idValue}`}${langParam}`; break;
             case 'latino-2': url = isSeries ? `https://vidsrc.to/embed/tv/${idValue}/${season}/${episode}` : `https://vidsrc.to/embed/movie/${idValue}`; break;
             case 'latino-3': url = isSeries ? `https://vidsrc.xyz/embed/tv?${hasImdb ? `imdb=${idValue}` : `tmdb=${idValue}`}&season=${season}&episode=${episode}${langParam}` : `https://vidsrc.xyz/embed/movie?${hasImdb ? `imdb=${idValue}` : `tmdb=${idValue}`}${langParam}`; break;
             case 'latino-4': url = isSeries ? `https://embed.su/embed/tv/${idValue}/${season}/${episode}` : `https://embed.su/embed/movie/${idValue}`; break;
@@ -532,7 +532,15 @@ export const SelvaStream = {
                 `https://comet.strem.fun/stream/${type}/${id}.json`
             ];
 
-            const responses = await Promise.allSettled(urls.map(u => fetch(u).then(r => r.json())));
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 seg max por intentos fallidos
+
+            const responses = await Promise.allSettled(urls.map(u =>
+                fetch(u, { signal: controller.signal })
+                    .then(r => r.json())
+            ));
+
+            clearTimeout(timeoutId);
 
             let allStreams = [];
             responses.forEach((res, i) => {
@@ -623,44 +631,144 @@ export const SelvaStream = {
                 iframe.src = stream.url;
                 loader.style.display = 'flex';
             }
-        } else if (stream.infoHash && window.WebTorrent) {
-            // Descarga P2P Tradicional (Sin Debrid)
+        } else if (stream.infoHash) {
+            // FASE 3: Motor VIP 🚀 (Debrid API directa o Local P2P)
             iframe.style.display = 'none';
             iframe.src = '';
+            loader.style.display = 'none';
 
             nativePlayer.style.display = 'block';
             statusDiv.style.display = 'block';
 
-            this.torrentClient = new window.WebTorrent();
+            // Clean Native Player
+            nativePlayer.pause();
+            nativePlayer.removeAttribute('src');
+            nativePlayer.load();
 
-            let magnetURI = stream.url || `magnet:?xt=urn:btih:${stream.infoHash}`;
+            const rdToken = localStorage.getItem('selva_rd_token') || '7SNVOQQLIAKAV7DNLN4YFARCJDASDPQFLLJXX7V5PJYEBULNTFHQ';
 
-            document.getElementById('wt-progress').innerText = `Resolviendo Torrent...`;
+            if (rdToken) {
+                document.getElementById('webtorrent-status').querySelector('div:first-child').innerText = '🚀 Invocando Puente VIP Real-Debrid...';
+                document.getElementById('wt-progress').innerText = `Procesando Petición...`;
 
-            this.torrentClient.add(magnetURI, (torrent) => {
-                const file = torrent.files.find(function (file) {
-                    return file.name.endsWith('.mp4') || file.name.endsWith('.mkv') || file.name.endsWith('.webm');
+                SelvaStream.unlockRealDebridStream(stream.infoHash, rdToken).then(directUrl => {
+                    if (directUrl) {
+                        nativePlayer.src = directUrl;
+                        nativePlayer.play().catch(e => console.warn("Auto-play prevented", e));
+                    }
+                });
+            } else if (window.WebTorrent) {
+                // Descarga P2P Tradicional (Sin Debrid)
+                this.torrentClient = new window.WebTorrent();
+
+                nativePlayer.style.display = 'block';
+                statusDiv.style.display = 'block';
+
+                this.torrentClient = new window.WebTorrent();
+
+                let magnetURI = stream.url || `magnet:?xt=urn:btih:${stream.infoHash}`;
+
+                document.getElementById('wt-progress').innerText = `Resolviendo Torrent...`;
+
+                this.torrentClient.add(magnetURI, (torrent) => {
+                    const file = torrent.files.find(function (file) {
+                        return file.name.endsWith('.mp4') || file.name.endsWith('.mkv') || file.name.endsWith('.webm');
+                    });
+
+                    if (file) {
+                        file.renderTo(nativePlayer);
+                        torrent.on('download', (bytes) => {
+                            const progress = Math.max(0, Math.min(100, (torrent.progress * 100))).toFixed(1);
+                            const speed = (torrent.downloadSpeed / 1024 / 1024).toFixed(2);
+                            document.getElementById('wt-progress').innerText =
+                                `Velocidad: ${speed} MB/s | Descargado: ${progress}%`;
+                        });
+                    } else {
+                        document.getElementById('wt-progress').innerText = `Error: No se encontró el archivo MP4/MKV`;
+                    }
                 });
 
-                if (file) {
-                    file.renderTo(nativePlayer);
-                    torrent.on('download', (bytes) => {
-                        const progress = Math.max(0, Math.min(100, (torrent.progress * 100))).toFixed(1);
-                        const speed = (torrent.downloadSpeed / 1024 / 1024).toFixed(2);
-                        document.getElementById('wt-progress').innerText =
-                            `Velocidad: ${speed} MB/s | Descargado: ${progress}%`;
-                    });
-                } else {
-                    document.getElementById('wt-progress').innerText = `Error: No se encontró el archivo MP4/MKV`;
-                }
-            });
+                this.torrentClient.on('error', (err) => {
+                    console.error('[WebTorrent Error]', err);
+                    document.getElementById('wt-progress').innerText = `Error P2P: ${err.message}`;
+                });
+            } else {
+                alert("No se pudo abrir. Verifique la conexión.");
+            }
+        }
+    },
 
-            this.torrentClient.on('error', (err) => {
-                console.error('[WebTorrent Error]', err);
-                document.getElementById('wt-progress').innerText = `Error P2P: ${err.message}`;
+    async unlockRealDebridStream(infoHash, rdToken) {
+        const statusText = document.getElementById('wt-progress');
+        try {
+            statusText.innerText = '📡 [Fase 1/3] Autenticando ADN del Torrent en Europa...';
+
+            const magnet = `magnet:?xt=urn:btih:${infoHash}`;
+            const formData1 = new FormData();
+            formData1.append('magnet', magnet);
+
+            const r1 = await fetch('https://api.real-debrid.com/rest/1.0/torrents/addMagnet', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${rdToken}` },
+                body: formData1
             });
-        } else {
-            alert("No se pudo abrir. Verifique que WebTorrent esté cargado.");
+            const data1 = await r1.json();
+            if (!data1.id) throw new Error('Real-Debrid rechazó el Torrent');
+
+            const torrentId = data1.id;
+            statusText.innerText = '📡 [Fase 2/3] Extrayendo ficheros de alta calidad...';
+
+            let r2 = await fetch(`https://api.real-debrid.com/rest/1.0/torrents/info/${torrentId}`, {
+                headers: { 'Authorization': `Bearer ${rdToken}` }
+            });
+            let data2 = await r2.json();
+
+            if (data2.status === 'waiting_files_selection') {
+                const videoFiles = data2.files.filter(f => f.path.endsWith('.mp4') || f.path.endsWith('.mkv'));
+                const fileId = videoFiles.length > 0 ? (videoFiles.sort((a, b) => b.bytes - a.bytes))[0].id : 'all';
+
+                const formData2 = new FormData();
+                formData2.append('files', fileId);
+                await fetch(`https://api.real-debrid.com/rest/1.0/torrents/selectFiles/${torrentId}`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${rdToken}` },
+                    body: formData2
+                });
+
+                r2 = await fetch(`https://api.real-debrid.com/rest/1.0/torrents/info/${torrentId}`, {
+                    headers: { 'Authorization': `Bearer ${rdToken}` }
+                });
+                data2 = await r2.json();
+            }
+
+            statusText.innerText = '📡 [Fase 3/3] Desbloqueando Enlaces de Transferencia...';
+
+            if (data2.links && data2.links.length > 0) {
+                const formData3 = new FormData();
+                formData3.append('link', data2.links[0]);
+                const r3 = await fetch('https://api.real-debrid.com/rest/1.0/unrestrict/link', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${rdToken}` },
+                    body: formData3
+                });
+                const data3 = await r3.json();
+
+                if (data3.download) {
+                    statusText.innerText = '🚀 ¡Conexión VIP Establecida! Reproduciendo...';
+                    setTimeout(() => { document.getElementById('webtorrent-status').style.display = 'none'; }, 2000);
+                    return data3.download;
+                }
+            } else if (data2.status === 'downloading' || data2.status === 'queued') {
+                statusText.innerText = `⚠️ [Real-Debrid] Este archivo NO está en Caché. Descargando a puente VIP. Progreso: ${data2.progress}%`;
+                return null;
+            }
+
+            throw new Error('Sin Enlaces Útiles para Video');
+
+        } catch (error) {
+            console.error('[RD API Error]', error);
+            statusText.innerText = `Error RD: ${error.message}`;
+            return null;
         }
     }
 };

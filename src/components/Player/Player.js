@@ -559,13 +559,22 @@ export const SelvaStream = {
                 }
             });
 
-            if (allStreams.length === 0) {
+            let validStreams = allStreams.filter(s => {
+                const text = (s.title || '').toLowerCase() + ' ' + (s.name || '').toLowerCase();
+                // Excluir streams brasileños/portugueses que suelen colarse
+                if (text.includes('dublado') || text.includes('legendado') || text.includes('pt-br') || text.includes('português')) {
+                    return false;
+                }
+                return true;
+            });
+
+            if (validStreams.length === 0) {
                 container.innerHTML = `<p style="font-size:0.75rem; color:#aaa; text-align:center;">Ningún satélite encontró la Cocona. 🌴🌵<br><small>Intenta con servidores tradicionales.</small></p>`;
                 return;
             }
 
-            const streams = allStreams.sort((a, b) => {
-                const keywords = ['latino', 'spanish', 'esp', 'multi', 'dual', 'español'];
+            const streams = validStreams.sort((a, b) => {
+                const keywords = ['latino', 'spanish', 'esp', 'multi', 'dual', 'español', 'cinecalidad'];
                 const aMatch = keywords.some(k => a.title.toLowerCase().includes(k));
                 const bMatch = keywords.some(k => b.title.toLowerCase().includes(k));
                 if (aMatch && !bMatch) return -1;
@@ -580,14 +589,21 @@ export const SelvaStream = {
                 const title = titleParts[0];
                 const meta = titleParts.slice(1).join(' | ');
 
-                const keywords = ['latino', 'spanish', 'esp', 'multi', 'dual', 'español'];
-                const isLatino = keywords.some(k => s.title.toLowerCase().includes(k)) || title.toLowerCase().includes('cinecalidad');
-                const isCinecalidad = title.toLowerCase().includes('cinecalidad') || (s.title && s.title.toLowerCase().includes('cinecalidad'));
+                const lowerTitle = title.toLowerCase();
+                const lowerMeta = meta.toLowerCase();
 
-                const isDebrid = title.includes('[RD+]') || (s.name && s.name.includes('[RD+]')) || (s.title && s.title.includes('[RD+]'));
-                let badge = isLatino ? '<span style="background:var(--primary); color:black; padding:2px 4px; border-radius:4px; font-size:0.55rem; margin-left:5px;">⭐ LATINO / MULTI</span>' : '';
+                const keywordsLatino = ['latino', 'spanish', 'esp', 'español'];
+                const isLatino = keywordsLatino.some(k => lowerTitle.includes(k) || lowerMeta.includes(k)) || lowerTitle.includes('cinecalidad');
+                const isCinecalidad = lowerTitle.includes('cinecalidad') || (s.title && s.title.toLowerCase().includes('cinecalidad'));
+                const isDebrid = lowerTitle.includes('[rd+]') || (s.name && s.name.toLowerCase().includes('[rd+]')) || (lowerMeta.includes('[rd+]'));
+                const isMulti = lowerTitle.includes('multi') || lowerTitle.includes('dual') || lowerMeta.includes('multi') || lowerMeta.includes('dual');
+                const isAc3 = lowerTitle.includes('ac3') || lowerTitle.includes('dts') || lowerTitle.includes('eac3') || lowerMeta.includes('ac3') || lowerMeta.includes('dts');
+
+                let badge = isLatino ? '<span style="background:var(--primary); color:black; padding:2px 4px; border-radius:4px; font-size:0.55rem; margin-left:5px;">⭐ LATINO / ESP</span>' : '';
                 if (isCinecalidad) badge += '<span style="background:#00d2ff; color:black; padding:2px 4px; border-radius:4px; font-size:0.55rem; margin-left:5px;">💎 LATINO PURO</span>';
-                if (isDebrid) badge += '<span style="background:#2ecc71; color:black; padding:2px 4px; border-radius:4px; font-size:0.55rem; margin-left:5px;">🚀 DEBRID VIP (Carga Instantánea)</span>';
+                if (isDebrid) badge += '<span style="background:#2ecc71; color:black; padding:2px 4px; border-radius:4px; font-size:0.55rem; margin-left:5px;">🚀 DEBRID VIP</span>';
+                if (isMulti) badge += '<span style="background:#9b59b6; color:white; padding:2px 4px; border-radius:4px; font-size:0.55rem; margin-left:5px;">🌐 MULTI (Cambiar en VLC)</span>';
+                if (isAc3) badge += '<span style="background:#e74c3c; color:white; padding:2px 4px; border-radius:4px; font-size:0.55rem; margin-left:5px;">⚠️ AUD AC3 (Usar VLC)</span>';
 
                 return `
                         <div class="stream-item" onclick="SelvaStream.handleExternalStream(${JSON.stringify(s).replace(/"/g, '&quot;')})" style="padding: 10px; margin-bottom: 5px; cursor: pointer; border-radius: 5px; border-left: 4px solid #555; background: rgba(255,255,255,0.05); ${isLatino ? 'border-left-color: var(--primary); background: rgba(255,122,0,0.08);' : ''} ${isDebrid ? 'border-left-color:#2ecc71; background: rgba(46,204,113,0.1);' : ''}">

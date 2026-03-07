@@ -79,16 +79,28 @@ export const SelvaStream = {
                             <p class="start-subtitle">Conexión Directa Real-Debrid P2P</p>
                         </div>
                     </div>
+
+                    <!-- Botón de Fuentes Flotante (Fase 4.1) -->
+                    <button id="floating-sources-btn" class="floating-sources-btn" onclick="SelvaStream.toggleVipMenu()">
+                         📡 OTRAS FUENTES VIP
+                    </button>
+                    <div id="side-vip-menu" class="side-vip-menu">
+                        <div class="vip-menu-header">
+                            <span>🚀 FUENTES VIP</span>
+                            <button onclick="SelvaStream.toggleVipMenu()">&times;</button>
+                        </div>
+                        <div id="vip-menu-list"></div>
+                    </div>
                 </div>
-                <div class="guide-sidebar">
-                    <h3>📌 Tip de Supervivencia</h3>
-                    <p>¿Aparece "No se puede cargar"? <b>¡El motor se auto-reparará!</b></p>
-                    <ol>
-                        <li>Si el servidor actual está lleno...</li>
-                        <li>SelvaFlix buscará otra ruta.</li>
-                        <li>Solo relájate y disfruta del paisaje.</li>
-                    </ol>
-                    <p style="font-size: 0.7rem; color: var(--primary); margin-top: 15px;">🛡️ Recomendamos usar Brave Browser.</p>
+                <div class="guide-sidebar compact-sidebar">
+                    <h3>📌 NOTIFICACIONES</h3>
+                    <div id="player-notifications" class="player-notifications">
+                        <p>¿No carga? Prueba otro servidor o usa uBlock/Brave.</p>
+                    </div>
+                    <div class="sidebar-ad-space">
+                        <!-- Espacio para Ads o Info -->
+                        <span>🔥 SelvaFlix VIP</span>
+                    </div>
                 </div>
             </div>
             <!-- Controles y Servidores (Se llenan dinámicamente) -->
@@ -139,21 +151,46 @@ export const SelvaStream = {
                     position: relative; z-index: 10; text-align: center; color: white;
                     animation: fadeIn 0.8s ease-out;
                 }
-                .start-content h2 { font-size: 2.5rem; text-shadow: 0 44px 10px rgba(0,0,0,0.8); margin-bottom: 20px; }
+                .start-content h2 { font-size: 2.2rem; text-shadow: 0 4px 15px rgba(0,0,0,0.9); margin-bottom: 25px; font-weight: 800; }
                 .start-play-btn {
                     background: var(--primary); color: black; border: none;
-                    padding: 15px 40px; border-radius: 50px; font-size: 1.2rem;
-                    font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 10px;
-                    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-                    box-shadow: 0 0 20px rgba(255,122,0,0.4);
+                    padding: 18px 50px; border-radius: 60px; font-size: 1.3rem;
+                    font-weight: 900; cursor: pointer; display: flex; align-items: center; gap: 12px;
+                    transition: all 0.3s;
+                    box-shadow: 0 10px 30px rgba(255,122,0,0.5);
                 }
-                .start-play-btn:hover { transform: scale(1.1); box-shadow: 0 0 40px rgba(255,122,0,0.6); }
+                .start-play-btn:hover { transform: scale(1.05); box-shadow: 0 0 50px rgba(255,122,0,0.8); }
                 .play-icon { font-size: 1.5rem; }
                 .start-subtitle { margin-top: 15px; font-size: 0.9rem; opacity: 0.7; letter-spacing: 2px; }
+
+                .guide-sidebar { width: 140px !important; min-width: 140px !important; flex-shrink: 0; font-size: 10px; }
+                .video-container { flex: 1; }
 
                 .vip-badge { background: #2ecc71; color: black; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 5px; }
                 .latino-badge { background: var(--primary); color: black; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 5px; }
                 
+                /* Floating VIP Menu */
+                .floating-sources-btn {
+                    position: absolute; bottom: 80px; right: 20px; z-index: 250;
+                    background: rgba(0,0,0,0.8); color: var(--primary); border: 1px solid var(--primary);
+                    padding: 8px 15px; border-radius: 20px; font-weight: 800; font-size: 11px;
+                    cursor: pointer; transition: all 0.3s;
+                }
+                .floating-sources-btn:hover { background: var(--primary); color: black; }
+                
+                .side-vip-menu {
+                    position: absolute; top: 0; right: -300px; width: 300px; height: 100%;
+                    background: rgba(10,10,10,0.95); backdrop-filter: blur(20px);
+                    z-index: 300; transition: right 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                    border-left: 1px solid #333; padding: 20px; overflow-y: auto;
+                }
+                .side-vip-menu.active { right: 0; }
+                .vip-menu-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; color: var(--primary); font-weight: 800; border-bottom: 1px solid #333; padding-bottom: 10px; }
+                .vip-menu-header button { background: none; border: none; color: white; font-size: 24px; cursor: pointer; }
+
+                .compact-sidebar { width: 180px !important; font-size: 11px; }
+                .sidebar-ad-space { margin-top: auto; background: rgba(255,122,0,0.1); border: 1px dashed var(--primary); padding: 10px; text-align: center; border-radius: 8px; font-weight: bold; font-size: 10px; color: var(--primary); }
+
                 @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
             `;
             document.head.appendChild(style);
@@ -246,7 +283,14 @@ export const SelvaStream = {
             startScreen.style.display = 'flex';
             document.getElementById('start-title').innerText = movie.title || movie.name;
             const bg = document.getElementById('start-bg');
-            if (bg) bg.style.backgroundImage = `url(https://image.tmdb.org/t/p/original${movie.poster_path || movie.img})`;
+            const poster = movie.poster_path || movie.img || '';
+            const finalImg = poster.startsWith('http') ? poster : `https://image.tmdb.org/t/p/original${poster}`;
+            if (bg) bg.style.backgroundImage = `url(${finalImg})`;
+        }
+
+        // Si hay link manual de Admin, mostrar badge VIP
+        if (movie.embed) {
+            console.log("💎 Detectado Link de Admin (Prioridad Total)");
         }
 
         this.renderControls();
@@ -468,89 +512,67 @@ export const SelvaStream = {
         }
     },
 
-    toggleTraditional() {
-        this.showTraditional = !this.showTraditional;
+    toggleVipMenu() {
+        const menu = document.getElementById('side-vip-menu');
+        if (menu) menu.classList.toggle('active');
         this.renderControls();
-    },
-
-    loadManualLink() {
-        const url = document.getElementById('manual-url-input')?.value;
-        if (!url) return;
-        this.handleExternalStream({ url: url, name: 'Manual Link', title: 'Carga Directa' });
     },
 
     renderControls() {
         const root = document.getElementById('player-controls-root');
         if (!root) return;
 
-        const isSeries = ['series', 'tv', 'anime'].includes(this.currentPlayerMovie.type);
         const pref = localStorage.getItem('selva_pref_lang') || 'latino';
 
-        let vipListHtml = '';
-        if (this.lastScrapedStreams && this.lastScrapedStreams.length > 0) {
-            vipListHtml = `
-                <div class="vip-sources-section" style="margin-top: 20px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                        <h4 style="color:var(--primary); margin:0;">🚀 FUENTES VIP DETECTADAS</h4>
-                        <button onclick="SelvaStream.fetchExternalStreams()" style="background:none; border:1px solid #555; color:#aaa; font-size:10px; border-radius:4px; padding:2px 8px; cursor:pointer;">🔄 Refrescar</button>
-                    </div>
-                    <div class="vip-list" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:10px; max-height: 250px; overflow-y: auto; padding-right:5px;">
-                        ${this.lastScrapedStreams.slice(0, 10).map(s => {
-                const text = (s.title + ' ' + s.name).toLowerCase();
-                const isLatino = text.includes('latino') || text.includes('spanish') || text.includes('cinecalidad');
-                return `
-                                <div class="stream-item" onclick='SelvaStream.handleExternalStream(${JSON.stringify(s).replace(/'/g, "&apos;")})' style="background:rgba(255,255,255,0.05); padding:10px; border-radius:8px; border:1px solid #333; cursor:pointer; hover:border-color:var(--primary);">
-                                    <div style="font-size:11px; font-weight:bold; color:#2ecc71;">${s.providerName} VIP ${isLatino ? '<span class="latino-badge">LATINO</span>' : ''}</div>
-                                    <div style="font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:4px;">${s.title}</div>
-                                </div>
-                            `;
-            }).join('')}
-                    </div>
-                </div>
-            `;
+        // Actualizar el Listado del Menú Lateral VIP
+        const vipMenuList = document.getElementById('vip-menu-list');
+        if (vipMenuList) {
+            if (this.lastScrapedStreams.length > 0) {
+                vipMenuList.innerHTML = this.lastScrapedStreams.map(s => {
+                    const text = (s.title + ' ' + s.name).toLowerCase();
+                    const isLatino = text.includes('latino') || text.includes('spanish') || text.includes('cinecalidad');
+                    return `
+                        <div class="stream-item" onclick='SelvaStream.toggleVipMenu(); SelvaStream.handleExternalStream(${JSON.stringify(s).replace(/'/g, "&apos;")})' style="background:rgba(255,255,255,0.05); padding:12px; border-radius:10px; border:1px solid #333; cursor:pointer; margin-bottom:10px;">
+                            <div style="font-size:10px; font-weight:bold; color:#2ecc71; display:flex; justify-content:space-between;">
+                                <span>${s.providerName} VIP</span>
+                                ${isLatino ? '<span class="latino-badge">LATINO</span>' : ''}
+                            </div>
+                            <div style="font-size:11px; margin-top:5px; opacity:0.8; height:32px; overflow:hidden; line-height:1.2;">${s.title}</div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                vipMenuList.innerHTML = '<p style="text-align:center; opacity:0.5; font-size:12px; margin-top:20px;">Pulsa "REPRODUCIR VIP" para buscar fuentes.</p>';
+            }
         }
 
         root.innerHTML = `
             <div class="player-controls">
-                <div class="pref-selector" style="display:flex; justify-content:center; gap:10px; margin-bottom:15px; background: rgba(255,122,0,0.05); padding:10px; border-radius:12px; border:1px solid rgba(255,122,0,0.15);">
-                    <button class="pref-btn ${pref === 'latino' ? 'active' : ''}" onclick="SelvaStream.setPreference('latino')" style="flex:1; background:${pref === 'latino' ? 'var(--primary)' : 'rgba(255,255,255,0.05)'}; border:none; color:${pref === 'latino' ? 'black' : 'white'}; padding:8px; border-radius:8px; font-weight:bold; cursor:pointer;">🇲🇽 LATINO</button>
-                    <button class="pref-btn ${pref === 'english' ? 'active' : ''}" onclick="SelvaStream.setPreference('english')" style="flex:1; background:${pref === 'english' ? 'var(--primary)' : 'rgba(255,255,255,0.05)'}; border:none; color:${pref === 'english' ? 'black' : 'white'}; padding:8px; border-radius:8px; font-weight:bold; cursor:pointer;">🇺🇸 SUB/ENGLISH</button>
+                <!-- Selector de Idioma Global -->
+                <div class="pref-selector" style="display:flex; justify-content:center; gap:10px; margin-bottom:20px; background: rgba(255,122,0,0.05); padding:12px; border-radius:15px; border:1px solid rgba(255,122,0,0.15); box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+                    <button class="pref-btn ${pref === 'latino' ? 'active' : ''}" onclick="SelvaStream.setPreference('latino')" style="flex:1; background:${pref === 'latino' ? 'var(--primary)' : 'rgba(255,255,255,0.05)'}; border:none; color:${pref === 'latino' ? 'black' : 'white'}; padding:12px; border-radius:10px; font-weight:800; cursor:pointer; transition: all 0.3s; font-size: 13px;">🇲🇽 LATINO (VIP)</button>
+                    <button class="pref-btn ${pref === 'english' ? 'active' : ''}" onclick="SelvaStream.setPreference('english')" style="flex:1; background:${pref === 'english' ? 'var(--primary)' : 'rgba(255,255,255,0.05)'}; border:none; color:${pref === 'english' ? 'black' : 'white'}; padding:12px; border-radius:10px; font-weight:800; cursor:pointer; transition: all 0.3s; font-size: 13px;">🇺🇸 SUB/ENG</button>
                 </div>
 
-                ${isSeries ? `
-                    <div class="series-navigator">
-                        <select id="selva-season" class="selva-select">
-                            <option value="1">Temporada 1</option>
-                        </select>
-                        <select id="selva-episode" class="selva-select">
-                            <option value="1">Capítulo 1</option>
-                        </select>
+                <!-- Panel de Servidores con Publicidad -->
+                <div class="server-switcher" style="padding:20px; background:rgba(255,255,255,0.03); border-radius:15px; border:1px solid #222; position:relative;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                        <span style="font-size:13px; font-weight:900; color:#FF7A00; letter-spacing:0.5px;">🌐 OPCIONES CON PUBLICIDAD (Clásicos)</span>
+                        <div style="font-size:11px; background:#C0392B; color:white; padding:2px 8px; border-radius:4px; font-weight:800;">AVISO</div>
                     </div>
-                ` : ''}
-                
-                ${vipListHtml}
+                    
+                    <p style="font-size:11px; color:#888; margin-bottom:15px; line-height:1.4;">Si prefieres los servidores tradicionales, aquí los tienes. Ten en cuenta que pueden abrir pestañas externas.</p>
 
-                <div class="manual-fallback" style="margin-top:20px; border-top:1px solid #333; padding-top:15px;">
-                    <div style="display:flex; gap:10px; margin-bottom:15px;">
-                         <input id="manual-url-input" type="text" placeholder="Pegar enlace .mp4 / .m3u8..." style="flex:1; background:#111; border:1px solid #444; color:white; padding:10px; border-radius:8px;">
-                         <button onclick="SelvaStream.loadManualLink()" style="background:#555; color:white; border:none; padding:10px 15px; border-radius:8px; cursor:pointer; font-weight:bold;">Cargar</button>
+                    <div class="server-group" style="display:flex; gap:12px; flex-wrap:wrap;">
+                        <button class="server-btn" onclick="SelvaStream.updateServer('latino-1')" style="flex:1; min-width:100px;">SERVIDOR 1</button>
+                        <button class="server-btn" onclick="SelvaStream.updateServer('latino-2')" style="flex:1; min-width:100px;">SERVIDOR 2</button>
+                        <button class="server-btn" onclick="SelvaStream.updateServer('latino-4')" style="flex:1; min-width:100px;">SERVIDOR 4</button>
+                        <button class="server-btn" onclick="SelvaStream.updateServer('latino-6')" style="flex:1; min-width:100px;">SERVIDOR 6</button>
                     </div>
+                </div>
 
-                    <button class="traditional-toggle" onclick="SelvaStream.toggleTraditional()" style="width:100%; padding:10px; background:rgba(255,255,255,0.03); border:1px dashed #444; color:#888; border-radius:8px; cursor:pointer; font-size:12px;">
-                        ${this.showTraditional ? '🔼 Ocultar Servidores de Respaldo' : '🔽 Ver Servidores de Respaldo (Con Anuncios)'}
-                    </button>
-
-                    ${this.showTraditional ? `
-                        <div class="server-switcher" style="margin-top:15px; animation: fadeIn 0.3s;">
-                            <div class="server-group">
-                                <span>🌐 SERVIDORES CLÁSICOS:</span>
-                                <button class="server-btn" onclick="SelvaStream.updateServer('latino-1')">S1</button>
-                                <button class="server-btn" onclick="SelvaStream.updateServer('latino-2')">S2</button>
-                                <button class="server-btn" onclick="SelvaStream.updateServer('latino-4')">S4</button>
-                                <button class="server-btn" onclick="SelvaStream.updateServer('latino-6')">S6</button>
-                            </div>
-                        </div>
-                    ` : ''}
+                 <div style="margin-top:20px; text-align:center;">
+                    <button onclick="SelvaStream.fetchExternalStreams()" style="background:none; border:none; color:var(--text-muted); font-size:12px; font-weight:bold; cursor:pointer; text-decoration:underline; opacity:0.6;">🔄 Recargar base de datos P2P</button>
                 </div>
             </div>
         `;
@@ -610,6 +632,21 @@ export const SelvaStream = {
         if (nativeContainer) nativeContainer.style.display = 'none';
         if (nativePlayer) nativePlayer.pause();
 
+
+        const movie = this.currentPlayerMovie;
+
+        // PRIORIDAD 1: Link Manual de Administrador (Vía Panel Admin)
+        if (movie && movie.embed && (movie.embed.startsWith('http') || movie.embed.includes('<iframe'))) {
+            const isDirect = movie.embed.endsWith('.mp4') || movie.embed.endsWith('.m3u8') || movie.embed.endsWith('.mkv');
+            console.log("💎 Usando Link Manual (Prioridad Admin)");
+            this.handleExternalStream({
+                url: movie.embed,
+                name: '[DIRECCIÓN VIP]',
+                title: movie.title || 'Carga Directa',
+                providerName: 'Admin'
+            });
+            return;
+        }
 
         const loaderText = document.querySelector('.loader-text');
         if (loaderText) loaderText.innerText = '🚀 Invocando Auto-VIP Debrid...';
@@ -810,6 +847,10 @@ export const SelvaStream = {
 
     handleExternalStream(stream) {
         console.log("Cargando fuente externa:", stream);
+
+        // Mapeo Heurístico (Analytics Local): Recordamos qué proveedor usamos
+        localStorage.setItem(`last_source_${this.currentPlayerMovie.id}`, stream.providerName || 'Unknown');
+
         const iframe = document.getElementById('player-iframe');
         const nativePlayer = document.getElementById('native-video-player');
         const statusDiv = document.getElementById('webtorrent-status');

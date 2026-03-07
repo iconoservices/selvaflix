@@ -522,17 +522,11 @@ export const SelvaStream = {
         const type = this.currentPlayerMovie.type === 'series' ? 'series' : 'movie';
 
         try {
-            // 👑 INYECCIÓN REAL-DEBRID (Fase 3: Motor VIP)
-            const rdToken = localStorage.getItem('selva_rd_token') || '7SNVOQQLIAKAV7DNLN4YFARCJDASDPQFLLJXX7V5PJYEBULNTFHQ';
+            // Fase 3: Buscamos links sin Token de RD por ahora para que no devuelva 403 CORS.
+            // Extraeremos la data P2P y después vemos si inyectamos RD localmente.
             const providers = "cinecalidad,mejortorrent,wolfmax4k,yts,eztv,rarbg,1337x,torrent9,limetorrents";
+            const tConfig = `providers=${providers}|sort=seeders|qualityfilter=scr,cam`;
 
-            // Si hay token, Torrentio usa ese endpoint nativo de Debrid (https://torrentio.strem.fun/realdebrid=TOKEN/...)
-            const tConfig = rdToken
-                ? `realdebrid=${rdToken}|providers=${providers}|sort=seeders|qualityfilter=scr,cam`
-                : `providers=${providers}|sort=seeders|qualityfilter=scr,cam`;
-
-            // Comet usa otra estructura para el base64, lo omitiremos temporalmente si falla mucho, 
-            // pero para esta prueba solo lo apuntaremos sin token para que funja de backup P2P.
             const urls = [
                 `https://torrentio.strem.fun/${tConfig}/stream/${type}/${id}.json`,
                 `https://comet.strem.fun/stream/${type}/${id}.json`

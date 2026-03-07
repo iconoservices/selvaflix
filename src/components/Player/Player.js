@@ -10,6 +10,8 @@ export const SelvaStream = {
     hls: null,
     lastScrapedStreams: [],
     showTraditional: false,
+    MASTER_WORKER_URL: 'https://icono-proxy.jnmcsky.workers.dev', // IconoServices Master Tunnel
+    AUTH_TOKEN: import.meta.env.VITE_AUTH_TOKEN || localStorage.getItem('iconoservices_token') || 'MASTER_TOKEN_REQUIRED', // Token oculto seguro
 
     /**
      * Sanea la URL para evitar inyecciones maliciosas.
@@ -934,25 +936,27 @@ export const SelvaStream = {
             nativePlayer.removeAttribute('src');
             nativePlayer.load();
 
-            const rdToken = localStorage.getItem('selva_rd_token') || '7SNVOQQLIAKAV7DNLN4YFARCJDASDPQFLLJXX7V5PJYEBULNTFHQ';
+            if (true) { // Usamos el Master Worker si está configurado
+                document.getElementById('webtorrent-status').querySelector('div:first-child').innerText = '🚀 Invocando Puente VIP Soberano...';
+                document.getElementById('wt-progress').innerText = `Procesando en Cloudflare...`;
 
-            if (rdToken) {
-                document.getElementById('webtorrent-status').querySelector('div:first-child').innerText = '🚀 Invocando Puente VIP Real-Debrid...';
-                document.getElementById('wt-progress').innerText = `Procesando Petición...`;
-
-                SelvaStream.unlockRealDebridStream(stream.infoHash, rdToken).then(directUrl => {
-                    if (directUrl) {
-                        nativePlayer.src = directUrl;
+                this.callMasterWorker(stream.infoHash).then(result => {
+                    if (result && result.url) {
+                        nativePlayer.src = result.url;
                         nativePlayer.play().catch(e => console.warn("Auto-play prevented", e));
 
                         // Preparar botón de VLC/Externo
                         const isAndroid = /Android/i.test(navigator.userAgent);
                         const vlcUrl = isAndroid
-                            ? `intent://${directUrl.replace(/^https?:\/\//, '')}#Intent;package=org.videolan.vlc;type=video/*;scheme=https;end`
-                            : `vlc://${directUrl}`;
+                            ? `intent://${result.url.replace(/^https?:\/\//, '')}#Intent;package=org.videolan.vlc;type=video/*;scheme=https;end`
+                            : `vlc://${result.url}`;
 
                         extBtn.href = vlcUrl;
                         extBtn.style.display = 'flex';
+
+                        setTimeout(() => { document.getElementById('webtorrent-status').style.display = 'none'; }, 2000);
+                    } else {
+                        document.getElementById('wt-progress').innerText = result?.error || 'Error en el Búnker';
                     }
                 });
             } else if (window.WebTorrent) {
@@ -996,77 +1000,22 @@ export const SelvaStream = {
         }
     },
 
-    async unlockRealDebridStream(infoHash, rdToken) {
-        const statusText = document.getElementById('wt-progress');
+    async callMasterWorker(infoHash) {
         try {
-            statusText.innerText = '📡 [Fase 1/3] Autenticando ADN del Torrent en Europa...';
-
             const magnet = `magnet:?xt=urn:btih:${infoHash}`;
-            const formData1 = new FormData();
-            formData1.append('magnet', magnet);
+            const role = 'admin'; // Futuro: localStorage.getItem('user_role')
 
-            const r1 = await fetch('https://api.real-debrid.com/rest/1.0/torrents/addMagnet', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${rdToken}` },
-                body: formData1
+            const url = `${this.MASTER_WORKER_URL}/flix/unrestrict?magnet=${encodeURIComponent(magnet)}&role=${role}`;
+
+            const res = await fetch(url, {
+                headers: { 'x-selva-auth': this.AUTH_TOKEN }
             });
-            const data1 = await r1.json();
-            if (!data1.id) throw new Error('Real-Debrid rechazó el Torrent');
 
-            const torrentId = data1.id;
-            statusText.innerText = '📡 [Fase 2/3] Extrayendo ficheros de alta calidad...';
-
-            let r2 = await fetch(`https://api.real-debrid.com/rest/1.0/torrents/info/${torrentId}`, {
-                headers: { 'Authorization': `Bearer ${rdToken}` }
-            });
-            let data2 = await r2.json();
-
-            if (data2.status === 'waiting_files_selection') {
-                const videoFiles = data2.files.filter(f => f.path.endsWith('.mp4') || f.path.endsWith('.mkv'));
-                const fileId = videoFiles.length > 0 ? (videoFiles.sort((a, b) => b.bytes - a.bytes))[0].id : 'all';
-
-                const formData2 = new FormData();
-                formData2.append('files', fileId);
-                await fetch(`https://api.real-debrid.com/rest/1.0/torrents/selectFiles/${torrentId}`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${rdToken}` },
-                    body: formData2
-                });
-
-                r2 = await fetch(`https://api.real-debrid.com/rest/1.0/torrents/info/${torrentId}`, {
-                    headers: { 'Authorization': `Bearer ${rdToken}` }
-                });
-                data2 = await r2.json();
-            }
-
-            statusText.innerText = '📡 [Fase 3/3] Desbloqueando Enlaces de Transferencia...';
-
-            if (data2.links && data2.links.length > 0) {
-                const formData3 = new FormData();
-                formData3.append('link', data2.links[0]);
-                const r3 = await fetch('https://api.real-debrid.com/rest/1.0/unrestrict/link', {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${rdToken}` },
-                    body: formData3
-                });
-                const data3 = await r3.json();
-
-                if (data3.download) {
-                    statusText.innerText = '🚀 ¡Conexión VIP Establecida! Reproduciendo...';
-                    setTimeout(() => { document.getElementById('webtorrent-status').style.display = 'none'; }, 2000);
-                    return data3.download;
-                }
-            } else if (data2.status === 'downloading' || data2.status === 'queued') {
-                statusText.innerText = `⚠️ [Real-Debrid] Este archivo NO está en Caché. Descargando a puente VIP. Progreso: ${data2.progress}%`;
-                return null;
-            }
-
-            throw new Error('Sin Enlaces Útiles para Video');
-
+            if (!res.ok) throw new Error(`HTTP_${res.status}`);
+            return await res.json();
         } catch (error) {
-            console.error('[RD API Error]', error);
-            statusText.innerText = `Error RD: ${error.message}`;
-            return null;
+            console.error('[Worker Connection Error]', error);
+            return { error: error.message };
         }
     }
 };

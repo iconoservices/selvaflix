@@ -53,7 +53,12 @@ export const SelvaStream = {
                         allowfullscreen>
                     </iframe>
                     <!-- Reproductor P2P/Nativo (Fase 1) -->
-                    <video id="native-video-player" style="display:none; width: 100%; height: 100%; background: #000;" controls></video>
+                    <div id="native-player-container" style="display:none; width: 100%; height: 100%; position: relative;">
+                        <video id="native-video-player" style="width: 100%; height: 100%; background: #000;" controls></video>
+                        <a id="external-player-btn" href="#" style="position:absolute; top:20px; right:20px; background:rgba(255,122,0,0.9); padding:10px 15px; border-radius:8px; color:black; font-weight:bold; font-size:12px; text-decoration:none; z-index:100; display:flex; align-items:center; gap:5px; box-shadow: 0 4px 6px rgba(0,0,0,0.5);">
+                            🎧 ¿Sin Audio? Abrir en VLC
+                        </a>
+                    </div>
                     
                     <div id="webtorrent-status" style="display:none; position:absolute; bottom:20px; left:20px; background:rgba(0,0,0,0.8); padding:10px; border-radius:8px; color:#fff; font-size:12px; z-index:100; border: 1px solid var(--primary);">
                         <div style="color:var(--primary); font-weight:bold; margin-bottom:5px;">🕸️ Conectando a la red P2P...</div>
@@ -166,11 +171,13 @@ export const SelvaStream = {
 
         // Reset players visibility
         const iframe = document.getElementById('player-iframe');
+        const nativeContainer = document.getElementById('native-player-container');
         const nativePlayer = document.getElementById('native-video-player');
         const statusDiv = document.getElementById('webtorrent-status');
+
         if (iframe) iframe.style.display = 'block';
+        if (nativeContainer) nativeContainer.style.display = 'none';
         if (nativePlayer) {
-            nativePlayer.style.display = 'none';
             nativePlayer.pause();
         }
         if (statusDiv) statusDiv.style.display = 'none';
@@ -264,13 +271,14 @@ export const SelvaStream = {
         const isSeries = type === 'series' || type === 'tv' || type === 'anime';
 
         const iframe = document.getElementById('player-iframe');
+        const nativeContainer = document.getElementById('native-player-container');
         const nativePlayer = document.getElementById('native-video-player');
         const statusDiv = document.getElementById('webtorrent-status');
         const loader = document.getElementById('player-loader');
 
         if (iframe) iframe.style.display = 'block';
+        if (nativeContainer) nativeContainer.style.display = 'none';
         if (nativePlayer) {
-            nativePlayer.style.display = 'none';
             nativePlayer.pause();
         }
         if (statusDiv) statusDiv.style.display = 'none';
@@ -622,9 +630,22 @@ export const SelvaStream = {
                 nativePlayer.style.display = 'block';
                 nativePlayer.src = stream.url;
                 nativePlayer.play();
+
+                // Si es un source directo, le pasamos la URL al botón externo
+                const nativeContainer = document.getElementById('native-player-container');
+                const extBtn = document.getElementById('external-player-btn');
+                nativeContainer.style.display = 'block';
+                extBtn.style.display = 'flex';
+
+                const isAndroid = /Android/i.test(navigator.userAgent);
+                extBtn.href = isAndroid
+                    ? `intent://${stream.url.replace(/^https?:\/\//, '')}#Intent;package=org.videolan.vlc;type=video/*;scheme=https;end`
+                    : `vlc://${stream.url}`;
+
             } else {
                 // Posiblemente un Iframe externo
-                nativePlayer.style.display = 'none';
+                const nativeContainer = document.getElementById('native-player-container');
+                if (nativeContainer) nativeContainer.style.display = 'none';
                 statusDiv.style.display = 'none';
                 nativePlayer.pause();
                 iframe.style.display = 'block';
@@ -637,8 +658,11 @@ export const SelvaStream = {
             iframe.src = '';
             loader.style.display = 'none';
 
-            nativePlayer.style.display = 'block';
+            const nativeContainer = document.getElementById('native-player-container');
+            const extBtn = document.getElementById('external-player-btn');
+            nativeContainer.style.display = 'block';
             statusDiv.style.display = 'block';
+            extBtn.style.display = 'none'; // Ocultar hasta tener link
 
             // Clean Native Player
             nativePlayer.pause();
@@ -655,6 +679,15 @@ export const SelvaStream = {
                     if (directUrl) {
                         nativePlayer.src = directUrl;
                         nativePlayer.play().catch(e => console.warn("Auto-play prevented", e));
+
+                        // Preparar botón de VLC/Externo
+                        const isAndroid = /Android/i.test(navigator.userAgent);
+                        const vlcUrl = isAndroid
+                            ? `intent://${directUrl.replace(/^https?:\/\//, '')}#Intent;package=org.videolan.vlc;type=video/*;scheme=https;end`
+                            : `vlc://${directUrl}`;
+
+                        extBtn.href = vlcUrl;
+                        extBtn.style.display = 'flex';
                     }
                 });
             } else if (window.WebTorrent) {

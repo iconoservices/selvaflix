@@ -1531,6 +1531,39 @@ function initApp(filterType = '', genreId = '') {
   }
 }
 
+window.renderChannels = (container) => {
+  const channels = movieDatabase.trending.filter(m => m.type === 'live');
+  if (channels.length === 0) {
+    container.innerHTML = `
+      <div style="grid-column: 1/-1; padding: 40px; text-align: center; background: rgba(255,255,255,0.02); border-radius: 20px; border: 1px dashed #333;">
+        <p style="color:var(--text-muted); margin-bottom:15px;">La selva está en silencio... No hay canales aún.</p>
+        <button onclick="window.location.hash='admin'; window.switchAdminTab('inventory');" class="btn btn-primary" style="font-size:0.8rem;">🚜 Sembrar Canales</button>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = channels.map(ch => `
+    <div class="movie-card live-card" onclick="window.handleCardClick('${ch.id}')" style="min-width: 200px; height: 120px;">
+       <div class="card-img-wrapper" style="height: 100%;">
+          <img src="${ch.img}" alt="${ch.title}" loading="lazy" style="object-fit: contain; background: #fff; padding: 10px;">
+          <div class="card-overlay">
+            <div class="play-btn-circle"><span>▶</span></div>
+          </div>
+          <div class="live-badge">EN VIVO</div>
+       </div>
+       <div class="card-info" style="padding: 8px;">
+          <h3 class="card-title" style="font-size: 0.8rem;">${ch.title}</h3>
+       </div>
+    </div>
+  `).join('');
+};
+
+window.handleCardClick = (id) => {
+  const movie = movieDatabase.trending.find(m => m.id === id);
+  if (movie) openPlayer(id);
+};
+
 window.suggestTVChannels = () => {
   const container = document.getElementById('discover-container');
   const list = document.getElementById('discover-list');

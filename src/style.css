@@ -686,6 +686,86 @@ h3,
   z-index: 100;
 }
 
+.live-card {
+  height: 160px !important;
+  min-width: 220px !important;
+}
+
+.live-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #e74c3c;
+  color: white;
+  font-size: 0.6rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 4px;
+  animation: flash 2s infinite;
+  z-index: 5;
+}
+
+@keyframes flash {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.card-img-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.play-btn-circle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 40px;
+  height: 40px;
+  background: var(--primary);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: var(--transition);
+}
+
+.play-btn-circle span {
+  color: black;
+  font-size: 1.2rem;
+  margin-left: 3px;
+}
+
+.movie-card:hover .play-btn-circle {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+.vip-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.vip-list::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  border-radius: 10px;
+}
+
+.stream-item:hover {
+  background: rgba(255, 122, 0, 0.15) !important;
+  border-color: var(--primary) !important;
+  transform: translateY(-2px);
+  transition: all 0.2s ease;
+}
+
 .card-img {
   width: 100%;
   height: 100%;

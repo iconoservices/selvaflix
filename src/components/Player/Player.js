@@ -7,6 +7,9 @@
 export const SelvaStream = {
     currentPlayerMovie: null,
     torrentClient: null,
+    hls: null,
+    lastScrapedStreams: [],
+    showTraditional: false,
 
     /**
      * Sanea la URL para evitar inyecciones maliciosas.
@@ -64,6 +67,18 @@ export const SelvaStream = {
                         <div style="color:var(--primary); font-weight:bold; margin-bottom:5px;">🕸️ Conectando a la red P2P...</div>
                         <div id="wt-progress">Buscando semillas...</div>
                     </div>
+
+                    <!-- Pantalla de Inicio (Fase 4) -->
+                    <div id="player-start-screen" class="player-start-screen" style="display:none;">
+                        <div class="start-bg" id="start-bg"></div>
+                        <div class="start-content">
+                            <h2 id="start-title">CARGANDO...</h2>
+                            <button id="start-play-btn" class="start-play-btn">
+                                <span class="play-icon">▶</span> REPRODUCIR VIP
+                            </button>
+                            <p class="start-subtitle">Conexión Directa Real-Debrid P2P</p>
+                        </div>
+                    </div>
                 </div>
                 <div class="guide-sidebar">
                     <h3>📌 Tip de Supervivencia</h3>
@@ -98,8 +113,51 @@ export const SelvaStream = {
         `;
 
         // Eventos básicos
-        document.getElementById('close-player').onclick = () => this.close();
+        document.getElementById('close-player')?.addEventListener('click', () => this.close());
+        document.getElementById('start-play-btn')?.addEventListener('click', () => {
+            const id = this.currentPlayerMovie.imdbId || this.currentPlayerMovie.tmdbId;
+            const type = this.currentPlayerMovie.type === 'series' ? 'series' : 'movie';
+            this.loadDebridAuto(id, type);
+        });
 
+        if (!document.getElementById('selva-player-css')) {
+            const style = document.createElement('style');
+            style.id = 'selva-player-css';
+            style.innerHTML = `
+                .player-start-screen {
+                    position: absolute; top:0; left:0; width:100%; height:100%;
+                    z-index: 200; display: flex; align-items: center; justify-content: center;
+                    background: #000; overflow: hidden;
+                }
+                .start-bg {
+                    position: absolute; top:0; left:0; width:100%; height:100%;
+                    background-size: cover; background-position: center;
+                    filter: blur(20px) brightness(0.3); opacity: 0.6;
+                    transform: scale(1.1);
+                }
+                .start-content {
+                    position: relative; z-index: 10; text-align: center; color: white;
+                    animation: fadeIn 0.8s ease-out;
+                }
+                .start-content h2 { font-size: 2.5rem; text-shadow: 0 44px 10px rgba(0,0,0,0.8); margin-bottom: 20px; }
+                .start-play-btn {
+                    background: var(--primary); color: black; border: none;
+                    padding: 15px 40px; border-radius: 50px; font-size: 1.2rem;
+                    font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 10px;
+                    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                    box-shadow: 0 0 20px rgba(255,122,0,0.4);
+                }
+                .start-play-btn:hover { transform: scale(1.1); box-shadow: 0 0 40px rgba(255,122,0,0.6); }
+                .play-icon { font-size: 1.5rem; }
+                .start-subtitle { margin-top: 15px; font-size: 0.9rem; opacity: 0.7; letter-spacing: 2px; }
+
+                .vip-badge { background: #2ecc71; color: black; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 5px; }
+                .latino-badge { background: var(--primary); color: black; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 5px; }
+                
+                @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+            `;
+            document.head.appendChild(style);
+        }
         // El Spinner se apaga cuando el iframe carga
         const iframe = document.getElementById('player-iframe');
         if (iframe) {
@@ -167,25 +225,29 @@ export const SelvaStream = {
         this.init();
         const modal = document.getElementById('player-modal');
         modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden'; // Bloqueo de scroll
+        document.body.style.overflow = 'hidden';
 
-        // Reset players visibility
+        // Reset elements
         const iframe = document.getElementById('player-iframe');
         const nativeContainer = document.getElementById('native-player-container');
         const nativePlayer = document.getElementById('native-video-player');
         const statusDiv = document.getElementById('webtorrent-status');
-
-        if (iframe) iframe.style.display = 'block';
-        if (nativeContainer) nativeContainer.style.display = 'none';
-        if (nativePlayer) {
-            nativePlayer.pause();
-        }
-        if (statusDiv) statusDiv.style.display = 'none';
-
-        // Reset loader
         const loader = document.getElementById('player-loader');
-        loader.style.display = 'flex';
-        loader.style.opacity = '1';
+        const startScreen = document.getElementById('player-start-screen');
+
+        if (iframe) iframe.style.display = 'none';
+        if (nativeContainer) nativeContainer.style.display = 'none';
+        if (nativePlayer) nativePlayer.pause();
+        if (statusDiv) statusDiv.style.display = 'none';
+        if (loader) loader.style.display = 'none';
+
+        // Mostrar Start Screen
+        if (startScreen) {
+            startScreen.style.display = 'flex';
+            document.getElementById('start-title').innerText = movie.title || movie.name;
+            const bg = document.getElementById('start-bg');
+            if (bg) bg.style.backgroundImage = `url(https://image.tmdb.org/t/p/original${movie.poster_path || movie.img})`;
+        }
 
         this.renderControls();
 
@@ -194,8 +256,6 @@ export const SelvaStream = {
         if (isSeries && movie.tmdbId) {
             await this.loadSeriesMetadata(movie.tmdbId);
         }
-
-        this.loadInitialSource();
     },
 
     async loadSeriesMetadata(tmdbId) {
@@ -242,21 +302,7 @@ export const SelvaStream = {
     },
 
     loadInitialSource() {
-        const movie = this.currentPlayerMovie;
-        const iframe = document.getElementById('player-iframe');
-
-        if (movie.tmdbId) {
-            // Prioridad Inteligente (v4.5.3)
-            const pref = localStorage.getItem('selva_pref_lang') || 'latino';
-            if (pref === 'english') {
-                this.updateServer('english-1');
-            } else {
-                this.updateServer('latino-1');
-            }
-        } else {
-            const cleanUrl = this.sanitizeUrl(movie.embed);
-            iframe.src = cleanUrl;
-        }
+        // Obsoleto: Ahora se maneja vía Start Screen -> loadDebridAuto
     },
 
     updateServer(serverKey, season = 1, episode = 1) {
@@ -282,6 +328,9 @@ export const SelvaStream = {
             nativePlayer.pause();
         }
         if (statusDiv) statusDiv.style.display = 'none';
+
+        const startScreen = document.getElementById('player-start-screen');
+        if (startScreen) startScreen.style.display = 'none';
 
         loader.style.display = 'flex';
         loader.style.opacity = '1';
@@ -419,19 +468,47 @@ export const SelvaStream = {
         }
     },
 
+    toggleTraditional() {
+        this.showTraditional = !this.showTraditional;
+        this.renderControls();
+    },
+
+    loadManualLink() {
+        const url = document.getElementById('manual-url-input')?.value;
+        if (!url) return;
+        this.handleExternalStream({ url: url, name: 'Manual Link', title: 'Carga Directa' });
+    },
+
     renderControls() {
         const root = document.getElementById('player-controls-root');
         if (!root) return;
 
         const isSeries = ['series', 'tv', 'anime'].includes(this.currentPlayerMovie.type);
-
-        const activeBtn = document.querySelector('.server-btn.active');
-        const currentServer = activeBtn ? activeBtn.dataset.server : 'latino-1';
-        const isShieldOn = localStorage.getItem(`selva_shield_${currentServer}`) === 'true';
-        const protection = this.getProtectionData();
-
-        // Preferencia de Idioma (v4.5.3)
         const pref = localStorage.getItem('selva_pref_lang') || 'latino';
+
+        let vipListHtml = '';
+        if (this.lastScrapedStreams && this.lastScrapedStreams.length > 0) {
+            vipListHtml = `
+                <div class="vip-sources-section" style="margin-top: 20px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <h4 style="color:var(--primary); margin:0;">🚀 FUENTES VIP DETECTADAS</h4>
+                        <button onclick="SelvaStream.fetchExternalStreams()" style="background:none; border:1px solid #555; color:#aaa; font-size:10px; border-radius:4px; padding:2px 8px; cursor:pointer;">🔄 Refrescar</button>
+                    </div>
+                    <div class="vip-list" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:10px; max-height: 250px; overflow-y: auto; padding-right:5px;">
+                        ${this.lastScrapedStreams.slice(0, 10).map(s => {
+                const text = (s.title + ' ' + s.name).toLowerCase();
+                const isLatino = text.includes('latino') || text.includes('spanish') || text.includes('cinecalidad');
+                return `
+                                <div class="stream-item" onclick='SelvaStream.handleExternalStream(${JSON.stringify(s).replace(/'/g, "&apos;")})' style="background:rgba(255,255,255,0.05); padding:10px; border-radius:8px; border:1px solid #333; cursor:pointer; hover:border-color:var(--primary);">
+                                    <div style="font-size:11px; font-weight:bold; color:#2ecc71;">${s.providerName} VIP ${isLatino ? '<span class="latino-badge">LATINO</span>' : ''}</div>
+                                    <div style="font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:4px;">${s.title}</div>
+                                </div>
+                            `;
+            }).join('')}
+                    </div>
+                </div>
+            `;
+        }
 
         root.innerHTML = `
             <div class="player-controls">
@@ -451,42 +528,30 @@ export const SelvaStream = {
                     </div>
                 ` : ''}
                 
-                <div class="server-switcher">
-                    <div class="server-group">
-                        <span>${pref === 'latino' ? '🇲🇽 PRIORIDAD LATINO:' : '🌐 SERVIDORES:'}</span>
-                        <button class="server-btn" style="background:#2ecc71; color:black; font-weight:bold; border:2px solid #27ae60;" onclick="SelvaStream.loadDebridAuto('${this.currentPlayerMovie.imdbId || this.currentPlayerMovie.tmdbId}', '${this.currentPlayerMovie.type === 'series' ? 'series' : 'movie'}');">🤖 AUTO VIP P2P</button>
-                        <button class="server-btn ${currentServer === 'latino-1' ? 'active' : ''}" data-server="latino-1" onclick="SelvaStream.updateServer('latino-1'); SelvaStream.renderControls();">S1</button>
-                        <button class="server-btn ${currentServer === 'latino-5' ? 'active' : ''}" data-server="latino-5" onclick="SelvaStream.updateServer('latino-5'); SelvaStream.renderControls();">S5</button>
-                        <button class="server-btn ${currentServer === 'latino-2' ? 'active' : ''}" data-server="latino-2" onclick="SelvaStream.updateServer('latino-2'); SelvaStream.renderControls();">S2</button>
-                        <button class="server-btn ${currentServer === 'latino-4' ? 'active' : ''}" data-server="latino-4" onclick="SelvaStream.updateServer('latino-4'); SelvaStream.renderControls();">S4</button>
-                        <button class="server-btn ${currentServer === 'latino-6' ? 'active' : ''}" data-server="latino-6" onclick="SelvaStream.updateServer('latino-6'); SelvaStream.renderControls();">S6</button>
+                ${vipListHtml}
+
+                <div class="manual-fallback" style="margin-top:20px; border-top:1px solid #333; padding-top:15px;">
+                    <div style="display:flex; gap:10px; margin-bottom:15px;">
+                         <input id="manual-url-input" type="text" placeholder="Pegar enlace .mp4 / .m3u8..." style="flex:1; background:#111; border:1px solid #444; color:white; padding:10px; border-radius:8px;">
+                         <button onclick="SelvaStream.loadManualLink()" style="background:#555; color:white; border:none; padding:10px 15px; border-radius:8px; cursor:pointer; font-weight:bold;">Cargar</button>
                     </div>
-                </div>
 
-                <div class="shield-toggle-container">
-                    <button class="shield-btn ${isShieldOn ? 'shield-protected' : 'shield-warning'}" onclick="SelvaStream.toggleShield()">
-                        ${isShieldOn ? '🛡️ Escudo al 100% (Modo Seguro)' : '🛡️ Escudo Desactivado (Compatible)'}
+                    <button class="traditional-toggle" onclick="SelvaStream.toggleTraditional()" style="width:100%; padding:10px; background:rgba(255,255,255,0.03); border:1px dashed #444; color:#888; border-radius:8px; cursor:pointer; font-size:12px;">
+                        ${this.showTraditional ? '🔼 Ocultar Servidores de Respaldo' : '🔽 Ver Servidores de Respaldo (Con Anuncios)'}
                     </button>
-                </div>
 
-                <div class="addon-discovery-section" style="margin-top: 20px; text-align: center;">
-                    <button class="addon-search-btn" onclick="SelvaStream.fetchExternalStreams()" style="background: var(--primary); color: black; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer;">
-                        🔍 Buscar Fuentes Externas (Sin Anuncios / 4K)
-                    </button>
-                    <div id="external-streams-list" class="external-streams-container" style="display:none; margin-top: 15px; text-align: left;"></div>
+                    ${this.showTraditional ? `
+                        <div class="server-switcher" style="margin-top:15px; animation: fadeIn 0.3s;">
+                            <div class="server-group">
+                                <span>🌐 SERVIDORES CLÁSICOS:</span>
+                                <button class="server-btn" onclick="SelvaStream.updateServer('latino-1')">S1</button>
+                                <button class="server-btn" onclick="SelvaStream.updateServer('latino-2')">S2</button>
+                                <button class="server-btn" onclick="SelvaStream.updateServer('latino-4')">S4</button>
+                                <button class="server-btn" onclick="SelvaStream.updateServer('latino-6')">S6</button>
+                            </div>
+                        </div>
+                    ` : ''}
                 </div>
-
-                <div class="protection-center">
-                    <h4>🛡️ Centro de Protección Selva</h4>
-                    <p>${protection.desc}</p>
-                    <a href="${protection.link}" target="_blank" class="protection-link">
-                        ${protection.icon} ${protection.name}
-                    </a>
-                </div>
-
-                <a id="selva-download-btn" href="#" target="_blank" class="selva-download-btn" style="display:none;">
-                    ⬇️ Descargar
-                </a>
             </div>
         `;
     },
@@ -508,6 +573,14 @@ export const SelvaStream = {
 
         if (statusDiv) statusDiv.style.display = 'none';
 
+        const startScreen = document.getElementById('player-start-screen');
+        if (statusDiv) statusDiv.style.display = 'none';
+
+        if (this.hls) {
+            this.hls.destroy();
+            this.hls = null;
+        }
+
         if (this.torrentClient) {
             try {
                 this.torrentClient.destroy();
@@ -520,18 +593,23 @@ export const SelvaStream = {
 
     async loadDebridAuto(id, type) {
         // Detener reproductores actuales para forzar la carga Debrid
+        const startScreen = document.getElementById('player-start-screen');
         const iframe = document.getElementById('player-iframe');
+        const loader = document.getElementById('player-loader');
+        const statusDiv = document.getElementById('webtorrent-status');
         const nativeContainer = document.getElementById('native-player-container');
         const nativePlayer = document.getElementById('native-video-player');
-        const statusDiv = document.getElementById('webtorrent-status');
-        const loader = document.getElementById('player-loader');
 
+        if (startScreen) startScreen.style.display = 'none';
         if (iframe) iframe.style.display = 'none';
-        if (nativeContainer) nativeContainer.style.display = 'none';
+        if (loader) {
+            loader.style.display = 'flex';
+            loader.style.opacity = '1';
+        }
         if (statusDiv) statusDiv.style.display = 'none';
+        if (nativeContainer) nativeContainer.style.display = 'none';
+        if (nativePlayer) nativePlayer.pause();
 
-        loader.style.display = 'flex';
-        loader.style.opacity = '1';
 
         const loaderText = document.querySelector('.loader-text');
         if (loaderText) loaderText.innerText = '🚀 Invocando Auto-VIP Debrid...';
@@ -597,6 +675,11 @@ export const SelvaStream = {
                 return 0;
             });
 
+            // 1. Guardar todos los streams para la sidebar de "Más Fuentes"
+            this.lastScrapedStreams = streams;
+            this.renderControls(); // Actualizar con la lista de fuentes
+
+            // 2. Auto-Play del mejor
             this.handleExternalStream(streams[0]);
 
         } catch (e) {
@@ -732,30 +815,47 @@ export const SelvaStream = {
         const statusDiv = document.getElementById('webtorrent-status');
         const loader = document.getElementById('player-loader');
 
-        if (this.torrentClient) {
-            this.torrentClient.destroy();
-            this.torrentClient = null;
+        if (this.hls) {
+            this.hls.destroy();
+            this.hls = null;
         }
 
         if (stream.url && !stream.infoHash) {
-            // Es un link directo. Puede ser un Iframe o un Video MP4 de Real-Debrid
-            const isDirectVideo = stream.url.endsWith('.mp4') || stream.url.endsWith('.mkv') || stream.name?.includes('[RD+]') || stream.title?.includes('[RD+]');
+            // Es un link directo. Puede ser un Iframe o un Video MP4 / M3U8
+            const isHls = stream.url.includes('.m3u8');
+            const isDirectVideo = isHls || stream.url.endsWith('.mp4') || stream.url.endsWith('.mkv') || stream.name?.includes('[RD+]') || stream.title?.includes('[RD+]');
 
             if (isDirectVideo) {
                 // Motor VIP de Real Debrid (Reproductor Nativo con URL directa)
+                const startScreen = document.getElementById('player-start-screen');
+                if (startScreen) startScreen.style.display = 'none';
+
                 iframe.style.display = 'none';
                 iframe.src = '';
                 statusDiv.style.display = 'none';
                 loader.style.display = 'none';
 
                 nativePlayer.style.display = 'block';
-                nativePlayer.src = stream.url;
-                nativePlayer.play();
+                const nativeContainer = document.getElementById('native-player-container');
+                if (nativeContainer) nativeContainer.style.display = 'block';
+
+                if (isHls && typeof Hls !== 'undefined') {
+                    if (Hls.isSupported()) {
+                        this.hls = new Hls();
+                        this.hls.loadSource(stream.url);
+                        this.hls.attachMedia(nativePlayer);
+                        this.hls.on(Hls.Events.MANIFEST_PARSED, () => nativePlayer.play());
+                    } else if (nativePlayer.canPlayType('application/vnd.apple.mpegurl')) {
+                        nativePlayer.src = stream.url;
+                        nativePlayer.play();
+                    }
+                } else {
+                    nativePlayer.src = stream.url;
+                    nativePlayer.play();
+                }
 
                 // Si es un source directo, le pasamos la URL al botón externo
-                const nativeContainer = document.getElementById('native-player-container');
                 const extBtn = document.getElementById('external-player-btn');
-                nativeContainer.style.display = 'block';
                 extBtn.style.display = 'flex';
 
                 const isAndroid = /Android/i.test(navigator.userAgent);
@@ -765,6 +865,9 @@ export const SelvaStream = {
 
             } else {
                 // Posiblemente un Iframe externo
+                const startScreen = document.getElementById('player-start-screen');
+                if (startScreen) startScreen.style.display = 'none';
+
                 const nativeContainer = document.getElementById('native-player-container');
                 if (nativeContainer) nativeContainer.style.display = 'none';
                 statusDiv.style.display = 'none';

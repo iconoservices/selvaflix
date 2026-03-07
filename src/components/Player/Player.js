@@ -454,7 +454,8 @@ export const SelvaStream = {
                 <div class="server-switcher">
                     <div class="server-group">
                         <span>${pref === 'latino' ? '🇲🇽 PRIORIDAD LATINO:' : '🌐 SERVIDORES:'}</span>
-                        <button class="server-btn ${currentServer === 'latino-1' ? 'active' : ''}" data-server="latino-1" onclick="SelvaStream.updateServer('latino-1'); SelvaStream.renderControls();">S1 (VIP)</button>
+                        <button class="server-btn" style="background:#2ecc71; color:black; font-weight:bold; border:2px solid #27ae60;" onclick="SelvaStream.loadDebridAuto('${this.currentPlayerMovie.imdbId || this.currentPlayerMovie.tmdbId}', '${this.currentPlayerMovie.type === 'series' ? 'series' : 'movie'}');">🤖 AUTO VIP P2P</button>
+                        <button class="server-btn ${currentServer === 'latino-1' ? 'active' : ''}" data-server="latino-1" onclick="SelvaStream.updateServer('latino-1'); SelvaStream.renderControls();">S1</button>
                         <button class="server-btn ${currentServer === 'latino-5' ? 'active' : ''}" data-server="latino-5" onclick="SelvaStream.updateServer('latino-5'); SelvaStream.renderControls();">S5</button>
                         <button class="server-btn ${currentServer === 'latino-2' ? 'active' : ''}" data-server="latino-2" onclick="SelvaStream.updateServer('latino-2'); SelvaStream.renderControls();">S2</button>
                         <button class="server-btn ${currentServer === 'latino-4' ? 'active' : ''}" data-server="latino-4" onclick="SelvaStream.updateServer('latino-4'); SelvaStream.renderControls();">S4</button>
@@ -518,6 +519,20 @@ export const SelvaStream = {
     },
 
     async loadDebridAuto(id, type) {
+        // Detener reproductores actuales para forzar la carga Debrid
+        const iframe = document.getElementById('player-iframe');
+        const nativeContainer = document.getElementById('native-player-container');
+        const nativePlayer = document.getElementById('native-video-player');
+        const statusDiv = document.getElementById('webtorrent-status');
+        const loader = document.getElementById('player-loader');
+
+        if (iframe) iframe.style.display = 'none';
+        if (nativeContainer) nativeContainer.style.display = 'none';
+        if (statusDiv) statusDiv.style.display = 'none';
+
+        loader.style.display = 'flex';
+        loader.style.opacity = '1';
+
         const loaderText = document.querySelector('.loader-text');
         if (loaderText) loaderText.innerText = '🚀 Invocando Auto-VIP Debrid...';
 

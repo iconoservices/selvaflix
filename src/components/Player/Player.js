@@ -251,7 +251,7 @@ export const SelvaStream = {
             if (pref === 'english') {
                 this.updateServer('english-1');
             } else {
-                this.updateServer('latino-1'); // S1 es muy estable en Latino con parámetros
+                this.updateServer('latino-1'); // S1 disparará Debrid Auto
             }
         } else {
             const cleanUrl = this.sanitizeUrl(movie.embed);
@@ -285,6 +285,13 @@ export const SelvaStream = {
 
         loader.style.display = 'flex';
         loader.style.opacity = '1';
+
+        // Intercept S1 Auto-Debrid
+        if (serverKey === 'latino-1') {
+            iframe.style.display = 'none';
+            this.loadDebridAuto(idValue, type);
+            return;
+        }
 
         // Preferencia Rey (Aumenta probabilidad de audio correcto)
         const pref = localStorage.getItem('selva_pref_lang') || 'latino';
@@ -517,6 +524,80 @@ export const SelvaStream = {
         document.body.style.overflow = ''; // Restaurar scroll
     },
 
+    async loadDebridAuto(id, type) {
+        const loaderText = document.querySelector('.loader-text');
+        if (loaderText) loaderText.innerText = '🚀 Invocando Auto-VIP Debrid...';
+
+        try {
+            const providers = "cinecalidad,mejortorrent,wolfmax4k,yts,eztv,rarbg,1337x,torrent9,limetorrents";
+            const tConfig = `providers=${providers}|sort=seeders|qualityfilter=scr,cam`;
+
+            const urls = [
+                `https://torrentio.strem.fun/${tConfig}/stream/${type}/${id}.json`,
+                `https://comet.strem.fun/stream/${type}/${id}.json`
+            ];
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+            const responses = await Promise.allSettled(urls.map(u =>
+                fetch(u, { signal: controller.signal }).then(r => r.json())
+            ));
+            clearTimeout(timeoutId);
+
+            let allStreams = [];
+            responses.forEach((res, i) => {
+                if (res.status === 'fulfilled' && res.value && res.value.streams) {
+                    res.value.streams.forEach(s => s.providerName = i === 0 ? "Torrentio" : "Comet");
+                    allStreams = allStreams.concat(res.value.streams);
+                }
+            });
+
+            let validStreams = allStreams.filter(s => {
+                const text = (s.title || '').toLowerCase() + ' ' + (s.name || '').toLowerCase();
+                if (text.includes('dublado') || text.includes('legendado') || text.includes('pt-br') || text.includes('português')) return false;
+                return true;
+            });
+
+            if (validStreams.length === 0) throw new Error("No se encontraron enlaces VIP P2P");
+
+            const streams = validStreams.sort((a, b) => {
+                const textA = ((a.title || '') + ' ' + (a.name || '')).toLowerCase();
+                const textB = ((b.title || '') + ' ' + (b.name || '')).toLowerCase();
+
+                const keywordsLat = ['latino', 'spanish', 'esp', 'español', 'cinecalidad'];
+                const aLat = keywordsLat.some(k => textA.includes(k));
+                const bLat = keywordsLat.some(k => textB.includes(k));
+
+                // Penalizar si requiere VLC o es multi-idioma
+                const keywordsBadAudio = ['ac3', 'eac3', 'dts', 'multi', 'dual'];
+                const aBad = keywordsBadAudio.some(k => textA.includes(k));
+                const bBad = keywordsBadAudio.some(k => textB.includes(k));
+
+                // 1. Priorizar Latino
+                if (aLat && !bLat) return -1;
+                if (!aLat && bLat) return 1;
+
+                // 2. Priorizar No-BadAudio (Puro AAC / Nativos para el navegador)
+                if (!aBad && bBad) return -1;
+                if (aBad && !bBad) return 1;
+
+                // 3. Priorizar Cinecalidad (por sus codificaciones ligeras y doblajes nativos)
+                if (textA.includes('cinecalidad') && !textB.includes('cinecalidad')) return -1;
+                if (!textA.includes('cinecalidad') && textB.includes('cinecalidad')) return 1;
+
+                return 0;
+            });
+
+            this.handleExternalStream(streams[0]);
+
+        } catch (e) {
+            console.log("Auto-Debrid S1 falló, redirigiendo a respaldo S2...", e);
+            if (loaderText) loaderText.innerText = 'Explorando la selva...';
+            this.updateServer('latino-2');
+        }
+    },
+
     async fetchExternalStreams() {
         if (!this.currentPlayerMovie || (!this.currentPlayerMovie.imdbId && !this.currentPlayerMovie.tmdbId)) return;
 
@@ -574,12 +655,28 @@ export const SelvaStream = {
             }
 
             const streams = validStreams.sort((a, b) => {
-                const keywords = ['latino', 'spanish', 'esp', 'multi', 'dual', 'español', 'cinecalidad'];
-                const aMatch = keywords.some(k => a.title.toLowerCase().includes(k));
-                const bMatch = keywords.some(k => b.title.toLowerCase().includes(k));
-                if (aMatch && !bMatch) return -1;
-                if (!aMatch && bMatch) return 1;
-                return 0;
+                const textA = ((a.title || '') + ' ' + (a.name || '')).toLowerCase();
+                const textB = ((b.title || '') + ' ' + (b.name || '')).toLowerCase();
+
+                const keywordsLat = ['latino', 'spanish', 'esp', 'español', 'cinecalidad'];
+                const aLat = keywordsLat.some(k => textA.includes(k));
+                const bLat = keywordsLat.some(k => textB.includes(k));
+
+                // Penalizar si requiere VLC o es multi-idioma para que queden abajo en la lista
+                const keywordsBadAudio = ['ac3', 'eac3', 'dts', 'multi', 'dual'];
+                const aBad = keywordsBadAudio.some(k => textA.includes(k));
+                const bBad = keywordsBadAudio.some(k => textB.includes(k));
+
+                if (aLat && !bLat) return -1;
+                if (!aLat && bLat) return 1;
+
+                if (!aBad && bBad) return -1;
+                if (aBad && !bBad) return 1;
+
+                if (textA.includes('cinecalidad') && !textB.includes('cinecalidad')) return -1;
+                if (!textA.includes('cinecalidad') && textB.includes('cinecalidad')) return 1;
+
+                return b.seeders - a.seeders; // Si ambos empatan, priorizar los de más tamaño o seeders
             });
 
             container.innerHTML = `

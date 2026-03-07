@@ -1,7 +1,6 @@
 /**
- * 🥥 ICONOSERVICES MASTER-WORKER v1.2 - "Soberanía Turbo"
- * El Cerebro Unificado para SelvaFlix y SelvaBeat.
- * Mejoras: Búsqueda robusta, Redundancia de Piped y Soporte de Imágenes.
+ * 🥥 ICONOSERVICES MASTER-WORKER v1.6 - "Edición Búnker & Contrabando"
+ * Soluciona el error de descarga activando un puente binario.
  */
 
 export default {
@@ -10,141 +9,106 @@ export default {
         const corsHeaders = {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, x-selva-auth',
-            'Content-Type': 'application/json'
+            'Access-Control-Allow-Headers': 'Content-Type, x-selva-auth, Range',
+            'Access-Control-Expose-Headers': 'Content-Length, Content-Range'
         };
 
         if (request.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
-        // --- 1. SEGURIDAD ---
-        // Permitimos acceso vía Header (Apps) o vía URL (Imágenes/Links directos)
         const authToken = request.headers.get('x-selva-auth') || url.searchParams.get('key');
         if (authToken !== env.AUTH_TOKEN) {
-            return new Response(JSON.stringify({ error: 'Acceso Denegado a la Selva' }), {
-                status: 403,
-                headers: corsHeaders
-            });
+            return new Response(JSON.stringify({ error: 'Acceso Denegado' }), { status: 403, headers: corsHeaders });
         }
 
         try {
-            // --- 🎥 RUTA: SELVAFLIX (Video VIP) ---
+            // --- 🎥 RUTA: SELVAFLIX (Debrid Logic) ---
             if (url.pathname === '/flix/unrestrict') {
-                const magnet = url.searchParams.get('magnet');
-                if (!magnet) throw new Error('Falta magnet link');
-
-                const addResp = await fetch('https://api.real-debrid.com/rest/1.0/torrents/addMagnet', {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${env.RD_API_KEY}` },
-                    body: new URLSearchParams({ magnet })
-                });
+                const addResp = await fetch('https://api.real-debrid.com/rest/1.0/torrents/addMagnet', { method: 'POST', headers: { 'Authorization': `Bearer ${env.RD_API_KEY}` }, body: new URLSearchParams({ magnet: url.searchParams.get('magnet') }) });
                 const addData = await addResp.json();
-
-                await fetch(`https://api.real-debrid.com/rest/1.0/torrents/selectFiles/${addData.id}`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${env.RD_API_KEY}` },
-                    body: new URLSearchParams({ files: 'all' })
-                });
-
-                const infoResp = await fetch(`https://api.real-debrid.com/rest/1.0/torrents/info/${addData.id}`, {
-                    headers: { 'Authorization': `Bearer ${env.RD_API_KEY}` }
-                });
+                await fetch(`https://api.real-debrid.com/rest/1.0/torrents/selectFiles/${addData.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${env.RD_API_KEY}` }, body: new URLSearchParams({ files: 'all' }) });
+                const infoResp = await fetch(`https://api.real-debrid.com/rest/1.0/torrents/info/${addData.id}`, { headers: { 'Authorization': `Bearer ${env.RD_API_KEY}` } });
                 const infoData = await infoResp.json();
-
-                if (!infoData.links || infoData.links.length === 0) {
-                    return new Response(JSON.stringify({ error: 'Procesando en Real-Debrid... Reintenta' }), { headers: corsHeaders });
-                }
-
-                const finalResp = await fetch('https://api.real-debrid.com/rest/1.0/unrestrict/link', {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${env.RD_API_KEY}` },
-                    body: new URLSearchParams({ link: infoData.links[0] })
-                });
+                if (!infoData.links || infoData.links.length === 0) return new Response(JSON.stringify({ error: 'Procesando...' }), { headers: corsHeaders });
+                const finalResp = await fetch('https://api.real-debrid.com/rest/1.0/unrestrict/link', { method: 'POST', headers: { 'Authorization': `Bearer ${env.RD_API_KEY}` }, body: new URLSearchParams({ link: infoData.links[0] }) });
                 const finalData = await finalResp.json();
-
-                return new Response(JSON.stringify({
-                    url: finalData.download,
-                    title: finalData.filename,
-                    type: 'direct'
-                }), { headers: corsHeaders });
+                return new Response(JSON.stringify({ url: finalData.download, title: finalData.filename, type: 'direct' }), { headers: corsHeaders });
             }
 
-            // --- 🎵 RUTAS: SELVABEAT (Música) ---
+            // --- 🛡️ RUTA: BÚNKER (Túnel de Descarga) ---
+            // Esta ruta permite que el navegador descargue el binario sin errores de CORS.
+            if (url.pathname === '/beat/bunker') {
+                const targetUrl = url.searchParams.get('url');
+                if (!targetUrl) return new Response("URL Requerida", { status: 400 });
 
-            // A. Stream de Audio (Modo Turbo Cobalt)
-            if (url.pathname === '/beat/stream') {
-                const videoId = url.searchParams.get('v');
-                const cobaltResp = await fetch('https://api.cobalt.tools/api/json', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                    body: JSON.stringify({
-                        url: `https://www.youtube.com/watch?v=${videoId}`,
-                        downloadMode: 'audio',
-                        audioFormat: 'mp3'
-                    })
-                });
-                const data = await cobaltResp.json();
-                return new Response(JSON.stringify(data), { headers: corsHeaders });
-            }
+                const fileRes = await fetch(targetUrl, { headers: { "User-Agent": "Mozilla/5.0" } });
+                const { readable, writable } = new TransformStream();
+                fileRes.body.pipeTo(writable);
 
-            // --- FLOTA DE SERVIDORES PIPED (Alta Disponibilidad) ---
-            const PIPED_INSTANCES = [
-                'https://pipedapi.official.center',
-                'https://pipedapi.kavin.rocks',
-                'https://pipedapi.lunar.icu'
-            ];
-
-            const fetchFromFlotilla = async (path) => {
-                for (let instance of PIPED_INSTANCES) {
-                    try {
-                        // Creamos un AbortController para poner un límite de tiempo a cada servidor
-                        const controller = new AbortController();
-                        const id = setTimeout(() => controller.abort(), 3500); // 3.5 segundos máximo por servidor
-
-                        const res = await fetch(`${instance}${path}`, { signal: controller.signal });
-                        clearTimeout(id);
-
-                        if (res.ok) {
-                            const data = await res.json();
-                            return data.items || data || [];
-                        }
-                    } catch (e) {
-                        console.log(`[Radar] Instancia caída: ${instance}`); // Sigue buscando el siguiente
+                return new Response(readable, {
+                    headers: {
+                        ...corsHeaders,
+                        'Content-Type': fileRes.headers.get('Content-Type') || 'audio/mpeg',
+                        'Content-Disposition': `attachment; filename="selvabeat_track.mp3"`,
+                        'Cache-Control': 'public, max-age=31536000'
                     }
+                });
+            }
+
+            // --- 🎵 YOUTUBE SCRAPER (Titanium v1.5) ---
+            const fetchYouTubeDirect = async (query, isTrending = false) => {
+                const targetUrl = isTrending
+                    ? `https://www.youtube.com/feed/trending?gl=PE&bp=4gINGgt5dG1hX2NoYXJ0cw%3D%3D`
+                    : `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}&sp=EgIQAQ%253D%253D`;
+
+                const res = await fetch(targetUrl, { headers: { "User-Agent": "Mozilla/5.0", "Accept-Language": "es-PE,es" } });
+                const html = await res.text();
+                const match = html.match(/var ytInitialData = ({.*?});<\/script>/);
+                if (!match) return [];
+                const data = JSON.parse(match[1]);
+                let contents;
+
+                if (isTrending) {
+                    const sections = data.contents.twoColumnBrowseResultsRenderer.tabs[0].tabRenderer.content.sectionListRenderer.contents;
+                    contents = [];
+                    sections.forEach(s => {
+                        const items = s.itemSectionRenderer?.contents[0]?.shelfRenderer?.content?.expandedShelfContentsRenderer?.items;
+                        if (items) items.forEach(i => { if (i.videoRenderer) contents.push(i.videoRenderer); });
+                    });
+                } else {
+                    contents = data.contents?.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents?.filter(c => c.videoRenderer).map(c => c.videoRenderer);
                 }
-                return []; // Si toda la flota cae, devuelve vacío en lugar de explotar
+
+                return contents.map(v => ({
+                    id: v.videoId,
+                    videoId: v.videoId,
+                    title: v.title?.runs?.[0]?.text || "Sin Título",
+                    uploaderName: v.ownerText?.runs?.[0]?.text || "Desconocido",
+                    duration: 0,
+                    thumbnail: `https://i.ytimg.com/vi/${v.videoId}/mqdefault.jpg`
+                }));
             };
 
-            // B. Búsqueda (Motor de Alta Disponibilidad)
-            if (url.pathname === '/beat/search') {
-                const q = url.searchParams.get('q');
-                const path = `/search?q=${encodeURIComponent(q)}&filter=music_videos`;
-                const items = await fetchFromFlotilla(path);
-                return new Response(JSON.stringify(items), { headers: corsHeaders });
-            }
-
-            // C. Tendencias Musicales
-            if (url.pathname === '/beat/trending') {
-                const region = url.searchParams.get('region') || 'MX';
-                const path = `/trending?region=${region}`;
-                const items = await fetchFromFlotilla(path);
-                return new Response(JSON.stringify(items), { headers: corsHeaders });
-            }
-
-            // D. Proxy de Imágenes (Para que SelvaBeat no tenga errores 404/403)
-            if (url.pathname === '/img') {
+            if (url.pathname === '/beat/stream') {
                 const videoId = url.searchParams.get('v');
-                // Redirigimos a la miniatura de alta calidad de YouTube
-                const imgUrl = `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
-                return fetch(imgUrl);
+                if (env.RD_API_KEY) {
+                    try {
+                        const rdRes = await fetch('https://api.real-debrid.com/rest/1.0/unrestrict/link', { method: 'POST', headers: { 'Authorization': `Bearer ${env.RD_API_KEY}` }, body: new URLSearchParams({ link: `https://www.youtube.com/watch?v=${videoId}` }) });
+                        const rdData = await rdRes.json();
+                        if (rdData.download) return new Response(JSON.stringify({ url: rdData.download, method: 'Debrid Premium' }), { headers: corsHeaders });
+                    } catch (e) { }
+                }
+                const cobaltResp = await fetch('https://api.cobalt.tools/api/json', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ url: `https://www.youtube.com/watch?v=${videoId}`, downloadMode: 'audio', audioFormat: 'mp3' }) });
+                return new Response(JSON.stringify(await cobaltResp.json()), { headers: corsHeaders });
             }
 
-            return new Response(JSON.stringify({ status: 'IconoServices Master Online', v: '1.2' }), { headers: corsHeaders });
+            if (url.pathname === '/beat/search') return new Response(JSON.stringify(await fetchYouTubeDirect(url.searchParams.get('q'))), { headers: corsHeaders });
+            if (url.pathname === '/beat/trending') return new Response(JSON.stringify(await fetchYouTubeDirect(null, true)), { headers: corsHeaders });
+            if (url.pathname === '/img') return fetch(`https://i.ytimg.com/vi/${url.searchParams.get('v')}/mqdefault.jpg`, { headers: { "User-Agent": "Mozilla/5.0" } });
+
+            return new Response(JSON.stringify({ status: 'IconoSVC Bunker Ready', v: '1.6' }), { headers: corsHeaders });
 
         } catch (error) {
-            return new Response(JSON.stringify({ error: error.message }), {
-                status: 500,
-                headers: corsHeaders
-            });
+            return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders });
         }
     }
 };

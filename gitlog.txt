@@ -1,0 +1,5 @@
+﻿53ecdd2 feat(infra): Worker v1.3 con soporte de Alta Disponibilidad + Variables Seguras
+ab0f9c2 Refactor Player UI: Added Floating VIP Menu, prioritized manual Admin links, and compacted sidebar.
+c4c9ad7 Fase 4: Redise├▒o Premium Player (Play Button), Resurrecci├│n TV en Vivo con HLS.js, y Panel VIP Refinado
+b1adf89 Bot├│n manual VIP para bypass de auto-fetch CORS
+6eacf65 Revert Auto-Debrid en S1 por bloqueo de navegadores y regreso a Vidsrc cl├ísico

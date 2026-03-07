@@ -1,0 +1,13 @@
+﻿diff --git a/src/main.js b/src/main.js
+index ba0cb94..d515841 100644
+--- a/src/main.js
++++ b/src/main.js
+@@ -980,7 +980,7 @@ window.openPlayer = async (movieId) => {
+ 
+   // Iniciar la secuencia de seguridad y comerciales antes del Play
+   startWarningOverlay(movie);
+-}
++};
+ 
+ // La l├│gica de servidores y episodios ahora vive en SelvaStream Engine ­ƒì┐
+ 

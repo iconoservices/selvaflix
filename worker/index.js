@@ -21,17 +21,39 @@ export default {
         }
 
         try {
-            // --- 🎥 RUTA: SELVAFLIX (Debrid Logic) ---
+            // --- 🎥 RUTA: SELVAFLIX (Intelligent Debrid Logic) ---
             if (url.pathname === '/flix/unrestrict') {
-                const addResp = await fetch('https://api.real-debrid.com/rest/1.0/torrents/addMagnet', { method: 'POST', headers: { 'Authorization': `Bearer ${env.RD_API_KEY}` }, body: new URLSearchParams({ magnet: url.searchParams.get('magnet') }) });
+                const magnet = url.searchParams.get('magnet');
+                // 1. Añadir Magnet
+                const addResp = await fetch('https://api.real-debrid.com/rest/1.0/torrents/addMagnet', { method: 'POST', headers: { 'Authorization': `Bearer ${env.RD_API_KEY}` }, body: new URLSearchParams({ magnet }) });
                 const addData = await addResp.json();
-                await fetch(`https://api.real-debrid.com/rest/1.0/torrents/selectFiles/${addData.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${env.RD_API_KEY}` }, body: new URLSearchParams({ files: 'all' }) });
+
+                // 2. Obtener info para seleccionar el archivo correcto
                 const infoResp = await fetch(`https://api.real-debrid.com/rest/1.0/torrents/info/${addData.id}`, { headers: { 'Authorization': `Bearer ${env.RD_API_KEY}` } });
                 const infoData = await infoResp.json();
-                if (!infoData.links || infoData.links.length === 0) return new Response(JSON.stringify({ error: 'Procesando...' }), { headers: corsHeaders });
-                const finalResp = await fetch('https://api.real-debrid.com/rest/1.0/unrestrict/link', { method: 'POST', headers: { 'Authorization': `Bearer ${env.RD_API_KEY}` }, body: new URLSearchParams({ link: infoData.links[0] }) });
+
+                // 3. Seleccionar solo el archivo de video más grande (La película)
+                const videoFiles = infoData.files.filter(f => f.path.match(/\.(mp4|mkv|avi|mov)$/i));
+                const mainFile = videoFiles.sort((a, b) => b.bytes - a.bytes)[0]; // El más pesado
+
+                if (!mainFile) return new Response(JSON.stringify({ error: 'No se encontró video' }), { headers: corsHeaders });
+
+                await fetch(`https://api.real-debrid.com/rest/1.0/torrents/selectFiles/${addData.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${env.RD_API_KEY}` }, body: new URLSearchParams({ files: mainFile.id }) });
+
+                // 4. Esperar y obtener el link final de descarga
+                const updatedInfo = await fetch(`https://api.real-debrid.com/rest/1.0/torrents/info/${addData.id}`, { headers: { 'Authorization': `Bearer ${env.RD_API_KEY}` } }).then(r => r.json());
+
+                if (!updatedInfo.links || updatedInfo.links.length === 0) return new Response(JSON.stringify({ status: 'waiting', msg: 'Descargando en servidor...' }), { headers: corsHeaders });
+
+                const finalResp = await fetch('https://api.real-debrid.com/rest/1.0/unrestrict/link', { method: 'POST', headers: { 'Authorization': `Bearer ${env.RD_API_KEY}` }, body: new URLSearchParams({ link: updatedInfo.links[0] }) });
                 const finalData = await finalResp.json();
-                return new Response(JSON.stringify({ url: finalData.download, title: finalData.filename, type: 'direct' }), { headers: corsHeaders });
+
+                return new Response(JSON.stringify({
+                    url: finalData.download,
+                    title: finalData.filename,
+                    size: (mainFile.bytes / (1024 ** 3)).toFixed(2) + ' GB',
+                    type: 'direct'
+                }), { headers: corsHeaders });
             }
 
             // --- 🛡️ RUTA: BÚNKER (Túnel de Descarga) ---

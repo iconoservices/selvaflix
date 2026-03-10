@@ -194,6 +194,57 @@ export const SelvaStream = {
                 .sidebar-ad-space { margin-top: auto; background: rgba(255,122,0,0.1); border: 1px dashed var(--primary); padding: 10px; text-align: center; border-radius: 8px; font-weight: bold; font-size: 10px; color: var(--primary); }
 
                 @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+                .series-selectors {
+                    background: rgba(255,255,255,0.03);
+                    border: 1px solid rgba(255,255,255,0.08);
+                    border-radius: 18px;
+                    padding: 15px;
+                    margin-bottom: 20px;
+                    display: flex;
+                    gap: 15px;
+                    backdrop-filter: blur(10px);
+                }
+                .selva-select-wrapper {
+                    flex: 1;
+                    position: relative;
+                }
+                .selva-select-wrapper label {
+                    font-size: 10px;
+                    color: var(--primary);
+                    font-weight: 900;
+                    text-transform: uppercase;
+                    letter-spacing: 1.5px;
+                    margin-bottom: 8px;
+                    display: block;
+                    opacity: 0.8;
+                }
+                .selva-custom-select {
+                    width: 100%;
+                    background: #0a0a0a;
+                    color: #fff;
+                    border: 1px solid #333;
+                    padding: 12px 15px;
+                    border-radius: 12px;
+                    font-size: 14px;
+                    font-weight: 600;
+                    outline: none;
+                    cursor: pointer;
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    appearance: none;
+                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23FF7A00' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+                    background-repeat: no-repeat;
+                    background-position: right 12px center;
+                    background-size: 18px;
+                }
+                .selva-custom-select:hover {
+                    border-color: var(--primary);
+                    box-shadow: 0 0 15px rgba(255,122,0,0.2);
+                    transform: translateY(-2px);
+                }
+                .selva-custom-select:focus {
+                    border-color: var(--primary);
+                }
             `;
             document.head.appendChild(style);
         }
@@ -548,8 +599,25 @@ export const SelvaStream = {
             }
         }
 
+        const isSeries = ['series', 'tv', 'anime'].includes(this.currentPlayerMovie.type);
+        const seasonHtml = isSeries ? `
+            <div class="series-selectors">
+                <div class="selva-select-wrapper">
+                    <label>Temporada</label>
+                    <select id="selva-season" class="selva-custom-select"></select>
+                </div>
+                <div class="selva-select-wrapper">
+                    <label>Episodio</label>
+                    <select id="selva-episode" class="selva-custom-select"></select>
+                </div>
+            </div>
+        ` : '';
+
         root.innerHTML = `
             <div class="player-controls">
+                <!-- Selector de Temporadas/Episodios (Solo Series) -->
+                ${seasonHtml}
+
                 <!-- Selector de Idioma Global -->
                 <div class="pref-selector" style="display:flex; justify-content:center; gap:10px; margin-bottom:20px; background: rgba(255,122,0,0.05); padding:12px; border-radius:15px; border:1px solid rgba(255,122,0,0.15); box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
                     <button class="pref-btn ${pref === 'latino' ? 'active' : ''}" onclick="SelvaStream.setPreference('latino')" style="flex:1; background:${pref === 'latino' ? 'var(--primary)' : 'rgba(255,255,255,0.05)'}; border:none; color:${pref === 'latino' ? 'black' : 'white'}; padding:12px; border-radius:10px; font-weight:800; cursor:pointer; transition: all 0.3s; font-size: 13px;">🇲🇽 LATINO (VIP)</button>
@@ -654,7 +722,7 @@ export const SelvaStream = {
         if (loaderText) loaderText.innerText = '🚀 Invocando Auto-VIP Debrid...';
 
         try {
-            const providers = "cinecalidad,mejortorrent,wolfmax4k,yts,eztv,rarbg,1337x,torrent9,limetorrents";
+            const providers = "cinecalidad,mejortorrent,wolfmax4k,yts,1337x,torrent9,limetorrents,eztv,rarbg";
             const tConfig = `providers=${providers}|sort=seeders|qualityfilter=scr,cam`;
 
             const urls = [
@@ -663,7 +731,7 @@ export const SelvaStream = {
             ];
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 8000);
+            const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s para respuesta rápida
 
             const responses = await Promise.allSettled(urls.map(u =>
                 fetch(u, { signal: controller.signal }).then(r => r.json())
@@ -673,57 +741,52 @@ export const SelvaStream = {
             let allStreams = [];
             responses.forEach((res, i) => {
                 if (res.status === 'fulfilled' && res.value && res.value.streams) {
-                    res.value.streams.forEach(s => s.providerName = i === 0 ? "Torrentio" : "Comet");
+                    res.value.streams.forEach(s => s.providerName = i === 0 ? "T-IO" : "COMET");
                     allStreams = allStreams.concat(res.value.streams);
                 }
             });
 
-            let validStreams = allStreams.filter(s => {
-                const text = (s.title || '').toLowerCase() + ' ' + (s.name || '').toLowerCase();
-                if (text.includes('dublado') || text.includes('legendado') || text.includes('pt-br') || text.includes('português')) return false;
+            // --- 🕵️‍♂️ FILTRADO QUÍMICO "LATINO POWER" ---
+            let streams = allStreams.filter(s => {
+                const text = ((s.title || '') + ' ' + (s.name || '')).toLowerCase();
+                // Bloquear idiomas que no queremos que se cuelen
+                if (text.includes('dublado') || text.includes('legendado') || text.includes('português') || text.includes('hindi') || text.includes('tamil')) return false;
                 return true;
             });
 
-            if (validStreams.length === 0) throw new Error("No se encontraron enlaces VIP P2P");
+            if (streams.length === 0) throw new Error("No hay semillas");
 
-            const streams = validStreams.sort((a, b) => {
+            streams.sort((a, b) => {
                 const textA = ((a.title || '') + ' ' + (a.name || '')).toLowerCase();
                 const textB = ((b.title || '') + ' ' + (b.name || '')).toLowerCase();
 
-                const keywordsLat = ['latino', 'spanish', 'esp', 'español', 'cinecalidad'];
-                const aLat = keywordsLat.some(k => textA.includes(k));
-                const bLat = keywordsLat.some(k => textB.includes(k));
+                const kwLat = ['latino', 'spanish', 'esp', 'español', 'cinecalidad', 'mx', 'pe'];
+                const aLat = kwLat.some(k => textA.includes(k));
+                const bLat = kwLat.some(k => textB.includes(k));
 
-                // Penalizar si requiere VLC o es multi-idioma
-                const keywordsBadAudio = ['ac3', 'eac3', 'dts', 'multi', 'dual'];
-                const aBad = keywordsBadAudio.some(k => textA.includes(k));
-                const bBad = keywordsBadAudio.some(k => textB.includes(k));
-
-                // 1. Priorizar Latino
+                // 1. Prioridad: Latino / Cinecalidad
                 if (aLat && !bLat) return -1;
                 if (!aLat && bLat) return 1;
 
-                // 2. Priorizar No-BadAudio (Puro AAC / Nativos para el navegador)
-                if (!aBad && bBad) return -1;
-                if (aBad && !bBad) return 1;
+                // 2. Prioridad: Calidad (1080p > 720p)
+                const a1080 = textA.includes('1080p');
+                const b1080 = textB.includes('1080p');
+                if (a1080 && !b1080) return -1;
+                if (!a1080 && b1080) return 1;
 
-                // 3. Priorizar Cinecalidad (por sus codificaciones ligeras y doblajes nativos)
-                if (textA.includes('cinecalidad') && !textB.includes('cinecalidad')) return -1;
-                if (!textA.includes('cinecalidad') && textB.includes('cinecalidad')) return 1;
-
-                return 0;
+                // 3. Fallback: Seeders
+                return (b.seeders || 0) - (a.seeders || 0);
             });
 
-            // 1. Guardar todos los streams para la sidebar de "Más Fuentes"
             this.lastScrapedStreams = streams;
-            this.renderControls(); // Actualizar con la lista de fuentes
+            this.renderControls(); 
 
-            // 2. Auto-Play del mejor
+            // Automáticamente elegir el mejor Latino si existe
             this.handleExternalStream(streams[0]);
 
         } catch (e) {
-            console.log("Auto-Debrid S1 falló, redirigiendo a respaldo S2...", e);
-            if (loaderText) loaderText.innerText = 'Explorando la selva...';
+            console.log("Auto-Debrid falló, usando servidor tradicional...", e);
+            if (loaderText) loaderText.innerText = 'Buscando servidor alternativo...';
             this.updateServer('latino-2');
         }
     },
@@ -942,8 +1005,20 @@ export const SelvaStream = {
 
                 this.callMasterWorker(stream.infoHash).then(result => {
                     if (result && result.url) {
+                        console.log("🚀 URL Liberada:", result.url);
                         nativePlayer.src = result.url;
-                        nativePlayer.play().catch(e => console.warn("Auto-play prevented", e));
+                        nativePlayer.play().catch(e => {
+                            console.warn("Auto-play prevented, click manual requerido", e);
+                            // Si falla el auto-play, mostramos de nuevo el Start Screen suave
+                            const loader = document.getElementById('player-loader');
+                            if(loader) loader.style.display = 'none';
+                            const btn = document.getElementById('start-play-btn');
+                            if(btn) {
+                                btn.innerText = "▶ INICIAR STREAMING";
+                                const ss = document.getElementById('player-start-screen');
+                                if(ss) ss.style.display = 'flex';
+                            }
+                        });
 
                         // Preparar botón de VLC/Externo
                         const isAndroid = /Android/i.test(navigator.userAgent);
@@ -951,12 +1026,19 @@ export const SelvaStream = {
                             ? `intent://${result.url.replace(/^https?:\/\//, '')}#Intent;package=org.videolan.vlc;type=video/*;scheme=https;end`
                             : `vlc://${result.url}`;
 
-                        extBtn.href = vlcUrl;
-                        extBtn.style.display = 'flex';
+                        const extBtn = document.getElementById('external-player-btn');
+                        if (extBtn) {
+                            extBtn.href = vlcUrl;
+                            extBtn.style.display = 'flex';
+                        }
 
-                        setTimeout(() => { document.getElementById('webtorrent-status').style.display = 'none'; }, 2000);
+                        setTimeout(() => { 
+                            const status = document.getElementById('webtorrent-status');
+                            if(status) status.style.display = 'none'; 
+                        }, 3000);
                     } else {
-                        document.getElementById('wt-progress').innerText = result?.error || 'Error en el Búnker';
+                        document.getElementById('wt-progress').innerText = result?.error || 'Sin respuesta del Búnker';
+                        setTimeout(() => this.updateServer('latino-2'), 2000);
                     }
                 });
             } else if (window.WebTorrent) {

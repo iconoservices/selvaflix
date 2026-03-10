@@ -32,9 +32,15 @@ export default {
                 const infoResp = await fetch(`https://api.real-debrid.com/rest/1.0/torrents/info/${addData.id}`, { headers: { 'Authorization': `Bearer ${env.RD_API_KEY}` } });
                 const infoData = await infoResp.json();
 
-                // 3. Seleccionar solo el archivo de video más grande (La película)
+                // 3. Filtro Anti-MKV: Prioridad absoluta a MP4, luego al más pesado
                 const videoFiles = infoData.files.filter(f => f.path.match(/\.(mp4|mkv|avi|mov)$/i));
-                const mainFile = videoFiles.sort((a, b) => b.bytes - a.bytes)[0]; // El más pesado
+                const mainFile = videoFiles.sort((a, b) => {
+                    const isAMp4 = a.path.toLowerCase().endsWith('.mp4');
+                    const isBMp4 = b.path.toLowerCase().endsWith('.mp4');
+                    if (isAMp4 && !isBMp4) return -1;
+                    if (!isAMp4 && isBMp4) return 1;
+                    return b.bytes - a.bytes;
+                })[0];
 
                 if (!mainFile) return new Response(JSON.stringify({ error: 'No se encontró video' }), { headers: corsHeaders });
 

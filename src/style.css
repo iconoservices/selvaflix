@@ -109,7 +109,8 @@ body {
 
 @media (max-width: 768px) {
   body {
-    padding-bottom: 70px;
+    /* No bottom nav anymore, minimal padding */
+    padding-bottom: 10px;
   }
 }
 
@@ -623,7 +624,7 @@ h3,
 
 /* Rows */
 .content-sections {
-  padding: 40px 0;
+  padding: 15px 0 20px;
   background-color: var(--bg-deep);
 }
 
@@ -1433,56 +1434,74 @@ iframe {
     gap: 10px;
   }
 
-  .hero-title {
-    font-size: 2.2rem;
-  }
-
+  /* ─── MOBILE CARD: max width, no wasted space ─── */
   .movie-card {
-    width: 140px !important;
-    min-width: 140px !important;
-    max-width: 140px !important;
-    height: 210px !important;
-    border-radius: 12px;
+    width: 150px !important;
+    min-width: 150px !important;
+    max-width: 150px !important;
+    height: 225px !important;
+    border-radius: 10px;
   }
 
   .movie-list {
-    gap: 12px;
-    padding: 10px 15px 20px;
-    justify-content: flex-start !important;
+    gap: 10px;
+    padding: 6px 12px 15px;
   }
 
+  /* ─── CATEGORY ROWS: compact vertical spacing ─── */
   .category-row {
     padding: 0;
-    margin-bottom: 25px;
+    margin-bottom: 18px;
+  }
+
+  .row-header {
+    margin-bottom: 10px;
   }
 
   .row-title {
-    margin-left: 15px;
-    font-size: 1.1rem;
+    margin-left: 12px;
+    font-size: 1rem;
+    border-left-width: 3px;
+    padding-left: 10px;
+  }
+
+  .see-all-btn {
+    font-size: 0.7rem;
+    padding: 3px 8px;
+    margin-right: 12px;
   }
 
   .card-title {
-    font-size: 0.75rem;
+    font-size: 0.72rem;
+  }
+
+  .card-meta {
+    font-size: 0.6rem;
   }
 
   .card-info {
-    padding: 8px;
-    transform: translateY(0);
-    background: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent);
+    padding: 6px;
+    background: linear-gradient(to top, rgba(0,0,0,0.95) 60%, transparent);
   }
 
-  /* Admin Grid Fix */
-  .admin-section {
-    padding-top: 90px;
+  /* ─── HERO: sin tanto margen ─── */
+  .hero-banners {
+    padding-top: 65px;
+    gap: 10px;
   }
-  
+
+  /* ─── ADMIN mobile ─── */
+  .admin-section {
+    padding-top: 80px;
+  }
+
   .admin-grid {
     grid-template-columns: 1fr;
-    gap: 20px;
+    gap: 15px;
   }
 
   #admin-inventory-tab .admin-grid > :first-child {
-    order: 2; /* Form below list on mobile */
+    order: 2;
   }
 
   #admin-inventory-tab .admin-grid > :last-child {
@@ -1565,47 +1584,96 @@ body {
 }
 
 @media (max-width: 768px) {
+  /* ─── PLAYER MOBILE: full screen, no wasted space ─── */
   .player-controls {
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
   }
 
   .video-layout {
     width: 100%;
     padding: 0;
+    flex-direction: column;
   }
 
   .video-container {
     border-radius: 0;
     border-left: none;
     border-right: none;
+    /* Full width, no side borders on mobile */
+  }
+
+  /* Sidebar becomes a thin bottom strip on mobile */
+  .guide-sidebar {
+    width: 100% !important;
+    margin: 0 !important;
+    border-radius: 0;
+    padding: 10px 15px;
+    border-top: 1px solid var(--glass-border);
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .guide-sidebar h3 {
+    display: none; /* Ocultar heading en mobile para ahorrar espacio */
+  }
+
+  .player-notifications {
+    font-size: 0.65rem !important;
+    flex: 1;
+    min-width: 150px;
+  }
+
+  .sidebar-ad-space {
+    display: none; /* Ocultar espacio de ads en móvil */
+  }
+
+  #report-broken-btn {
+    width: auto !important;
+    padding: 6px 12px;
+    font-size: 0.6rem;
   }
 
   .player-close {
-    top: 15px;
-    right: 15px;
-    width: 35px;
-    height: 35px;
-    font-size: 1.2rem;
+    top: 12px;
+    right: 12px;
+    width: 32px;
+    height: 32px;
+    font-size: 1.1rem;
+    z-index: 10000;
   }
 
-  /* Smaller cards on mobile */
+  #admin-player-toolbar {
+    top: 50px !important;
+    left: 10px !important;
+  }
+
   .movie-card {
-    width: 130px !important;
-    min-width: 130px !important;
-    height: 195px !important;
+    width: 150px !important;
+    min-width: 150px !important;
+    height: 225px !important;
   }
 
   .row-title {
-    font-size: 1.1rem;
+    font-size: 1rem;
   }
 
   .see-all-btn {
-    font-size: 0.75rem;
-    padding: 4px 10px;
+    font-size: 0.7rem;
+    padding: 3px 8px;
   }
-  
+
   .admin-card {
-    padding: 15px;
+    padding: 12px;
+  }
+
+  /* Remove old bottom padding - no nav anymore */
+  body {
+    padding-bottom: 10px;
   }
 }

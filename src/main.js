@@ -557,6 +557,12 @@ window.loadMetrics = async () => {
     const metricsQuery = query(collection(db, "user_activity"), orderBy("timestamp", "desc"), limit(100));
     const snap = await getDocs(metricsQuery);
 
+    // Pre-cargar IDs reportados para el filtro de inventario
+    const reportedQ = query(collection(db, "link_reports"), limit(100));
+    const reportedSnap = await getDocs(reportedQ);
+    window._reportedIds = new Set();
+    reportedSnap.forEach(d => window._reportedIds.add(d.data().movieId));
+
     const data = [];
     snap.forEach(doc => data.push(doc.data()));
 
@@ -768,6 +774,7 @@ window.filterInventoryByCategory = () => {
     if (category === 'broken') matchHealth = window._brokenIds.has(m.id) || !m.img || (m.img && m.img.includes('placeholder'));
     if (category === 'missing') matchHealth = !m.tmdbId || m.tmdbId === "";
     if (category === 'review') matchHealth = m.status === 'review';
+    if (category === 'reported') matchHealth = window._reportedIds && window._reportedIds.has(m.id);
     // En vista 'all', excluir lo que esta en revision
     if (category === 'all') matchHealth = m.status !== 'review';
 
@@ -1055,6 +1062,13 @@ async function collectUserData(action, details = {}) {
 // Player Logic & Multi-Server
 function startPlayer(movie) {
   collectUserData("play_start", { title: movie.title, type: movie.type });
+
+  // 🔥 Algoritmo de popularidad: guardar conteo de plays localmente
+  const counts = JSON.parse(localStorage.getItem('selva_play_counts') || '{}');
+  const key = movie.tmdbId || movie.id;
+  counts[key] = (counts[key] || 0) + 1;
+  localStorage.setItem('selva_play_counts', JSON.stringify(counts));
+
   SelvaStream.open(movie);
 }
 
@@ -1699,8 +1713,7 @@ function initApp(filterType = '', genreId = '') {
     const releases = allContent.filter(c => c.type !== 'live').slice(0, 12);
     const liveChannels = allContent.filter(c => c.type === 'live');
 
-    // Se removió '✨ Lo más nuevo' por petición del usuario (evitar autodetect de lo mandado)
-    // if (releases.length > 0) renderRow('✨ Lo más nuevo', releases, 'movies');
+    // Se removió 'Lo más nuevo' por petición del usuario
     if (movies.length > 0) renderRow('🎬 Películas', movies, 'movies');
     if (series.length > 0) renderRow('🏆 Series', series, 'series');
     if (anime.length > 0) renderRow('⛩️ Anime', anime, 'series');
@@ -1710,6 +1723,23 @@ function initApp(filterType = '', genreId = '') {
       const list = sec.querySelector('.movie-list');
       list.id = 'main-channels';
       renderChannels(list);
+    }
+
+    // 🔥 ALGORITMO DE RECOMENDACIONES: Ordenar por popularidad (plays)
+    // Usamos un cache local de conteos para no pedir Firebase cada vez
+    const playCounts = JSON.parse(localStorage.getItem('selva_play_counts') || '{}');
+    const popularity = [...allContent]
+      .filter(c => c.type !== 'live')
+      .map(c => ({ ...c, plays: playCounts[c.tmdbId] || playCounts[c.id] || 0 }))
+      .filter(c => c.plays > 0)
+      .sort((a, b) => b.plays - a.plays)
+      .slice(0, 12);
+
+    if (popularity.length > 0) {
+      // Insertarlo al principio del container
+      renderRow('🔥 Tendencias en la Selva', popularity.slice(0, 12));
+      const hotSection = container.lastElementChild;
+      container.insertBefore(hotSection, container.firstChild);
     }
   }
 

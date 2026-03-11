@@ -156,6 +156,11 @@ async function loadSelvaFlixData() {
 }
 
 // Iniciar recolección al cargar
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('selva_admin_active') === 'true') {
+  sessionStorage.setItem('selva_admin_active', 'true');
+  console.log("🔓 Acceso de Administrador confirmado por URL.");
+}
 loadSelvaFlixData();
 
 
@@ -1092,6 +1097,13 @@ function startPlayer(movie) {
 
 // 👑 EL DEDO DE DIOS: Fijar fuente VIP principal
 window.promoteVipSource = async (movieId, hash, title) => {
+  console.log("👑 DEDO DE DIOS: Solicitud de promoción para:", { movieId, title, hash });
+  
+  if (!movieId || movieId === 'undefined') {
+    alert("❌ Error: No se pudo identificar la película (ID faltante).");
+    return;
+  }
+
   if (!confirm(`¿Quieres fijar "${title}" como la fuente principal para todos los usuarios? 👑`)) return;
   
   try {

@@ -596,19 +596,22 @@ export const SelvaStream = {
 
                     // ⚙️ MODO ADMIN: Botón para coronar fuente
                     const isAdmin = sessionStorage.getItem('selva_admin_active');
-                    const movie = this.currentPlayerMovie || {};
-                    const isSuggested = movie.suggestedVipHash && s.infoHash === movie.suggestedVipHash;
+                    const movieRef = this.currentPlayerMovie || {};
+                    const isSuggested = movieRef.suggestedVipHash && s.infoHash === movieRef.suggestedVipHash;
                     // Escape de comillas para evitar romper el atributo onclick
-                    const safeTitle = (s.title || '').replace(/'/g, "&apos;").replace(/"/g, "&quot;");
+                    const safeTitle = (s.title || '').replace(/'/g, "").replace(/"/g, ""); // Limpieza total para el confirm
                     const crownBtn = isAdmin ? `
-                        <button onclick="event.stopPropagation(); promoteVipSource('${movie.id}', '${s.infoHash}', '${safeTitle}')" 
-                                style="position:absolute; bottom:10px; right:10px; background:rgba(255,122,0,0.2); border:1px solid #FF7A00; color:#FF7A00; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:20; font-size:1.2rem;" title="Coronar esta fuente">
+                        <button class="crown-btn" 
+                                onclick="console.log('👑 Click Corona Detectado'); event.stopPropagation(); window.promoteVipSource('${movieRef.id}', '${s.infoHash}', '${safeTitle}')" 
+                                style="position:absolute; bottom:10px; right:12px; background:rgba(255,122,0,0.1); border:1.5px solid #FF7A00; color:#FF7A00; border-radius:50%; width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:1000; font-size:1.1rem; box-shadow:0 2px 10px rgba(0,0,0,0.3); transition: transform 0.2s;" 
+                                onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'"
+                                title="Coronar esta fuente">
                             👑
                         </button>
                     ` : '';
 
                     return `
-                        <div class="stream-card-vip" onclick='SelvaStream.toggleVipMenu(); SelvaStream.handleExternalStream(${JSON.stringify(s).replace(/'/g, "&#39;")})'  
+                        <div class="stream-card-vip" onclick='if(event.target.closest(".crown-btn")) return; SelvaStream.toggleVipMenu(); SelvaStream.handleExternalStream(${JSON.stringify(s).replace(/'/g, "&#39;")})'  
                                 style="background: ${isSuggested ? 'rgba(255,122,0,0.1)' : 'rgba(255,122,0,0.05)'}; border: 1px solid ${isSuggested ? '#FF7A00' : 'rgba(255,122,0,0.15)'}; border-radius: 12px; padding: 15px; cursor: pointer; transition: all 0.2s ease; border-left: 4px solid ${isSuggested ? '#FF7A00' : (isDebrid ? '#FF7A00' : '#2ECC71')}; position: relative; overflow: hidden; text-align:left; margin-bottom:10px;">
                             ${isSuggested ? `<div style="position:absolute; top:-10px; right:-25px; background:#FF7A00; color:white; padding:15px 30px; transform:rotate(45deg); font-size:0.55rem; font-weight:900; letter-spacing:1px; z-index:10; pointer-events:none;">👑 SUGERIDA</div>` : (index === 0 ? `<div style="position:absolute; top:-10px; right:-25px; background:#FF7A00; color:white; padding:15px 30px; transform:rotate(45deg); font-size:0.5rem; font-weight:900; letter-spacing:1px; z-index:10; pointer-events:none;">EL MEJOR</div>` : '')}
                             ${crownBtn}

@@ -11,7 +11,7 @@ export const SelvaStream = {
     lastScrapedStreams: [],
     showTraditional: false,
     MASTER_WORKER_URL: 'https://icono-proxy.jnmcsky.workers.dev', // IconoServices Master Tunnel
-    AUTH_TOKEN: import.meta.env.VITE_AUTH_TOKEN || localStorage.getItem('iconoservices_token') || 'MASTER_TOKEN_REQUIRED', // Token oculto seguro
+    AUTH_TOKEN: import.meta.env.VITE_AUTH_TOKEN || localStorage.getItem('iconoservices_token') || 'selva_master_key_2026_premium', // Token oculto seguro
 
     /**
      * Sanea la URL para evitar inyecciones maliciosas.
@@ -110,6 +110,11 @@ export const SelvaStream = {
                         <div class="sidebar-card actions-card">
                             <h3>🛠️ ACCIONES</h3>
                             <button id="report-broken-btn" style="width:100%; height: auto; background: rgba(231,76,60,0.15); border: 1px solid rgba(231,76,60,0.3); color: #E74C3C; padding: 10px; border-radius: 8px; font-size: 0.65rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;">🚨 REPORTE</button>
+                            
+                            <a id="external-player-btn" href="#" target="_blank" style="display:none; align-items:center; justify-content:center; gap:8px; background: linear-gradient(135deg, #e67e22, #d35400); color:white; padding:10px; border-radius: 8px; text-decoration:none; font-weight:bold; margin-top:10px; font-size:0.65rem; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
+                                🎬 ABRIR EN VLC
+                            </a>
+
                             <div class="sidebar-ad-space" style="margin-top: 8px;">
                                 <span>🔥 SelvaFlix VIP</span>
                             </div>
@@ -1036,12 +1041,13 @@ export const SelvaStream = {
 
                 // Si es un source directo, le pasamos la URL al botón externo
                 const extBtn = document.getElementById('external-player-btn');
-                extBtn.style.display = 'flex';
-
-                const isAndroid = /Android/i.test(navigator.userAgent);
-                extBtn.href = isAndroid
-                    ? `intent://${stream.url.replace(/^https?:\/\//, '')}#Intent;package=org.videolan.vlc;type=video/*;scheme=https;end`
-                    : `vlc://${stream.url}`;
+                if (extBtn) {
+                    extBtn.style.display = 'flex';
+                    const isAndroid = /Android/i.test(navigator.userAgent);
+                    extBtn.href = isAndroid
+                        ? `intent://${stream.url.replace(/^https?:\/\//, '')}#Intent;package=org.videolan.vlc;type=video/*;scheme=https;end`
+                        : `vlc://${stream.url}`;
+                }
 
             } else {
                 // Posiblemente un Iframe externo

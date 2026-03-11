@@ -974,50 +974,32 @@ export const SelvaStream = {
                 if (result && result.url) {
                     console.log("🚀 URL Liberada:", result.url);
                     
-                    // Ocultar todo overlay
+                    // Ocultar overlays
                     if (startScreen) startScreen.style.display = 'none';
                     if (loader) loader.style.display = 'none';
+                    statusDiv.style.display = 'none';
 
-                    // Preparar botón VLC
+                    // Mostrar reproductor y asignar URL
+                    nativePlayer.style.display = 'block';
+                    nativePlayer.src = result.url;
+
+                    // Intentar play. Si el navegador lo bloquea, el usuario toca ▶ en el video.
+                    nativePlayer.play().catch(() => {});
+
+                    // Botón VLC de respaldo
                     const isAndroid = /Android/i.test(navigator.userAgent);
-                    const vlcUrl = isAndroid
-                        ? `intent://${result.url.replace(/^https?:\/\//, '')}#Intent;package=org.videolan.vlc;type=video/*;scheme=https;end`
-                        : `vlc://${result.url}`;
                     const extBtnFinal = document.getElementById('external-player-btn');
                     if (extBtnFinal) {
-                        extBtnFinal.href = vlcUrl;
+                        extBtnFinal.href = isAndroid
+                            ? `intent://${result.url.replace(/^https?:\/\//, '')}#Intent;package=org.videolan.vlc;type=video/*;scheme=https;end`
+                            : `vlc://${result.url}`;
                         extBtnFinal.style.display = 'flex';
                     }
-
-                    // 🎯 ESTRATEGIA ANTI-BLOQUEO:
-                    // Asignar src. El evento 'canplay' se dispara cuando el browser ya tiene
-                    // suficientes datos. En ese momento, llamar a play() tiene más probabilidades de funcionar.
-                    nativePlayer.src = result.url;
-                    nativePlayer.load();
-                    
-                    const tryPlay = () => {
-                        nativePlayer.play().catch(e => {
-                            console.warn("Auto-play bloqueado. El usuario debe tocar el video.", e);
-                            // No hacer nada más: el video ya está listo con poster,
-                            // el usuario solo toca el botón ▶ del reproductor nativo.
-                            const notif = document.getElementById('player-notifications');
-                            if (notif) notif.innerHTML = '<p style="color:#f39c12; font-size:0.75rem;">▶ Toca el video para iniciar la película.</p>';
-                        });
-                    };
-
-                    nativePlayer.addEventListener('canplay', tryPlay, { once: true });
-                    // Fallback: si canplay nunca dispara (dispositivo lento), intentar a los 3 segundos
-                    setTimeout(() => {
-                        nativePlayer.removeEventListener('canplay', tryPlay);
-                        if (nativePlayer.paused && nativePlayer.src) tryPlay();
-                    }, 4000);
-
                 } else {
                     if (loader) loader.style.display = 'none';
-                    const notif = document.getElementById('player-notifications');
-                    if (notif) notif.innerHTML = `<p style="color:#e74c3c;">⚠️ Error al obtener la fuente. Prueba otra desde "Fuentes VIP".</p>`;
-                    // Mostrar Start Screen de nuevo para que el usuario elija otra fuente
                     if (startScreen) startScreen.style.display = 'flex';
+                    const notif = document.getElementById('player-notifications');
+                    if (notif) notif.innerHTML = `<p style="color:#e74c3c;">⚠️ No se pudo obtener la fuente. Elige otra desde "Fuentes VIP".</p>`;
                 }
             });
         }

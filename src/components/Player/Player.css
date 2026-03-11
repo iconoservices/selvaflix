@@ -24,9 +24,17 @@
 
 @media (max-width: 768px) {
     .player-modal {
-        padding: 10px 0;
+        padding: 60px 0 20px 0;
     }
     
+    .player-close {
+        top: 10px;
+        right: 15px;
+        width: 35px;
+        height: 35px;
+        font-size: 1.5rem;
+    }
+
     .video-container {
         aspect-ratio: 4 / 3 !important; /* Más altura para el texto y poster en celular */
         border-radius: 12px;

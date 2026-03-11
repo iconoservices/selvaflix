@@ -1072,7 +1072,7 @@ export const SelvaStream = {
             const extBtn = document.getElementById('external-player-btn');
             nativeContainer.style.display = 'block';
             statusDiv.style.display = 'block';
-            extBtn.style.display = 'none'; // Ocultar hasta tener link
+            if (extBtn) extBtn.style.display = 'none'; // Ocultar hasta tener link
 
             // Clean Native Player
             nativePlayer.pause();

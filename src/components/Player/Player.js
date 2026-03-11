@@ -57,8 +57,8 @@ export const SelvaStream = {
                         <div class="loader-text">Explorando la selva...</div>
                         <div class="spinner-tropical"></div>
                     </div>
-                    <iframe id="player-iframe" src="" 
-                        allow="autoplay; fullscreen; picture-in-picture; encrypted-media; gyroscope; accelerometer; clipboard-write"
+                    <iframe id="player-iframe" src="" style="display:none;" 
+                        allow="autoplay"
                         allowfullscreen>
                     </iframe>
                     <div id="native-player-container" style="display:none; width: 100%; height: 100%; position: relative;">
@@ -438,28 +438,8 @@ export const SelvaStream = {
     },
 
     updateServer(serverKey, season = 1, episode = 1) {
-        if (!this.currentPlayerMovie || !this.currentPlayerMovie.tmdbId) return;
-
-        const tmdbId = this.currentPlayerMovie.tmdbId;
-        const imdbId = this.currentPlayerMovie.imdbId;
-        const idValue = imdbId || tmdbId;
-        const hasImdb = !!imdbId;
-
-        const type = this.currentPlayerMovie.type || 'movie';
-        const isSeries = type === 'series' || type === 'tv' || type === 'anime';
-
-        const iframe = document.getElementById('player-iframe');
-        const nativeContainer = document.getElementById('native-player-container');
-        const nativePlayer = document.getElementById('native-video-player');
-        const statusDiv = document.getElementById('webtorrent-status');
         const loader = document.getElementById('player-loader');
-
-        if (iframe) iframe.style.display = 'block';
-        if (nativeContainer) nativeContainer.style.display = 'none';
-        if (nativePlayer) {
-            nativePlayer.pause();
-        }
-        if (statusDiv) statusDiv.style.display = 'none';
+        if (!loader) return;
 
         const startScreen = document.getElementById('player-start-screen');
         if (startScreen) startScreen.style.display = 'none';
@@ -467,30 +447,12 @@ export const SelvaStream = {
         loader.style.display = 'flex';
         loader.style.opacity = '1';
 
-        // Preferencia Rey (Aumenta probabilidad de audio correcto)
-        const pref = localStorage.getItem('selva_pref_lang') || 'latino';
-        const langParam = pref === 'latino' ? '&ds_lang=es' : '';
-
-        let url = "";
-        switch (serverKey) {
-            case 'latino-1': url = isSeries ? `https://vidsrc.me/embed/tv?${hasImdb ? `imdb=${idValue}` : `tmdb=${idValue}`}&season=${season}&episode=${episode}${langParam}` : `https://vidsrc.me/embed/movie?${hasImdb ? `imdb=${idValue}` : `tmdb=${idValue}`}${langParam}`; break;
-            case 'latino-2': url = isSeries ? `https://vidsrc.to/embed/tv/${idValue}/${season}/${episode}` : `https://vidsrc.to/embed/movie/${idValue}`; break;
-            case 'latino-3': url = isSeries ? `https://vidsrc.xyz/embed/tv?${hasImdb ? `imdb=${idValue}` : `tmdb=${idValue}`}&season=${season}&episode=${episode}${langParam}` : `https://vidsrc.xyz/embed/movie?${hasImdb ? `imdb=${idValue}` : `tmdb=${idValue}`}${langParam}`; break;
-            case 'latino-4': url = isSeries ? `https://embed.su/embed/tv/${idValue}/${season}/${episode}` : `https://embed.su/embed/movie/${idValue}`; break;
-            case 'latino-5': url = isSeries ? `https://vidsrc.pro/embed/tv?${hasImdb ? `imdb=${idValue}` : `tmdb=${idValue}`}&season=${season}&episode=${episode}${langParam.replace('ds_lang', 'lang')}` : `https://vidsrc.pro/embed/movie?${hasImdb ? `imdb=${idValue}` : `tmdb=${idValue}`}${langParam.replace('ds_lang', 'lang')}`; break;
-            case 'latino-6': url = isSeries ? `https://multiembed.mov/?video_id=${idValue}${hasImdb ? '&imdb=1' : '&tmdb=1'}&s=${season}&e=${episode}` : `https://multiembed.mov/?video_id=${idValue}${hasImdb ? '&imdb=1' : '&tmdb=1'}`; break;
-            case 'english-1': url = isSeries ? `https://vidsrc.xyz/embed/tv?${hasImdb ? `imdb=${idValue}` : `tmdb=${idValue}`}&season=${season}&episode=${episode}` : `https://vidsrc.xyz/embed/movie?${hasImdb ? `imdb=${idValue}` : `tmdb=${idValue}`}`; break;
-            case 'english-2': url = isSeries ? `https://www.2embed.cc/embed/${idValue}&s=${season}&e=${episode}` : `https://www.2embed.cc/embed/${idValue}`; break;
-            default: url = `https://vidsrc.xyz/embed/${isSeries ? 'tv' : 'movie'}?${hasImdb ? `imdb=${idValue}` : `tmdb=${idValue}`}${langParam}`;
-        }
-
-        const cleanUrl = this.sanitizeUrl(url);
-
-        iframe.src = cleanUrl;
-
-        document.querySelectorAll('.server-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.server === serverKey);
-        });
+        // ✅ SERVIDORES CLÁSICOS ELIMINADOS (Premium Only)
+        loader.innerHTML = `
+            <div class="loader-logo">SOLO VIP</div>
+            <div class="loader-text">Los servidores con publicidad fueron eliminados para tu seguridad.</div>
+            <button onclick="SelvaStream.loadDebridAuto()" style="margin-top:20px; background:var(--primary); color:black; border:none; padding:10px 20px; border-radius:10px; font-weight:bold; cursor:pointer;">REPRODUCIR VIP</button>
+        `;
     },
 
     setPreference(lang) {
@@ -526,26 +488,9 @@ export const SelvaStream = {
         }
     },
 
-    // ── Shield Toggle v4.0 (Custom UI) ──
-    toggleShield() {
-        const activeBtn = document.querySelector('.server-btn.active');
-        if (!activeBtn) return;
-        const serverKey = activeBtn.dataset.server;
-        const isShieldOn = localStorage.getItem(`selva_shield_${serverKey}`) === 'true';
-
-        if (!isShieldOn) {
-            const modal = document.getElementById('selva-safety-modal');
-            modal.classList.add('active');
-        } else {
-            localStorage.removeItem(`selva_shield_${serverKey}`);
-            this.refreshState(serverKey);
-        }
-    },
-
     refreshState() {
         const s = document.getElementById('selva-season')?.value || 1;
         const e = document.getElementById('selva-episode')?.value || 1;
-        this.updateServer('latino-1', s, e);
         this.renderControls();
     },
 
@@ -601,12 +546,6 @@ export const SelvaStream = {
             <div class="player-controls">
                 <!-- Selector de Temporadas/Episodios (Solo Series) -->
                 ${seasonHtml}
-
-                <!-- Selector de Idioma Global -->
-                <div class="pref-selector" style="display:flex; justify-content:center; gap:10px; background: rgba(255,122,0,0.05); padding:12px; border-radius:15px; border:1px solid rgba(255,122,0,0.15); box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
-                    <button class="pref-btn ${pref === 'latino' ? 'active' : ''}" onclick="SelvaStream.setPreference('latino')" style="flex:1; background:${pref === 'latino' ? 'var(--primary)' : 'rgba(255,255,255,0.05)'}; border:none; color:${pref === 'latino' ? 'black' : 'white'}; padding:12px; border-radius:10px; font-weight:800; cursor:pointer; transition: all 0.3s; font-size: 13px;">🇲🇽 LATINO (VIP)</button>
-                    <button class="pref-btn ${pref === 'english' ? 'active' : ''}" onclick="SelvaStream.setPreference('english')" style="flex:1; background:${pref === 'english' ? 'var(--primary)' : 'rgba(255,255,255,0.05)'}; border:none; color:${pref === 'english' ? 'black' : 'white'}; padding:12px; border-radius:10px; font-weight:800; cursor:pointer; transition: all 0.3s; font-size: 13px;">🇺🇸 SUB/ENG</button>
-                </div>
             </div>
         `;
     },
@@ -744,45 +683,29 @@ export const SelvaStream = {
             this.lastScrapedStreams = streams;
             this.renderControls();
 
-            // ✅ NO AUTO-PLAY: Dejamos que el usuario decida reproducir en pequeño o grande
+            // ✅ SELECCIÓN MANUAL: Desplegamos la lista para que el usuario elija
             const loader3 = document.getElementById('player-loader');
             if (loader3) loader3.style.display = 'none';
             const ss2 = document.getElementById('player-start-screen');
             if (ss2) ss2.style.display = 'flex';
+            
             const btn2 = document.getElementById('start-play-btn');
             if (btn2) {
-                btn2.innerHTML = '<span class="play-icon">▶</span> REPRODUCIR VIP (LISTO)';
-                btn2.onclick = () => { this.handleExternalStream(streams[0]); };
+                btn2.innerHTML = '<span class="play-icon">▶</span> SELECCIONAR FUENTE VIP';
+                btn2.onclick = () => { 
+                    const list = document.getElementById('external-streams-list');
+                    if (list) list.style.display = list.style.display === 'none' ? 'block' : 'none';
+                };
             }
+            
+            // Cargar la lista visualmente
+            this.fetchExternalStreams();
         } catch (e) {
-            console.log("Auto-Debrid falló, activando Servidor Clásico de respaldo...", e);
-
-            // ✅ FALLBACK AUTOMÁTICO: Si VIP falla, cargar Servidor 1 directamente sin molestar al usuario
-            const loader2 = document.getElementById('player-loader');
-            if (loader2) loader2.style.display = 'none';
-
-            // Si hay imdbId o tmdbId, fallback silencioso al iframe servidor 1
-            const hasTmdb = !!(this.currentPlayerMovie?.tmdbId);
-            if (hasTmdb) {
-                console.log("🔄 Activando Servidor Clásico de Respaldo (Silencioso)...");
-                // Mostrar notificación discreta
-                const notif = document.getElementById('player-notifications');
-                if (notif) notif.innerHTML = '<p style="color: #F1C40F;">⚡ VIP no disponible, usando Servidor 1. Puedes cambiar abajo.</p>';
-
-                this.updateServer('latino-1');
-                return;
-            }
-
-            // Sin tmdbId: mostrar pantalla de error con opciones
-            const ss = document.getElementById('player-start-screen');
-            if (ss) ss.style.display = 'flex';
+            console.error("Motor VIP falló:", e);
             const btn = document.getElementById('start-play-btn');
             if (btn) {
-                btn.innerHTML = '<span style="color:#e74c3c;">✖ NO HAY FUENTE VIP 🌴</span><br><small style="font-size:10px; opacity:0.8;">Click aquí para buscar manual o usa servidor abajo</small>';
-                btn.style.flexDirection = 'column';
-                btn.style.height = 'auto';
-                btn.style.lineHeight = '1.2';
-                btn.onclick = () => { this.fetchExternalStreams(); };
+                btn.innerHTML = '<span style="color:#e74c3c;">✖ SE ACABÓ LA COCONA VIP 🌴</span><br><small style="font-size:10px; opacity:0.8;">Click para intentar de nuevo</small>';
+                btn.onclick = () => { this.loadDebridAuto(id, type); };
             }
         }
     },
@@ -831,15 +754,19 @@ export const SelvaStream = {
 
             let validStreams = allStreams.filter(s => {
                 const text = (s.title || '').toLowerCase() + ' ' + (s.name || '').toLowerCase();
-                // Excluir streams brasileños/portugueses que suelen colarse
-                if (text.includes('dublado') || text.includes('legendado') || text.includes('pt-br') || text.includes('português')) {
-                    return false;
-                }
-                return true;
+                const url = (s.url || '').toLowerCase();
+                
+                // Excluir streams brasileños/portugueses
+                if (text.includes('dublado') || text.includes('legendado') || text.includes('pt-br')) return false;
+
+                // ✅ FILTRO PREMIUM: Solo infoHash (Debrid) o Videos Directos (.mp4, .m3u8, .mkv, .webm)
+                // Esto elimina todos los iframes ocultos que traen anuncios.
+                const isDirect = url.includes('.m3u8') || url.includes('.mp4') || url.includes('.mkv') || url.includes('.webm') || text.includes('[rd+]');
+                return !!s.infoHash || isDirect;
             });
 
             if (validStreams.length === 0) {
-                container.innerHTML = `<p style="font-size:0.75rem; color:#aaa; text-align:center;">Ningún satélite encontró la Cocona. 🌴🌵<br><small>Intenta con servidores tradicionales.</small></p>`;
+                container.innerHTML = `<p style="font-size:0.75rem; color:#aaa; text-align:center;">Ningún satélite VIP encontró la señal. 🌴🌵</p>`;
                 return;
             }
 
@@ -964,19 +891,11 @@ export const SelvaStream = {
                         : `vlc://${stream.url}`;
                 }
 
-            } else {
-                // Posiblemente un Iframe externo
-                const startScreen = document.getElementById('player-start-screen');
-                if (startScreen) startScreen.style.display = 'none';
-
-                const nativeContainer = document.getElementById('native-player-container');
-                if (nativeContainer) nativeContainer.style.display = 'none';
-                statusDiv.style.display = 'none';
-                nativePlayer.pause();
-                iframe.style.display = 'block';
-                iframe.src = stream.url;
-                loader.style.display = 'flex';
-            }
+                } else {
+                    console.warn("🚫 Fuente de Terceros Bloqueada por Seguridad (Anti-Adware)");
+                    const notif = document.getElementById('player-notifications');
+                    if (notif) notif.innerHTML = '<p style="color: #E74C3C;">⚠️ Esta fuente no cumple el estándar de seguridad de SelvaFlix (Anti-Anuncios).</p>';
+                }
         } else if (stream.infoHash) {
             // FASE 3: Motor VIP 🚀 (Debrid API directa o Local P2P)
             iframe.style.display = 'none';

@@ -85,6 +85,11 @@ export const SelvaStream = {
                                 </div>
                                 <div id="start-overview" class="start-overview"></div>
                                 <div id="vip-status-msg" class="start-subtitle">🔍 Buscando señales VIP...</div>
+                                <div class="start-actions" style="margin-top:20px; display:none;" id="start-actions">
+                                    <button id="start-play-btn" class="play-btn-premium" onclick="SelvaStream.playFirstAvailable()">
+                                        <span class="play-icon">▶</span> REPRODUCIR AHORA
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -309,7 +314,7 @@ export const SelvaStream = {
                     // Atrapamos la DOMException en el catch como indicador de que el iframe CARGÓ, pero de un origen externo exitoso.
                     // Si el iframe está "en blanco" por bloqueo del navegador (CORS/Sandbox estricto en la misma ventana), a veces no lanza error sino que queda accesible pero vacío.
                     const iframeWindow = iframe.contentWindow;
-                    if (iframeWindow && iframeWindow.document && iframeWindow.document.body.innerHTML.length < 50) {
+                    if (iframeWindow && iframeWindow.document && iframe.style.display !== 'none' && iframeWindow.document.body.innerHTML.length < 50) {
                         // Sospechoso de bloqueo de Sandbox.
                         this.handlePlayerError();
                     }
@@ -435,6 +440,9 @@ export const SelvaStream = {
             
             const msgEl = document.getElementById('vip-status-msg');
             if (msgEl) msgEl.innerHTML = '🔍 Buscando señales VIP...';
+
+            const startActions = document.getElementById('start-actions');
+            if (startActions) startActions.style.display = 'none';
         }
 
         // Si hay link manual de Admin, mostrar badge VIP
@@ -574,23 +582,42 @@ export const SelvaStream = {
 
         // Actualizar el Listado del Menú Lateral VIP
         const vipMenuList = document.getElementById('vip-menu-list');
-        if (vipMenuList) {
-            if (this.lastScrapedStreams.length > 0) {
+        const floatingBtn = document.getElementById('floating-sources-btn');
+        
+        if (this.lastScrapedStreams.length > 0) {
+            if (floatingBtn) {
+                floatingBtn.innerHTML = `✅ ${this.lastScrapedStreams.length} FUENTES VIP ▾`;
+            }
+            if (vipMenuList) {
                 vipMenuList.innerHTML = this.lastScrapedStreams.map(s => {
-                    const text = (s.title + ' ' + s.name).toLowerCase();
-                    const isLatino = text.includes('latino') || text.includes('spanish') || text.includes('cinecalidad');
+                    const qRaw = (s.title + ' ' + s.name).toLowerCase();
+                    const quality = qRaw.includes('4k') || qRaw.includes('uhd') ? '4K UHD' : (qRaw.includes('1080') ? '1080p FHD' : (qRaw.includes('720') ? '720p HD' : 'HD'));
+                    const isDebrid = s.name.toLowerCase().includes('[rd+]') || s.name.toLowerCase().includes('debrid') || s.title.toLowerCase().includes('[rd+]');
+                    const isLatino = qRaw.includes('latino') || qRaw.includes('spanish') || qRaw.includes('cinecalidad');
+                    
                     return `
-                        <div class="stream-item" onclick='SelvaStream.toggleVipMenu(); SelvaStream.handleExternalStream(${JSON.stringify(s).replace(/'/g, "&apos;")})' style="background:rgba(255,255,255,0.05); padding:12px; border-radius:10px; border:1px solid #333; cursor:pointer; margin-bottom:10px;">
-                            <div style="font-size:10px; font-weight:bold; color:#2ecc71; display:flex; justify-content:space-between;">
-                                <span>${s.providerName} VIP</span>
-                                ${isLatino ? '<span class="latino-badge">LATINO</span>' : ''}
+                        <div class="stream-card-vip" onclick='SelvaStream.toggleVipMenu(); SelvaStream.handleExternalStream(${JSON.stringify(s).replace(/'/g, "&#39;")})' 
+                                style="background: rgba(255,122,0,0.05); border: 1px solid rgba(255,122,0,0.15); border-radius: 12px; padding: 15px; cursor: pointer; transition: all 0.2s ease; border-left: 4px solid ${isDebrid ? '#FF7A00' : '#2ECC71'}; position: relative; overflow: hidden; text-align:left; margin-bottom:10px;">
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                <div style="font-size: 0.65rem; font-weight: 900; color: ${isDebrid ? '#FF7A00' : '#2ECC71'}; text-transform: uppercase; letter-spacing: 1px; display:flex; align-items:center; gap:5px;">
+                                    ${s.providerName || 'PREMIUM'} ${isLatino ? '• LATINO' : ''}
+                                </div>
+                                <div style="color: white; font-size: 0.85rem; font-weight: 700; line-height: 1.3; margin: 4px 0;">
+                                    ${s.title.split('\n')[0]}
+                                </div>
+                                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                                    <span style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-size: 0.6rem; color: #ccc; font-weight:bold;">${quality}</span>
+                                    <span style="font-size: 0.6rem; color: #888;">${s.title.includes('GB') ? s.title.match(/\d+(\.\d+)?\s*GB/)?.[0] || '' : ''}</span>
+                                    ${isDebrid ? '<span style="color:#2ecc71; font-size:0.6rem; font-weight:bold;">⚡ VIP</span>' : ''}
+                                </div>
                             </div>
-                            <div style="font-size:11px; margin-top:5px; opacity:0.8; height:32px; overflow:hidden; line-height:1.2;">${s.title}</div>
                         </div>
                     `;
                 }).join('');
-            } else {
-                vipMenuList.innerHTML = '<p style="text-align:center; opacity:0.5; font-size:12px; margin-top:20px;">Pulsa "REPRODUCIR VIP" para buscar fuentes.</p>';
+            }
+        } else {
+            if (vipMenuList) {
+                vipMenuList.innerHTML = '<p style="text-align:center; opacity:0.5; font-size:12px; margin-top:20px;">Explorando la selva para encontrar fuentes...</p>';
             }
         }
 
@@ -778,10 +805,11 @@ export const SelvaStream = {
             if (ss2) ss2.style.display = 'flex';
 
             const msgEl = document.getElementById('vip-status-msg');
-            if (msgEl) msgEl.textContent = `✅ ${streams.length} fuentes VIP encontradas. Elige una:`;
+            if (msgEl) msgEl.textContent = `✅ ${streams.length} fuentes VIP encontradas. Revisa otras opciones:`;
 
-            // Renderizar la lista dinámica debajo del player
-            this.renderDynamicSources(streams);
+            // Habilitar el botón de Play en la Start Screen
+            const startActions = document.getElementById('start-actions');
+            if (startActions) startActions.style.display = 'block';
         } catch (e) {
             console.error("Motor VIP falló:", e);
             const msgEl = document.getElementById('vip-status-msg');
@@ -849,6 +877,14 @@ export const SelvaStream = {
         }
     },
 
+    playFirstAvailable() {
+        if (this.lastScrapedStreams && this.lastScrapedStreams.length > 0) {
+            this.handleExternalStream(this.lastScrapedStreams[0]);
+        } else {
+            console.warn("No hay fuentes listas para reproducir automáticamente.");
+            this.fetchExternalStreams();
+        }
+    },
 
     handleExternalStream(stream) {
         console.log("Cargando fuente externa:", stream);
@@ -860,6 +896,10 @@ export const SelvaStream = {
         const nativePlayer = document.getElementById('native-video-player');
         const statusDiv = document.getElementById('webtorrent-status');
         const loader = document.getElementById('player-loader');
+
+        // OCULTAR INTERFAZ DE CARGA/INICIO PARA DAR PASO AL VIDEO
+        const startScreen = document.getElementById('player-start-screen');
+        if (startScreen) startScreen.style.display = 'none';
 
         if (this.hls) {
             this.hls.destroy();
@@ -873,11 +913,6 @@ export const SelvaStream = {
 
             if (isDirectVideo) {
                 // Motor VIP de Real Debrid (Reproductor Nativo con URL directa)
-                const startScreen = document.getElementById('player-start-screen');
-                const dynamicSources = document.getElementById('vip-dynamic-container');
-                if (startScreen) startScreen.style.display = 'none';
-                if (dynamicSources) dynamicSources.style.display = 'none';
-
                 iframe.style.display = 'none';
                 iframe.src = '';
                 statusDiv.style.display = 'none';
@@ -941,6 +976,11 @@ export const SelvaStream = {
                 this.callMasterWorker(stream.infoHash).then(result => {
                     if (result && result.url) {
                         console.log("🚀 URL Liberada:", result.url);
+                        
+                        // Asegurar que no hay nada tapando el video
+                        if (startScreen) startScreen.style.display = 'none';
+                        if (loader) loader.style.display = 'none';
+
                         nativePlayer.src = result.url;
                         nativePlayer.play().catch(e => {
                             console.warn("Auto-play prevented, click manual requerido", e);

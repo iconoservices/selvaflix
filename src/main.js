@@ -431,9 +431,13 @@ function renderInventory() {
   // Incluir TODOS para admin (incluyendo review), ordenados por fecha
   _allInventoryItems = [...movieDatabase.trending].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   _inventoryPage = 1;
-  _updateDetailedStats(_allInventoryItems);
-  // Por defecto ocultamos los de 'review' en la vista general (filtro all)
-  _renderInventoryRows(_allInventoryItems.filter(m => m.status !== 'review'));
+
+  // Cargar reportes primero para que el contador y filtro funcionen
+  window.loadReports().then(() => {
+    _updateDetailedStats(_allInventoryItems);
+    // Por defecto ocultamos los de 'review' en la vista general (filtro all)
+    _renderInventoryRows(_allInventoryItems.filter(m => m.status !== 'review'));
+  });
 }
 
 function _updateDetailedStats(items) {
@@ -441,11 +445,14 @@ function _updateDetailedStats(items) {
   const s = items.filter(i => i.type === 'series' || i.type === 'tv' || i.type === 'anime').length;
   const l = items.filter(i => i.type === 'live').length;
   const b = items.filter(i => window._brokenIds.has(i.id)).length;
+  const r = window._reportedIds ? window._reportedIds.size : 0;
 
   document.getElementById('count-movies').innerText = m;
   document.getElementById('count-series').innerText = s;
   document.getElementById('count-live').innerText = l;
   document.getElementById('count-broken').innerText = b;
+  const rEl = document.getElementById('count-reported');
+  if (rEl) rEl.innerText = r;
 }
 
 window.loadMoreInventory = () => {
@@ -559,14 +566,11 @@ window.loadMetrics = async () => {
   if (log) log.innerText = "Sincronizando con la selva... 📡";
 
   try {
+    // Cargar reportes y métricas en paralelo
+    await window.loadReports();
+    
     const metricsQuery = query(collection(db, "user_activity"), orderBy("timestamp", "desc"), limit(100));
     const snap = await getDocs(metricsQuery);
-
-    // Pre-cargar IDs reportados para el filtro de inventario
-    const reportedQ = query(collection(db, "link_reports"), limit(100));
-    const reportedSnap = await getDocs(reportedQ);
-    window._reportedIds = new Set();
-    reportedSnap.forEach(d => window._reportedIds.add(d.data().movieId));
 
     const data = [];
     snap.forEach(doc => data.push(doc.data()));
@@ -669,7 +673,7 @@ window.loadMetrics = async () => {
             `;
     }).join('');
 
-    // 🚨 Links Reportados como Caídos (por usuarios)
+    // 🚨 Render reportes (usando la data ya cargada por window.loadReports)
     const reportsContainer = document.getElementById('metrics-reports-list') || (() => {
       const div = document.createElement('div');
       div.id = 'metrics-reports-list';
@@ -678,38 +682,28 @@ window.loadMetrics = async () => {
       return div;
     })();
 
-    try {
-      const reportsQ = query(collection(db, "link_reports"), orderBy("reportedAt", "desc"), limit(20));
-      const reportsSnap = await getDocs(reportsQ);
-      const reports = [];
-      reportsSnap.forEach(d => reports.push({ id: d.id, ...d.data() }));
-
-      if (reports.length > 0) {
-        const pending = reports.filter(r => r.status !== 'resolved');
-        reportsContainer.innerHTML = `
-          <h4 style="color: #E74C3C; margin-bottom: 10px;">🚨 Links Reportados como Caídos (${pending.length} pendientes)</h4>
-          <div style="display: flex; flex-direction: column; gap: 8px;">
-            ${reports.map(r => `
-              <div style="background: ${r.status === 'resolved' ? 'rgba(46,204,113,0.1)' : 'rgba(231,76,60,0.1)'}; border: 1px solid ${r.status === 'resolved' ? '#2ECC71' : '#E74C3C'}; border-radius: 8px; padding: 10px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
-                <div>
-                  <p style="font-weight: bold; font-size: 0.8rem; margin: 0;">${r.movieTitle || 'Sin título'}</p>
-                  <p style="font-size: 0.65rem; color: var(--text-muted); margin: 2px 0;">Reportado: ${new Date(r.reportedAt).toLocaleString()} • ${r.status === 'resolved' ? '✅ Resuelto' : '⏳ Pendiente'}</p>
-                </div>
-                <div style="display: flex; gap: 6px; flex-shrink: 0;">
-                  <button onclick="window.openPlayer('${r.movieId}')" style="background: rgba(255,255,255,0.1); border: none; color: white; padding: 4px 10px; border-radius: 6px; font-size: 0.65rem; cursor: pointer;">▶ Probar</button>
-                  ${r.status !== 'resolved' ? `<button onclick="window.resolveReport('${r.id}')" style="background: #2ECC71; border: none; color: black; padding: 4px 10px; border-radius: 6px; font-size: 0.65rem; cursor: pointer; font-weight: bold;">✓ Resolver</button>` : ''}
-                </div>
+    const pending = (window._linkReports || []).filter(r => r.status !== 'resolved');
+    if (window._linkReports && window._linkReports.length > 0) {
+      reportsContainer.innerHTML = `
+        <h4 style="color: #E74C3C; margin-bottom: 10px;">🚨 Links Reportados (${pending.length} pendientes)</h4>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          ${window._linkReports.map(r => `
+            <div style="background: ${r.status === 'resolved' ? 'rgba(46,204,113,0.1)' : 'rgba(231,76,60,0.1)'}; border: 1px solid ${r.status === 'resolved' ? '#2ECC71' : '#E74C3C'}; border-radius: 8px; padding: 10px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
+              <div>
+                <p style="font-weight: bold; font-size: 0.8rem; margin: 0;">${r.movieTitle || 'Sin título'}</p>
+                <p style="font-size: 0.65rem; color: var(--text-muted); margin: 2px 0;">Reportado: ${new Date(r.reportedAt).toLocaleString()}</p>
               </div>
-            `).join('')}
-          </div>
-        `;
-      } else {
-        reportsContainer.innerHTML = '<p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 15px;">✅ Sin reportes de links caídos. ¡La selva está sana! 🌴</p>';
-      }
-    } catch (e) {
-      reportsContainer.innerHTML = '<p style="color: var(--text-muted); font-size: 0.7rem;">No se pudo cargar la colección de reportes (puede que aún no exista).</p>';
+              <div style="display: flex; gap: 6px;">
+                <button onclick="window.openPlayer('${r.movieId}')" class="btn btn-secondary" style="font-size: 0.6rem; padding: 4px 8px;">▶ Probar</button>
+                ${r.status !== 'resolved' ? `<button onclick="window.resolveReport('${r.id}')" class="btn" style="background:#2ECC71; color:black; font-size: 0.6rem; padding: 4px 8px;">✓ OK</button>` : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    } else {
+      reportsContainer.innerHTML = '<p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 15px;">✅ Sin reportes de links caídos. ¡La selva está sana! 🌴</p>';
     }
-
   } catch (err) {
     console.error("Error loading metrics:", err);
     if (log) {
@@ -723,6 +717,25 @@ window.loadMetrics = async () => {
         `;
     }
   }
+};
+
+window.loadReports = async () => {
+    try {
+        const q = query(collection(db, "link_reports"), orderBy("reportedAt", "desc"), limit(100));
+        const snap = await getDocs(q);
+        window._linkReports = [];
+        window._reportedIds = new Set();
+        snap.forEach(d => {
+            const data = d.data();
+            data.id = d.id;
+            window._linkReports.push(data);
+            if (data.status !== 'resolved') window._reportedIds.add(data.movieId);
+        });
+        // Actualizar stats si estamos en admin (assuming _updateDetailedStats exists globally)
+        if (typeof _updateDetailedStats === 'function' && _allInventoryItems && _allInventoryItems.length > 0) {
+            _updateDetailedStats(_allInventoryItems);
+        }
+    } catch (e) { console.error("Error cargando reportes:", e); }
 };
 
 window.markAsBroken = (id) => {

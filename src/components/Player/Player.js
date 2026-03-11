@@ -83,27 +83,36 @@ export const SelvaStream = {
                         </div>
                     </div>
 
-                    <!-- Botón de Fuentes Flotante (Fase 4.1) -->
-                    <button id="floating-sources-btn" class="floating-sources-btn" onclick="SelvaStream.toggleVipMenu()">
-                         📡 OTRAS FUENTES VIP
-                    </button>
-                    <div id="side-vip-menu" class="side-vip-menu">
-                        <div class="vip-menu-header">
-                            <span>🚀 FUENTES VIP</span>
-                            <button onclick="SelvaStream.toggleVipMenu()">&times;</button>
-                        </div>
-                        <div id="vip-menu-list"></div>
-                    </div>
                 </div>
-                <div class="guide-sidebar compact-sidebar">
-                    <h3>📌 NOTIFICACIONES</h3>
-                    <div id="player-notifications" class="player-notifications">
-                        <p>¿No carga? Prueba otro servidor o usa uBlock/Brave.</p>
+                <div class="player-sidebar-column">
+                    <div class="sidebar-top-row" style="display: flex; gap: 10px; margin-bottom: 10px;">
+                        <!-- Fuentes VIP Button moved here -->
+                        <button id="floating-sources-btn" class="sources-btn-modern" onclick="SelvaStream.toggleVipMenu()" style="flex: 1; min-height: 45px;">
+                             📡 OTRAS FUENTES VIP
+                        </button>
+                        <div id="side-vip-menu" class="side-vip-menu">
+                            <div class="vip-menu-header">
+                                <span>🚀 FUENTES VIP</span>
+                                <button onclick="SelvaStream.toggleVipMenu()">&times;</button>
+                            </div>
+                            <div id="vip-menu-list"></div>
+                        </div>
                     </div>
-                    <button id="report-broken-btn" onclick="" style="width:100%; margin-top: 10px; background: rgba(231,76,60,0.15); border: 1px solid rgba(231,76,60,0.3); color: #E74C3C; padding: 8px; border-radius: 8px; font-size: 0.65rem; font-weight: bold; cursor: pointer;">🚨 Reportar Link Caído</button>
-                    <div class="sidebar-ad-space">
-                        <!-- Espacio para Ads o Info -->
-                        <span>🔥 SelvaFlix VIP</span>
+
+                    <div class="guide-sidebar-grid">
+                        <div class="sidebar-card notifications-card">
+                            <h3>📌 NOTIFICACIONES</h3>
+                            <div id="player-notifications" class="player-notifications">
+                                <p>¿No carga? Prueba otro servidor o usa uBlock/Brave.</p>
+                            </div>
+                        </div>
+                        <div class="sidebar-card actions-card">
+                            <h3>🛠️ ACCIONES</h3>
+                            <button id="report-broken-btn" style="width:100%; height: auto; background: rgba(231,76,60,0.15); border: 1px solid rgba(231,76,60,0.3); color: #E74C3C; padding: 10px; border-radius: 8px; font-size: 0.65rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;">🚨 REPORTE</button>
+                            <div class="sidebar-ad-space" style="margin-top: 8px;">
+                                <span>🔥 SelvaFlix VIP</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -587,12 +587,12 @@ export const SelvaStream = {
                     else if (isCastellano) langLabel = '🇪🇸 CASTELLANO';
                     else if (isEnglish) langLabel = '🇺🇸 INGLES';
 
-                    // 📦 FORMATO Y PESO
+                    // 📦 FORMATO Y PESO (Refactorizado con Deep Scan)
                     const formatMatch = qRaw.match(/\.(mkv|mp4|m3u8|avi|ts)/i);
-                    const fileFormat = formatMatch ? formatMatch[1].toUpperCase() : 'VIDEO';
+                    const fileFormat = s.detectedFormat || (formatMatch ? formatMatch[1].toUpperCase() : 'VIDEO');
                     
                     const weightMatch = qRaw.match(/(\d+(\.\d+)?\s*(gb|mb))/i);
-                    const weight = weightMatch ? weightMatch[0].toUpperCase() : '';
+                    const weight = s.detectedWeight || (weightMatch ? weightMatch[0].toUpperCase() : '');
 
                     // 🏆 RANKING / RECOMENDACIÓN
                     const isBest = index === 0;
@@ -765,46 +765,74 @@ export const SelvaStream = {
                 }
             });
 
-            // --- 🕵️‍♂️ FILTRADO QUÍMICO "LATINO POWER" ---
-            let streams = allStreams.filter(s => {
-                const text = ((s.title || '') + ' ' + (s.name || '')).toLowerCase();
-                // Bloquear idiomas que no queremos que se cuelen
-                if (text.includes('dublado') || text.includes('legendado') || text.includes('português') || text.includes('hindi') || text.includes('tamil') || text.includes('pt-br')) return false;
-                
-                // RESTAURAR LA VALIDACIÓN DE SEGURIDAD VIP:
+            // --- 🕵️‍♂️ PRE-PROCESAMIENTO Y SCORING INTELIGENTE ---
+            let streams = [];
+            allStreams.forEach(s => {
+                const qRaw = ((s.title || '') + ' ' + (s.name || '')).toLowerCase();
                 const url = (s.url || '').toLowerCase();
-                const isDirect = url.includes('.m3u8') || url.includes('.mp4') || url.includes('.mkv') || url.includes('.webm') || text.includes('[rd+]');
-                return !!s.infoHash || isDirect;
+
+                // 0. Filtro Básico "No admitidos"
+                if (qRaw.includes('dublado') || qRaw.includes('legendado') || qRaw.includes('português') || qRaw.includes('pt-br') || qRaw.includes('hindi') || qRaw.includes('tamil')) return;
+                
+                const isDirect = url.includes('.m3u8') || url.includes('.mp4') || url.includes('.mkv') || url.includes('.webm') || qRaw.includes('[rd+]');
+                if (!s.infoHash && !isDirect) return; // Filtro de seguridad VIP
+
+                // 1. Detección Profunda de Formato (Título -> URL)
+                let extMatch = qRaw.match(/\.(mkv|mp4|m3u8|avi|ts|webm)/i);
+                if (!extMatch) extMatch = url.match(/\.(mkv|mp4|m3u8|avi|ts|webm)/i);
+                s.detectedFormat = extMatch ? extMatch[1].toUpperCase() : 'VIDEO';
+
+                // 2. Detección y Cálculo de Peso
+                const weightMatch = qRaw.match(/(\d+(\.\d+)?)\s*(gb|mb)/i);
+                s.detectedWeight = weightMatch ? weightMatch[0].toUpperCase() : '';
+                s.weightGB = 0;
+                if (weightMatch) {
+                   let val = parseFloat(weightMatch[1]);
+                   if (weightMatch[3].toLowerCase() === 'mb') val = val / 1024;
+                   s.weightGB = val;
+                }
+
+                // 3. Detección de Idioma
+                const kwLat = ['latino', 'spanish', 'esp', 'español', 'cinecalidad', 'mx', 'pe', 'dual'];
+                const isLat = kwLat.some(k => qRaw.includes(k));
+
+                // 4. Sistema de Puntaje (Score)
+                let score = 0;
+                // A. Idioma
+                if (isLat) score += 100;
+
+                // B. VIP / Debrid
+                if (qRaw.includes('[rd+]') || s.providerName === 'T-IO') score += 50;
+                
+                // C. Formato (Premia MP4, castiga dudosas)
+                if (s.detectedFormat === 'MP4' || s.detectedFormat === 'M3U8') score += 15;
+                else if (s.detectedFormat === 'MKV') score += 5;
+                else if (s.detectedFormat === 'VIDEO') score -= 30; // Dudoso
+
+                // D. Peso (Premia ligeros, castiga obesos)
+                if (s.weightGB > 0) {
+                    if (s.weightGB >= 1.5 && s.weightGB <= 4.0) score += 20; // Punto dulce móvil
+                    else if (s.weightGB < 1.5) score += 5; // Demasiado ligero, puede ser baja calidad
+                    else if (s.weightGB > 7.0) score -= 30; // Obesidad en iOS
+                } else {
+                    score -= 10; // Si no declara peso
+                }
+
+                // E. Resolución
+                if (qRaw.includes('1080')) score += 10;
+                else if (qRaw.includes('720')) score += 5;
+                else if (qRaw.includes('2160') || qRaw.includes('4k') || qRaw.includes('uhd')) {
+                    score += (s.weightGB > 5 ? -10 : 5); // 4K pesado se castiga para web
+                }
+
+                s.selvaScore = score;
+                streams.push(s);
             });
 
             if (streams.length === 0) throw new Error("No hay semillas VIP válidas");
 
-            streams.sort((a, b) => {
-                const textA = ((a.title || '') + ' ' + (a.name || '')).toLowerCase();
-                const textB = ((b.title || '') + ' ' + (b.name || '')).toLowerCase();
-
-                const kwLat = ['latino', 'spanish', 'esp', 'español', 'cinecalidad', 'mx', 'pe'];
-                const aLat = kwLat.some(k => textA.includes(k));
-                const bLat = kwLat.some(k => textB.includes(k));
-
-                // 1. Prioridad: Latino / Cinecalidad
-                if (aLat && !bLat) return -1;
-                if (!aLat && bLat) return 1;
-
-                // 2. Prioridad: Real-Debrid+ [rd+]
-                const aRd = textA.includes('[rd+]');
-                const bRd = textB.includes('[rd+]');
-                if (aRd && !bRd) return -1;
-                if (!aRd && bRd) return 1;
-
-                // 3. Prioridad: Calidad (4K > 1080p > 720p)
-                const rankA = textA.includes('4k') || textA.includes('2160p') ? 3 : (textA.includes('1080p') ? 2 : (textA.includes('720p') ? 1 : 0));
-                const rankB = textB.includes('4k') || textB.includes('2160p') ? 3 : (textB.includes('1080p') ? 2 : (textB.includes('720p') ? 1 : 0));
-                if (rankA !== rankB) return rankB - rankA;
-
-                // 4. Fallback: Seeders
-                return (b.seeders || 0) - (a.seeders || 0);
-            });
+            // Ordenar de mayor a menor score
+            streams.sort((a, b) => (b.selvaScore || 0) - (a.selvaScore || 0));
 
             this.lastScrapedStreams = streams;
             this.renderControls();

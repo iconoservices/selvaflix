@@ -11,7 +11,7 @@ export const SelvaStream = {
     lastScrapedStreams: [],
     showTraditional: false,
     MASTER_WORKER_URL: 'https://icono-proxy.jnmcsky.workers.dev', // IconoServices Master Tunnel
-    AUTH_TOKEN: import.meta.env.VITE_AUTH_TOKEN || localStorage.getItem('iconoservices_token') || 'selva_master_key_2026_premium', // Token oculto seguro
+    AUTH_TOKEN: import.meta.env.VITE_AUTH_TOKEN || localStorage.getItem('iconoservices_token') || '', // Token cargado desde Vercel (Seguridad)
 
     /**
      * Sanea la URL para evitar inyecciones maliciosas.

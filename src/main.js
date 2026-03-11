@@ -228,6 +228,8 @@ function handleRouting() {
     sessionStorage.setItem('selva_admin_active', '1');
     showView('admin-view');
     renderInventory();
+    // Auto-cargar métricas al entrar al admin
+    window.loadMetrics();
   } else {
     showView('home-view');
     const hashVal = hash || '';
@@ -498,8 +500,11 @@ function _renderInventoryRows(items) {
         
         <div style="display: flex; justify-content: space-between; align-items: center; gap: 5px;">
             <div style="display:flex; align-items:center; gap:4px;">
-                <div style="width: 7px; height: 7px; border-radius: 50%; background: ${isBroken ? '#E74C3C' : (m.status === 'healthy' ? '#2ECC71' : '#F1C40F')}; box-shadow: 0 0 5px ${isBroken ? '#E74C3C' : (m.status === 'healthy' ? '#2ECC71' : '#F1C40F')};"></div>
-                <span style="font-size: 0.6rem; color: var(--text-muted);">${isBroken ? 'Error' : (m.status === 'healthy' ? 'OK' : 'Mant.')}</span>
+                ${window._reportedIds && window._reportedIds.has(m.id) ? 
+                  '<span style="font-size:0.55rem; background:rgba(231,76,60,0.3); color:#E74C3C; border:1px solid rgba(231,76,60,0.4); padding:1px 5px; border-radius:4px; font-weight:bold;">🚨</span>' :
+                  `<div style="width: 7px; height: 7px; border-radius: 50%; background: ${isBroken ? '#E74C3C' : (m.status === 'healthy' ? '#2ECC71' : '#F1C40F')}; box-shadow: 0 0 5px ${isBroken ? '#E74C3C' : (m.status === 'healthy' ? '#2ECC71' : '#F1C40F')};" ></div>`
+                }
+                <span style="font-size: 0.6rem; color: var(--text-muted);">${isBroken ? 'Error' : (m.status === 'healthy' ? 'OK' : m.status === 'review' ? 'Cola' : 'Mant.')}</span>
             </div>
             <div style="display: flex; gap: 6px;">
                 <button onclick="window.openPlayer('${m.id}')" title="Probar/Play" style="background: rgba(46,204,113,0.1); border: 1px solid rgba(46,204,113,0.2); color: #2ecc71; width:22px; height:22px; display:flex; align-items:center; justify-content:center; border-radius: 5px; cursor: pointer; font-size: 0.65rem;">▶</button>
@@ -1725,8 +1730,7 @@ function initApp(filterType = '', genreId = '') {
       renderChannels(list);
     }
 
-    // 🔥 ALGORITMO DE RECOMENDACIONES: Ordenar por popularidad (plays)
-    // Usamos un cache local de conteos para no pedir Firebase cada vez
+    // 🔥 ALGORITMO 1: Tendencias PROPIAS (por plays acumulados del celular)
     const playCounts = JSON.parse(localStorage.getItem('selva_play_counts') || '{}');
     const popularity = [...allContent]
       .filter(c => c.type !== 'live')
@@ -1736,11 +1740,39 @@ function initApp(filterType = '', genreId = '') {
       .slice(0, 12);
 
     if (popularity.length > 0) {
-      // Insertarlo al principio del container
       renderRow('🔥 Tendencias en la Selva', popularity.slice(0, 12));
       const hotSection = container.lastElementChild;
       container.insertBefore(hotSection, container.firstChild);
     }
+
+    // 🌍 ALGORITMO 2: Tendencias Globales de TMDB (para usuarios nuevos sin historial)
+    // Corre en paralelo sin bloquear la UI (async fire-and-forget)
+    (async () => {
+      try {
+        const trendRes = await fetch(`${TMDB_URL}/trending/all/week?api_key=${TMDB_API_KEY}&language=es-MX`);
+        const trendData = await trendRes.json();
+        if (!trendData.results) return;
+        
+        // Solo mostrar los que YA están en nuestra selva (así no mostramos links rotos)
+        const selfIds = new Set(allContent.map(c => String(c.tmdbId)));
+        const globalTrends = trendData.results
+          .filter(t => selfIds.has(String(t.id)))
+          .map(t => allContent.find(c => String(c.tmdbId) === String(t.id)))
+          .filter(Boolean)
+          .slice(0, 12);
+
+        if (globalTrends.length > 0 && container.isConnected) {
+          renderRow('🌍 Lo más visto en el Mundo', globalTrends);
+          const worldSection = container.lastElementChild;
+          // Insertar después de Tendencias en la Selva (si existe) o al principio
+          const selvaRow = container.querySelector('.category-row');
+          if (selvaRow) selvaRow.after(worldSection);
+          else container.insertBefore(worldSection, container.firstChild);
+        }
+      } catch (e) {
+        console.warn('No se pudo cargar tendencias globales TMDB:', e.message);
+      }
+    })();
   }
 
   // 🚀 Encendido del motor de rotación (al final para liberar el hilo principal)

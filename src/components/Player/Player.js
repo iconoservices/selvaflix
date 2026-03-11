@@ -64,9 +64,6 @@ export const SelvaStream = {
                     <!-- Reproductor P2P/Nativo (Fase 1) -->
                     <div id="native-player-container" style="display:none; width: 100%; height: 100%; position: relative;">
                         <video id="native-video-player" style="width: 100%; height: 100%; background: #000;" controls></video>
-                        <a id="external-player-btn" href="#" style="position:absolute; top:20px; right:20px; background:rgba(255,122,0,0.9); padding:10px 15px; border-radius:8px; color:black; font-weight:bold; font-size:12px; text-decoration:none; z-index:100; display:flex; align-items:center; gap:5px; box-shadow: 0 4px 6px rgba(0,0,0,0.5);">
-                            🎧 ¿Sin Audio? Abrir en VLC
-                        </a>
                     </div>
                     
                     <div id="webtorrent-status" style="display:none; position:absolute; bottom:20px; left:20px; background:rgba(0,0,0,0.8); padding:10px; border-radius:8px; color:#fff; font-size:12px; z-index:100; border: 1px solid var(--primary);">

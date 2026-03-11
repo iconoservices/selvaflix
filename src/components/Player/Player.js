@@ -812,12 +812,15 @@ export const SelvaStream = {
                 let score = 0;
                 
                 // A. Idioma (El Rey Absoluto)
+                const isEnglishExplicit = qRaw.includes('english') || qRaw.includes('subbed') || qRaw.includes('sub');
                 if (isLatino) {
-                    score += 150; // Corona
+                    score += 500; // Corona Absoluta e Insuperable
                 } else if (isEuropean) {
-                    score -= 200; // Purga letal
+                    score -= 500; // Purga letal
+                } else if (isEnglishExplicit && !isMulti) {
+                    score -= 500; // Asesinar gringos sin audio español
                 } else if (isMulti) {
-                    score += 20; // Fallback
+                    score += 50; // Fallback decente
                 }
 
                 // B. VIP / Debrid

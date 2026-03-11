@@ -960,111 +960,69 @@ export const SelvaStream = {
             if (loaderText) loaderText.innerText = 'Desencriptando Bóveda VIP... 🌴';
 
             const nativeContainer = document.getElementById('native-player-container');
-            const extBtn = document.getElementById('external-player-btn');
+            const extBtn2 = document.getElementById('external-player-btn');
             nativeContainer.style.display = 'block';
-            statusDiv.style.display = 'block';
-            if (extBtn) extBtn.style.display = 'none'; // Ocultar hasta tener link
+            statusDiv.style.display = 'none'; // Ya mostramos el loader, ocultamos el status
+            if (extBtn2) extBtn2.style.display = 'none';
 
             // Clean Native Player
             nativePlayer.pause();
             nativePlayer.removeAttribute('src');
             nativePlayer.load();
 
-            if (true) { // Usamos el Master Worker si está configurado
-                document.getElementById('webtorrent-status').querySelector('div:first-child').innerText = '🚀 Invocando Puente VIP Soberano...';
-                document.getElementById('wt-progress').innerText = `Procesando en Cloudflare...`;
+            this.callMasterWorker(stream.infoHash).then(result => {
+                if (result && result.url) {
+                    console.log("🚀 URL Liberada:", result.url);
+                    
+                    // Ocultar todo overlay
+                    if (startScreen) startScreen.style.display = 'none';
+                    if (loader) loader.style.display = 'none';
 
-                this.callMasterWorker(stream.infoHash).then(result => {
-                    if (result && result.url) {
-                        console.log("🚀 URL Liberada:", result.url);
-                        
-                        // Asegurar que no hay nada tapando el video
-                        if (startScreen) startScreen.style.display = 'none';
-                        if (loader) loader.style.display = 'none';
+                    // Preparar botón VLC
+                    const isAndroid = /Android/i.test(navigator.userAgent);
+                    const vlcUrl = isAndroid
+                        ? `intent://${result.url.replace(/^https?:\/\//, '')}#Intent;package=org.videolan.vlc;type=video/*;scheme=https;end`
+                        : `vlc://${result.url}`;
+                    const extBtnFinal = document.getElementById('external-player-btn');
+                    if (extBtnFinal) {
+                        extBtnFinal.href = vlcUrl;
+                        extBtnFinal.style.display = 'flex';
+                    }
 
-                        nativePlayer.src = result.url;
+                    // 🎯 ESTRATEGIA ANTI-BLOQUEO:
+                    // Asignar src. El evento 'canplay' se dispara cuando el browser ya tiene
+                    // suficientes datos. En ese momento, llamar a play() tiene más probabilidades de funcionar.
+                    nativePlayer.src = result.url;
+                    nativePlayer.load();
+                    
+                    const tryPlay = () => {
                         nativePlayer.play().catch(e => {
-                            console.warn("Auto-play prevented, click manual requerido", e);
-                            if (startScreen) startScreen.style.display = 'none';
-                            if (loader) loader.style.display = 'none';
-                            
+                            console.warn("Auto-play bloqueado. El usuario debe tocar el video.", e);
+                            // No hacer nada más: el video ya está listo con poster,
+                            // el usuario solo toca el botón ▶ del reproductor nativo.
                             const notif = document.getElementById('player-notifications');
-                            if (notif) notif.innerHTML = '<p style="color: #f39c12;">⚠️ Autoplay bloqueado. Toca el video de arriba para iniciar la película.</p>';
+                            if (notif) notif.innerHTML = '<p style="color:#f39c12; font-size:0.75rem;">▶ Toca el video para iniciar la película.</p>';
                         });
+                    };
 
-                        // Preparar botón de VLC/Externo
-                        const isAndroid = /Android/i.test(navigator.userAgent);
-                        const vlcUrl = isAndroid
-                            ? `intent://${result.url.replace(/^https?:\/\//, '')}#Intent;package=org.videolan.vlc;type=video/*;scheme=https;end`
-                            : `vlc://${result.url}`;
+                    nativePlayer.addEventListener('canplay', tryPlay, { once: true });
+                    // Fallback: si canplay nunca dispara (dispositivo lento), intentar a los 3 segundos
+                    setTimeout(() => {
+                        nativePlayer.removeEventListener('canplay', tryPlay);
+                        if (nativePlayer.paused && nativePlayer.src) tryPlay();
+                    }, 4000);
 
-                        const extBtn = document.getElementById('external-player-btn');
-                        if (extBtn) {
-                            extBtn.href = vlcUrl;
-                            extBtn.style.display = 'flex';
-                        }
-
-                        setTimeout(() => {
-                            const status = document.getElementById('webtorrent-status');
-                            if (status) status.style.display = 'none';
-                        }, 3000);
-                    } else {
-                        document.getElementById('wt-progress').innerText = result?.error || 'Error: Búnker no respondió. Intenta otro servidor.';
-
-                        // Si falla el Búnker final, devolver el control al usuario
-                        const loader = document.getElementById('player-loader');
-                        if (loader) loader.style.display = 'none';
-                        const ss = document.getElementById('player-start-screen');
-                        if (ss) ss.style.display = 'flex';
-                        const btn = document.getElementById('start-play-btn');
-                        if (btn) {
-                            btn.innerText = "✖ ENLACE ROTO (ELIGE SERVIDOR)";
-                            // Añadir handler para mostrar opciones de servidores
-                            btn.onclick = () => { this.fetchExternalStreams(); };
-                        }
-                        // Retirado el fallback automático a latino-2
-                    }
-                });
-            } else if (window.WebTorrent) {
-                // Descarga P2P Tradicional (Sin Debrid)
-                this.torrentClient = new window.WebTorrent();
-
-                nativePlayer.style.display = 'block';
-                statusDiv.style.display = 'block';
-
-                this.torrentClient = new window.WebTorrent();
-
-                let magnetURI = stream.url || `magnet:?xt=urn:btih:${stream.infoHash}`;
-
-                document.getElementById('wt-progress').innerText = `Resolviendo Torrent...`;
-
-                this.torrentClient.add(magnetURI, (torrent) => {
-                    const file = torrent.files.find(function (file) {
-                        return file.name.endsWith('.mp4') || file.name.endsWith('.mkv') || file.name.endsWith('.webm');
-                    });
-
-                    if (file) {
-                        file.renderTo(nativePlayer);
-                        torrent.on('download', (bytes) => {
-                            const progress = Math.max(0, Math.min(100, (torrent.progress * 100))).toFixed(1);
-                            const speed = (torrent.downloadSpeed / 1024 / 1024).toFixed(2);
-                            document.getElementById('wt-progress').innerText =
-                                `Velocidad: ${speed} MB/s | Descargado: ${progress}%`;
-                        });
-                    } else {
-                        document.getElementById('wt-progress').innerText = `Error: No se encontró el archivo MP4/MKV`;
-                    }
-                });
-
-                this.torrentClient.on('error', (err) => {
-                    console.error('[WebTorrent Error]', err);
-                    document.getElementById('wt-progress').innerText = `Error P2P: ${err.message}`;
-                });
-            } else {
-                alert("No se pudo abrir. Verifique la conexión.");
-            }
+                } else {
+                    if (loader) loader.style.display = 'none';
+                    const notif = document.getElementById('player-notifications');
+                    if (notif) notif.innerHTML = `<p style="color:#e74c3c;">⚠️ Error al obtener la fuente. Prueba otra desde "Fuentes VIP".</p>`;
+                    // Mostrar Start Screen de nuevo para que el usuario elija otra fuente
+                    if (startScreen) startScreen.style.display = 'flex';
+                }
+            });
         }
     },
+
 
     async callMasterWorker(infoHash, attempt = 1) {
         try {

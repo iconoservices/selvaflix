@@ -33,8 +33,37 @@ const moviesCol = collection(db, "movies");
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
-      .then(reg => console.log('🌴 Selva PWA: Service Worker Activo'))
+      .then(reg => {
+        console.log('🌴 Selva PWA: Service Worker Activo');
+
+        // Lógica de Actualización Manual (Botón) - AlDía Style
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              // Nueva versión lista, pero esperando (hay otra versión controlando la página)
+              const updateBtn = document.getElementById('pwa-update-toast');
+              if (updateBtn) {
+                updateBtn.style.display = 'block';
+                updateBtn.onclick = () => {
+                  updateBtn.innerText = "🔄 Actualizando...";
+                  newWorker.postMessage({ type: 'SKIP_WAITING' });
+                };
+              }
+            }
+          });
+        });
+      })
       .catch(err => console.error('Error registrando SW:', err));
+
+    // Refrescar página cuando el SW tome el control (después del skipWaiting)
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!refreshing) {
+        refreshing = true;
+        window.location.reload();
+      }
+    });
   });
 }
 
@@ -1370,11 +1399,11 @@ function updateHeroCarousel() {
   if (!section) return;
 
   section.style.display = 'flex';
-  section.style.gap = '20px';
+  section.style.gap = '15px';
   section.style.overflowX = 'auto';
-  section.style.padding = '20px 5%';
-  section.style.marginTop = '100px';
-  section.style.marginBottom = '20px';
+  section.style.padding = '10px 5%';
+  section.style.marginTop = window.innerWidth <= 768 ? '70px' : '90px';
+  section.style.marginBottom = '10px';
   section.style.scrollbarWidth = 'none';
 
   // Mostrar 3 tarjetas a partir del indice actual (circular)
@@ -1385,11 +1414,11 @@ function updateHeroCarousel() {
   }
 
   section.innerHTML = itemsToShow.map(item => `
-    <div class="hero-card" onclick="window.openPlayer('${item.id}')" style="flex: 1; min-width: 300px; height: 300px; background-image: linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0.1)), url('${item.img}'); background-size: cover; background-position: center 20%; border-radius: 16px; position: relative; cursor: pointer; border: 1px solid var(--glass-border); transition: transform 0.3s ease; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-      <div style="position: absolute; bottom: 20px; left: 20px; right: 20px;">
-        <h2 style="color: white; font-size: 1.6rem; margin-bottom: 5px; text-shadow: 0 2px 5px rgba(0,0,0,0.8); font-family: 'Outfit', sans-serif; font-weight: 800;">${item.title}</h2>
-        <p style="color: var(--primary); font-size: 0.9rem; font-weight: bold; text-shadow: 0 1px 3px rgba(0,0,0,0.8);">⭐ ${item.rating || '4.8'} • ${item.year || '2024'}</p>
-        <button class="btn btn-primary" style="margin-top: 10px; padding: 8px 20px; font-size: 0.8rem;">▶ Reproducir</button>
+    <div class="hero-card" onclick="window.openPlayer('${item.id}')" style="flex: 1; min-width: ${window.innerWidth <= 768 ? '260px' : '300px'}; height: ${window.innerWidth <= 768 ? '180px' : '300px'}; background-image: linear-gradient(to top, rgba(0,0,0,0.95), rgba(0,0,0,0.2)), url('${item.img}'); background-size: cover; background-position: center 20%; border-radius: 20px; position: relative; cursor: pointer; border: 1px solid var(--glass-border); transition: transform 0.3s ease; box-shadow: 0 10px 30px rgba(0,0,0,0.6);">
+      <div style="position: absolute; bottom: 15px; left: 15px; right: 15px;">
+        <h2 style="color: white; font-size: ${window.innerWidth <= 768 ? '1.1rem' : '1.6rem'}; margin-bottom: 4px; text-shadow: 0 2px 5px rgba(0,0,0,0.9); font-family: 'Outfit', sans-serif; font-weight: 800; line-height: 1.2;">${item.title}</h2>
+        <p style="color: var(--primary); font-size: 0.75rem; font-weight: bold; text-shadow: 0 1px 3px rgba(0,0,0,0.8);">⭐ ${item.rating || '4.8'} • ${item.year || '2024'}</p>
+        <button class="btn btn-primary" style="margin-top: 8px; padding: 6px 15px; font-size: 0.7rem;">▶ Reproducir</button>
       </div>
     </div>
   `).join('');
@@ -1512,7 +1541,8 @@ function initApp(filterType = '', genreId = '') {
     const releases = allContent.filter(c => c.type !== 'live').slice(0, 12);
     const liveChannels = allContent.filter(c => c.type === 'live');
 
-    if (releases.length > 0) renderRow('✨ Lo más nuevo', releases, 'movies');
+    // Se removió '✨ Lo más nuevo' por petición del usuario (evitar autodetect de lo mandado)
+    // if (releases.length > 0) renderRow('✨ Lo más nuevo', releases, 'movies');
     if (movies.length > 0) renderRow('🎬 Películas', movies, 'movies');
     if (series.length > 0) renderRow('🏆 Series', series, 'series');
     if (anime.length > 0) renderRow('⛩️ Anime', anime, 'series');

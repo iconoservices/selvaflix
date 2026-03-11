@@ -779,15 +779,28 @@ export const SelvaStream = {
             });
 
             this.lastScrapedStreams = streams;
-            this.renderControls(); 
+            this.renderControls();
 
             // Automáticamente elegir el mejor Latino si existe
             this.handleExternalStream(streams[0]);
 
         } catch (e) {
-            console.log("Auto-Debrid falló, usando servidor tradicional...", e);
-            if (loaderText) loaderText.innerText = 'Buscando servidor alternativo...';
-            this.updateServer('latino-2');
+            console.log("Auto-Debrid falló, abortando auto-play...", e);
+            if (loaderText) loaderText.innerText = 'No se encontró fuente VIP automática.';
+
+            // Si falla, limpiar el radar y mostrar la ventana de inicio para que elija manualmente
+            const loader = document.getElementById('player-loader');
+            if (loader) loader.style.display = 'none';
+            const ss = document.getElementById('player-start-screen');
+            if (ss) ss.style.display = 'flex';
+            const btn = document.getElementById('start-play-btn');
+            if (btn) {
+                btn.innerText = "✖ SIN ENLACE VIP (ELIGE SERVIDOR)";
+                // Añadir handler para mostrar opciones de servidores
+                btn.onclick = () => { this.fetchExternalStreams(); };
+            }
+
+            // Retirado el fallback automático a latino-2 para evitar publicidad indeseada.
         }
     },
 
@@ -1011,12 +1024,12 @@ export const SelvaStream = {
                             console.warn("Auto-play prevented, click manual requerido", e);
                             // Si falla el auto-play, mostramos de nuevo el Start Screen suave
                             const loader = document.getElementById('player-loader');
-                            if(loader) loader.style.display = 'none';
+                            if (loader) loader.style.display = 'none';
                             const btn = document.getElementById('start-play-btn');
-                            if(btn) {
+                            if (btn) {
                                 btn.innerText = "▶ INICIAR STREAMING";
                                 const ss = document.getElementById('player-start-screen');
-                                if(ss) ss.style.display = 'flex';
+                                if (ss) ss.style.display = 'flex';
                             }
                         });
 
@@ -1032,13 +1045,25 @@ export const SelvaStream = {
                             extBtn.style.display = 'flex';
                         }
 
-                        setTimeout(() => { 
+                        setTimeout(() => {
                             const status = document.getElementById('webtorrent-status');
-                            if(status) status.style.display = 'none'; 
+                            if (status) status.style.display = 'none';
                         }, 3000);
                     } else {
-                        document.getElementById('wt-progress').innerText = result?.error || 'Sin respuesta del Búnker';
-                        setTimeout(() => this.updateServer('latino-2'), 2000);
+                        document.getElementById('wt-progress').innerText = result?.error || 'Error: Búnker no respondió. Intenta otro servidor.';
+
+                        // Si falla el Búnker final, devolver el control al usuario
+                        const loader = document.getElementById('player-loader');
+                        if (loader) loader.style.display = 'none';
+                        const ss = document.getElementById('player-start-screen');
+                        if (ss) ss.style.display = 'flex';
+                        const btn = document.getElementById('start-play-btn');
+                        if (btn) {
+                            btn.innerText = "✖ ENLACE ROTO (ELIGE SERVIDOR)";
+                            // Añadir handler para mostrar opciones de servidores
+                            btn.onclick = () => { this.fetchExternalStreams(); };
+                        }
+                        // Retirado el fallback automático a latino-2
                     }
                 });
             } else if (window.WebTorrent) {
@@ -1082,7 +1107,7 @@ export const SelvaStream = {
         }
     },
 
-    async callMasterWorker(infoHash) {
+    async callMasterWorker(infoHash, attempt = 1) {
         try {
             const magnet = `magnet:?xt=urn:btih:${infoHash}`;
             const role = 'admin'; // Futuro: localStorage.getItem('user_role')
@@ -1094,7 +1119,20 @@ export const SelvaStream = {
             });
 
             if (!res.ok) throw new Error(`HTTP_${res.status}`);
-            return await res.json();
+            const data = await res.json();
+
+            // 🚀 SYSTEMA AUTO-RETRY (Si Real-Debrid sigue descomprimiendo)
+            if (data.status === 'waiting' && attempt <= 4) {
+                console.log(`[Auto-Retry] Búnker procesando película... (Intento ${attempt}/4)`);
+                const progressDiv = document.getElementById('wt-progress');
+                if (progressDiv) progressDiv.innerText = `🥥 Extrayendo de la selva profunda... (Intento ${attempt}/4)`;
+
+                // Esperar 2.5 segundos de gracia y preguntar de nuevo al servidor
+                await new Promise(resolve => setTimeout(resolve, 2500));
+                return this.callMasterWorker(infoHash, attempt + 1);
+            }
+
+            return data;
         } catch (error) {
             console.error('[Worker Connection Error]', error);
             return { error: error.message };

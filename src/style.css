@@ -194,8 +194,8 @@ h3,
   justify-content: space-around;
   align-items: center;
   border-top: 1px solid var(--glass-border);
-  z-index: 10000;
-  /* Higher than modal backgrounds but lower than modals themselves? */
+  z-index: 1000;
+  /* Higher than content but lower than modals (2000+) */
   padding-bottom: env(safe-area-inset-bottom);
 }
 
@@ -233,20 +233,52 @@ h3,
     display: flex;
   }
 
-  .navbar {
-    height: 70px;
-    padding: 0 4%;
+  .search-bar {
+    width: 35px;
+    height: 35px;
+    padding: 8px;
+    border-radius: 50%;
+    transition: width 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--glass-border);
+    cursor: pointer;
+  }
+
+  .search-bar:focus {
+    width: 150px;
+    border-radius: 20px;
+    padding: 8px 15px;
+    background: rgba(255, 255, 255, 0.15);
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  .nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  /* Hide text when search is expanded on very small screens */
+  @media (max-width: 360px) {
+    .search-bar:focus {
+      width: 120px;
+    }
   }
 
   .filter-bar {
-    padding: 10px 15px;
+    padding: 8px 12px;
     background: var(--bg-deep);
     border-bottom: 1px solid var(--glass-border);
-    margin-top: 70px;
-    /* Offset for navbar */
+    margin-top: 0;
     position: sticky;
-    top: 70px;
+    top: 60px;
     z-index: 100;
+  }
+
+  #genre-bar.filter-bar {
+    top: 108px; /* Offset if both are visible, approx height of first bar + navbar */
+    margin-top: 0;
   }
 
   .filter-btn {
@@ -254,6 +286,10 @@ h3,
     padding: 6px 14px;
     font-size: 0.75rem;
     flex-shrink: 0;
+  }
+  
+  .hero-banners {
+    padding-top: 80px;
   }
 }
 
@@ -1387,63 +1423,46 @@ iframe {
 }
 
 @media (max-width: 768px) {
-  .navbar {
-    height: 70px;
-    padding: 0 15px;
-  }
-
   .nav-links {
     display: none;
   }
 
   .nav-actions {
-    width: 100%;
-    justify-content: flex-end;
-  }
-
-  .search-bar {
-    width: 130px;
-    font-size: 0.8rem;
-    padding: 6px 12px;
-  }
-
-  .mobile-nav {
     display: flex;
+    align-items: center;
+    gap: 10px;
   }
 
   .hero-title {
-    font-size: 2.5rem;
+    font-size: 2.2rem;
   }
 
   .movie-card {
-    width: 110px !important;
-    min-width: 110px !important;
-    max-width: 110px !important;
-    height: 165px !important;
+    width: 140px !important;
+    min-width: 140px !important;
+    max-width: 140px !important;
+    height: 210px !important;
     border-radius: 12px;
   }
 
   .movie-list {
-    gap: 15px;
+    gap: 12px;
     padding: 10px 15px 20px;
     justify-content: flex-start !important;
   }
 
   .category-row {
     padding: 0;
-    margin-bottom: 30px;
+    margin-bottom: 25px;
   }
 
   .row-title {
     margin-left: 15px;
-    font-size: 1.2rem;
+    font-size: 1.1rem;
   }
 
   .card-title {
-    font-size: 0.7rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-size: 0.75rem;
   }
 
   .card-info {
@@ -1452,8 +1471,22 @@ iframe {
     background: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent);
   }
 
-  .ad-notice {
-    display: none;
+  /* Admin Grid Fix */
+  .admin-section {
+    padding-top: 90px;
+  }
+  
+  .admin-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  #admin-inventory-tab .admin-grid > :first-child {
+    order: 2; /* Form below list on mobile */
+  }
+
+  #admin-inventory-tab .admin-grid > :last-child {
+    order: 1;
   }
 }
 
@@ -1537,11 +1570,30 @@ body {
     gap: 10px;
   }
 
+  .video-layout {
+    width: 100%;
+    padding: 0;
+  }
+
+  .video-container {
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+
+  .player-close {
+    top: 15px;
+    right: 15px;
+    width: 35px;
+    height: 35px;
+    font-size: 1.2rem;
+  }
+
   /* Smaller cards on mobile */
   .movie-card {
-    width: 150px;
-    min-width: 150px;
-    height: 230px;
+    width: 130px !important;
+    min-width: 130px !important;
+    height: 195px !important;
   }
 
   .row-title {
@@ -1551,5 +1603,9 @@ body {
   .see-all-btn {
     font-size: 0.75rem;
     padding: 4px 10px;
+  }
+  
+  .admin-card {
+    padding: 15px;
   }
 }

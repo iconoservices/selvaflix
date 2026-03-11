@@ -84,7 +84,6 @@ self.addEventListener('fetch', (event) => {
                     return caches.match(FALLBACK_IMAGE);
                 }
 
-                // 2. Caso: Fallo total (Evitamos el TypeError 'Failed to convert value to Response')
                 return new Response('La selva está temporalmente inaccesible. 🌴⛈️', {
                     status: 503,
                     statusText: 'Service Unavailable',
@@ -92,4 +91,11 @@ self.addEventListener('fetch', (event) => {
                 });
             })
     );
+});
+
+// Mensaje para forzar actualización (Skip Waiting)
+self.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'SKIP_WAITING') {
+        self.skipWaiting();
+    }
 });

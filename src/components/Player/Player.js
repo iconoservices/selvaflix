@@ -606,7 +606,7 @@ export const SelvaStream = {
                                     ${s.providerName || 'PREMIUM'} • ${langLabel}
                                 </div>
                                 <div style="color:white; font-size:0.82rem; font-weight:700; line-height:1.3; margin:2px 0; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;">
-                                    ${s.title.split('\n')[0]}
+                                    ${(s.title || s.name || 'Fuente VIP').split('\n')[0]}
                                 </div>
                                 <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:5px;">
                                     <span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-size:0.55rem; color:#fff; font-weight:900;">${quality}</span>
@@ -617,7 +617,7 @@ export const SelvaStream = {
                                     ${isDebrid ? '<span style="color:#FF7A00; font-size:0.55rem; font-weight:900; border:1px solid #FF7A00; padding:1px 4px; border-radius:3px;">REAL-DEBRID</span>' : ''}
                                 </div>
                                 ${isAdmin ? `
-                                    <button onclick="event.stopPropagation(); window.promoteVipSource('${this.currentPlayerMovie.id}', '${s.infoHash || s.url}', '${s.title.split('\n')[0].replace(/'/g, "\\'")}')" 
+                                    <button onclick="event.stopPropagation(); window.promoteVipSource('${this.currentPlayerMovie.id}', '${s.infoHash || s.url}', '${(s.title || s.name || 'Fuente').split('\n')[0].replace(/'/g, "\\'")}')" 
                                             style="margin-top:8px; background:rgba(255,122,0,0.2); border:1px solid var(--primary); color:var(--primary); font-size:0.55rem; padding:4px; border-radius:6px; font-weight:900; cursor:pointer; width:100%; transition:all 0.2s;">
                                         👑 FIJAR COMO REY
                                     </button>
@@ -738,10 +738,22 @@ export const SelvaStream = {
 
         try {
             const movie = this.currentPlayerMovie;
-            const finalId = id || movie?.imdbId || movie?.tmdbId;
-            const finalType = type || (movie?.type === 'series' ? 'series' : 'movie');
+            let finalId = id || movie?.imdbId || movie?.tmdbId;
+            let finalType = type || (movie?.type === 'series' ? 'series' : 'movie');
 
             if (!finalId) throw new Error("ID de contenido no encontrado");
+
+            // Si es serie, necesitamos Season:Episode para Torrentio/Comet (ej: tt123:1:1)
+            if (finalType === 'series' && !finalId.includes(':')) {
+                const s = document.getElementById('selva-season')?.value || 1;
+                const e = document.getElementById('selva-episode')?.value || 1;
+                finalId = `${finalId}:${s}:${e}`;
+            }
+
+            // Si es solo números (TMDB), Torrentio requiere el prefijo tmdb:
+            if (/^\d+$/.test(finalId)) {
+                finalId = `tmdb:${finalId}`;
+            }
 
             const providers = "cinecalidad,mejortorrent,wolfmax4k,yts,1337x,torrent9,limetorrents,eztv,rarbg";
             const tConfig = `providers=${providers}|sort=seeders|qualityfilter=scr,cam`;

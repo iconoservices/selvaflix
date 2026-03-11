@@ -594,19 +594,27 @@ export const SelvaStream = {
                     const weightMatch = qRaw.match(/(\d+(\.\d+)?\s*(gb|mb))/i);
                     const weight = s.detectedWeight || (weightMatch ? weightMatch[0].toUpperCase() : '');
 
-                    // 🏆 RANKING / RECOMENDACIÓN
-                    const isBest = index === 0;
+                    // ⚙️ MODO ADMIN: Botón para coronar fuente
+                    const isAdmin = sessionStorage.getItem('selva_admin_active');
+                    const isSuggested = this.currentPlayerMovie.suggestedVipHash && s.infoHash === this.currentPlayerMovie.suggestedVipHash;
+                    const crownBtn = isAdmin ? `
+                        <button onclick="event.stopPropagation(); promoteVipSource('${this.currentPlayerMovie.id}', '${s.infoHash}', '${s.title.replace(/'/g, "\\'")}')" 
+                                style="position:absolute; bottom:10px; right:10px; background:rgba(255,122,0,0.2); border:1px solid #FF7A00; color:#FF7A00; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:20; font-size:1.2rem;" title="Coronar esta fuente">
+                            👑
+                        </button>
+                    ` : '';
 
                     return `
                         <div class="stream-card-vip" onclick='SelvaStream.toggleVipMenu(); SelvaStream.handleExternalStream(${JSON.stringify(s).replace(/'/g, "&#39;")})'  
-                                style="background: rgba(255,122,0,0.05); border: 1px solid rgba(255,122,0,0.15); border-radius: 12px; padding: 15px; cursor: pointer; transition: all 0.2s ease; border-left: 4px solid ${isDebrid ? '#FF7A00' : '#2ECC71'}; position: relative; overflow: hidden; text-align:left; margin-bottom:10px;">
-                            ${isBest ? `<div style="position:absolute; top:-10px; right:-25px; background:#FF7A00; color:white; padding:15px 30px; transform:rotate(45deg); font-size:0.5rem; font-weight:900; letter-spacing:1px; z-index:10; pointer-events:none;">EL MEJOR</div>` : ''}
+                                style="background: ${isSuggested ? 'rgba(255,122,0,0.1)' : 'rgba(255,122,0,0.05)'}; border: 1px solid ${isSuggested ? '#FF7A00' : 'rgba(255,122,0,0.15)'}; border-radius: 12px; padding: 15px; cursor: pointer; transition: all 0.2s ease; border-left: 4px solid ${isSuggested ? '#FF7A00' : (isDebrid ? '#FF7A00' : '#2ECC71')}; position: relative; overflow: hidden; text-align:left; margin-bottom:10px;">
+                            ${isSuggested ? `<div style="position:absolute; top:-10px; right:-25px; background:#FF7A00; color:white; padding:15px 30px; transform:rotate(45deg); font-size:0.5rem; font-weight:900; letter-spacing:1px; z-index:10; pointer-events:none;">SUGERIDA</div>` : (isBest ? `<div style="position:absolute; top:-10px; right:-25px; background:#FF7A00; color:white; padding:15px 30px; transform:rotate(45deg); font-size:0.5rem; font-weight:900; letter-spacing:1px; z-index:10; pointer-events:none;">EL MEJOR</div>` : '')}
+                            ${crownBtn}
                             <div style="display:flex; flex-direction:column; gap:4px;">
                                 <div style="font-size:0.65rem; font-weight:900; color:${isDebrid ? '#FF7A00' : '#2ECC71'}; text-transform:uppercase; letter-spacing:1px; display:flex; align-items:center; gap:5px; margin-bottom:2px;">
                                     ${s.providerName || 'PREMIUM'} • ${langLabel}
                                 </div>
                                 <div style="color:white; font-size:0.82rem; font-weight:700; line-height:1.3; margin:2px 0; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;">
-                                    ${(s.title || s.name || 'Fuente VIP').split('\n')[0]}
+                                    ${s.title.split('\n')[0]}
                                 </div>
                                 <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:5px;">
                                     <span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-size:0.55rem; color:#fff; font-weight:900;">${quality}</span>
@@ -616,12 +624,6 @@ export const SelvaStream = {
                                     ${weight ? `<span style="font-size:0.6rem; color:#bbb; font-weight:500;">⚖️ ${weight}</span>` : ''}
                                     ${isDebrid ? '<span style="color:#FF7A00; font-size:0.55rem; font-weight:900; border:1px solid #FF7A00; padding:1px 4px; border-radius:3px;">REAL-DEBRID</span>' : ''}
                                 </div>
-                                ${isAdmin ? `
-                                    <button onclick="event.stopPropagation(); window.promoteVipSource('${this.currentPlayerMovie.id}', '${s.infoHash || s.url}', '${(s.title || s.name || 'Fuente').split('\n')[0].replace(/'/g, "\\'")}')" 
-                                            style="margin-top:8px; background:rgba(255,122,0,0.2); border:1px solid var(--primary); color:var(--primary); font-size:0.55rem; padding:4px; border-radius:6px; font-weight:900; cursor:pointer; width:100%; transition:all 0.2s;">
-                                        👑 FIJAR COMO REY
-                                    </button>
-                                ` : ''}
                             </div>
                         </div>
                     `;
@@ -737,30 +739,12 @@ export const SelvaStream = {
         if (loaderText) loaderText.innerText = '🚀 Invocando Auto-VIP Debrid...';
 
         try {
-            const movie = this.currentPlayerMovie;
-            let finalId = id || movie?.imdbId || movie?.tmdbId;
-            let finalType = type || (movie?.type === 'series' ? 'series' : 'movie');
-
-            if (!finalId) throw new Error("ID de contenido no encontrado");
-
-            // Si es serie, necesitamos Season:Episode para Torrentio/Comet (ej: tt123:1:1)
-            if (finalType === 'series' && !finalId.includes(':')) {
-                const s = document.getElementById('selva-season')?.value || 1;
-                const e = document.getElementById('selva-episode')?.value || 1;
-                finalId = `${finalId}:${s}:${e}`;
-            }
-
-            // Si es solo números (TMDB), Torrentio requiere el prefijo tmdb:
-            if (/^\d+$/.test(finalId)) {
-                finalId = `tmdb:${finalId}`;
-            }
-
             const providers = "cinecalidad,mejortorrent,wolfmax4k,yts,1337x,torrent9,limetorrents,eztv,rarbg";
             const tConfig = `providers=${providers}|sort=seeders|qualityfilter=scr,cam`;
 
             const urls = [
-                `https://torrentio.strem.fun/${tConfig}/stream/${finalType}/${finalId}.json`,
-                `https://comet.strem.fun/stream/${finalType}/${finalId}.json`
+                `https://torrentio.strem.fun/${tConfig}/stream/${type}/${id}.json`,
+                `https://comet.strem.fun/stream/${type}/${id}.json`
             ];
 
             const controller = new AbortController();
@@ -826,10 +810,9 @@ export const SelvaStream = {
                 // 4. Sistema de Puntaje (Score) Equitable
                 let score = 0;
                 
-                // 💎 EL DEDO DE DIOS: Si el Admin fijó esta fuente, es Rey Absoluto
-                const currentHash = s.infoHash || s.url;
-                if (movie && movie.suggestedVipHash && currentHash === movie.suggestedVipHash) {
-                    score += 10000;
+                // 0. EL DEDO DE DIOS: Prioridad Absoluta Manual
+                if (this.currentPlayerMovie.suggestedVipHash && s.infoHash === this.currentPlayerMovie.suggestedVipHash) {
+                    score += 10000; // Insuperable
                 }
 
                 // A. Idioma (El Rey Absoluto)

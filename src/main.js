@@ -1078,32 +1078,6 @@ async function collectUserData(action, details = {}) {
 }
 
 // Player Logic & Multi-Server
-// --- VIP INTELLIGENCE (Dedo de Dios) ---
-window.promoteVipSource = async (movieId, hash, sourceTitle) => {
-  if (!movieId || !hash) return;
-  try {
-    const movieRef = doc(db, "movies", movieId);
-    await updateDoc(movieRef, {
-      suggestedVipHash: hash,
-      suggestedVipTitle: sourceTitle || '',
-      updatedAt: Date.now()
-    });
-    
-    // Actualizar caché local inmediatamente
-    const movie = movieDatabase.trending.find(m => m.id === movieId);
-    if (movie) {
-      movie.suggestedVipHash = hash;
-      movie.suggestedVipTitle = sourceTitle;
-    }
-    
-    alert(`👑 ¡Fuente fijada como REY de la selva!`);
-    if (window.SelvaStream) window.SelvaStream.renderVipMenuList();
-  } catch (e) {
-    console.error("Error al promover fuente:", e);
-    alert("Fallo al fijar el Rey 🐒");
-  }
-};
-
 function startPlayer(movie) {
   collectUserData("play_start", { title: movie.title, type: movie.type });
 
@@ -1115,6 +1089,24 @@ function startPlayer(movie) {
 
   SelvaStream.open(movie);
 }
+
+// 👑 EL DEDO DE DIOS: Fijar fuente VIP principal
+window.promoteVipSource = async (movieId, hash, title) => {
+  if (!confirm(`¿Quieres fijar "${title}" como la fuente principal para todos los usuarios? 👑`)) return;
+  
+  try {
+    await updateDoc(doc(db, "movies", movieId), { 
+      suggestedVipHash: hash,
+      updatedAt: Date.now() 
+    });
+    sessionStorage.removeItem('selvaflix_full_database');
+    sessionStorage.removeItem('selvaflix_cache_timestamp');
+    alert("¡Fuente coronada con éxito! 👑🌴\nRefresca para ver los cambios.");
+  } catch (e) {
+    console.error("Error al fijar fuente:", e);
+    alert("No se pudo coronar la fuente. Revisa la consola.");
+  }
+};
 
 function startWarningOverlay(movie) {
   const adOverlay = document.getElementById('ad-overlay');

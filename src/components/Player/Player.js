@@ -737,12 +737,18 @@ export const SelvaStream = {
         if (loaderText) loaderText.innerText = '🚀 Invocando Auto-VIP Debrid...';
 
         try {
+            const movie = this.currentPlayerMovie;
+            const finalId = id || movie?.imdbId || movie?.tmdbId;
+            const finalType = type || (movie?.type === 'series' ? 'series' : 'movie');
+
+            if (!finalId) throw new Error("ID de contenido no encontrado");
+
             const providers = "cinecalidad,mejortorrent,wolfmax4k,yts,1337x,torrent9,limetorrents,eztv,rarbg";
             const tConfig = `providers=${providers}|sort=seeders|qualityfilter=scr,cam`;
 
             const urls = [
-                `https://torrentio.strem.fun/${tConfig}/stream/${type}/${id}.json`,
-                `https://comet.strem.fun/stream/${type}/${id}.json`
+                `https://torrentio.strem.fun/${tConfig}/stream/${finalType}/${finalId}.json`,
+                `https://comet.strem.fun/stream/${finalType}/${finalId}.json`
             ];
 
             const controller = new AbortController();
@@ -810,7 +816,7 @@ export const SelvaStream = {
                 
                 // 💎 EL DEDO DE DIOS: Si el Admin fijó esta fuente, es Rey Absoluto
                 const currentHash = s.infoHash || s.url;
-                if (movie.suggestedVipHash && currentHash === movie.suggestedVipHash) {
+                if (movie && movie.suggestedVipHash && currentHash === movie.suggestedVipHash) {
                     score += 10000;
                 }
 

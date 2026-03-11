@@ -554,16 +554,12 @@ export const SelvaStream = {
     toggleVipMenu() {
         const menu = document.getElementById('side-vip-menu');
         if (menu) menu.classList.toggle('active');
-        this.renderControls();
+        // Solo actualiza la lista VIP, no re-dibuja los controles completos
+        this.renderVipMenuList();
     },
 
-    renderControls() {
-        const root = document.getElementById('player-controls-root');
-        if (!root) return;
-
-        const pref = localStorage.getItem('selva_pref_lang') || 'latino';
-
-        // Actualizar el Listado del Menú Lateral VIP
+    // Rellena el menú lateral VIP sin tocar el resto del DOM
+    renderVipMenuList() {
         const vipMenuList = document.getElementById('vip-menu-list');
         const floatingBtn = document.getElementById('floating-sources-btn');
         
@@ -575,7 +571,7 @@ export const SelvaStream = {
                 vipMenuList.innerHTML = this.lastScrapedStreams.map((s, index) => {
                     const qRaw = (s.title + ' ' + s.name).toLowerCase();
                     
-                    // 📊 DETECCIÓN DE CALIDAD
+                    // 📊 DETECCIóN DE CALIDAD
                     const quality = qRaw.includes('4k') || qRaw.includes('uhd') ? '4K UHD' : (qRaw.includes('1080') ? '1080p FHD' : (qRaw.includes('720') ? '720p HD' : 'HD'));
                     
                     // 🛡️ STATUS VIP / DEBRID
@@ -584,9 +580,9 @@ export const SelvaStream = {
                     // 🌍 IDIOMAS Y BANDERAS
                     const isLatino = qRaw.includes('latino') || qRaw.includes('latin') || qRaw.includes('cinecalidad') || qRaw.includes('dual');
                     const isCastellano = qRaw.includes('castellano') || qRaw.includes('espana') || qRaw.includes('españa') || qRaw.includes('spanish');
-                    const isEnglish = qRaw.includes('english') || qRaw.includes('eng') || qRaw.includes('subbed');
+                    const isEnglish = qRaw.includes('english') || qRaw.includes('subbed');
                     
-                    let langLabel = 'DESCONOCIDO';
+                    let langLabel = 'MULTI';
                     if (isLatino) langLabel = '🇲🇽 LATINO';
                     else if (isCastellano) langLabel = '🇪🇸 CASTELLANO';
                     else if (isEnglish) langLabel = '🇺🇸 INGLES';
@@ -595,29 +591,28 @@ export const SelvaStream = {
                     const formatMatch = qRaw.match(/\.(mkv|mp4|m3u8|avi|ts)/i);
                     const fileFormat = formatMatch ? formatMatch[1].toUpperCase() : 'VIDEO';
                     
-                    const weightMatch = qRaw.match(/\d+(\.\d+)?\s*(GB|MB)/i);
-                    const weight = weightMatch ? weightMatch[0] : '';
+                    const weightMatch = qRaw.match(/(\d+(\.\d+)?\s*(gb|mb))/i);
+                    const weight = weightMatch ? weightMatch[0].toUpperCase() : '';
 
                     // 🏆 RANKING / RECOMENDACIÓN
                     const isBest = index === 0;
 
                     return `
-                        <div class="stream-card-vip" onclick='SelvaStream.toggleVipMenu(); SelvaStream.handleExternalStream(${JSON.stringify(s).replace(/'/g, "&#39;")})' 
+                        <div class="stream-card-vip" onclick='SelvaStream.toggleVipMenu(); SelvaStream.handleExternalStream(${JSON.stringify(s).replace(/'/g, "&#39;")})'  
                                 style="background: rgba(255,122,0,0.05); border: 1px solid rgba(255,122,0,0.15); border-radius: 12px; padding: 15px; cursor: pointer; transition: all 0.2s ease; border-left: 4px solid ${isDebrid ? '#FF7A00' : '#2ECC71'}; position: relative; overflow: hidden; text-align:left; margin-bottom:10px;">
-                            ${isBest ? '<div style="position:absolute; top: -10px; right: -25px; background: #FF7A00; color: white; padding: 15px 30px; transform: rotate(45deg); font-size: 0.5rem; font-weight: 900; letter-spacing: 1px; z-index:10; pointer-events:none;">EL MEJOR</div>' : ''}
-                            
-                            <div style="display: flex; flex-direction: column; gap: 4px;">
-                                <div style="font-size: 0.65rem; font-weight: 900; color: ${isDebrid ? '#FF7A00' : '#2ECC71'}; text-transform: uppercase; letter-spacing: 1px; display:flex; align-items:center; gap:5px; margin-bottom:2px;">
+                            ${isBest ? `<div style="position:absolute; top:-10px; right:-25px; background:#FF7A00; color:white; padding:15px 30px; transform:rotate(45deg); font-size:0.5rem; font-weight:900; letter-spacing:1px; z-index:10; pointer-events:none;">EL MEJOR</div>` : ''}
+                            <div style="display:flex; flex-direction:column; gap:4px;">
+                                <div style="font-size:0.65rem; font-weight:900; color:${isDebrid ? '#FF7A00' : '#2ECC71'}; text-transform:uppercase; letter-spacing:1px; display:flex; align-items:center; gap:5px; margin-bottom:2px;">
                                     ${s.providerName || 'PREMIUM'} • ${langLabel}
                                 </div>
-                                <div style="color: white; font-size: 0.82rem; font-weight: 700; line-height: 1.3; margin: 2px 0; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">
+                                <div style="color:white; font-size:0.82rem; font-weight:700; line-height:1.3; margin:2px 0; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;">
                                     ${s.title.split('\n')[0]}
                                 </div>
-                                <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top:5px;">
-                                    <span style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-size: 0.55rem; color: #fff; font-weight:900;">${quality}</span>
-                                    <span style="background: rgba(46,204,113,0.1); padding: 2px 6px; border-radius: 4px; font-size: 0.55rem; color: #2ecc71; font-weight:700; border: 1px solid rgba(46,204,113,0.2);">${fileFormat}</span>
-                                    ${weight ? `<span style="font-size: 0.6rem; color: #bbb; font-weight:500;">⚖️ ${weight}</span>` : ''}
-                                    ${isDebrid ? '<span style="color:#FF7A00; font-size:0.55rem; font-weight:900; border: 1px solid #FF7A00; padding:1px 4px; border-radius:3px;">REAL-DEBRID</span>' : ''}
+                                <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:5px;">
+                                    <span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-size:0.55rem; color:#fff; font-weight:900;">${quality}</span>
+                                    <span style="background:rgba(46,204,113,0.1); padding:2px 6px; border-radius:4px; font-size:0.55rem; color:#2ecc71; font-weight:700; border:1px solid rgba(46,204,113,0.2);">${fileFormat}</span>
+                                    ${weight ? `<span style="font-size:0.6rem; color:#bbb; font-weight:500;">⚖️ ${weight}</span>` : ''}
+                                    ${isDebrid ? '<span style="color:#FF7A00; font-size:0.55rem; font-weight:900; border:1px solid #FF7A00; padding:1px 4px; border-radius:3px;">REAL-DEBRID</span>' : ''}
                                 </div>
                             </div>
                         </div>
@@ -629,8 +624,15 @@ export const SelvaStream = {
                 vipMenuList.innerHTML = '<p style="text-align:center; opacity:0.5; font-size:12px; margin-top:20px;">Explorando la selva para encontrar fuentes...</p>';
             }
         }
+    },
 
-        const isSeries = ['series', 'tv', 'anime'].includes(this.currentPlayerMovie.type);
+    renderControls() {
+        const root = document.getElementById('player-controls-root');
+        if (!root) return;
+        // Actualizar lista VIP también
+        this.renderVipMenuList();
+
+        const isSeries = ['series', 'tv', 'anime'].includes(this.currentPlayerMovie?.type);
         const seasonHtml = isSeries ? `
             <div class="series-selectors">
                 <div class="selva-select-wrapper">

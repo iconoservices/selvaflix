@@ -1021,26 +1021,43 @@ export const SelvaStream = {
                         extBtnFinal.style.display = 'flex';
                     }
                 } else {
-                    // Error: volver al start screen con mensaje claro
+                    // Error: volver al start screen con mensaje claro + botón
                     loader.style.display = 'none';
                     if (startScreen) startScreen.style.display = 'flex';
                     const msgEl = document.getElementById('vip-status-msg');
-                    if (msgEl) msgEl.innerHTML = `
-                        <span style="color:#e74c3c;">⚠️ No se pudo abrir esta fuente.</span><br>
-                        <span style="font-size:0.75rem; color:#aaa;">Toca "Otras Fuentes VIP" y elige otra opción.</span>`;
+                    if (msgEl) msgEl.innerHTML = `<span style="color:#e74c3c;">⚠️ No se pudo abrir esta fuente.</span>`;
                     const startActions = document.getElementById('start-actions');
-                    if (startActions) startActions.style.display = 'block';
+                    if (startActions) {
+                        startActions.style.display = 'block';
+                        startActions.innerHTML = `
+                            <button class="play-btn-premium" onclick="SelvaStream.toggleVipMenu()" style="background: linear-gradient(135deg,#e74c3c,#c0392b); margin-top:10px;">
+                                📡 Elegir Otra Fuente VIP
+                            </button>`;
+                    }
                 }
             }).catch(() => {
                 clearInterval(fraseInterval);
                 loader.style.display = 'none';
                 if (startScreen) startScreen.style.display = 'flex';
                 const msgEl = document.getElementById('vip-status-msg');
-                if (msgEl) msgEl.innerHTML = `<span style="color:#e74c3c;">⚠️ Error de red. Revisa tu conexión e intenta de nuevo.</span>`;
+                if (msgEl) msgEl.innerHTML = `<span style="color:#e74c3c;">⚠️ Error de red. Revisa tu conexión.</span>`;
+                const startActions = document.getElementById('start-actions');
+                if (startActions) {
+                    startActions.style.display = 'block';
+                    startActions.innerHTML = `
+                        <button class="play-btn-premium" onclick="SelvaStream.playFirstAvailable()" style="margin-top:10px;">
+                            🔄 Reintentar
+                        </button>
+                        <button class="play-btn-premium" onclick="SelvaStream.toggleVipMenu()" style="background: linear-gradient(135deg,#8e44ad,#6c3483); margin-top:10px; margin-left:8px;">
+                            📡 Otras Fuentes VIP
+                        </button>`;
+                }
             });
         }
 
     },
+
+
 
 
     async callMasterWorker(infoHash, attempt = 1) {

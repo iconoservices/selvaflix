@@ -804,10 +804,10 @@ export const SelvaStream = {
                 // B. VIP / Debrid
                 if (qRaw.includes('[rd+]') || s.providerName === 'T-IO') score += 50;
                 
-                // C. Formato (Premia MP4, castiga dudosas)
-                if (s.detectedFormat === 'MP4' || s.detectedFormat === 'M3U8') score += 15;
-                else if (s.detectedFormat === 'MKV') score += 5;
-                else if (s.detectedFormat === 'VIDEO') score -= 30; // Dudoso
+                // C. Formato (Premia MP4 seguro, castiga "VIDEO" dudoso y potencialmente sin audio)
+                if (s.detectedFormat === 'MP4' || s.detectedFormat === 'M3U8' || s.detectedFormat === 'WEBM') score += 50; // Super Boost
+                else if (s.detectedFormat === 'MKV') score += 10;
+                else if (s.detectedFormat === 'VIDEO') score -= 1000; // MUY Dudoso, al pozo al menos que no haya nada más
 
                 // D. Peso (Premia ligeros, castiga obesos)
                 if (s.weightGB > 0) {

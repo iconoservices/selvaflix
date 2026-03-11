@@ -103,7 +103,7 @@ export const SelvaStream = {
                         <div id="side-vip-menu" class="side-vip-menu">
                             <div class="vip-menu-header">
                                 <span>🚀 FUENTES VIP</span>
-                                <button onclick="SelvaStream.toggleVipMenu()">&times;</button>
+                                <button onclick="SelvaStream.toggleVipMenu()" style="background:rgba(231,76,60,0.2); border:1px solid #e74c3c; color:white; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; cursor:pointer;">&times;</button>
                             </div>
                             <div id="vip-menu-list"></div>
                         </div>
@@ -131,23 +131,6 @@ export const SelvaStream = {
                     </div>
                 </div>
             </div>
-
-            <!-- 📡 VIP SOURCES DYNAMIC LIST (Collapsible) -->
-            <div id="vip-dynamic-container" style="display:none; width:90%; max-width:1400px; margin: 15px auto; padding: 20px; background: rgba(255,122,0,0.03); border: 1px solid rgba(255,122,0,0.15); border-radius: 20px; backdrop-filter: blur(10px);">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <span style="background:var(--primary); width:8px; height:8px; border-radius:50%; animation: pulse 2s infinite;"></span>
-                        <h4 style="color:var(--primary); font-size: 0.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; margin:0;">Fuentes VIP Encontradas</h4>
-                    </div>
-                    <button id="vip-expand-btn" onclick="SelvaStream.toggleExpandSources()" style="background:transparent; border: 1px solid rgba(255,255,255,0.1); color:#aaa; padding:5px 12px; border-radius:20px; font-size:0.65rem; font-weight:bold; cursor:pointer; transition:0.3s;">
-                        VER TODAS ▾
-                    </button>
-                </div>
-                <div id="vip-dynamic-list" class="vip-list-collapsed">
-                    <!-- Cards injected here -->
-                </div>
-            </div>
-
             <!-- Controles y Servidores -->
             <div id="player-controls-root"></div>
         `;

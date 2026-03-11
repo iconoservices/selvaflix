@@ -61,9 +61,8 @@ export const SelvaStream = {
                         allow="autoplay; fullscreen; picture-in-picture; encrypted-media; gyroscope; accelerometer; clipboard-write"
                         allowfullscreen>
                     </iframe>
-                    <!-- Reproductor P2P/Nativo (Fase 1) -->
                     <div id="native-player-container" style="display:none; width: 100%; height: 100%; position: relative;">
-                        <video id="native-video-player" style="width: 100%; height: 100%; background: #000;" controls></video>
+                        <video id="native-video-player" style="width: 100%; height: 100%; background: #000;" controls playsinline webkit-playsinline></video>
                     </div>
                     
                     <div id="webtorrent-status" style="display:none; position:absolute; bottom:20px; left:20px; background:rgba(0,0,0,0.8); padding:10px; border-radius:8px; color:#fff; font-size:12px; z-index:100; border: 1px solid var(--primary);">
@@ -104,7 +103,7 @@ export const SelvaStream = {
                         <div class="sidebar-card notifications-card">
                             <h3>📌 NOTIFICACIONES</h3>
                             <div id="player-notifications" class="player-notifications">
-                                <p>¿No carga? Prueba otro servidor o usa uBlock/Brave.</p>
+                                <p>Disfruta de la mejor calidad VIP en SelvaFlix.</p>
                             </div>
                         </div>
                         <div class="sidebar-card actions-card">
@@ -122,25 +121,8 @@ export const SelvaStream = {
                     </div>
                 </div>
             </div>
-            <!-- Controles y Servidores (Se llenan dinámicamente) -->
+            <!-- Controles y Servidores -->
             <div id="player-controls-root"></div>
-            <div class="ad-notice">
-                <span id="adblock-text">🛡️ <b>¿Publicidad Intrusiva?</b> Para disfrutar la selva en paz usa </span>
-                <a href="https://brave.com/" target="_blank" style="color: var(--primary);">Brave Browser</a>.
-            </div>
-
-            <!-- 🧪 Custom Safety Notice (v4.0) -->
-            <div id="selva-safety-modal" class="safety-notice-modal">
-                <div class="notice-card">
-                    <span class="notice-icon">🛡️</span>
-                    <h3>Activar Escudo Total</h3>
-                    <p>Vas a blindar el reproductor al 100%. Esto bloqueará la publicidad, pero <b>podría evitar que algunos videos carguen</b> adecuadamente.<br><br>¿Deseas activar la protección máxima?</p>
-                    <div class="notice-actions">
-                        <button class="notice-btn btn-cancel" onclick="SelvaStream.closeSafetyModal()">Cancelar</button>
-                        <button class="notice-btn btn-confirm" onclick="SelvaStream.confirmShieldActivation()">Activar Blindaje</button>
-                    </div>
-                </div>
-            </div>
         `;
 
         // Eventos básicos
@@ -504,16 +486,7 @@ export const SelvaStream = {
 
         const cleanUrl = this.sanitizeUrl(url);
 
-        // ── Lógica Inversa v4.3 (Operación Limpieza: Remoción Total de Sandbox en Compatible) ──
-        const isShieldOn = localStorage.getItem(`selva_shield_${serverKey}`) === 'true';
-        if (isShieldOn) {
-            iframe.setAttribute('sandbox', 'allow-forms allow-scripts allow-same-origin allow-popups-to-escape-sandbox allow-presentation');
-        } else {
-            iframe.removeAttribute('sandbox');
-        }
-
         iframe.src = cleanUrl;
-        this.updateDownloadBtn(cleanUrl);
 
         document.querySelectorAll('.server-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.server === serverKey);
@@ -569,53 +542,11 @@ export const SelvaStream = {
         }
     },
 
-    confirmShieldActivation() {
-        const activeBtn = document.querySelector('.server-btn.active');
-        if (!activeBtn) return;
-        const serverKey = activeBtn.dataset.server;
-
-        localStorage.setItem(`selva_shield_${serverKey}`, 'true');
-        this.closeSafetyModal();
-        this.refreshState(serverKey);
-    },
-
-    closeSafetyModal() {
-        const modal = document.getElementById('selva-safety-modal');
-        modal.classList.remove('active');
-    },
-
-    refreshState(serverKey) {
+    refreshState() {
         const s = document.getElementById('selva-season')?.value || 1;
         const e = document.getElementById('selva-episode')?.value || 1;
-        this.updateServer(serverKey, s, e);
+        this.updateServer('latino-1', s, e);
         this.renderControls();
-    },
-
-    // ── Centro de Seguridad y Recomendaciones ──
-    getProtectionData() {
-        const ua = navigator.userAgent;
-        if (/Android/i.test(ua)) {
-            return {
-                name: 'Descargar Brave (Recomendado)',
-                link: 'https://play.google.com/store/apps/details?id=com.brave.browser',
-                icon: '📱',
-                desc: 'Protege tu Android bloqueando pop-ups de raíz.'
-            };
-        } else if (/iPhone|iPad|iPod/i.test(ua)) {
-            return {
-                name: 'Instalar AdGuard iOS',
-                link: 'https://apps.apple.com/app/adguard-adblock-privacy/id1047223162',
-                icon: '🛡️',
-                desc: 'La mejor defensa para Safari contra publicidad móvil.'
-            };
-        } else {
-            return {
-                name: 'uBlock Origin (Lo mejor en PC)',
-                link: 'https://ublockorigin.com/',
-                icon: '💻',
-                desc: 'La extensión más potente y ligera para tu navegador.'
-            };
-        }
     },
 
     toggleVipMenu() {
@@ -672,30 +603,9 @@ export const SelvaStream = {
                 ${seasonHtml}
 
                 <!-- Selector de Idioma Global -->
-                <div class="pref-selector" style="display:flex; justify-content:center; gap:10px; margin-bottom:20px; background: rgba(255,122,0,0.05); padding:12px; border-radius:15px; border:1px solid rgba(255,122,0,0.15); box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+                <div class="pref-selector" style="display:flex; justify-content:center; gap:10px; background: rgba(255,122,0,0.05); padding:12px; border-radius:15px; border:1px solid rgba(255,122,0,0.15); box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
                     <button class="pref-btn ${pref === 'latino' ? 'active' : ''}" onclick="SelvaStream.setPreference('latino')" style="flex:1; background:${pref === 'latino' ? 'var(--primary)' : 'rgba(255,255,255,0.05)'}; border:none; color:${pref === 'latino' ? 'black' : 'white'}; padding:12px; border-radius:10px; font-weight:800; cursor:pointer; transition: all 0.3s; font-size: 13px;">🇲🇽 LATINO (VIP)</button>
                     <button class="pref-btn ${pref === 'english' ? 'active' : ''}" onclick="SelvaStream.setPreference('english')" style="flex:1; background:${pref === 'english' ? 'var(--primary)' : 'rgba(255,255,255,0.05)'}; border:none; color:${pref === 'english' ? 'black' : 'white'}; padding:12px; border-radius:10px; font-weight:800; cursor:pointer; transition: all 0.3s; font-size: 13px;">🇺🇸 SUB/ENG</button>
-                </div>
-
-                <!-- Panel de Servidores con Publicidad -->
-                <div class="server-switcher" style="padding:20px; background:rgba(255,255,255,0.03); border-radius:15px; border:1px solid #222; position:relative;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                        <span style="font-size:13px; font-weight:900; color:#FF7A00; letter-spacing:0.5px;">🌐 OPCIONES CON PUBLICIDAD (Clásicos)</span>
-                        <div style="font-size:11px; background:#C0392B; color:white; padding:2px 8px; border-radius:4px; font-weight:800;">AVISO</div>
-                    </div>
-                    
-                    <p style="font-size:11px; color:#888; margin-bottom:15px; line-height:1.4;">Si prefieres los servidores tradicionales, aquí los tienes. Ten en cuenta que pueden abrir pestañas externas.</p>
-
-                    <div class="server-group" style="display:flex; gap:12px; flex-wrap:wrap;">
-                        <button class="server-btn" onclick="SelvaStream.updateServer('latino-1')" style="flex:1; min-width:100px;">SERVIDOR 1</button>
-                        <button class="server-btn" onclick="SelvaStream.updateServer('latino-2')" style="flex:1; min-width:100px;">SERVIDOR 2</button>
-                        <button class="server-btn" onclick="SelvaStream.updateServer('latino-4')" style="flex:1; min-width:100px;">SERVIDOR 4</button>
-                        <button class="server-btn" onclick="SelvaStream.updateServer('latino-6')" style="flex:1; min-width:100px;">SERVIDOR 6</button>
-                    </div>
-                </div>
-
-                 <div style="margin-top:20px; text-align:center;">
-                    <button onclick="SelvaStream.fetchExternalStreams()" style="background:none; border:none; color:var(--text-muted); font-size:12px; font-weight:bold; cursor:pointer; text-decoration:underline; opacity:0.6;">🔄 Recargar base de datos P2P</button>
                 </div>
             </div>
         `;
@@ -834,9 +744,16 @@ export const SelvaStream = {
             this.lastScrapedStreams = streams;
             this.renderControls();
 
-            // Automáticamente elegir el mejor Latino si existe
-            this.handleExternalStream(streams[0]);
-
+            // ✅ NO AUTO-PLAY: Dejamos que el usuario decida reproducir en pequeño o grande
+            const loader3 = document.getElementById('player-loader');
+            if (loader3) loader3.style.display = 'none';
+            const ss2 = document.getElementById('player-start-screen');
+            if (ss2) ss2.style.display = 'flex';
+            const btn2 = document.getElementById('start-play-btn');
+            if (btn2) {
+                btn2.innerHTML = '<span class="play-icon">▶</span> REPRODUCIR VIP (LISTO)';
+                btn2.onclick = () => { this.handleExternalStream(streams[0]); };
+            }
         } catch (e) {
             console.log("Auto-Debrid falló, activando Servidor Clásico de respaldo...", e);
 
@@ -971,8 +888,6 @@ export const SelvaStream = {
                 let badge = isLatino ? '<span style="background:var(--primary); color:black; padding:2px 4px; border-radius:4px; font-size:0.55rem; margin-left:5px;">⭐ LATINO / ESP</span>' : '';
                 if (isCinecalidad) badge += '<span style="background:#00d2ff; color:black; padding:2px 4px; border-radius:4px; font-size:0.55rem; margin-left:5px;">💎 LATINO PURO</span>';
                 if (isDebrid) badge += '<span style="background:#2ecc71; color:black; padding:2px 4px; border-radius:4px; font-size:0.55rem; margin-left:5px;">🚀 DEBRID VIP</span>';
-                if (isMulti) badge += '<span style="background:#9b59b6; color:white; padding:2px 4px; border-radius:4px; font-size:0.55rem; margin-left:5px;">🌐 MULTI (Cambiar en VLC)</span>';
-                if (isAc3) badge += '<span style="background:#e74c3c; color:white; padding:2px 4px; border-radius:4px; font-size:0.55rem; margin-left:5px;">⚠️ AUD AC3 (Usar VLC)</span>';
 
                 return `
                         <div class="stream-item" onclick="SelvaStream.handleExternalStream(${JSON.stringify(s).replace(/"/g, '&quot;')})" style="padding: 10px; margin-bottom: 5px; cursor: pointer; border-radius: 5px; border-left: 4px solid #555; background: rgba(255,255,255,0.05); ${isLatino ? 'border-left-color: var(--primary); background: rgba(255,122,0,0.08);' : ''} ${isDebrid ? 'border-left-color:#2ecc71; background: rgba(46,204,113,0.1);' : ''}">

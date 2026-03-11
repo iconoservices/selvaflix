@@ -70,20 +70,18 @@ export const SelvaStream = {
                         <div id="wt-progress">Buscando semillas...</div>
                     </div>
 
-                    <!-- Panel de Fuentes VIP (directo, sin botón) -->
+                    <!-- Panel de Información Inicial (Directo) -->
                     <div id="player-start-screen" class="player-start-screen" style="display:none;">
                         <div class="start-bg" id="start-bg"></div>
                         <div class="start-content">
                             <h2 id="start-title">CARGANDO...</h2>
-                            <div id="vip-status-msg" class="start-subtitle" style="margin-bottom:12px;">🔍 Buscando fuentes VIP...</div>
-                            <div id="external-streams-list" style="display:none; margin-top: 10px; max-height: 60vh; overflow-y: auto; padding: 10px; background: rgba(0,0,0,0.6); border-radius: 12px; border: 1px solid rgba(255,122,0,0.2); text-align: left; width:100%; box-sizing:border-box;"></div>
+                            <div id="vip-status-msg" class="start-subtitle">🔍 Buscando señales VIP...</div>
                         </div>
                     </div>
 
                 </div>
                 <div class="player-sidebar-column">
                     <div class="sidebar-top-row" style="display: flex; gap: 10px; margin-bottom: 10px;">
-                        <!-- Fuentes VIP Button moved here -->
                         <button id="floating-sources-btn" class="sources-btn-modern" onclick="SelvaStream.toggleVipMenu()" style="flex: 1; min-height: 45px;">
                              📡 OTRAS FUENTES VIP
                         </button>
@@ -118,6 +116,23 @@ export const SelvaStream = {
                     </div>
                 </div>
             </div>
+
+            <!-- 📡 VIP SOURCES DYNAMIC LIST (Collapsible) -->
+            <div id="vip-dynamic-container" style="display:none; width:90%; max-width:1400px; margin: 15px auto; padding: 20px; background: rgba(255,122,0,0.03); border: 1px solid rgba(255,122,0,0.15); border-radius: 20px; backdrop-filter: blur(10px);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span style="background:var(--primary); width:8px; height:8px; border-radius:50%; animation: pulse 2s infinite;"></span>
+                        <h4 style="color:var(--primary); font-size: 0.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; margin:0;">Fuentes VIP Encontradas</h4>
+                    </div>
+                    <button id="vip-expand-btn" onclick="SelvaStream.toggleExpandSources()" style="background:transparent; border: 1px solid rgba(255,255,255,0.1); color:#aaa; padding:5px 12px; border-radius:20px; font-size:0.65rem; font-weight:bold; cursor:pointer; transition:0.3s;">
+                        VER TODAS ▾
+                    </button>
+                </div>
+                <div id="vip-dynamic-list" class="vip-list-collapsed">
+                    <!-- Cards injected here -->
+                </div>
+            </div>
+
             <!-- Controles y Servidores -->
             <div id="player-controls-root"></div>
         `;
@@ -355,8 +370,10 @@ export const SelvaStream = {
         if (iframe) iframe.style.display = 'none';
         if (nativeContainer) nativeContainer.style.display = 'none';
         if (nativePlayer) nativePlayer.pause();
-        if (statusDiv) statusDiv.style.display = 'none';
         if (loader) loader.style.display = 'none';
+
+        const dynamicSources = document.getElementById('vip-dynamic-container');
+        if (dynamicSources) dynamicSources.style.display = 'none';
 
         // Mostrar Start Screen
         if (startScreen) {
@@ -564,6 +581,20 @@ export const SelvaStream = {
         if (statusDiv) statusDiv.style.display = 'none';
 
         const startScreen = document.getElementById('player-start-screen');
+        const dynamicSources = document.getElementById('vip-dynamic-container');
+        
+        if (dynamicSources) { 
+            dynamicSources.style.display = 'none';
+            const list = document.getElementById('vip-dynamic-list');
+            if (list) {
+                list.innerHTML = '';
+                list.classList.add('vip-list-collapsed');
+                list.classList.remove('vip-list-expanded');
+            }
+            const btn = document.getElementById('vip-expand-btn');
+            if (btn) btn.textContent = 'VER TODAS ▾';
+        }
+
         if (statusDiv) statusDiv.style.display = 'none';
 
         if (this.hls) {
@@ -688,8 +719,8 @@ export const SelvaStream = {
             const msgEl = document.getElementById('vip-status-msg');
             if (msgEl) msgEl.textContent = `✅ ${streams.length} fuentes VIP encontradas. Elige una:`;
 
-            // Mostrar y poblar la lista inmediatamente
-            this.fetchExternalStreams();
+            // Renderizar la lista dinámica debajo del player
+            this.renderDynamicSources(streams);
         } catch (e) {
             console.error("Motor VIP falló:", e);
             const msgEl = document.getElementById('vip-status-msg');
@@ -697,100 +728,63 @@ export const SelvaStream = {
         }
     },
 
-    async fetchExternalStreams() {
-        if (!this.currentPlayerMovie || (!this.currentPlayerMovie.imdbId && !this.currentPlayerMovie.tmdbId)) return;
+    renderDynamicSources(streams) {
+        if (!this.currentPlayerMovie) return;
 
-        const container = document.getElementById('external-streams-list');
-        if (!container) return;
+        const container = document.getElementById('vip-dynamic-list');
+        const mainContainer = document.getElementById('vip-dynamic-container');
+        if (!container || !mainContainer) return;
 
-        container.innerHTML = `<div class="addon-loader">🛰️ Rastreando satélites VIP...</div>`;
-        container.style.display = 'block';
+        mainContainer.style.display = 'block';
 
-        const id = this.currentPlayerMovie.imdbId || this.currentPlayerMovie.tmdbId;
-        const type = this.currentPlayerMovie.type === 'series' ? 'series' : 'movie';
+        if (!streams || streams.length === 0) {
+            container.innerHTML = `<div class="addon-loader" style="color:#e74c3c; grid-column: 1 / -1;">🏝️ No se encontraron tesoros VIP en esta zona...</div>`;
+            return;
+        }
 
-        try {
-            const providers = "cinecalidad,mejortorrent,wolfmax4k,yts,eztv,rarbg,1337x,torrent9,limetorrents";
-            const tConfig = `providers=${providers}|sort=seeders|qualityfilter=scr,cam`;
-
-            const urls = [
-                `https://torrentio.strem.fun/${tConfig}/stream/${type}/${id}.json`,
-                `https://comet.strem.fun/stream/${type}/${id}.json`
-            ];
-
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-            const responses = await Promise.allSettled(urls.map(u =>
-                fetch(u, { signal: controller.signal }).then(r => r.json())
-            ));
-
-            clearTimeout(timeoutId);
-
-            let allStreams = [];
-            responses.forEach((res, i) => {
-                if (res.status === 'fulfilled' && res.value && res.value.streams) {
-                    const provider = i === 0 ? "Torrentio" : "Comet";
-                    res.value.streams.forEach(s => s.providerName = provider);
-                    allStreams = allStreams.concat(res.value.streams);
-                }
-            });
-
-            const validStreams = allStreams.filter(s => {
-                const text = ((s.title || '') + ' ' + (s.name || '')).toLowerCase();
-                const url = (s.url || '').toLowerCase();
-                // Excluir streams brasileños/portugueses
-                if (text.includes('dublado') || text.includes('legendado') || text.includes('pt-br')) return false;
-                const isDirect = url.includes('.m3u8') || url.includes('.mp4') || url.includes('.mkv') || url.includes('.webm') || text.includes('[rd+]');
-                return !!s.infoHash || isDirect;
-            });
-
-            if (validStreams.length === 0) {
-                container.innerHTML = `<div class="addon-loader" style="color:#e74c3c;">🏝️ No se encontraron tesoros VIP en esta zona...</div>`;
-                return;
-            }
-
-            const streams = validStreams.sort((a, b) => {
-                const textA = ((a.title || '') + ' ' + (a.name || '')).toLowerCase();
-                const textB = ((b.title || '') + ' ' + (b.name || '')).toLowerCase();
-                const scoreA = (textA.includes('[rd+]') ? 100 : 0) + (textA.includes('latino') ? 20 : 0);
-                const scoreB = (textB.includes('[rd+]') ? 100 : 0) + (textB.includes('latino') ? 20 : 0);
-                return scoreB - scoreA;
-            });
-
-            container.innerHTML = `
-                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-top: 10px;">
-                    ${streams.map((s) => {
-                        const qRaw = (s.title + ' ' + s.name).toLowerCase();
-                        const quality = qRaw.includes('4k') || qRaw.includes('uhd') ? '4K UHD' : (qRaw.includes('1080') ? '1080p FHD' : (qRaw.includes('720') ? '720p HD' : 'HD'));
-                        const isDebrid = s.name.toLowerCase().includes('[rd+]') || s.name.toLowerCase().includes('debrid') || s.title.toLowerCase().includes('[rd+]');
-                        const isLatino = qRaw.includes('latino') || qRaw.includes('spanish') || qRaw.includes('cinecalidad');
-                        
-                        return `
-                            <div class="stream-card-vip" onclick='SelvaStream.handleExternalStream(${JSON.stringify(s).replace(/'/g, "&#39;")})' 
-                                 style="background: rgba(255,122,0,0.05); border: 1px solid rgba(255,122,0,0.15); border-radius: 12px; padding: 15px; cursor: pointer; transition: all 0.2s ease; border-left: 4px solid ${isDebrid ? '#FF7A00' : '#2ECC71'}; position: relative; overflow: hidden; text-align:left;">
-                                <div style="display: flex; flex-direction: column; gap: 4px;">
-                                    <div style="font-size: 0.65rem; font-weight: 900; color: ${isDebrid ? '#FF7A00' : '#2ECC71'}; text-transform: uppercase; letter-spacing: 1px; display:flex; align-items:center; gap:5px;">
-                                        ${s.providerName || 'PREMIUM'} ${isLatino ? '• LATINO' : ''}
-                                    </div>
-                                    <div style="color: white; font-size: 0.85rem; font-weight: 700; line-height: 1.3; margin: 4px 0;">
-                                        ${s.title.split('\n')[0]}
-                                    </div>
-                                    <div style="display: flex; gap: 8px; align-items: center;">
-                                        <span style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-size: 0.6rem; color: #ccc; font-weight:bold;">${quality}</span>
-                                        <span style="font-size: 0.6rem; color: #888;">${s.title.includes('GB') ? s.title.match(/\d+(\.\d+)?\s*GB/)?.[0] || '' : ''}</span>
-                                        ${isDebrid ? '<span style="color:#2ecc71; font-size:0.6rem; font-weight:bold;">⚡ VIP</span>' : ''}
-                                    </div>
-                                </div>
-                                <div style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); opacity: 0.3; font-size: 1.2rem;">▶</div>
+        container.innerHTML = `
+            ${streams.map((s) => {
+                const qRaw = (s.title + ' ' + s.name).toLowerCase();
+                const quality = qRaw.includes('4k') || qRaw.includes('uhd') ? '4K UHD' : (qRaw.includes('1080') ? '1080p FHD' : (qRaw.includes('720') ? '720p HD' : 'HD'));
+                const isDebrid = s.name.toLowerCase().includes('[rd+]') || s.name.toLowerCase().includes('debrid') || s.title.toLowerCase().includes('[rd+]');
+                const isLatino = qRaw.includes('latino') || qRaw.includes('spanish') || qRaw.includes('cinecalidad');
+                
+                return `
+                    <div class="stream-card-vip" onclick='SelvaStream.handleExternalStream(${JSON.stringify(s).replace(/'/g, "&#39;")})' 
+                            style="background: rgba(255,122,0,0.05); border: 1px solid rgba(255,122,0,0.15); border-radius: 12px; padding: 15px; cursor: pointer; transition: all 0.2s ease; border-left: 4px solid ${isDebrid ? '#FF7A00' : '#2ECC71'}; position: relative; overflow: hidden; text-align:left;">
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            <div style="font-size: 0.65rem; font-weight: 900; color: ${isDebrid ? '#FF7A00' : '#2ECC71'}; text-transform: uppercase; letter-spacing: 1px; display:flex; align-items:center; gap:5px;">
+                                ${s.providerName || 'PREMIUM'} ${isLatino ? '• LATINO' : ''}
                             </div>
-                        `;
-                    }).join('')}
-                </div>
-            `;
-        } catch (e) {
-            console.error('Error fetching VIP streams', e);
-            container.innerHTML = `<div class="addon-loader" style="color:#e74c3c;">⚠️ Error de conexión. Reintenta en unos segundos.</div>`;
+                            <div style="color: white; font-size: 0.85rem; font-weight: 700; line-height: 1.3; margin: 4px 0;">
+                                ${s.title.split('\n')[0]}
+                            </div>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <span style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-size: 0.6rem; color: #ccc; font-weight:bold;">${quality}</span>
+                                <span style="font-size: 0.6rem; color: #888;">${s.title.includes('GB') ? s.title.match(/\d+(\.\d+)?\s*GB/)?.[0] || '' : ''}</span>
+                                ${isDebrid ? '<span style="color:#2ecc71; font-size:0.6rem; font-weight:bold;">⚡ VIP</span>' : ''}
+                            </div>
+                        </div>
+                        <div style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); opacity: 0.3; font-size: 1.2rem;">▶</div>
+                    </div>
+                `;
+            }).join('')}
+        `;
+    },
+
+    toggleExpandSources() {
+        const list = document.getElementById('vip-dynamic-list');
+        const btn = document.getElementById('vip-expand-btn');
+        if (!list || !btn) return;
+
+        if (list.classList.contains('vip-list-collapsed')) {
+            list.classList.remove('vip-list-collapsed');
+            list.classList.add('vip-list-expanded');
+            btn.textContent = 'VER MENOS ▴';
+        } else {
+            list.classList.add('vip-list-collapsed');
+            list.classList.remove('vip-list-expanded');
+            btn.textContent = 'VER TODAS ▾';
         }
     },
 
@@ -819,7 +813,9 @@ export const SelvaStream = {
             if (isDirectVideo) {
                 // Motor VIP de Real Debrid (Reproductor Nativo con URL directa)
                 const startScreen = document.getElementById('player-start-screen');
+                const dynamicSources = document.getElementById('vip-dynamic-container');
                 if (startScreen) startScreen.style.display = 'none';
+                if (dynamicSources) dynamicSources.style.display = 'none';
 
                 iframe.style.display = 'none';
                 iframe.src = '';

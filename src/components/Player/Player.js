@@ -616,6 +616,12 @@ export const SelvaStream = {
                                     ${weight ? `<span style="font-size:0.6rem; color:#bbb; font-weight:500;">⚖️ ${weight}</span>` : ''}
                                     ${isDebrid ? '<span style="color:#FF7A00; font-size:0.55rem; font-weight:900; border:1px solid #FF7A00; padding:1px 4px; border-radius:3px;">REAL-DEBRID</span>' : ''}
                                 </div>
+                                ${isAdmin ? `
+                                    <button onclick="event.stopPropagation(); window.promoteVipSource('${this.currentPlayerMovie.id}', '${s.infoHash || s.url}', '${s.title.split('\n')[0].replace(/'/g, "\\'")}')" 
+                                            style="margin-top:8px; background:rgba(255,122,0,0.2); border:1px solid var(--primary); color:var(--primary); font-size:0.55rem; padding:4px; border-radius:6px; font-weight:900; cursor:pointer; width:100%; transition:all 0.2s;">
+                                        👑 FIJAR COMO REY
+                                    </button>
+                                ` : ''}
                             </div>
                         </div>
                     `;
@@ -802,6 +808,12 @@ export const SelvaStream = {
                 // 4. Sistema de Puntaje (Score) Equitable
                 let score = 0;
                 
+                // 💎 EL DEDO DE DIOS: Si el Admin fijó esta fuente, es Rey Absoluto
+                const currentHash = s.infoHash || s.url;
+                if (movie.suggestedVipHash && currentHash === movie.suggestedVipHash) {
+                    score += 10000;
+                }
+
                 // A. Idioma (El Rey Absoluto)
                 if (isLat) {
                     score += 500; // Corona

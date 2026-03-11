@@ -1078,6 +1078,32 @@ async function collectUserData(action, details = {}) {
 }
 
 // Player Logic & Multi-Server
+// --- VIP INTELLIGENCE (Dedo de Dios) ---
+window.promoteVipSource = async (movieId, hash, sourceTitle) => {
+  if (!movieId || !hash) return;
+  try {
+    const movieRef = doc(db, "movies", movieId);
+    await updateDoc(movieRef, {
+      suggestedVipHash: hash,
+      suggestedVipTitle: sourceTitle || '',
+      updatedAt: Date.now()
+    });
+    
+    // Actualizar caché local inmediatamente
+    const movie = movieDatabase.trending.find(m => m.id === movieId);
+    if (movie) {
+      movie.suggestedVipHash = hash;
+      movie.suggestedVipTitle = sourceTitle;
+    }
+    
+    alert(`👑 ¡Fuente fijada como REY de la selva!`);
+    if (window.SelvaStream) window.SelvaStream.renderVipMenuList();
+  } catch (e) {
+    console.error("Error al promover fuente:", e);
+    alert("Fallo al fijar el Rey 🐒");
+  }
+};
+
 function startPlayer(movie) {
   collectUserData("play_start", { title: movie.title, type: movie.type });
 

@@ -598,6 +598,8 @@ export const SelvaStream = {
                     const isAdmin = sessionStorage.getItem('selva_admin_active');
                     const movieRef = this.currentPlayerMovie || {};
                     const isSuggested = movieRef.suggestedVipHash && s.infoHash === movieRef.suggestedVipHash;
+                    const isPlaying = this.currentPlayingHash && (s.infoHash === this.currentPlayingHash || s.url === this.currentPlayingHash);
+                    
                     // Escape de comillas para evitar romper el atributo onclick
                     const safeTitle = (s.title || '').replace(/'/g, "").replace(/"/g, ""); // Limpieza total para el confirm
                     const crownBtn = isAdmin ? `
@@ -614,6 +616,7 @@ export const SelvaStream = {
                         <div class="stream-card-vip" onclick='if(event.target.closest(".crown-btn")) return; SelvaStream.toggleVipMenu(); SelvaStream.handleExternalStream(${JSON.stringify(s).replace(/'/g, "&#39;")})'  
                                 style="background: ${isSuggested ? 'rgba(255,122,0,0.1)' : 'rgba(255,122,0,0.05)'}; border: 1px solid ${isSuggested ? '#FF7A00' : 'rgba(255,122,0,0.15)'}; border-radius: 12px; padding: 15px; cursor: pointer; transition: all 0.2s ease; border-left: 4px solid ${isSuggested ? '#FF7A00' : (isDebrid ? '#FF7A00' : '#2ECC71')}; position: relative; overflow: hidden; text-align:left; margin-bottom:10px;">
                             ${isSuggested ? `<div style="position:absolute; top:-10px; right:-25px; background:#FF7A00; color:white; padding:15px 30px; transform:rotate(45deg); font-size:0.55rem; font-weight:900; letter-spacing:1px; z-index:10; pointer-events:none;">👑 SUGERIDA</div>` : (index === 0 ? `<div style="position:absolute; top:-10px; right:-25px; background:#FF7A00; color:white; padding:15px 30px; transform:rotate(45deg); font-size:0.5rem; font-weight:900; letter-spacing:1px; z-index:10; pointer-events:none;">EL MEJOR</div>` : '')}
+                            ${isPlaying ? `<div style="position:absolute; top:12px; right:12px; background:#2ECC71; color:white; padding:4px 8px; border-radius:6px; font-size:0.55rem; font-weight:900; letter-spacing:1px; z-index:5; box-shadow:0 0 10px rgba(46,204,113,0.4);">● REPRODUCIENDO</div>` : ''}
                             ${crownBtn}
                             <div style="display:flex; flex-direction:column; gap:4px;">
                                 <div style="font-size:0.65rem; font-weight:900; color:${isDebrid ? '#FF7A00' : '#2ECC71'}; text-transform:uppercase; letter-spacing:1px; display:flex; align-items:center; gap:5px; margin-bottom:2px;">
@@ -898,6 +901,7 @@ export const SelvaStream = {
 
     handleExternalStream(stream) {
         console.log("Cargando fuente externa:", stream);
+        this.currentPlayingHash = stream.infoHash || stream.url;
 
         // Mapeo Heurístico (Analytics Local): Recordamos qué proveedor usamos
         localStorage.setItem(`last_source_${this.currentPlayerMovie.id}`, stream.providerName || 'Unknown');

@@ -103,6 +103,7 @@ export const SelvaStream = {
                     <div id="player-notifications" class="player-notifications">
                         <p>¿No carga? Prueba otro servidor o usa uBlock/Brave.</p>
                     </div>
+                    <button id="report-broken-btn" onclick="" style="width:100%; margin-top: 10px; background: rgba(231,76,60,0.15); border: 1px solid rgba(231,76,60,0.3); color: #E74C3C; padding: 8px; border-radius: 8px; font-size: 0.65rem; font-weight: bold; cursor: pointer;">🚨 Reportar Link Caído</button>
                     <div class="sidebar-ad-space">
                         <!-- Espacio para Ads o Info -->
                         <span>🔥 SelvaFlix VIP</span>
@@ -156,6 +157,11 @@ export const SelvaStream = {
             }
         });
 
+        document.getElementById('report-broken-btn')?.addEventListener('click', () => {
+            if (window.reportBrokenLink && this.currentPlayerMovie) {
+                window.reportBrokenLink(this.currentPlayerMovie.id, this.currentPlayerMovie.title);
+            }
+        });
         if (!document.getElementById('selva-player-css')) {
             const style = document.createElement('style');
             style.id = 'selva-player-css';

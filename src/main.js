@@ -628,6 +628,47 @@ window.loadMetrics = async () => {
             `;
     }).join('');
 
+    // 🚨 Links Reportados como Caídos (por usuarios)
+    const reportsContainer = document.getElementById('metrics-reports-list') || (() => {
+      const div = document.createElement('div');
+      div.id = 'metrics-reports-list';
+      div.style = 'margin-top: 20px;';
+      deviceChart?.parentElement?.after(div);
+      return div;
+    })();
+
+    try {
+      const reportsQ = query(collection(db, "link_reports"), orderBy("reportedAt", "desc"), limit(20));
+      const reportsSnap = await getDocs(reportsQ);
+      const reports = [];
+      reportsSnap.forEach(d => reports.push({ id: d.id, ...d.data() }));
+
+      if (reports.length > 0) {
+        const pending = reports.filter(r => r.status !== 'resolved');
+        reportsContainer.innerHTML = `
+          <h4 style="color: #E74C3C; margin-bottom: 10px;">🚨 Links Reportados como Caídos (${pending.length} pendientes)</h4>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            ${reports.map(r => `
+              <div style="background: ${r.status === 'resolved' ? 'rgba(46,204,113,0.1)' : 'rgba(231,76,60,0.1)'}; border: 1px solid ${r.status === 'resolved' ? '#2ECC71' : '#E74C3C'}; border-radius: 8px; padding: 10px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <div>
+                  <p style="font-weight: bold; font-size: 0.8rem; margin: 0;">${r.movieTitle || 'Sin título'}</p>
+                  <p style="font-size: 0.65rem; color: var(--text-muted); margin: 2px 0;">Reportado: ${new Date(r.reportedAt).toLocaleString()} • ${r.status === 'resolved' ? '✅ Resuelto' : '⏳ Pendiente'}</p>
+                </div>
+                <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                  <button onclick="window.openPlayer('${r.movieId}')" style="background: rgba(255,255,255,0.1); border: none; color: white; padding: 4px 10px; border-radius: 6px; font-size: 0.65rem; cursor: pointer;">▶ Probar</button>
+                  ${r.status !== 'resolved' ? `<button onclick="window.resolveReport('${r.id}')" style="background: #2ECC71; border: none; color: black; padding: 4px 10px; border-radius: 6px; font-size: 0.65rem; cursor: pointer; font-weight: bold;">✓ Resolver</button>` : ''}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      } else {
+        reportsContainer.innerHTML = '<p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 15px;">✅ Sin reportes de links caídos. ¡La selva está sana! 🌴</p>';
+      }
+    } catch (e) {
+      reportsContainer.innerHTML = '<p style="color: var(--text-muted); font-size: 0.7rem;">No se pudo cargar la colección de reportes (puede que aún no exista).</p>';
+    }
+
   } catch (err) {
     console.error("Error loading metrics:", err);
     if (log) {
@@ -635,7 +676,7 @@ window.loadMetrics = async () => {
             <div style="text-align:center; padding: 20px;">
                 <p style="color: #E74C3C; font-weight:bold;">¡Fallo la conexión con las métricas! 🐒</p>
                 <p style="font-size:0.7rem; color:var(--text-muted); margin-top:5px;">Error: ${err.message}</p>
-                <p style="font-size:0.6rem; color:#444; margin-top:10px;">Nota: Si es la primera vez, Firebase puede tardar 1-2 minutos en generar el índice de búsqueda.</p>
+                <p style="font-size:0.65rem; color:#666; margin-top:10px;">💡 Si es la primera vez, necesitas crear un índice en Firebase Console:<br>Colección "user_activity" → campo "timestamp" descendente.</p>
                 <button class="btn btn-secondary" style="margin-top:15px; padding:6px 15px; font-size:0.7rem;" onclick="window.loadMetrics()">Reintentar 🔄</button>
             </div>
         `;
@@ -647,6 +688,30 @@ window.markAsBroken = (id) => {
   if (!window._brokenIds.has(id)) {
     window._brokenIds.add(id);
   }
+};
+
+// Sistema de Reporte de Links Caidos (por usuarios)
+window.reportBrokenLink = async (movieId, movieTitle) => {
+  try {
+    const reportsCol = collection(db, "link_reports");
+    await addDoc(reportsCol, {
+      movieId,
+      movieTitle,
+      reportedAt: Date.now(),
+      userAgent: navigator.userAgent.substring(0, 100),
+      status: 'pending'
+    });
+    alert('¡Gracias por reportar! Lo revisaremos pronto 🌴');
+  } catch (e) {
+    console.error('Error guardando reporte:', e);
+  }
+};
+
+window.resolveReport = async (reportId) => {
+  try {
+    await updateDoc(doc(db, "link_reports", reportId), { status: 'resolved', resolvedAt: Date.now() });
+    window.loadMetrics(); // refresca
+  } catch (e) { console.error(e); }
 };
 
 window.filterInventoryByCategory = () => {
@@ -1758,6 +1823,21 @@ window.autoSuggestLogo = async () => {
 document.addEventListener('DOMContentLoaded', () => {
   // Nota: handleRouting se dispara automáticamente cuando loadSelvaFlixData termina de cargar
   window.addEventListener('hashchange', handleRouting);
+
+  // 🔍 Buscador Global - el listener que faltaba!
+  const globalSearch = document.getElementById('global-search');
+  if (globalSearch) {
+    globalSearch.addEventListener('input', (e) => {
+      handleGlobalSearch(e.target.value.trim());
+    });
+    globalSearch.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        globalSearch.value = '';
+        handleGlobalSearch('');
+        globalSearch.blur();
+      }
+    });
+  }
 
   const btnDiscoverMovies = document.getElementById('btn-discover-movies');
   const btnDiscoverSeries = document.getElementById('btn-discover-series');

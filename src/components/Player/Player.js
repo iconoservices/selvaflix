@@ -950,41 +950,66 @@ export const SelvaStream = {
                     if (notif) notif.innerHTML = '<p style="color: #E74C3C;">⚠️ Esta fuente no cumple el estándar de seguridad de SelvaFlix (Anti-Anuncios).</p>';
                 }
         } else if (stream.infoHash) {
-            // FASE 3: Motor VIP 🚀 (Debrid API directa o Local P2P)
+            // FASE 3: Motor VIP 🚀 
             iframe.style.display = 'none';
             iframe.src = '';
-            
-            // 💡 MOSTRAR CARGADOR Y CAMBIAR TEXTO A MODO "HACKING" 
-            loader.style.display = 'flex'; 
-            const loaderText = loader.querySelector('.loader-text');
-            if (loaderText) loaderText.innerText = 'Desencriptando Bóveda VIP... 🌴';
 
             const nativeContainer = document.getElementById('native-player-container');
             const extBtn2 = document.getElementById('external-player-btn');
-            nativeContainer.style.display = 'block';
-            statusDiv.style.display = 'none'; // Ya mostramos el loader, ocultamos el status
+            nativeContainer.style.display = 'none';
+            statusDiv.style.display = 'none';
             if (extBtn2) extBtn2.style.display = 'none';
 
-            // Clean Native Player
+            // Limpiar player
             nativePlayer.pause();
             nativePlayer.removeAttribute('src');
             nativePlayer.load();
 
+            // 🌴 ANIMACION DE CARGA CON FRASES ROTATIVAS
+            loader.style.display = 'flex';
+            const loaderLogo = loader.querySelector('.loader-logo');
+            const loaderTextEl = loader.querySelector('.loader-text');
+            if (loaderLogo) loaderLogo.innerText = '🌴';
+            
+            const frases = [
+                'Buscando en la selva profunda...',
+                'Negociando con el caiman VIP...',
+                'Decodificando señal satelital...',
+                'Convenciendo al piraña...',
+                'Abriendo la bóveda de Cloudflare...',
+                'Casi listo, preparando la pantalla...',
+            ];
+            let fraseIdx = 0;
+            if (loaderTextEl) loaderTextEl.innerText = frases[0];
+            const fraseInterval = setInterval(() => {
+                fraseIdx = (fraseIdx + 1) % frases.length;
+                if (loaderTextEl) loaderTextEl.innerText = frases[fraseIdx];
+            }, 2000);
+
             this.callMasterWorker(stream.infoHash).then(result => {
+                clearInterval(fraseInterval); // Detener animación
+                if (loaderLogo) loaderLogo.innerText = 'SELVAFLIX';
+
                 if (result && result.url) {
                     console.log("🚀 URL Liberada:", result.url);
                     
-                    // Ocultar overlays
+                    // Ocultar loader y start screen
                     if (startScreen) startScreen.style.display = 'none';
-                    if (loader) loader.style.display = 'none';
-                    statusDiv.style.display = 'none';
+                    loader.style.display = 'none';
 
-                    // Mostrar reproductor y asignar URL
-                    nativePlayer.style.display = 'block';
+                    // Mostrar reproductor con URL lista
                     nativePlayer.src = result.url;
+                    nativePlayer.style.display = 'block';
+                    nativeContainer.style.display = 'block';
 
-                    // Intentar play. Si el navegador lo bloquea, el usuario toca ▶ en el video.
-                    nativePlayer.play().catch(() => {});
+                    // ✅ SIN AUTOPLAY: mostrar instrucción clara al usuario
+                    const notif = document.getElementById('player-notifications');
+                    if (notif) notif.innerHTML = `
+                        <div style="background: rgba(46,204,113,0.15); border: 1px solid #2ecc71; border-radius: 10px; padding: 10px; text-align:center;">
+                            <div style="font-size: 1.5rem;">▶️</div>
+                            <p style="color:#2ecc71; font-weight:bold; margin:4px 0;">¡Película lista!</p>
+                            <p style="color:#ccc; font-size:0.75rem;">Toca el video de arriba para empezar.</p>
+                        </div>`;
 
                     // Botón VLC de respaldo
                     const isAndroid = /Android/i.test(navigator.userAgent);
@@ -996,13 +1021,25 @@ export const SelvaStream = {
                         extBtnFinal.style.display = 'flex';
                     }
                 } else {
-                    if (loader) loader.style.display = 'none';
+                    // Error: volver al start screen con mensaje claro
+                    loader.style.display = 'none';
                     if (startScreen) startScreen.style.display = 'flex';
-                    const notif = document.getElementById('player-notifications');
-                    if (notif) notif.innerHTML = `<p style="color:#e74c3c;">⚠️ No se pudo obtener la fuente. Elige otra desde "Fuentes VIP".</p>`;
+                    const msgEl = document.getElementById('vip-status-msg');
+                    if (msgEl) msgEl.innerHTML = `
+                        <span style="color:#e74c3c;">⚠️ No se pudo abrir esta fuente.</span><br>
+                        <span style="font-size:0.75rem; color:#aaa;">Toca "Otras Fuentes VIP" y elige otra opción.</span>`;
+                    const startActions = document.getElementById('start-actions');
+                    if (startActions) startActions.style.display = 'block';
                 }
+            }).catch(() => {
+                clearInterval(fraseInterval);
+                loader.style.display = 'none';
+                if (startScreen) startScreen.style.display = 'flex';
+                const msgEl = document.getElementById('vip-status-msg');
+                if (msgEl) msgEl.innerHTML = `<span style="color:#e74c3c;">⚠️ Error de red. Revisa tu conexión e intenta de nuevo.</span>`;
             });
         }
+
     },
 
 

@@ -582,8 +582,8 @@ export const SelvaStream = {
                     const isDebrid = s.name.toLowerCase().includes('[rd+]') || s.name.toLowerCase().includes('debrid') || s.title.toLowerCase().includes('[rd+]');
                     
                     // 🌍 IDIOMAS Y BANDERAS
-                    const isLatino = qRaw.includes('latino') || qRaw.includes('latin') || qRaw.includes('cinecalidad');
-                    const isCastellano = qRaw.includes('castellano') || qRaw.includes('espana') || qRaw.includes('españa');
+                    const isLatino = qRaw.includes('latino') || qRaw.includes('latin') || qRaw.includes('cinecalidad') || qRaw.includes('dual');
+                    const isCastellano = qRaw.includes('castellano') || qRaw.includes('espana') || qRaw.includes('españa') || qRaw.includes('spanish');
                     const isEnglish = qRaw.includes('english') || qRaw.includes('eng') || qRaw.includes('subbed');
                     
                     let langLabel = 'DESCONOCIDO';
@@ -592,10 +592,10 @@ export const SelvaStream = {
                     else if (isEnglish) langLabel = '🇺🇸 INGLES';
 
                     // 📦 FORMATO Y PESO
-                    const formatMatch = s.title.match(/\.(mkv|mp4|m3u8|avi|ts)/i);
+                    const formatMatch = qRaw.match(/\.(mkv|mp4|m3u8|avi|ts)/i);
                     const fileFormat = formatMatch ? formatMatch[1].toUpperCase() : 'VIDEO';
                     
-                    const weightMatch = s.title.match(/\d+(\.\d+)?\s*(GB|MB)/i);
+                    const weightMatch = qRaw.match(/\d+(\.\d+)?\s*(GB|MB)/i);
                     const weight = weightMatch ? weightMatch[0] : '';
 
                     // 🏆 RANKING / RECOMENDACIÓN
@@ -604,7 +604,7 @@ export const SelvaStream = {
                     return `
                         <div class="stream-card-vip" onclick='SelvaStream.toggleVipMenu(); SelvaStream.handleExternalStream(${JSON.stringify(s).replace(/'/g, "&#39;")})' 
                                 style="background: rgba(255,122,0,0.05); border: 1px solid rgba(255,122,0,0.15); border-radius: 12px; padding: 15px; cursor: pointer; transition: all 0.2s ease; border-left: 4px solid ${isDebrid ? '#FF7A00' : '#2ECC71'}; position: relative; overflow: hidden; text-align:left; margin-bottom:10px;">
-                            ${isBest ? '<div style="position:absolute; top: -10px; right: -25px; background: #FF7A00; color: white; padding: 15px 30px; transform: rotate(45deg); font-size: 0.5rem; font-weight: 900; letter-spacing: 1px;">EL MEJOR</div>' : ''}
+                            ${isBest ? '<div style="position:absolute; top: -10px; right: -25px; background: #FF7A00; color: white; padding: 15px 30px; transform: rotate(45deg); font-size: 0.5rem; font-weight: 900; letter-spacing: 1px; z-index:10; pointer-events:none;">EL MEJOR</div>' : ''}
                             
                             <div style="display: flex; flex-direction: column; gap: 4px;">
                                 <div style="font-size: 0.65rem; font-weight: 900; color: ${isDebrid ? '#FF7A00' : '#2ECC71'}; text-transform: uppercase; letter-spacing: 1px; display:flex; align-items:center; gap:5px; margin-bottom:2px;">

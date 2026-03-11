@@ -781,27 +781,35 @@ export const SelvaStream = {
                 }
 
                 // 3. Detección de Idioma
-                const kwLat = ['latino', 'spanish', 'esp', 'español', 'cinecalidad', 'mx', 'pe', 'dual'];
-                const isLat = kwLat.some(k => qRaw.includes(k));
+                // 3. Detección de Idioma (Lista Ampliada)
+                const kwLatino = ['latino', 'spanish', 'esp', 'español', 'castellano', 'cinecalidad', 'mx', 'pe', 'dual'];
+                const isLatino = kwLatino.some(k => qRaw.includes(k));
+                const isMulti = qRaw.includes('multi');
 
-                // 4. Sistema de Puntaje (Score)
+                // 4. Sistema de Puntaje (Score) Agresivo Pro-Móvil
                 let score = 0;
-                // A. Idioma
-                if (isLat) score += 100;
+                
+                // A. Idioma (El Rey Absoluto)
+                if (isLatino) {
+                    score += 150; // Corona
+                } else if (isMulti) {
+                    score += 20; // Fallback
+                }
 
                 // B. VIP / Debrid
                 if (qRaw.includes('[rd+]') || s.providerName === 'T-IO') score += 50;
                 
                 // C. Formato (Premia MP4, castiga dudosas)
-                if (s.detectedFormat === 'MP4' || s.detectedFormat === 'M3U8') score += 15;
-                else if (s.detectedFormat === 'MKV') score += 5;
-                else if (s.detectedFormat === 'VIDEO') score -= 30; // Dudoso
+                if (s.detectedFormat === 'MP4' || s.detectedFormat === 'M3U8') score += 60; // Príncipe Móvil
+                else if (s.detectedFormat === 'MKV') score += 5; // Aceptable pero lento
+                else if (s.detectedFormat === 'VIDEO') score -= 40; // Dudoso / Riesgo sin audio
 
-                // D. Peso (Premia ligeros, castiga obesos)
+                // D. Peso (Premia ligeros, aniquila obesos)
                 if (s.weightGB > 0) {
-                    if (s.weightGB >= 1.5 && s.weightGB <= 4.0) score += 20; // Punto dulce móvil
+                    if (s.weightGB >= 1.5 && s.weightGB <= 4.0) score += 30; // Punto dulce móvil
                     else if (s.weightGB < 1.5) score += 5; // Demasiado ligero, puede ser baja calidad
-                    else if (s.weightGB > 7.0) score -= 30; // Obesidad en iOS
+                    else if (s.weightGB > 8.0) score -= 100; // Obesidad en iOS (Castigo Fatal)
+                    // Entre 4.0 y 8.0 se queda neutral (0 puntos extra)
                 } else {
                     score -= 10; // Si no declara peso
                 }
@@ -809,9 +817,7 @@ export const SelvaStream = {
                 // E. Resolución
                 if (qRaw.includes('1080')) score += 10;
                 else if (qRaw.includes('720')) score += 5;
-                else if (qRaw.includes('2160') || qRaw.includes('4k') || qRaw.includes('uhd')) {
-                    score += (s.weightGB > 5 ? -10 : 5); // 4K pesado se castiga para web
-                }
+                // 4k ya no aporta puntos positivos para web app, consume demasiado.
 
                 s.selvaScore = score;
                 streams.push(s);

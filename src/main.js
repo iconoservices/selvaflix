@@ -225,6 +225,7 @@ function showView(active) {
 function handleRouting() {
   const hash = window.location.hash.replace('#', '');
   if (hash === 'admin') {
+    sessionStorage.setItem('selva_admin_active', '1');
     showView('admin-view');
     renderInventory();
   } else {
@@ -668,6 +669,7 @@ window.filterInventoryByCategory = () => {
     let matchHealth = true;
     if (category === 'broken') matchHealth = window._brokenIds.has(m.id) || !m.img || (m.img && m.img.includes('placeholder'));
     if (category === 'missing') matchHealth = !m.tmdbId || m.tmdbId === "";
+    if (category === 'review') matchHealth = m.status === 'review';
 
     return matchSearch && matchType && matchLang && matchGenre && matchHealth;
   });
@@ -1020,9 +1022,19 @@ window.deleteMovie = async (id) => {
   if (confirm("¿Seguro que quieres eliminar esta joya de la selva? 🥥?")) {
     try {
       await deleteDoc(doc(db, "movies", id));
+      alert("¡Eliminada! 🗑️");
     } catch (e) {
       console.error("Error eliminando pelicula: ", e);
     }
+  }
+};
+
+window.approveMovie = async (id) => {
+  try {
+    await updateDoc(doc(db, "movies", id), { status: 'healthy', updatedAt: Date.now() });
+    alert("¡Aprobada y movida a la selva principal! ✅🌴");
+  } catch (e) {
+    console.error("Error aprobando pelicula: ", e);
   }
 };
 
@@ -1194,6 +1206,8 @@ window.quickSeedContent = async (s, type) => {
     console.warn("No se pudo obtener IMDB ID para siembra rápida.");
   }
 
+  const toReview = document.getElementById('discover-send-to-review')?.checked;
+
   const data = {
     title: s.title || s.name,
     img: TMDB_IMG_URL + s.poster_path,
@@ -1204,7 +1218,7 @@ window.quickSeedContent = async (s, type) => {
     rating: s.vote_average?.toFixed(1) || "8.5",
     type: type,
     lang: document.getElementById('discover-lang')?.value || 'es-MX',
-    status: 'healthy',
+    status: toReview ? 'review' : 'healthy',
     createdAt: Date.now()
   };
   await addDoc(moviesCol, data);
@@ -1368,11 +1382,13 @@ window.confirmBatchSeed = async () => {
       console.warn(`No se pudo obtener IMDB ID para ${s.title}`);
     }
 
+    const toReview = document.getElementById('discover-send-to-review')?.checked;
+
     const mData = {
       ...s,
       imdbId: imdbId,
       embed: "",
-      status: 'healthy',
+      status: toReview ? 'review' : 'healthy',
       createdAt: Date.now()
     };
     try {

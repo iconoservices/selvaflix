@@ -46,6 +46,8 @@ export const SelvaStream = {
 
         modal.innerHTML = `
             <div id="close-player" class="player-close">&times;</div>
+            <button id="admin-delete-player-btn" style="display:none; position:absolute; top:20px; left:20px; background:#e74c3c; color:white; border:none; padding:8px 15px; border-radius:8px; z-index:9999; cursor:pointer; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.5); align-items:center; gap:5px; font-size: 11px;">🗑️ Ocultar/Borrar</button>
+            <button id="admin-approve-player-btn" style="display:none; position:absolute; top:20px; left:160px; background:#2ecc71; color:black; border:none; padding:8px 15px; border-radius:8px; z-index:9999; cursor:pointer; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.5); align-items:center; gap:5px; font-size: 11px;">✅ Aprobar a la Selva</button>
             <div class="video-layout">
                 <div class="video-container">
                     <div id="player-loader" class="loader-overlay">
@@ -132,6 +134,22 @@ export const SelvaStream = {
             const id = this.currentPlayerMovie.imdbId || this.currentPlayerMovie.tmdbId;
             const type = this.currentPlayerMovie.type === 'series' ? 'series' : 'movie';
             this.loadDebridAuto(id, type);
+        });
+
+        document.getElementById('admin-delete-player-btn')?.addEventListener('click', () => {
+            if (window.deleteMovie && this.currentPlayerMovie) {
+                window.deleteMovie(this.currentPlayerMovie.id);
+                this.close();
+            }
+        });
+
+        document.getElementById('admin-approve-player-btn')?.addEventListener('click', () => {
+            if (window.approveMovie && this.currentPlayerMovie) {
+                window.approveMovie(this.currentPlayerMovie.id);
+                // Update local state temporarily to hide the button
+                this.currentPlayerMovie.status = 'healthy';
+                document.getElementById('admin-approve-player-btn').style.display = 'none';
+            }
         });
 
         if (!document.getElementById('selva-player-css')) {
@@ -316,6 +334,14 @@ export const SelvaStream = {
         const modal = document.getElementById('player-modal');
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
+
+        // Check if Admin
+        const isAdmin = sessionStorage.getItem('selva_admin_active');
+        const adminDelBtn = document.getElementById('admin-delete-player-btn');
+        const adminAppBtn = document.getElementById('admin-approve-player-btn');
+        
+        if (adminDelBtn) adminDelBtn.style.display = isAdmin ? 'flex' : 'none';
+        if (adminAppBtn) adminAppBtn.style.display = (isAdmin && movie.status === 'review') ? 'flex' : 'none';
 
         // Reset elements
         const iframe = document.getElementById('player-iframe');

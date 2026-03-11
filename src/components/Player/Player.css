@@ -26,6 +26,11 @@
     .player-modal {
         padding: 10px 0;
     }
+    
+    .video-container {
+        aspect-ratio: 4 / 3 !important; /* Más altura para el texto y poster en celular */
+        border-radius: 12px;
+    }
 }
 
 .video-layout {
@@ -233,37 +238,52 @@
 
 @media (max-width: 768px) {
     .start-content {
-        flex-direction: row; /* Horizontal como pidió el usuario */
+        flex-direction: row; 
         text-align: left;
-        padding: 15px;
-        gap: 15px;
-        max-width: 95%;
+        padding: 10px;
+        gap: 10px;
+        max-width: 98%;
         align-items: flex-start;
     }
     
     .start-info {
         text-align: left;
         align-items: flex-start;
+        gap: 6px;
     }
     
     .start-poster-container {
-        width: 100px;
-        min-width: 100px;
+        width: 80px;
+        min-width: 80px;
     }
     
     .start-info h2 {
-        font-size: 1.1rem;
-        margin-bottom: 5px;
+        font-size: 1rem;
+        margin-bottom: 2px;
+    }
+
+    .start-meta {
+        gap: 8px;
+    }
+    .start-meta-badge {
+        padding: 2px 6px;
+        font-size: 0.7rem;
     }
     
     .start-overview {
         -webkit-line-clamp: 2;
         line-clamp: 2;
-        font-size: 0.75rem;
+        font-size: 0.70rem;
     }
 
     .start-subtitle {
-        font-size: 0.8rem;
+        font-size: 0.75rem;
+        margin-top: 5px;
+    }
+
+    .play-btn-premium {
+        padding: 10px 20px !important;
+        font-size: 0.75rem !important;
     }
 }
 

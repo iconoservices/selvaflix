@@ -1096,15 +1096,19 @@ function startPlayer(movie) {
 }
 
 // 👑 EL DEDO DE DIOS: Fijar fuente VIP principal
-window.promoteVipSource = async (movieId, hash, title) => {
-  console.log("👑 DEDO DE DIOS: Solicitud de promoción para:", { movieId, title, hash });
+window.selvaExecuteCrownPromotion = async (movieId, hash) => {
+  console.log("👑 DEDO DE DIOS (v2.17): Solicitud de promoción para:", { movieId, hash });
   
   if (!movieId || movieId === 'undefined') {
     alert("❌ Error: No se pudo identificar la película (ID faltante).");
     return;
   }
 
-  if (!confirm(`¿Quieres fijar "${title}" como la fuente principal para todos los usuarios? 👑`)) return;
+  // Obtener el título de la película de la base de datos local
+  const movie = movieDatabase.trending.find(m => m.id === movieId);
+  const movieTitle = movie ? movie.title : "esta fuente";
+
+  if (!confirm(`¿Quieres fijar este servidor como el principal para: "${movieTitle}"? 👑`)) return;
   
   try {
     await updateDoc(doc(db, "movies", movieId), { 

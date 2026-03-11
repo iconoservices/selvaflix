@@ -602,9 +602,9 @@ export const SelvaStream = {
                     const safeTitle = (s.title || '').replace(/'/g, "").replace(/"/g, ""); // Limpieza total para el confirm
                     const crownBtn = isAdmin ? `
                         <button class="crown-btn" 
-                                onclick="console.log('👑 Click Corona Detectado'); event.stopPropagation(); window.promoteVipSource('${movieRef.id}', '${s.infoHash}', '${safeTitle}')" 
-                                style="position:absolute; bottom:10px; right:12px; background:rgba(255,122,0,0.1); border:1.5px solid #FF7A00; color:#FF7A00; border-radius:50%; width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:1000; font-size:1.1rem; box-shadow:0 2px 10px rgba(0,0,0,0.3); transition: transform 0.2s;" 
-                                onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'"
+                                onclick="console.log('👑 Click Corona v2.17'); event.stopPropagation(); window.selvaExecuteCrownPromotion('${movieRef.id}', '${s.infoHash}')" 
+                                style="position:absolute; bottom:12px; left:12px; background:rgba(0,0,0,0.6); border:1.5px solid #FF7A00; color:#FF7A00; border-radius:50%; width:38px; height:38px; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:9999; font-size:1.2rem; box-shadow:0 0 15px rgba(255,122,0,0.4); transition: all 0.2s;" 
+                                onmouseover="this.style.transform='scale(1.2)';" onmouseout="this.style.transform='scale(1)';"
                                 title="Coronar esta fuente">
                             👑
                         </button>

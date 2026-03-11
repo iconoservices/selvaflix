@@ -779,7 +779,7 @@ export const SelvaStream = {
             ];
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s para respuesta rápida
+            const timeoutId = setTimeout(() => controller.abort(), 9000); // 9s para conexiones lentas de celular
 
             const responses = await Promise.allSettled(urls.map(u =>
                 fetch(u, { signal: controller.signal }).then(r => r.json())
@@ -833,12 +833,25 @@ export const SelvaStream = {
             this.handleExternalStream(streams[0]);
 
         } catch (e) {
-            console.log("Auto-Debrid falló, abortando auto-play...", e);
-            if (loaderText) loaderText.innerText = 'No se encontró fuente VIP automática.';
+            console.log("Auto-Debrid falló, activando Servidor Clásico de respaldo...", e);
 
-            // Si falla, limpiar el radar y mostrar la ventana de inicio para que elija manualmente
-            const loader = document.getElementById('player-loader');
-            if (loader) loader.style.display = 'none';
+            // ✅ FALLBACK AUTOMÁTICO: Si VIP falla, cargar Servidor 1 directamente sin molestar al usuario
+            const loader2 = document.getElementById('player-loader');
+            if (loader2) loader2.style.display = 'none';
+
+            // Si hay imdbId o tmdbId, fallback silencioso al iframe servidor 1
+            const hasTmdb = !!(this.currentPlayerMovie?.tmdbId);
+            if (hasTmdb) {
+                console.log("🔄 Activando Servidor Clásico de Respaldo (Silencioso)...");
+                // Mostrar notificación discreta
+                const notif = document.getElementById('player-notifications');
+                if (notif) notif.innerHTML = '<p style="color: #F1C40F;">⚡ VIP no disponible, usando Servidor 1. Puedes cambiar abajo.</p>';
+
+                this.updateServer('latino-1');
+                return;
+            }
+
+            // Sin tmdbId: mostrar pantalla de error con opciones
             const ss = document.getElementById('player-start-screen');
             if (ss) ss.style.display = 'flex';
             const btn = document.getElementById('start-play-btn');
@@ -849,8 +862,6 @@ export const SelvaStream = {
                 btn.style.lineHeight = '1.2';
                 btn.onclick = () => { this.fetchExternalStreams(); };
             }
-
-            // Retirado el fallback automático a latino-2 para evitar publicidad indeseada.
         }
     },
 

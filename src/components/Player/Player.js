@@ -215,8 +215,8 @@ export const SelvaStream = {
                 .side-vip-menu {
                     position: absolute; top: 0; right: -300px; width: 300px; height: 100%;
                     background: rgba(10,10,10,0.95); backdrop-filter: blur(20px);
-                    z-index: 300; transition: right 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-                    border-left: 1px solid #333; padding: 20px; overflow-y: auto;
+                    z-index: 10005; transition: right 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                    border-left: 1px solid #333; padding: 85px 20px 20px 20px; overflow-y: auto;
                 }
                 .side-vip-menu.active { right: 0; }
                 .vip-menu-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; color: var(--primary); font-weight: 800; border-bottom: 1px solid #333; padding-bottom: 10px; }

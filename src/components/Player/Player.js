@@ -877,6 +877,12 @@ export const SelvaStream = {
 
         const iframe = document.getElementById('player-iframe');
         const nativePlayer = document.getElementById('native-video-player');
+        
+        // 🛠 TRUCO SELVAFLIX: Forzar el "desbloqueo" del reproductor en móviles 
+        // tocándolo en el hilo exacto del click del usuario.
+        nativePlayer.play().catch(() => {});
+        nativePlayer.pause();
+        
         const statusDiv = document.getElementById('webtorrent-status');
         const loader = document.getElementById('player-loader');
 
@@ -948,8 +954,10 @@ export const SelvaStream = {
             iframe.style.display = 'none';
             iframe.src = '';
             
-            // 💡 MOSTRAR CARGADOR MIENTRAS EL BÚNKER RESUELVE EL LINK
+            // 💡 MOSTRAR CARGADOR Y CAMBIAR TEXTO A MODO "HACKING" 
             loader.style.display = 'flex'; 
+            const loaderText = loader.querySelector('.loader-text');
+            if (loaderText) loaderText.innerText = 'Desencriptando Bóveda VIP... 🌴';
 
             const nativeContainer = document.getElementById('native-player-container');
             const extBtn = document.getElementById('external-player-btn');

@@ -910,14 +910,16 @@ export const SelvaStream = {
                         this.hls = new Hls();
                         this.hls.loadSource(stream.url);
                         this.hls.attachMedia(nativePlayer);
-                        this.hls.on(Hls.Events.MANIFEST_PARSED, () => nativePlayer.play());
+                        this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                            nativePlayer.play().catch(e => console.warn("Auto-play prevented", e));
+                        });
                     } else if (nativePlayer.canPlayType('application/vnd.apple.mpegurl')) {
                         nativePlayer.src = stream.url;
-                        nativePlayer.play();
+                        nativePlayer.play().catch(e => console.warn("Auto-play prevented", e));
                     }
                 } else {
                     nativePlayer.src = stream.url;
-                    nativePlayer.play();
+                    nativePlayer.play().catch(e => console.warn("Auto-play prevented", e));
                 }
 
                 // Si es un source directo, le pasamos la URL al botón externo
@@ -967,15 +969,11 @@ export const SelvaStream = {
                         nativePlayer.src = result.url;
                         nativePlayer.play().catch(e => {
                             console.warn("Auto-play prevented, click manual requerido", e);
-                            // Si falla el auto-play, mostramos de nuevo el Start Screen suave
-                            const loader = document.getElementById('player-loader');
+                            if (startScreen) startScreen.style.display = 'none';
                             if (loader) loader.style.display = 'none';
-                            const btn = document.getElementById('start-play-btn');
-                            if (btn) {
-                                btn.innerText = "▶ INICIAR STREAMING";
-                                const ss = document.getElementById('player-start-screen');
-                                if (ss) ss.style.display = 'flex';
-                            }
+                            
+                            const notif = document.getElementById('player-notifications');
+                            if (notif) notif.innerHTML = '<p style="color: #f39c12;">⚠️ Autoplay bloqueado. Toca el video de arriba para iniciar la película.</p>';
                         });
 
                         // Preparar botón de VLC/Externo

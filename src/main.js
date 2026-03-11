@@ -561,14 +561,44 @@ window.loadMetrics = async () => {
     snap.forEach(doc => data.push(doc.data()));
 
     if (data.length === 0) {
-      log.innerText = "Sin actividad reciente. 🌴";
+      if (log) log.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);"><p style="font-size: 2rem;">🏜️</p><p>Sin actividad registrada todavía.</p><p style="font-size:0.7rem; margin-top:10px;">Los datos aparecerán cuando los usuarios empiecen a usar la app.</p></div>';
       return;
     }
 
-    // Stats basicos
-    totalVisits.innerText = data.length;
+    // 👥 Conteo de Visitantes UNICOS (por visitorId)
+    const uniqueVisitors = new Set(data.filter(d => d.visitorId).map(d => d.visitorId));
+    const totalUniqueEl = document.getElementById('stat-unique-visitors');
+    if (totalUniqueEl) totalUniqueEl.innerText = uniqueVisitors.size;
+
+    // 📊 Stats generales
     const plays = data.filter(d => d.action === 'play_start' || d.action === 'watch_attempt').length;
-    totalPlays.innerText = plays;
+    if (totalVisits) totalVisits.innerText = data.length;
+    if (totalPlays) totalPlays.innerText = plays;
+
+    // 📅 Actividad por Dia (Agrupado)
+    const byDay = {};
+    data.forEach(d => {
+      const day = d.date || new Date(d.timestamp).toISOString().split('T')[0];
+      if (!byDay[day]) byDay[day] = { total: 0, plays: 0, uniqueIds: new Set() };
+      byDay[day].total++;
+      if (d.action === 'play_start' || d.action === 'watch_attempt') byDay[day].plays++;
+      if (d.visitorId) byDay[day].uniqueIds.add(d.visitorId);
+    });
+    const dayChart = document.getElementById('metrics-day-chart');
+    if (dayChart) {
+      const sortedDays = Object.entries(byDay).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 14);
+      dayChart.innerHTML = sortedDays.length === 0 ? '<p style="color:var(--text-muted); font-size:0.7rem;">Sin datos por día</p>' :
+        sortedDays.map(([day, info]) => `
+          <div style="display:flex; align-items:center; gap:8px; font-size:0.7rem; margin-bottom:5px;">
+            <span style="color:var(--text-muted); min-width:80px; flex-shrink:0;">${day}</span>
+            <div style="flex:1; background:rgba(255,255,255,0.05); border-radius:3px; height:16px; position:relative; overflow:hidden;">
+              <div style="position:absolute; height:100%; width:${Math.min((info.total/10)*100, 100)}%; background:#3498DB; opacity:0.7;"></div>
+              <div style="position:absolute; height:100%; width:${Math.min((info.plays/10)*100, 100)}%; background:#F1C40F;"></div>
+            </div>
+            <span style="color:#aaa; min-width:50px; text-align:right;">${info.uniqueIds.size} 👤 / ${info.total} ev.</span>
+          </div>
+        `).join('');
+    }
 
     // Log Reciente
     log.innerHTML = data.slice(0, 30).map(d => {
@@ -993,6 +1023,19 @@ window.selectTMDBMovie = async (index) => {
   alert(`Cosechada info de: ${title} 🥥🍹`);
 };
 
+// --- SISTEMA DE VISITANTE UNICO (UUID Anonimo) ---
+// Cada persona recibe un ID secreto que vive en su celular para siempre.
+// Nadie sabe quién eres, pero podemos contar que eres una persona única.
+function getVisitorId() {
+  let id = localStorage.getItem('selva_visitor_id');
+  if (!id) {
+    // Genera un ID aleatorio único tipo: "sf_1a2b3c4d-..."
+    id = 'sf_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
+    localStorage.setItem('selva_visitor_id', id);
+  }
+  return id;
+}
+
 // --- DATA & ADS SYSTEM ---
 async function collectUserData(action, details = {}) {
   try {
@@ -1001,7 +1044,9 @@ async function collectUserData(action, details = {}) {
       details,
       timestamp: Date.now(),
       platform: navigator.platform,
-      userAgent: navigator.userAgent
+      userAgent: navigator.userAgent.substring(0, 80),
+      visitorId: getVisitorId(),  // 🔑 ID de visitante unico
+      date: new Date().toISOString().split('T')[0]  // '2026-03-11' para agrupar por dia
     };
     await addDoc(collection(db, "user_activity"), userData);
   } catch (e) { console.error("Error tracking:", e); }

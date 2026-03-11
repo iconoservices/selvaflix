@@ -281,7 +281,7 @@ window.handleChannelClick = (url) => {
 
 // Global Search (Filter)
 function handleGlobalSearch(query) {
-  const allMovies = [...movieDatabase.trending];
+  const allMovies = [...movieDatabase.trending].filter(m => m.status !== 'review');
   const filtered = allMovies.filter(m => m.title.toLowerCase().includes(query.toLowerCase()));
 
   const container = document.getElementById('main-content');
@@ -426,10 +426,12 @@ let _inventoryPage = 1;
 const _inventoryPerPage = 50;
 
 function renderInventory() {
+  // Incluir TODOS para admin (incluyendo review), ordenados por fecha
   _allInventoryItems = [...movieDatabase.trending].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   _inventoryPage = 1;
   _updateDetailedStats(_allInventoryItems);
-  _renderInventoryRows(_allInventoryItems);
+  // Por defecto ocultamos los de 'review' en la vista general (filtro all)
+  _renderInventoryRows(_allInventoryItems.filter(m => m.status !== 'review'));
 }
 
 function _updateDetailedStats(items) {
@@ -500,6 +502,7 @@ function _renderInventoryRows(items) {
                 <span style="font-size: 0.6rem; color: var(--text-muted);">${isBroken ? 'Error' : (m.status === 'healthy' ? 'OK' : 'Mant.')}</span>
             </div>
             <div style="display: flex; gap: 6px;">
+                <button onclick="window.openPlayer('${m.id}')" title="Probar/Play" style="background: rgba(46,204,113,0.1); border: 1px solid rgba(46,204,113,0.2); color: #2ecc71; width:22px; height:22px; display:flex; align-items:center; justify-content:center; border-radius: 5px; cursor: pointer; font-size: 0.65rem;">▶</button>
                 <button onclick="window.editMovie('${m.id}')" title="Editar" style="background: rgba(255,255,255,0.08); border: none; color: white; width:22px; height:22px; display:flex; align-items:center; justify-content:center; border-radius: 5px; cursor: pointer; font-size: 0.65rem; border:1px solid rgba(255,255,255,0.1);">✏️</button>
                 <button onclick="window.deleteMovie('${m.id}')" title="Borrar" style="background: rgba(231,76,60,0.1); border: 1px solid rgba(231,76,60,0.2); color: #E74C3C; width:22px; height:22px; display:flex; align-items:center; justify-content:center; border-radius: 5px; cursor: pointer; font-size: 0.65rem;">🗑️</button>
             </div>
@@ -551,8 +554,8 @@ window.loadMetrics = async () => {
   if (log) log.innerText = "Sincronizando con la selva... 📡";
 
   try {
-    const q = query(collection(db, "user_activity"), orderBy("timestamp", "desc"), limit(50));
-    const snap = await getDocs(q);
+    const metricsQuery = query(collection(db, "user_activity"), orderBy("timestamp", "desc"), limit(100));
+    const snap = await getDocs(metricsQuery);
 
     const data = [];
     snap.forEach(doc => data.push(doc.data()));
@@ -670,6 +673,8 @@ window.filterInventoryByCategory = () => {
     if (category === 'broken') matchHealth = window._brokenIds.has(m.id) || !m.img || (m.img && m.img.includes('placeholder'));
     if (category === 'missing') matchHealth = !m.tmdbId || m.tmdbId === "";
     if (category === 'review') matchHealth = m.status === 'review';
+    // En vista 'all', excluir lo que esta en revision
+    if (category === 'all') matchHealth = m.status !== 'review';
 
     return matchSearch && matchType && matchLang && matchGenre && matchHealth;
   });
@@ -1022,7 +1027,11 @@ window.deleteMovie = async (id) => {
   if (confirm("¿Seguro que quieres eliminar esta joya de la selva? 🥥?")) {
     try {
       await deleteDoc(doc(db, "movies", id));
+      sessionStorage.removeItem('selvaflix_full_database');
+      sessionStorage.removeItem('selvaflix_cache_timestamp');
+      movieDatabase.trending = movieDatabase.trending.filter(m => m.id !== id);
       alert("¡Eliminada! 🗑️");
+      if (document.getElementById('admin-view')?.style.display === 'block') renderInventory();
     } catch (e) {
       console.error("Error eliminando pelicula: ", e);
     }
@@ -1032,10 +1041,25 @@ window.deleteMovie = async (id) => {
 window.approveMovie = async (id) => {
   try {
     await updateDoc(doc(db, "movies", id), { status: 'healthy', updatedAt: Date.now() });
+    sessionStorage.removeItem('selvaflix_full_database');
+    sessionStorage.removeItem('selvaflix_cache_timestamp');
+    const movie = movieDatabase.trending.find(m => m.id === id);
+    if (movie) movie.status = 'healthy';
     alert("¡Aprobada y movida a la selva principal! ✅🌴");
+    if (document.getElementById('admin-view')?.style.display === 'block') renderInventory();
   } catch (e) {
     console.error("Error aprobando pelicula: ", e);
   }
+};
+
+window.playNextReview = (currentId) => {
+  const reviewQueue = movieDatabase.trending.filter(m => m.status === 'review');
+  const currentIndex = reviewQueue.findIndex(m => m.id === currentId);
+  if (currentIndex !== -1 && currentIndex + 1 < reviewQueue.length) {
+      window.openPlayer(reviewQueue[currentIndex + 1].id);
+      return true;
+  }
+  return false;
 };
 
 
@@ -1222,6 +1246,8 @@ window.quickSeedContent = async (s, type) => {
     createdAt: Date.now()
   };
   await addDoc(moviesCol, data);
+  sessionStorage.removeItem('selvaflix_full_database');
+  sessionStorage.removeItem('selvaflix_cache_timestamp');
   alert("¡Sembrado con éxito! 🌴");
 };
 
@@ -1403,6 +1429,9 @@ window.confirmBatchSeed = async () => {
     }
   }
 
+  sessionStorage.removeItem('selvaflix_full_database');
+  sessionStorage.removeItem('selvaflix_cache_timestamp');
+
   if (overlay) overlay.style.display = 'none';
   alert(`¡Siembra masiva completada! ${count} elementos añadidos. 🌴🍿`);
   document.getElementById('discover-container').style.display = 'none';
@@ -1495,6 +1524,9 @@ function initApp(filterType = '', genreId = '') {
     if (healthA !== healthB) return healthB - healthA;
     return (b.createdAt || 0) - (a.createdAt || 0);
   });
+
+  // 🔒 Ocultar "En Revisión" del público - solo visibles en el panel Admin
+  allContent = allContent.filter(c => c.status !== 'review');
 
   // Apply genre filter if set (genre stored as array or single string in item.genres)
   if (genreId) {

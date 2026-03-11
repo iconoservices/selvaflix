@@ -46,8 +46,10 @@ export const SelvaStream = {
 
         modal.innerHTML = `
             <div id="close-player" class="player-close">&times;</div>
-            <button id="admin-delete-player-btn" style="display:none; position:absolute; top:20px; left:20px; background:#e74c3c; color:white; border:none; padding:8px 15px; border-radius:8px; z-index:9999; cursor:pointer; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.5); align-items:center; gap:5px; font-size: 11px;">🗑️ Ocultar/Borrar</button>
-            <button id="admin-approve-player-btn" style="display:none; position:absolute; top:20px; left:160px; background:#2ecc71; color:black; border:none; padding:8px 15px; border-radius:8px; z-index:9999; cursor:pointer; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.5); align-items:center; gap:5px; font-size: 11px;">✅ Aprobar a la Selva</button>
+            <div id="admin-player-toolbar" style="display:none; position:absolute; top:65px; left:20px; z-index:9999; gap: 10px; flex-wrap: wrap;">
+                <button id="admin-delete-player-btn" style="background:#e74c3c; color:white; border:none; padding:8px 15px; border-radius:8px; cursor:pointer; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.5); font-size: 11px;">🗑️ Ocultar/Borrar</button>
+                <button id="admin-approve-player-btn" style="display:none; background:#2ecc71; color:black; border:none; padding:8px 15px; border-radius:8px; cursor:pointer; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.5); font-size: 11px;">✅ Aprobar a la Selva</button>
+            </div>
             <div class="video-layout">
                 <div class="video-container">
                     <div id="player-loader" class="loader-overlay">
@@ -138,17 +140,19 @@ export const SelvaStream = {
 
         document.getElementById('admin-delete-player-btn')?.addEventListener('click', () => {
             if (window.deleteMovie && this.currentPlayerMovie) {
-                window.deleteMovie(this.currentPlayerMovie.id);
-                this.close();
+                const id = this.currentPlayerMovie.id;
+                let hasNext = window.playNextReview ? window.playNextReview(id) : false;
+                window.deleteMovie(id);
+                if (!hasNext) this.close();
             }
         });
 
         document.getElementById('admin-approve-player-btn')?.addEventListener('click', () => {
             if (window.approveMovie && this.currentPlayerMovie) {
-                window.approveMovie(this.currentPlayerMovie.id);
-                // Update local state temporarily to hide the button
-                this.currentPlayerMovie.status = 'healthy';
-                document.getElementById('admin-approve-player-btn').style.display = 'none';
+                const id = this.currentPlayerMovie.id;
+                let hasNext = window.playNextReview ? window.playNextReview(id) : false;
+                window.approveMovie(id);
+                if (!hasNext) this.close();
             }
         });
 
@@ -337,11 +341,11 @@ export const SelvaStream = {
 
         // Check if Admin
         const isAdmin = sessionStorage.getItem('selva_admin_active');
-        const adminDelBtn = document.getElementById('admin-delete-player-btn');
+        const adminToolbar = document.getElementById('admin-player-toolbar');
         const adminAppBtn = document.getElementById('admin-approve-player-btn');
         
-        if (adminDelBtn) adminDelBtn.style.display = isAdmin ? 'flex' : 'none';
-        if (adminAppBtn) adminAppBtn.style.display = (isAdmin && movie.status === 'review') ? 'flex' : 'none';
+        if (adminToolbar) adminToolbar.style.display = isAdmin ? 'flex' : 'none';
+        if (adminAppBtn) adminAppBtn.style.display = (isAdmin && movie.status === 'review') ? 'block' : 'none';
 
         // Reset elements
         const iframe = document.getElementById('player-iframe');

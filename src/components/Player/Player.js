@@ -80,6 +80,7 @@ export const SelvaStream = {
                                 <span class="play-icon">▶</span> REPRODUCIR VIP
                             </button>
                             <p class="start-subtitle">Conexión Directa Real-Debrid P2P</p>
+                            <div id="external-streams-list" style="display:none; margin-top: 20px; max-height: 250px; overflow-y: auto; padding: 10px; background: rgba(0,0,0,0.5); border-radius: 10px; border: 1px dashed #444; text-align: left;"></div>
                         </div>
                     </div>
 
@@ -187,17 +188,22 @@ export const SelvaStream = {
                     position: relative; z-index: 10; text-align: center; color: white;
                     animation: fadeIn 0.8s ease-out;
                 }
-                .start-content h2 { font-size: 2.2rem; text-shadow: 0 4px 15px rgba(0,0,0,0.9); margin-bottom: 25px; font-weight: 800; }
+                .start-content h2 { font-size: 1.8rem; text-shadow: 0 4px 15px rgba(0,0,0,0.9); margin-bottom: 20px; font-weight: 800; padding: 0 20px; }
                 .start-play-btn {
+                    margin: 0 auto;
                     background: var(--primary); color: black; border: none;
-                    padding: 18px 50px; border-radius: 60px; font-size: 1.3rem;
-                    font-weight: 900; cursor: pointer; display: flex; align-items: center; gap: 12px;
+                    padding: 15px 40px; border-radius: 60px; font-size: 1.1rem;
+                    font-weight: 900; cursor: pointer; display: flex; align-items: center; gap: 10px;
                     transition: all 0.3s;
-                    box-shadow: 0 10px 30px rgba(255,122,0,0.5);
+                    box-shadow: 0 10px 30px rgba(255,122,0,0.4);
+                }
+                @media (max-width: 600px) {
+                    .start-content h2 { font-size: 1.3rem; }
+                    .start-play-btn { padding: 12px 30px; font-size: 1rem; }
                 }
                 .start-play-btn:hover { transform: scale(1.05); box-shadow: 0 0 50px rgba(255,122,0,0.8); }
-                .play-icon { font-size: 1.5rem; }
-                .start-subtitle { margin-top: 15px; font-size: 0.9rem; opacity: 0.7; letter-spacing: 2px; }
+                .play-icon { font-size: 1.3rem; }
+                .start-subtitle { margin-top: 12px; font-size: 0.75rem; opacity: 0.7; letter-spacing: 1.5px; }
 
                 .guide-sidebar { width: 140px !important; min-width: 140px !important; flex-shrink: 0; font-size: 10px; }
                 .video-container { flex: 1; }
@@ -837,8 +843,10 @@ export const SelvaStream = {
             if (ss) ss.style.display = 'flex';
             const btn = document.getElementById('start-play-btn');
             if (btn) {
-                btn.innerText = "✖ SIN ENLACE VIP (ELIGE SERVIDOR)";
-                // Añadir handler para mostrar opciones de servidores
+                btn.innerHTML = '<span style="color:#e74c3c;">✖ NO HAY FUENTE VIP 🌴</span><br><small style="font-size:10px; opacity:0.8;">Click aquí para buscar manual o usa servidor abajo</small>';
+                btn.style.flexDirection = 'column';
+                btn.style.height = 'auto';
+                btn.style.lineHeight = '1.2';
                 btn.onclick = () => { this.fetchExternalStreams(); };
             }
 

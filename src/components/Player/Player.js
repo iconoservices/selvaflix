@@ -70,16 +70,13 @@ export const SelvaStream = {
                         <div id="wt-progress">Buscando semillas...</div>
                     </div>
 
-                    <!-- Pantalla de Inicio (Fase 4) -->
+                    <!-- Panel de Fuentes VIP (directo, sin botón) -->
                     <div id="player-start-screen" class="player-start-screen" style="display:none;">
                         <div class="start-bg" id="start-bg"></div>
                         <div class="start-content">
                             <h2 id="start-title">CARGANDO...</h2>
-                            <button id="start-play-btn" class="start-play-btn">
-                                <span class="play-icon">▶</span> REPRODUCIR VIP
-                            </button>
-                            <p class="start-subtitle">Conexión Directa Real-Debrid P2P</p>
-                            <div id="external-streams-list" style="display:none; margin-top: 20px; max-height: 250px; overflow-y: auto; padding: 10px; background: rgba(0,0,0,0.5); border-radius: 10px; border: 1px dashed #444; text-align: left;"></div>
+                            <div id="vip-status-msg" class="start-subtitle" style="margin-bottom:12px;">🔍 Buscando fuentes VIP...</div>
+                            <div id="external-streams-list" style="display:none; margin-top: 10px; max-height: 60vh; overflow-y: auto; padding: 10px; background: rgba(0,0,0,0.6); border-radius: 12px; border: 1px solid rgba(255,122,0,0.2); text-align: left; width:100%; box-sizing:border-box;"></div>
                         </div>
                     </div>
 
@@ -127,11 +124,6 @@ export const SelvaStream = {
 
         // Eventos básicos
         document.getElementById('close-player')?.addEventListener('click', () => this.close());
-        document.getElementById('start-play-btn')?.addEventListener('click', () => {
-            const id = this.currentPlayerMovie.imdbId || this.currentPlayerMovie.tmdbId;
-            const type = this.currentPlayerMovie.type === 'series' ? 'series' : 'movie';
-            this.loadDebridAuto(id, type);
-        });
 
         document.getElementById('admin-delete-player-btn')?.addEventListener('click', () => {
             if (window.deleteMovie && this.currentPlayerMovie) {
@@ -388,6 +380,11 @@ export const SelvaStream = {
         if (isSeries && movie.tmdbId) {
             await this.loadSeriesMetadata(movie.tmdbId);
         }
+
+        // ✅ AUTO-SCAN: Al abrir, buscar fuentes VIP inmediatamente sin click extra
+        const id = movie.imdbId || movie.tmdbId;
+        const type = movie.type === 'series' ? 'series' : 'movie';
+        if (id) this.loadDebridAuto(id, type);
     },
 
     async loadSeriesMetadata(tmdbId) {
@@ -543,8 +540,7 @@ export const SelvaStream = {
         ` : '';
 
         root.innerHTML = `
-            <div class="player-controls">
-                <!-- Selector de Temporadas/Episodios (Solo Series) -->
+            <div class="player-controls" style="margin-top: 20px;">
                 ${seasonHtml}
             </div>
         `;
@@ -683,30 +679,21 @@ export const SelvaStream = {
             this.lastScrapedStreams = streams;
             this.renderControls();
 
-            // ✅ SELECCIÓN MANUAL: Desplegamos la lista para que el usuario elija
+            // ✅ LISTA INMEDIATA: Mostrar fuentes directamente sin click
             const loader3 = document.getElementById('player-loader');
             if (loader3) loader3.style.display = 'none';
             const ss2 = document.getElementById('player-start-screen');
             if (ss2) ss2.style.display = 'flex';
-            
-            const btn2 = document.getElementById('start-play-btn');
-            if (btn2) {
-                btn2.innerHTML = '<span class="play-icon">▶</span> SELECCIONAR FUENTE VIP';
-                btn2.onclick = () => { 
-                    const list = document.getElementById('external-streams-list');
-                    if (list) list.style.display = list.style.display === 'none' ? 'block' : 'none';
-                };
-            }
-            
-            // Cargar la lista visualmente
+
+            const msgEl = document.getElementById('vip-status-msg');
+            if (msgEl) msgEl.textContent = `✅ ${streams.length} fuentes VIP encontradas. Elige una:`;
+
+            // Mostrar y poblar la lista inmediatamente
             this.fetchExternalStreams();
         } catch (e) {
             console.error("Motor VIP falló:", e);
-            const btn = document.getElementById('start-play-btn');
-            if (btn) {
-                btn.innerHTML = '<span style="color:#e74c3c;">✖ SE ACABÓ LA COCONA VIP 🌴</span><br><small style="font-size:10px; opacity:0.8;">Click para intentar de nuevo</small>';
-                btn.onclick = () => { this.loadDebridAuto(id, type); };
-            }
+            const msgEl = document.getElementById('vip-status-msg');
+            if (msgEl) msgEl.innerHTML = '<span style="color:#e74c3c;">⚠️ No se encontraron fuentes VIP. <button onclick="SelvaStream.loadDebridAuto()" style="background:var(--primary);color:black;border:none;padding:4px 10px;border-radius:6px;font-weight:bold;cursor:pointer;margin-left:6px;">Reintentar</button></span>';
         }
     },
 
@@ -716,15 +703,13 @@ export const SelvaStream = {
         const container = document.getElementById('external-streams-list');
         if (!container) return;
 
-        container.innerHTML = `<div class="addon-loader">🛰️ Rastreando satélites...</div>`;
+        container.innerHTML = `<div class="addon-loader">🛰️ Rastreando satélites VIP...</div>`;
         container.style.display = 'block';
 
         const id = this.currentPlayerMovie.imdbId || this.currentPlayerMovie.tmdbId;
         const type = this.currentPlayerMovie.type === 'series' ? 'series' : 'movie';
 
         try {
-            // Fase 3: Buscamos links sin Token de RD por ahora para que no devuelva 403 CORS.
-            // Extraeremos la data P2P y después vemos si inyectamos RD localmente.
             const providers = "cinecalidad,mejortorrent,wolfmax4k,yts,eztv,rarbg,1337x,torrent9,limetorrents";
             const tConfig = `providers=${providers}|sort=seeders|qualityfilter=scr,cam`;
 
@@ -734,11 +719,10 @@ export const SelvaStream = {
             ];
 
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 seg max por intentos fallidos
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
 
             const responses = await Promise.allSettled(urls.map(u =>
-                fetch(u, { signal: controller.signal })
-                    .then(r => r.json())
+                fetch(u, { signal: controller.signal }).then(r => r.json())
             ));
 
             clearTimeout(timeoutId);
@@ -752,84 +736,64 @@ export const SelvaStream = {
                 }
             });
 
-            let validStreams = allStreams.filter(s => {
-                const text = (s.title || '').toLowerCase() + ' ' + (s.name || '').toLowerCase();
+            const validStreams = allStreams.filter(s => {
+                const text = ((s.title || '') + ' ' + (s.name || '')).toLowerCase();
                 const url = (s.url || '').toLowerCase();
-                
                 // Excluir streams brasileños/portugueses
                 if (text.includes('dublado') || text.includes('legendado') || text.includes('pt-br')) return false;
-
-                // ✅ FILTRO PREMIUM: Solo infoHash (Debrid) o Videos Directos (.mp4, .m3u8, .mkv, .webm)
-                // Esto elimina todos los iframes ocultos que traen anuncios.
                 const isDirect = url.includes('.m3u8') || url.includes('.mp4') || url.includes('.mkv') || url.includes('.webm') || text.includes('[rd+]');
                 return !!s.infoHash || isDirect;
             });
 
             if (validStreams.length === 0) {
-                container.innerHTML = `<p style="font-size:0.75rem; color:#aaa; text-align:center;">Ningún satélite VIP encontró la señal. 🌴🌵</p>`;
+                container.innerHTML = `<div class="addon-loader" style="color:#e74c3c;">🏝️ No se encontraron tesoros VIP en esta zona...</div>`;
                 return;
             }
 
             const streams = validStreams.sort((a, b) => {
                 const textA = ((a.title || '') + ' ' + (a.name || '')).toLowerCase();
                 const textB = ((b.title || '') + ' ' + (b.name || '')).toLowerCase();
-
-                const keywordsLat = ['latino', 'spanish', 'esp', 'español', 'cinecalidad'];
-                const aLat = keywordsLat.some(k => textA.includes(k));
-                const bLat = keywordsLat.some(k => textB.includes(k));
-
-                // Penalizar si requiere VLC o es multi-idioma para que queden abajo en la lista
-                const keywordsBadAudio = ['ac3', 'eac3', 'dts', 'multi', 'dual'];
-                const aBad = keywordsBadAudio.some(k => textA.includes(k));
-                const bBad = keywordsBadAudio.some(k => textB.includes(k));
-
-                if (aLat && !bLat) return -1;
-                if (!aLat && bLat) return 1;
-
-                if (!aBad && bBad) return -1;
-                if (aBad && !bBad) return 1;
-
-                if (textA.includes('cinecalidad') && !textB.includes('cinecalidad')) return -1;
-                if (!textA.includes('cinecalidad') && textB.includes('cinecalidad')) return 1;
-
-                return b.seeders - a.seeders; // Si ambos empatan, priorizar los de más tamaño o seeders
+                const scoreA = (textA.includes('[rd+]') ? 100 : 0) + (textA.includes('latino') ? 20 : 0);
+                const scoreB = (textB.includes('[rd+]') ? 100 : 0) + (textB.includes('latino') ? 20 : 0);
+                return scoreB - scoreA;
             });
 
             container.innerHTML = `
-                <p style="font-size:0.6rem; color:var(--primary); margin-bottom:10px; font-weight:bold;">📡 RESULTADOS ENCONTRADOS (P2P/DIRECTO):</p>
-                ${streams.map((s, i) => {
-                const titleParts = s.title.split('\n');
-                const title = titleParts[0];
-                const meta = titleParts.slice(1).join(' | ');
-
-                const lowerTitle = title.toLowerCase();
-                const lowerMeta = meta.toLowerCase();
-
-                const keywordsLatino = ['latino', 'spanish', 'esp', 'español'];
-                const isLatino = keywordsLatino.some(k => lowerTitle.includes(k) || lowerMeta.includes(k)) || lowerTitle.includes('cinecalidad');
-                const isCinecalidad = lowerTitle.includes('cinecalidad') || (s.title && s.title.toLowerCase().includes('cinecalidad'));
-                const isDebrid = lowerTitle.includes('[rd+]') || (s.name && s.name.toLowerCase().includes('[rd+]')) || (lowerMeta.includes('[rd+]'));
-                const isMulti = lowerTitle.includes('multi') || lowerTitle.includes('dual') || lowerMeta.includes('multi') || lowerMeta.includes('dual');
-                const isAc3 = lowerTitle.includes('ac3') || lowerTitle.includes('dts') || lowerTitle.includes('eac3') || lowerMeta.includes('ac3') || lowerMeta.includes('dts');
-
-                let badge = isLatino ? '<span style="background:var(--primary); color:black; padding:2px 4px; border-radius:4px; font-size:0.55rem; margin-left:5px;">⭐ LATINO / ESP</span>' : '';
-                if (isCinecalidad) badge += '<span style="background:#00d2ff; color:black; padding:2px 4px; border-radius:4px; font-size:0.55rem; margin-left:5px;">💎 LATINO PURO</span>';
-                if (isDebrid) badge += '<span style="background:#2ecc71; color:black; padding:2px 4px; border-radius:4px; font-size:0.55rem; margin-left:5px;">🚀 DEBRID VIP</span>';
-
-                return `
-                        <div class="stream-item" onclick="SelvaStream.handleExternalStream(${JSON.stringify(s).replace(/"/g, '&quot;')})" style="padding: 10px; margin-bottom: 5px; cursor: pointer; border-radius: 5px; border-left: 4px solid #555; background: rgba(255,255,255,0.05); ${isLatino ? 'border-left-color: var(--primary); background: rgba(255,122,0,0.08);' : ''} ${isDebrid ? 'border-left-color:#2ecc71; background: rgba(46,204,113,0.1);' : ''}">
-                            <div class="stream-name" style="font-size: 0.8rem; font-weight: bold;">${s.providerName || 'Fuente'} ${badge}</div>
-                            <div class="stream-title" style="font-size: 0.9rem; margin-top: 3px;">${title}</div>
-                            <div class="stream-meta" style="font-size: 0.7rem; color: #aaa; margin-top: 3px;">${meta}</div>
-                        </div>
-                    `;
-            }).join('')}
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-top: 10px;">
+                    ${streams.map((s) => {
+                        const qRaw = (s.title + ' ' + s.name).toLowerCase();
+                        const quality = qRaw.includes('4k') || qRaw.includes('uhd') ? '4K UHD' : (qRaw.includes('1080') ? '1080p FHD' : (qRaw.includes('720') ? '720p HD' : 'HD'));
+                        const isDebrid = s.name.toLowerCase().includes('[rd+]') || s.name.toLowerCase().includes('debrid') || s.title.toLowerCase().includes('[rd+]');
+                        const isLatino = qRaw.includes('latino') || qRaw.includes('spanish') || qRaw.includes('cinecalidad');
+                        
+                        return `
+                            <div class="stream-card-vip" onclick='SelvaStream.handleExternalStream(${JSON.stringify(s).replace(/'/g, "&#39;")})' 
+                                 style="background: rgba(255,122,0,0.05); border: 1px solid rgba(255,122,0,0.15); border-radius: 12px; padding: 15px; cursor: pointer; transition: all 0.2s ease; border-left: 4px solid ${isDebrid ? '#FF7A00' : '#2ECC71'}; position: relative; overflow: hidden; text-align:left;">
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    <div style="font-size: 0.65rem; font-weight: 900; color: ${isDebrid ? '#FF7A00' : '#2ECC71'}; text-transform: uppercase; letter-spacing: 1px; display:flex; align-items:center; gap:5px;">
+                                        ${s.providerName || 'PREMIUM'} ${isLatino ? '• LATINO' : ''}
+                                    </div>
+                                    <div style="color: white; font-size: 0.85rem; font-weight: 700; line-height: 1.3; margin: 4px 0;">
+                                        ${s.title.split('\n')[0]}
+                                    </div>
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <span style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-size: 0.6rem; color: #ccc; font-weight:bold;">${quality}</span>
+                                        <span style="font-size: 0.6rem; color: #888;">${s.title.includes('GB') ? s.title.match(/\d+(\.\d+)?\s*GB/)?.[0] || '' : ''}</span>
+                                        ${isDebrid ? '<span style="color:#2ecc71; font-size:0.6rem; font-weight:bold;">⚡ VIP</span>' : ''}
+                                    </div>
+                                </div>
+                                <div style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); opacity: 0.3; font-size: 1.2rem;">▶</div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
             `;
         } catch (e) {
-            console.error('Error fetching external streams', e);
-            container.innerHTML = `<p>Error al conectar con los satélites externos.</p>`;
+            console.error('Error fetching VIP streams', e);
+            container.innerHTML = `<div class="addon-loader" style="color:#e74c3c;">⚠️ Error de conexión. Reintenta en unos segundos.</div>`;
         }
     },
+
 
     handleExternalStream(stream) {
         console.log("Cargando fuente externa:", stream);

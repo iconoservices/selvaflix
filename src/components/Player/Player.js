@@ -74,8 +74,18 @@ export const SelvaStream = {
                     <div id="player-start-screen" class="player-start-screen" style="display:none;">
                         <div class="start-bg" id="start-bg"></div>
                         <div class="start-content">
-                            <h2 id="start-title">CARGANDO...</h2>
-                            <div id="vip-status-msg" class="start-subtitle">🔍 Buscando señales VIP...</div>
+                            <div class="start-poster-container">
+                                <img id="start-poster-img" src="" alt="Poster">
+                            </div>
+                            <div class="start-info">
+                                <h2 id="start-title">CARGANDO...</h2>
+                                <div class="start-meta">
+                                    <span id="start-year" class="start-meta-badge" style="display:none;"></span>
+                                    <span id="start-rating" class="start-meta-badge" style="display:none;"></span>
+                                </div>
+                                <div id="start-overview" class="start-overview"></div>
+                                <div id="vip-status-msg" class="start-subtitle">🔍 Buscando señales VIP...</div>
+                            </div>
                         </div>
                     </div>
 
@@ -378,11 +388,53 @@ export const SelvaStream = {
         // Mostrar Start Screen
         if (startScreen) {
             startScreen.style.display = 'flex';
-            document.getElementById('start-title').innerText = movie.title || movie.name;
+            document.getElementById('start-title').innerText = movie.title || movie.name || 'Cargando...';
             const bg = document.getElementById('start-bg');
-            const poster = movie.poster_path || movie.img || '';
-            const finalImg = poster.startsWith('http') ? poster : `https://image.tmdb.org/t/p/original${poster}`;
-            if (bg) bg.style.backgroundImage = `url(${finalImg})`;
+            
+            const poster = movie.img || movie.poster_path || '';
+            // TMDB URLs: use w500 for poster, original for blurred background
+            let finalImg = poster;
+            if (poster && !poster.startsWith('http')) {
+                finalImg = `https://image.tmdb.org/t/p/w500${poster}`;
+            }
+            const bgImg = poster && !poster.startsWith('http') ? `https://image.tmdb.org/t/p/original${poster}` : finalImg;
+            
+            if (bg) bg.style.backgroundImage = `url(${bgImg})`;
+            
+            const startPoster = document.getElementById('start-poster-img');
+            if (startPoster) {
+                startPoster.src = poster ? finalImg : 'https://via.placeholder.com/500x750?text=SelvaFlix';
+            }
+            
+            const startYear = document.getElementById('start-year');
+            const startRating = document.getElementById('start-rating');
+            const startOverview = document.getElementById('start-overview');
+            
+            if (startYear) {
+                const year = movie.year || (movie.release_date || movie.first_air_date || '').split('-')[0];
+                if (year) {
+                    startYear.innerText = year;
+                    startYear.style.display = 'inline-block';
+                } else {
+                    startYear.style.display = 'none';
+                }
+            }
+            
+            if (startRating) {
+                if (movie.vote_average) {
+                    startRating.innerText = `⭐ ${parseFloat(movie.vote_average).toFixed(1)}`;
+                    startRating.style.display = 'inline-block';
+                } else {
+                    startRating.style.display = 'none';
+                }
+            }
+            
+            if (startOverview) {
+                startOverview.innerText = movie.overview || '';
+            }
+            
+            const msgEl = document.getElementById('vip-status-msg');
+            if (msgEl) msgEl.innerHTML = '🔍 Buscando señales VIP...';
         }
 
         // Si hay link manual de Admin, mostrar badge VIP
@@ -679,11 +731,15 @@ export const SelvaStream = {
             let streams = allStreams.filter(s => {
                 const text = ((s.title || '') + ' ' + (s.name || '')).toLowerCase();
                 // Bloquear idiomas que no queremos que se cuelen
-                if (text.includes('dublado') || text.includes('legendado') || text.includes('português') || text.includes('hindi') || text.includes('tamil')) return false;
-                return true;
+                if (text.includes('dublado') || text.includes('legendado') || text.includes('português') || text.includes('hindi') || text.includes('tamil') || text.includes('pt-br')) return false;
+                
+                // RESTAURAR LA VALIDACIÓN DE SEGURIDAD VIP:
+                const url = (s.url || '').toLowerCase();
+                const isDirect = url.includes('.m3u8') || url.includes('.mp4') || url.includes('.mkv') || url.includes('.webm') || text.includes('[rd+]');
+                return !!s.infoHash || isDirect;
             });
 
-            if (streams.length === 0) throw new Error("No hay semillas");
+            if (streams.length === 0) throw new Error("No hay semillas VIP válidas");
 
             streams.sort((a, b) => {
                 const textA = ((a.title || '') + ' ' + (a.name || '')).toLowerCase();
@@ -697,13 +753,18 @@ export const SelvaStream = {
                 if (aLat && !bLat) return -1;
                 if (!aLat && bLat) return 1;
 
-                // 2. Prioridad: Calidad (1080p > 720p)
-                const a1080 = textA.includes('1080p');
-                const b1080 = textB.includes('1080p');
-                if (a1080 && !b1080) return -1;
-                if (!a1080 && b1080) return 1;
+                // 2. Prioridad: Real-Debrid+ [rd+]
+                const aRd = textA.includes('[rd+]');
+                const bRd = textB.includes('[rd+]');
+                if (aRd && !bRd) return -1;
+                if (!aRd && bRd) return 1;
 
-                // 3. Fallback: Seeders
+                // 3. Prioridad: Calidad (4K > 1080p > 720p)
+                const rankA = textA.includes('4k') || textA.includes('2160p') ? 3 : (textA.includes('1080p') ? 2 : (textA.includes('720p') ? 1 : 0));
+                const rankB = textB.includes('4k') || textB.includes('2160p') ? 3 : (textB.includes('1080p') ? 2 : (textB.includes('720p') ? 1 : 0));
+                if (rankA !== rankB) return rankB - rankA;
+
+                // 4. Fallback: Seeders
                 return (b.seeders || 0) - (a.seeders || 0);
             });
 

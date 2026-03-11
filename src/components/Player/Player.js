@@ -596,9 +596,12 @@ export const SelvaStream = {
 
                     // ⚙️ MODO ADMIN: Botón para coronar fuente
                     const isAdmin = sessionStorage.getItem('selva_admin_active');
-                    const isSuggested = this.currentPlayerMovie.suggestedVipHash && s.infoHash === this.currentPlayerMovie.suggestedVipHash;
+                    const movie = this.currentPlayerMovie || {};
+                    const isSuggested = movie.suggestedVipHash && s.infoHash === movie.suggestedVipHash;
+                    // Escape de comillas para evitar romper el atributo onclick
+                    const safeTitle = (s.title || '').replace(/'/g, "&apos;").replace(/"/g, "&quot;");
                     const crownBtn = isAdmin ? `
-                        <button onclick="event.stopPropagation(); promoteVipSource('${this.currentPlayerMovie.id}', '${s.infoHash}', '${s.title.replace(/'/g, "\\'")}')" 
+                        <button onclick="event.stopPropagation(); promoteVipSource('${movie.id}', '${s.infoHash}', '${safeTitle}')" 
                                 style="position:absolute; bottom:10px; right:10px; background:rgba(255,122,0,0.2); border:1px solid #FF7A00; color:#FF7A00; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:20; font-size:1.2rem;" title="Coronar esta fuente">
                             👑
                         </button>
@@ -607,7 +610,7 @@ export const SelvaStream = {
                     return `
                         <div class="stream-card-vip" onclick='SelvaStream.toggleVipMenu(); SelvaStream.handleExternalStream(${JSON.stringify(s).replace(/'/g, "&#39;")})'  
                                 style="background: ${isSuggested ? 'rgba(255,122,0,0.1)' : 'rgba(255,122,0,0.05)'}; border: 1px solid ${isSuggested ? '#FF7A00' : 'rgba(255,122,0,0.15)'}; border-radius: 12px; padding: 15px; cursor: pointer; transition: all 0.2s ease; border-left: 4px solid ${isSuggested ? '#FF7A00' : (isDebrid ? '#FF7A00' : '#2ECC71')}; position: relative; overflow: hidden; text-align:left; margin-bottom:10px;">
-                            ${isSuggested ? `<div style="position:absolute; top:-10px; right:-25px; background:#FF7A00; color:white; padding:15px 30px; transform:rotate(45deg); font-size:0.5rem; font-weight:900; letter-spacing:1px; z-index:10; pointer-events:none;">SUGERIDA</div>` : (isBest ? `<div style="position:absolute; top:-10px; right:-25px; background:#FF7A00; color:white; padding:15px 30px; transform:rotate(45deg); font-size:0.5rem; font-weight:900; letter-spacing:1px; z-index:10; pointer-events:none;">EL MEJOR</div>` : '')}
+                            ${isSuggested ? `<div style="position:absolute; top:-10px; right:-25px; background:#FF7A00; color:white; padding:15px 30px; transform:rotate(45deg); font-size:0.5rem; font-weight:900; letter-spacing:1px; z-index:10; pointer-events:none;">SUGERIDA</div>` : (index === 0 ? `<div style="position:absolute; top:-10px; right:-25px; background:#FF7A00; color:white; padding:15px 30px; transform:rotate(45deg); font-size:0.5rem; font-weight:900; letter-spacing:1px; z-index:10; pointer-events:none;">EL MEJOR</div>` : '')}
                             ${crownBtn}
                             <div style="display:flex; flex-direction:column; gap:4px;">
                                 <div style="font-size:0.65rem; font-weight:900; color:${isDebrid ? '#FF7A00' : '#2ECC71'}; text-transform:uppercase; letter-spacing:1px; display:flex; align-items:center; gap:5px; margin-bottom:2px;">
@@ -811,7 +814,8 @@ export const SelvaStream = {
                 let score = 0;
                 
                 // 0. EL DEDO DE DIOS: Prioridad Absoluta Manual
-                if (this.currentPlayerMovie.suggestedVipHash && s.infoHash === this.currentPlayerMovie.suggestedVipHash) {
+                const currentMovie = this.currentPlayerMovie || {};
+                if (currentMovie.suggestedVipHash && s.infoHash === currentMovie.suggestedVipHash) {
                     score += 10000; // Insuperable
                 }
 

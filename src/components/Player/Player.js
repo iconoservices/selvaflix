@@ -880,6 +880,12 @@ export const SelvaStream = {
         const statusDiv = document.getElementById('webtorrent-status');
         const loader = document.getElementById('player-loader');
 
+        // Ponemos el póster al reproductor nativo por si el Autoplay es bloqueado, no se vea todo negro
+        const posterImg = document.getElementById('start-poster-img');
+        if (posterImg && posterImg.src) {
+            nativePlayer.setAttribute('poster', posterImg.src);
+        }
+
         // OCULTAR INTERFAZ DE CARGA/INICIO PARA DAR PASO AL VIDEO
         const startScreen = document.getElementById('player-start-screen');
         if (startScreen) startScreen.style.display = 'none';
@@ -941,7 +947,9 @@ export const SelvaStream = {
             // FASE 3: Motor VIP 🚀 (Debrid API directa o Local P2P)
             iframe.style.display = 'none';
             iframe.src = '';
-            loader.style.display = 'none';
+            
+            // 💡 MOSTRAR CARGADOR MIENTRAS EL BÚNKER RESUELVE EL LINK
+            loader.style.display = 'flex'; 
 
             const nativeContainer = document.getElementById('native-player-container');
             const extBtn = document.getElementById('external-player-btn');

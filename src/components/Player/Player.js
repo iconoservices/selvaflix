@@ -594,6 +594,15 @@ export const SelvaStream = {
                     const weightMatch = qRaw.match(/(\d+(\.\d+)?\s*(gb|mb))/i);
                     const weight = s.detectedWeight || (weightMatch ? weightMatch[0].toUpperCase() : '');
 
+                    // 🎞️ CODECS DE VIDEO Y AUDIO
+                    let videoCodecBadge = '';
+                    if (s.detectedVideoCodec === 'H264') videoCodecBadge = `<span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-size:0.55rem; color:#fff; font-weight:700;">H264</span>`;
+                    else if (s.detectedVideoCodec === 'HEVC') videoCodecBadge = `<span style="background:rgba(231,76,60,0.1); padding:2px 6px; border-radius:4px; font-size:0.55rem; color:#e74c3c; font-weight:700;">HEVC</span>`;
+
+                    let audioCodecBadge = '';
+                    if (s.detectedAudioCodec === 'AAC') audioCodecBadge = `<span style="background:rgba(52,152,219,0.1); padding:2px 6px; border-radius:4px; font-size:0.55rem; color:#3498db; font-weight:700;">🎵 AAC</span>`;
+                    else if (s.detectedAudioCodec === 'AC3') audioCodecBadge = `<span style="background:rgba(243,156,18,0.1); padding:2px 6px; border-radius:4px; font-size:0.55rem; color:#f39c12; font-weight:700;">🔇 AC3</span>`;
+
                     // 🏆 RANKING / RECOMENDACIÓN
                     const isBest = index === 0;
 
@@ -611,6 +620,8 @@ export const SelvaStream = {
                                 <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:5px;">
                                     <span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-size:0.55rem; color:#fff; font-weight:900;">${quality}</span>
                                     <span style="background:rgba(46,204,113,0.1); padding:2px 6px; border-radius:4px; font-size:0.55rem; color:#2ecc71; font-weight:700; border:1px solid rgba(46,204,113,0.2);">${fileFormat}</span>
+                                    ${videoCodecBadge}
+                                    ${audioCodecBadge}
                                     ${weight ? `<span style="font-size:0.6rem; color:#bbb; font-weight:500;">⚖️ ${weight}</span>` : ''}
                                     ${isDebrid ? '<span style="color:#FF7A00; font-size:0.55rem; font-weight:900; border:1px solid #FF7A00; padding:1px 4px; border-radius:3px;">REAL-DEBRID</span>' : ''}
                                 </div>
@@ -785,6 +796,17 @@ export const SelvaStream = {
                 const kwLatino = ['latino', 'spanish', 'esp', 'español', 'castellano', 'cinecalidad', 'mx', 'pe', 'dual'];
                 const isLatino = kwLatino.some(k => qRaw.includes(k));
                 const isMulti = qRaw.includes('multi');
+                
+                // La Gran Purga (Falsos MULTI Europeos)
+                const kwEurope = ['french', 'truefrench', 'ita', 'italian', 'ger', 'german', 'rus'];
+                const isEuropean = kwEurope.some(k => qRaw.includes(k));
+
+                // 3.5 Detección de Codecs (Audio y Video)
+                if (qRaw.includes('264') || qRaw.includes('avc')) s.detectedVideoCodec = 'H264';
+                else if (qRaw.includes('265') || qRaw.includes('hevc')) s.detectedVideoCodec = 'HEVC';
+                
+                if (qRaw.includes('aac') || qRaw.includes('mp3')) s.detectedAudioCodec = 'AAC';
+                else if (qRaw.includes('ac3') || qRaw.includes('dts') || qRaw.includes('dd5') || qRaw.includes('truehd')) s.detectedAudioCodec = 'AC3';
 
                 // 4. Sistema de Puntaje (Score) Agresivo Pro-Móvil
                 let score = 0;
@@ -792,6 +814,8 @@ export const SelvaStream = {
                 // A. Idioma (El Rey Absoluto)
                 if (isLatino) {
                     score += 150; // Corona
+                } else if (isEuropean) {
+                    score -= 200; // Purga letal
                 } else if (isMulti) {
                     score += 20; // Fallback
                 }
@@ -799,10 +823,16 @@ export const SelvaStream = {
                 // B. VIP / Debrid
                 if (qRaw.includes('[rd+]') || s.providerName === 'T-IO') score += 50;
                 
-                // C. Formato (Premia MP4, castiga dudosas)
+                // C. Formato y Codecs
                 if (s.detectedFormat === 'MP4' || s.detectedFormat === 'M3U8') score += 60; // Príncipe Móvil
                 else if (s.detectedFormat === 'MKV') score += 5; // Aceptable pero lento
                 else if (s.detectedFormat === 'VIDEO') score -= 40; // Dudoso / Riesgo sin audio
+
+                if (s.detectedVideoCodec === 'H264') score += 15;
+                else if (s.detectedVideoCodec === 'HEVC') score -= 25; // Asesino de baterías
+
+                if (s.detectedAudioCodec === 'AAC') score += 20; // Audio garantizado web
+                else if (s.detectedAudioCodec === 'AC3') score -= 40; // Silencio en web/iOS
 
                 // D. Peso (Premia ligeros, aniquila obesos)
                 if (s.weightGB > 0) {

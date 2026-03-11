@@ -670,20 +670,8 @@ export const SelvaStream = {
 
         if (statusDiv) statusDiv.style.display = 'none';
 
-        const startScreen = document.getElementById('player-start-screen');
         const dynamicSources = document.getElementById('vip-dynamic-container');
-        
-        if (dynamicSources) { 
-            dynamicSources.style.display = 'none';
-            const list = document.getElementById('vip-dynamic-list');
-            if (list) {
-                list.innerHTML = '';
-                list.classList.add('vip-list-collapsed');
-                list.classList.remove('vip-list-expanded');
-            }
-            const btn = document.getElementById('vip-expand-btn');
-            if (btn) btn.textContent = 'VER TODAS ▾';
-        }
+        if (dynamicSources) dynamicSources.style.display = 'none';
 
         if (statusDiv) statusDiv.style.display = 'none';
 
@@ -804,10 +792,10 @@ export const SelvaStream = {
                 // B. VIP / Debrid
                 if (qRaw.includes('[rd+]') || s.providerName === 'T-IO') score += 50;
                 
-                // C. Formato (Premia MP4 seguro, castiga "VIDEO" dudoso y potencialmente sin audio)
-                if (s.detectedFormat === 'MP4' || s.detectedFormat === 'M3U8' || s.detectedFormat === 'WEBM') score += 50; // Super Boost
-                else if (s.detectedFormat === 'MKV') score += 10;
-                else if (s.detectedFormat === 'VIDEO') score -= 1000; // MUY Dudoso, al pozo al menos que no haya nada más
+                // C. Formato (Premia MP4, castiga dudosas)
+                if (s.detectedFormat === 'MP4' || s.detectedFormat === 'M3U8') score += 15;
+                else if (s.detectedFormat === 'MKV') score += 5;
+                else if (s.detectedFormat === 'VIDEO') score -= 30; // Dudoso
 
                 // D. Peso (Premia ligeros, castiga obesos)
                 if (s.weightGB > 0) {
@@ -853,66 +841,6 @@ export const SelvaStream = {
             console.error("Motor VIP falló:", e);
             const msgEl = document.getElementById('vip-status-msg');
             if (msgEl) msgEl.innerHTML = '<span style="color:#e74c3c;">⚠️ No se encontraron fuentes VIP. <button onclick="SelvaStream.loadDebridAuto()" style="background:var(--primary);color:black;border:none;padding:4px 10px;border-radius:6px;font-weight:bold;cursor:pointer;margin-left:6px;">Reintentar</button></span>';
-        }
-    },
-
-    renderDynamicSources(streams) {
-        if (!this.currentPlayerMovie) return;
-
-        const container = document.getElementById('vip-dynamic-list');
-        const mainContainer = document.getElementById('vip-dynamic-container');
-        if (!container || !mainContainer) return;
-
-        mainContainer.style.display = 'block';
-
-        if (!streams || streams.length === 0) {
-            container.innerHTML = `<div class="addon-loader" style="color:#e74c3c; grid-column: 1 / -1;">🏝️ No se encontraron tesoros VIP en esta zona...</div>`;
-            return;
-        }
-
-        container.innerHTML = `
-            ${streams.map((s) => {
-                const qRaw = (s.title + ' ' + s.name).toLowerCase();
-                const quality = qRaw.includes('4k') || qRaw.includes('uhd') ? '4K UHD' : (qRaw.includes('1080') ? '1080p FHD' : (qRaw.includes('720') ? '720p HD' : 'HD'));
-                const isDebrid = s.name.toLowerCase().includes('[rd+]') || s.name.toLowerCase().includes('debrid') || s.title.toLowerCase().includes('[rd+]');
-                const isLatino = qRaw.includes('latino') || qRaw.includes('spanish') || qRaw.includes('cinecalidad');
-                
-                return `
-                    <div class="stream-card-vip" onclick='SelvaStream.handleExternalStream(${JSON.stringify(s).replace(/'/g, "&#39;")})' 
-                            style="background: rgba(255,122,0,0.05); border: 1px solid rgba(255,122,0,0.15); border-radius: 12px; padding: 15px; cursor: pointer; transition: all 0.2s ease; border-left: 4px solid ${isDebrid ? '#FF7A00' : '#2ECC71'}; position: relative; overflow: hidden; text-align:left;">
-                        <div style="display: flex; flex-direction: column; gap: 4px;">
-                            <div style="font-size: 0.65rem; font-weight: 900; color: ${isDebrid ? '#FF7A00' : '#2ECC71'}; text-transform: uppercase; letter-spacing: 1px; display:flex; align-items:center; gap:5px;">
-                                ${s.providerName || 'PREMIUM'} ${isLatino ? '• LATINO' : ''}
-                            </div>
-                            <div style="color: white; font-size: 0.85rem; font-weight: 700; line-height: 1.3; margin: 4px 0;">
-                                ${s.title.split('\n')[0]}
-                            </div>
-                            <div style="display: flex; gap: 8px; align-items: center;">
-                                <span style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; font-size: 0.6rem; color: #ccc; font-weight:bold;">${quality}</span>
-                                <span style="font-size: 0.6rem; color: #888;">${s.title.includes('GB') ? s.title.match(/\d+(\.\d+)?\s*GB/)?.[0] || '' : ''}</span>
-                                ${isDebrid ? '<span style="color:#2ecc71; font-size:0.6rem; font-weight:bold;">⚡ VIP</span>' : ''}
-                            </div>
-                        </div>
-                        <div style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); opacity: 0.3; font-size: 1.2rem;">▶</div>
-                    </div>
-                `;
-            }).join('')}
-        `;
-    },
-
-    toggleExpandSources() {
-        const list = document.getElementById('vip-dynamic-list');
-        const btn = document.getElementById('vip-expand-btn');
-        if (!list || !btn) return;
-
-        if (list.classList.contains('vip-list-collapsed')) {
-            list.classList.remove('vip-list-collapsed');
-            list.classList.add('vip-list-expanded');
-            btn.textContent = 'VER MENOS ▴';
-        } else {
-            list.classList.add('vip-list-collapsed');
-            list.classList.remove('vip-list-expanded');
-            btn.textContent = 'VER TODAS ▾';
         }
     },
 

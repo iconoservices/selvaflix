@@ -9,6 +9,7 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, setDoc, query, orderBy, limit, getDocs } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { getMessaging, getToken, onMessage } from "firebase/messaging"; // 🔔 FCM SDK
+import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "firebase/auth"; // 🔑 Auth SDK
 
 // --- Firebase Configuration ---
 const firebaseConfig = {
@@ -25,6 +26,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const storage = getStorage(app);
 const messaging = getMessaging(app); // Inicializamos el cartero 📬
+const auth = getAuth(app); // 🚪 El guardián de la selva
 const moviesCol = collection(db, "movies");
 
 // --- Service Worker Registration ---
@@ -2305,3 +2307,123 @@ document.addEventListener('DOMContentLoaded', () => {
     if (smartBanner) smartBanner.style.display = 'none';
   });
 });
+
+// --- SISTEMA DE USUARIOS & PERFILES (Fase 6) ---
+let _currentProfile = null;
+const provider = new GoogleAuthProvider();
+
+window.handleUserBtnClick = () => {
+    if (!auth.currentUser) {
+        document.getElementById('auth-modal').style.display = 'flex';
+    } else {
+        window.showProfileSelector();
+    }
+};
+
+window.closeAuthModal = () => {
+    document.getElementById('auth-modal').style.display = 'none';
+};
+
+document.getElementById('btn-google-login')?.addEventListener('click', async () => {
+    try {
+        const result = await signInWithPopup(auth, provider);
+        console.log("✅ Usuario autenticado:", result.user.displayName);
+        window.closeAuthModal();
+    } catch (error) {
+        console.error("❌ Error en Login:", error);
+        alert("No pudimos conectar con la selva. Revisa tu internet.");
+    }
+});
+
+onAuthStateChanged(auth, async (user) => {
+    if (user) {
+        console.log("👤 Sesión activa:", user.email);
+        document.getElementById('user-name').innerText = user.displayName.split(' ')[0];
+        document.getElementById('user-initials').innerText = user.displayName.charAt(0);
+        if (user.photoURL) {
+            const img = document.getElementById('user-avatar-img');
+            img.src = user.photoURL;
+            img.style.display = 'block';
+            document.getElementById('user-initials').style.display = 'none';
+        }
+        
+        // Cargar perfiles
+        await window.loadProfiles(user.uid);
+    } else {
+        console.log("👻 Modo Invitado");
+        document.getElementById('user-name').innerText = "Login";
+        document.getElementById('user-initials').innerText = "G";
+        document.getElementById('user-avatar-img').style.display = 'none';
+        document.getElementById('user-initials').style.display = 'flex';
+    }
+});
+
+window.loadProfiles = async (uid) => {
+    const profilesCol = collection(db, "users", uid, "profiles");
+    const snap = await getDocs(profilesCol);
+    const profiles = [];
+    snap.forEach(d => profiles.push({ id: d.id, ...d.data() }));
+
+    if (profiles.length === 0) {
+        // Crear perfil default si no existe ninguno
+        const defaultProfile = { name: auth.currentUser.displayName.split(' ')[0], avatar: '🌴', isChild: false };
+        const docRef = await addDoc(profilesCol, defaultProfile);
+        profiles.push({ id: docRef.id, ...defaultProfile });
+    }
+
+    window.renderProfiles(profiles);
+    
+    // Si ya hay un perfil en sesión, no mostrar el selector
+    const saved = sessionStorage.getItem('selva_active_profile');
+    if (!saved) {
+        window.showProfileSelector();
+    } else {
+        _currentProfile = JSON.parse(saved);
+        document.getElementById('user-name').innerText = _currentProfile.name;
+    }
+};
+
+window.renderProfiles = (profiles) => {
+    const grid = document.getElementById('profiles-grid');
+    if (!grid) return;
+
+    grid.innerHTML = profiles.map(p => `
+        <div class="profile-item" onclick="window.selectProfile('${p.id}', '${p.name}', '${p.avatar}')" style="cursor:pointer; transition: transform 0.2s;">
+            <div style="width: 120px; height: 120px; background: #333; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 3rem; margin-bottom: 10px; border: 3px solid transparent;" onmouseover="this.style.borderColor='white';" onmouseout="this.style.borderColor='transparent';">
+                ${p.avatar || '🐯'}
+            </div>
+            <p style="color: #888; font-size: 1.1rem; font-weight: 500;">${p.name}</p>
+        </div>
+    `).join('') + `
+        <div class="profile-item" onclick="window.showAddProfile()" style="cursor:pointer;">
+            <div style="width: 120px; height: 120px; background: none; border: 2px dashed #555; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 3rem; margin-bottom: 10px; color: #555;">
+                <span style="font-size: 4rem;">+</span>
+            </div>
+            <p style="color: #555; font-size: 1.1rem;">Añadir</p>
+        </div>
+    `;
+};
+
+window.showProfileSelector = () => {
+    document.getElementById('profile-selector-modal').style.display = 'flex';
+};
+
+window.selectProfile = (id, name, avatar) => {
+    _currentProfile = { id, name, avatar };
+    sessionStorage.setItem('selva_active_profile', JSON.stringify(_currentProfile));
+    document.getElementById('profile-selector-modal').style.display = 'none';
+    document.getElementById('user-name').innerText = name;
+    alert(`🌳 Explorando como: ${name}`);
+};
+
+window.showAddProfile = async () => {
+    const name = prompt("¿Cómo se llama el nuevo explorador? 🐒");
+    if (!name) return;
+    
+    const avatars = ['🦁', '🐯', '🦒', '🐘', '🐊', '🦜', '🦥'];
+    const randomAvatar = avatars[Math.floor(Math.random() * avatars.length)];
+    
+    const profilesCol = collection(db, "users", auth.currentUser.uid, "profiles");
+    await addDoc(profilesCol, { name, avatar: randomAvatar, isChild: false });
+    window.loadProfiles(auth.currentUser.uid);
+};

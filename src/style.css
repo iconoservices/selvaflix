@@ -96,7 +96,6 @@
 
 html,
 body {
-  overflow-x: hidden;
   width: 100%;
   position: relative;
   background-color: var(--bg-deep);
@@ -105,6 +104,8 @@ body {
   min-height: 100vh;
   /* Prevent blue highlight on tap */
   -webkit-tap-highlight-color: transparent;
+  /* overflow-x MUST stay on html/body or it breaks position:sticky on children */
+  overflow-x: clip;
 }
 
 @media (max-width: 768px) {
@@ -323,17 +324,22 @@ h3,
 
   .filter-bar {
     padding: 8px 12px;
-    background: var(--bg-deep);
+    background: rgba(5, 5, 5, 0.92);
     border-bottom: 1px solid var(--glass-border);
     margin-top: 0;
-    position: sticky;
+    position: fixed;
     top: 56px;
-    z-index: 100;
+    z-index: 500;
+    left: 0;
+    right: 0;
   }
 
   #genre-bar.filter-bar {
-    top: 104px;
-    margin-top: 0;
+    top: 98px;
+  }
+
+  #home-view {
+    padding-top: 48px;
   }
 
   .filter-btn {
@@ -556,15 +562,34 @@ h3,
 .filter-bar {
   display: flex;
   gap: 10px;
-  padding: 16px 5% 6px;
+  padding: 10px 5%;
   overflow-x: auto;
   scrollbar-width: none;
-  position: sticky;
-  top: 80px;
-  background: var(--bg-deep);
-  z-index: 100;
+  /* position:fixed = siempre visible sin importar el overflow del DOM */
+  position: fixed;
+  top: 60px;
+  left: 0;
+  right: 0;
+  background: rgba(5, 5, 5, 0.92);
+  backdrop-filter: blur(12px);
+  z-index: 500;
   border-bottom: 1px solid var(--glass-border);
 }
+
+/* Compensar la barra fija en el contenido de abajo */
+#home-view {
+  padding-top: 50px;
+}
+
+#genre-bar.filter-bar {
+  top: 100px; /* Debajo del filter-bar principal */
+}
+
+/* Compensar cuando genre-bar está visible */
+#home-view.genre-visible {
+  padding-top: 90px;
+}
+
 
 .filter-bar::-webkit-scrollbar {
   display: none;

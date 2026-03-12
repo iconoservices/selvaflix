@@ -162,11 +162,24 @@
     <!-- Modal de Selección de Perfiles (Estilo Netflix) -->
     <div id="profile-selector-modal" class="modal-overlay" style="display: none; z-index: 20005; background: #000;">
         <div style="text-align: center; width: 100%;">
-            <h1 style="color: white; font-size: 2.5rem; font-weight: 800; margin-bottom: 40px; letter-spacing: 2px;">¿QUIÉN ESTÁ VIENDO?</h1>
+            <h1 id="profile-selector-title" style="color: white; font-size: 2.5rem; font-weight: 800; margin-bottom: 40px; letter-spacing: 2px;">¿QUIÉN ESTÁ VIENDO?</h1>
             <div id="profiles-grid" style="display: flex; gap: 30px; justify-content: center; flex-wrap: wrap; padding: 20px;">
                 <!-- Perfiles se inyectan aquí -->
             </div>
-            <button onclick="window.showAddProfile()" style="margin-top: 50px; background: none; border: 1px solid #555; color: #555; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; letter-spacing: 2px; transition: all 0.3s;" onmouseover="this.style.borderColor='white'; this.style.color='white';">ADMINISTRAR PERFILES</button>
+            <div style="display: flex; gap: 20px; justify-content: center; margin-top: 50px;">
+                <button id="btn-manage-profiles" onclick="window.toggleManageProfiles()" style="background: none; border: 1px solid #555; color: #555; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; letter-spacing: 2px; transition: all 0.3s;" onmouseover="this.style.borderColor='white'; this.style.color='white';">ADMINISTRAR PERFILES</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Selector de Avatar (Pop-up) -->
+    <div id="avatar-selector-modal" class="modal-overlay" style="display: none; z-index: 20010; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px);">
+        <div style="background: #111; padding: 30px; border-radius: 20px; max-width: 500px; width: 90%; text-align: center; border: 1px solid rgba(255,255,255,0.1);">
+            <h2 style="color: white; margin-bottom: 20px;">Elige tu Icono 🐾</h2>
+            <div id="avatar-options-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 30px;">
+                <!-- Iconos inyectados por JS -->
+            </div>
+            <button onclick="document.getElementById('avatar-selector-modal').style.display='none'" class="btn btn-secondary" style="width: 100%;">Cancelar</button>
         </div>
     </div>
 

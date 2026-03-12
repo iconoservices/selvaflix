@@ -2441,18 +2441,51 @@ window.applyProfile = (p) => {
     window.loadContinueWatching(); // 🍿 Cargar historial al cambiar perfil
 };
 
+let _isManagingProfiles = false;
+window.toggleManageProfiles = () => {
+    _isManagingProfiles = !_isManagingProfiles;
+    const btn = document.getElementById('btn-manage-profiles');
+    const title = document.getElementById('profile-selector-title');
+    
+    if (_isManagingProfiles) {
+        btn.innerText = "LISTO";
+        btn.style.background = "white";
+        btn.style.color = "black";
+        title.innerText = "ADMINISTRAR PERFILES";
+    } else {
+        btn.innerText = "ADMINISTRAR PERFILES";
+        btn.style.background = "none";
+        btn.style.color = "#555";
+        title.innerText = "¿QUIÉN ESTÁ VIENDO?";
+    }
+    
+    // Recargar la vista de perfiles para mostrar/ocultar el lápiz de edición
+    window.loadProfiles(auth.currentUser.uid);
+};
+
 window.renderProfiles = (profiles) => {
     const grid = document.getElementById('profiles-grid');
     if (!grid) return;
 
-    grid.innerHTML = profiles.map(p => `
-        <div class="profile-item" onclick="window.selectProfile('${p.id}', '${p.name}', '${p.avatar}')" style="cursor:pointer; transition: transform 0.2s; width: 150px;">
-            <div style="width: 120px; height: 120px; background: #222; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 3.5rem; margin: 0 auto 10px; border: 3px solid transparent; box-shadow: 0 10px 20px rgba(0,0,0,0.3);" onmouseover="this.style.borderColor='white';" onmouseout="this.style.borderColor='transparent';">
-                ${p.avatar || '🐯'}
+    grid.innerHTML = profiles.map(p => {
+        const action = _isManagingProfiles 
+            ? `window.editSpecificProfile('${p.id}', '${p.name}', '${p.avatar}')`
+            : `window.selectProfile('${p.id}', '${p.name}', '${p.avatar}')`;
+            
+        return `
+            <div class="profile-item" onclick="${action}" style="cursor:pointer; transition: transform 0.2s; width: 150px; position: relative;">
+                <div style="width: 120px; height: 120px; background: #222; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 3.5rem; margin: 0 auto 10px; border: 3px solid transparent; box-shadow: 0 10px 20px rgba(0,0,0,0.3); position: relative;" onmouseover="this.style.borderColor='white';" onmouseout="this.style.borderColor='transparent';">
+                    ${p.avatar || '🐯'}
+                    ${_isManagingProfiles ? `
+                        <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                            <span style="font-size: 1.5rem;">✏️</span>
+                        </div>
+                    ` : ''}
+                </div>
+                <p style="color: #eee; font-size: 1.1rem; font-weight: 500;">${p.name}</p>
             </div>
-            <p style="color: #eee; font-size: 1.1rem; font-weight: 500;">${p.name}</p>
-        </div>
-    `).join('') + `
+        `;
+    }).join('') + `
         <div class="profile-item" onclick="window.showAddProfile()" style="cursor:pointer; width: 150px;">
             <div style="width: 120px; height: 120px; background: none; border: 2px dashed #444; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 3rem; margin: 0 auto 10px; color: #444;" onmouseover="this.style.borderColor='#888'; this.style.color='#888';" onmouseout="this.style.borderColor='#444'; this.style.color='#444';">
                 <span style="font-size: 3rem;">+</span>
@@ -2474,16 +2507,62 @@ window.selectProfile = (id, name, avatar) => {
     document.getElementById('profile-selector-modal').style.display = 'none';
 };
 
+window.editSpecificProfile = (id, name, avatar) => {
+    const newName = prompt("Nombre del perfil:", name);
+    if (!newName) return;
+    
+    // Guardar ID temporal para el selector de avatar
+    window._tempProfileToUpdate = { id, name: newName };
+    window.openAvatarPicker();
+};
+
+window.openAvatarPicker = () => {
+    const modal = document.getElementById('avatar-selector-modal');
+    const grid = document.getElementById('avatar-options-grid');
+    const avatars = ['🦁', '🐯', '🦒', '🐘', '🐊', '🦜', '🦥', '🐺', '🦊', '🐻', '🦓', '🐼', '🐨', '🐵', '🐸', '🦉'];
+    
+    grid.innerHTML = avatars.map(a => `
+        <div onclick="window.finalizeProfileUpdate('${a}')" style="font-size: 3rem; cursor: pointer; padding: 10px; border-radius: 10px; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='none'">
+            ${a}
+        </div>
+    `).join('');
+    
+    modal.style.display = 'flex';
+};
+
+window.finalizeProfileUpdate = async (avatar) => {
+    const { id, name } = window._tempProfileToUpdate || {};
+    const uid = auth.currentUser.uid;
+    
+    if (id) {
+        // Actualizar existente
+        const profileRef = doc(db, "users", uid, "profiles", id);
+        await updateDoc(profileRef, { name, avatar });
+    } else {
+        // Crear nuevo
+        const profilesCol = collection(db, "users", uid, "profiles");
+        await addDoc(profilesCol, { name: window._tempNewName, avatar, isChild: false });
+    }
+    
+    document.getElementById('avatar-selector-modal').style.display = 'none';
+    window.loadProfiles(uid);
+    
+    // Si era el perfil actual, actualizar caché local
+    if (_currentProfile && _currentProfile.id === id) {
+        _currentProfile.name = name;
+        _currentProfile.avatar = avatar;
+        sessionStorage.setItem('selva_active_profile', JSON.stringify(_currentProfile));
+        window.applyProfile(_currentProfile);
+    }
+};
+
 window.showAddProfile = async () => {
     const name = prompt("¿Cómo se llama el nuevo explorador? 🐒");
     if (!name) return;
     
-    const avatars = ['🦁', '🐯', '🦒', '🐘', '🐊', '🦜', '🦥', '🐺', '🦊', '🐻', '🦓'];
-    const randomAvatar = avatars[Math.floor(Math.random() * avatars.length)];
-    
-    const profilesCol = collection(db, "users", auth.currentUser.uid, "profiles");
-    await addDoc(profilesCol, { name, avatar: randomAvatar, isChild: false });
-    window.loadProfiles(auth.currentUser.uid);
+    window._tempNewName = name;
+    window._tempProfileToUpdate = null; // Indicamos que es nuevo
+    window.openAvatarPicker();
 };
 
 // --- FASE 2: CONTINUAR VIENDO (Retención) ---

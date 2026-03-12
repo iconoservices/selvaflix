@@ -248,6 +248,10 @@ window.setFilter = (type) => {
 
   history.replaceState(null, '', type ? `#${type}` : '#');
   initApp(type, '');
+  
+  // 🧭 Navegación Fluida: Scroll suave al inicio del contenido para no perderse
+  const filterOffset = document.getElementById('filter-bar')?.offsetTop || 0;
+  window.scrollTo({ top: filterOffset - 80, behavior: 'smooth' });
 };
 
 window.setGenre = (genreId) => {

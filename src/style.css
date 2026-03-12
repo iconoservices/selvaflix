@@ -1706,3 +1706,48 @@ body {
     padding-bottom: 10px;
   }
 }
+
+/* ─── SISTEMA DE USUARIOS & PERFILES ─── */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.4s ease;
+}
+
+.profile-item:hover {
+    transform: scale(1.1);
+}
+
+.profile-item div {
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.auth-card {
+    animation: authPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes authPop {
+    from { transform: scale(0.8); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+#user-profile-btn:hover {
+    background: rgba(255,122,0,0.2) !important;
+    border-color: var(--primary) !important;
+}
+
+/* Scrollbar para el selector de perfiles si hay muchos */
+#profiles-grid::-webkit-scrollbar {
+    display: none;
+}

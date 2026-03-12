@@ -6,7 +6,7 @@ import './components/Player/Player.css'
    Mantiene un ojo en los datos y nos avisa al instante cuando algo cambia en la selva.
 */
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, query, orderBy, limit, getDocs } from "firebase/firestore";
+import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, setDoc, query, orderBy, limit, getDocs } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { getMessaging, getToken, onMessage } from "firebase/messaging"; // 🔔 FCM SDK
 
@@ -42,35 +42,37 @@ if ('serviceWorker' in navigator) {
         Notification.requestPermission().then((permission) => {
           if (permission === 'granted') {
             console.log('🔔 Permiso de notificaciones concedido.');
-            getToken(messaging, { 
-              vapidKey: 'BLqkFCsqZCYKUOauIQND6XOWbiDBPKKebs9kNDBI5YRnhJ6WuOy2b1EUCKlv8xstA-1AkNOobOwPKDT8i34ZSwQ',
-              serviceWorkerRegistration: reg 
-            }).then((currentToken) => {
-              if (currentToken) {
-                console.log('📨 Token FCM Obtenido:', currentToken);
-                // Guardar/Actualizar Token en la base de datos de usuarios anónima
-                const userId = localStorage.getItem('selva_user_id');
-                if (userId) {
-                    updateDoc(doc(db, "users", userId), { 
+            
+            // Retraso intencional para asegurar que SW está bootado
+            setTimeout(() => {
+                getToken(messaging, { 
+                  vapidKey: 'BLqkFCsqZCYKUOauIQND6XOWbiDBPKKebs9kNDBI5YRnhJ6WuOy2b1EUCKlv8xstA-1AkNOobOwPKDT8i34ZSwQ',
+                  serviceWorkerRegistration: reg 
+                }).then((currentToken) => {
+                  if (currentToken) {
+                    console.log('📨 Token FCM Obtenido:', currentToken);
+                    // Guardar/Actualizar Token con setDoc (más robusto)
+                    let userId = localStorage.getItem('selva_user_id');
+                    if (!userId) {
+                        userId = "USR_" + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+                        localStorage.setItem('selva_user_id', userId);
+                    }
+                    
+                    setDoc(doc(db, "users", userId), { 
                         fcmToken: currentToken, 
-                        lastActive: Date.now() 
-                    }).catch(console.error);
-                } else {
-                    const newUserId = "user_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5);
-                    localStorage.setItem('selva_user_id', newUserId);
-                    addDoc(collection(db, "users"), {
-                        id: newUserId,
-                        fcmToken: currentToken,
-                        createdAt: Date.now(),
-                        lastActive: Date.now()
-                    }).catch(console.error);
-                }
-              } else {
-                console.log('No registration token available. Request permission to generate one.');
-              }
-            }).catch((err) => {
-              console.log('❌ Ocurrió un error obteniendo el token. ', err);
-            });
+                        lastActive: Date.now(),
+                        platform: navigator.platform || 'Unknown' 
+                    }, { merge: true }).then(() => {
+                        console.log("✅ Usuario registrado para Push!");
+                    }).catch(err => console.error("Error guardando token en BD", err));
+                    
+                  } else {
+                    console.log('No token available. Request permission to generate one.');
+                  }
+                }).catch((err) => {
+                  console.log('❌ Error obteniendo token FCM. ', err);
+                });
+            }, 1000); // 1s Espera de seguridad
           } else {
             console.log('🔕 Permiso de notificaciones denegado.');
           }
@@ -278,6 +280,18 @@ function showView(active) {
 
 function handleRouting() {
   const hash = window.location.hash.replace('#', '');
+  
+  // 1. Detección de Enlaces Profundos (Deep Links)
+  if (hash.startsWith('play/')) {
+    const movieId = hash.split('play/')[1];
+    if (movieId) {
+      showView('home-view');
+      initApp('', ''); // Carga el home de base
+      window.handleCardClick(movieId); // Abre el player automáticamente
+      return;
+    }
+  }
+
   if (hash === 'admin') {
     sessionStorage.setItem('selva_admin_active', '1');
     showView('admin-view');
@@ -706,6 +720,17 @@ window.loadMetrics = async () => {
                 <td style="font-size: 0.7rem; color: var(--text-muted);">${new Date(info.last).toLocaleDateString()}</td>
             </tr>
         `).join('') || '<tr><td colspan="4" style="text-align:center; padding: 20px;">No hay reproducciones recientes.</td></tr>';
+
+    // FCM Tokens counter
+    try {
+      const usersSnap = await getDocs(collection(db, "users"));
+      let tokenCount = 0;
+      usersSnap.forEach(d => {
+          if (d.data().fcmToken) tokenCount++;
+      });
+      const subsEl = document.getElementById("push-subs-count");
+      if(subsEl) subsEl.innerText = `${tokenCount} dispositivos suscritos.`;
+    } catch (err) { console.error("Error cargando usuarios: ", err); }
 
     // Dispositivos (Chart simple)
     const platforms = {};
@@ -1236,10 +1261,27 @@ window.openPlayer = async (movieId) => {
   startWarningOverlay(movie);
 }
 
-// La lógica de servidores y episodios ahora vive en SelvaStream Engine 🍿
+// --- REPRODUCTOR INTEGRATION ---
+window.closePlayer = () => {
+    const modal = document.getElementById('player-modal');
+    const iframe = document.getElementById('player-iframe');
+    if (modal) modal.style.display = 'none';
+    if (iframe) iframe.src = '';
+    document.body.style.overflow = '';
+    
+    const hash = window.location.hash.replace('#', '');
+    if (hash.startsWith('play/')) {
+        // Al cerrar, volvemos atrás para limpiar la URL
+        history.back();
+    }
+};
+
+// La lógica de servidores y episodios vive en SelvaStream Engine 🍿 (Player.js)
 
 // Exported Actions
-window.handleCardClick = (id) => openPlayer(id);
+window.handleCardClick = (id) => {
+    window.location.hash = `play/${id}`;
+};
 
 window.deleteMovie = async (id) => {
   if (confirm("¿Seguro que quieres eliminar esta joya de la selva? 🥥?")) {

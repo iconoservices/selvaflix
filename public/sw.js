@@ -2,7 +2,7 @@ importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js'
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCABaNkvULmjBatNh0Giih01IDH4sNbt1Q",
+  apiKey: "AIzaSyCABaNkvUlMjBatNh0Giih01IDH4sNbt1Q",
   authDomain: "selvaflix-5d991.firebaseapp.com",
   projectId: "selvaflix-5d991",
   storageBucket: "selvaflix-5d991.firebasestorage.app",

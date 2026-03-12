@@ -13,8 +13,9 @@ import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signO
 
 // --- Firebase Configuration ---
 const firebaseConfig = {
-  apiKey: "AIzaSyCABaNkvULmjBatNh0Giih01IDH4sNbt1Q",
+  apiKey: "AIzaSyCABaNkvUlMjBatNh0Giih01IDH4sNbt1Q",
   authDomain: "selvaflix-5d991.firebaseapp.com",
+  databaseURL: "https://selvaflix-5d991-default-rtdb.firebaseio.com",
   projectId: "selvaflix-5d991",
   storageBucket: "selvaflix-5d991.firebasestorage.app",
   messagingSenderId: "935630160406",

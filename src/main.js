@@ -8,6 +8,7 @@ import './components/Player/Player.css'
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, query, orderBy, limit, getDocs } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { getMessaging, getToken, onMessage } from "firebase/messaging"; // 🔔 FCM SDK
 
 // --- Firebase Configuration ---
 const firebaseConfig = {
@@ -23,6 +24,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const storage = getStorage(app);
+const messaging = getMessaging(app); // Inicializamos el cartero 📬
 const moviesCol = collection(db, "movies");
 
 // --- Service Worker Registration ---
@@ -35,6 +37,53 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js')
       .then(reg => {
         console.log('🌴 Selva PWA: Service Worker Activo');
+
+        // 🔥 FCM: Solicitar permisos al usuario y obtener Token Push
+        Notification.requestPermission().then((permission) => {
+          if (permission === 'granted') {
+            console.log('🔔 Permiso de notificaciones concedido.');
+            getToken(messaging, { 
+              vapidKey: 'BLqkFCsqZCYKUOauIQND6XOWbiDBPKKebs9kNDBI5YRnhJ6WuOy2b1EUCKlv8xstA-1AkNOobOwPKDT8i34ZSwQ',
+              serviceWorkerRegistration: reg 
+            }).then((currentToken) => {
+              if (currentToken) {
+                console.log('📨 Token FCM Obtenido:', currentToken);
+                // Guardar/Actualizar Token en la base de datos de usuarios anónima
+                const userId = localStorage.getItem('selva_user_id');
+                if (userId) {
+                    updateDoc(doc(db, "users", userId), { 
+                        fcmToken: currentToken, 
+                        lastActive: Date.now() 
+                    }).catch(console.error);
+                } else {
+                    const newUserId = "user_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5);
+                    localStorage.setItem('selva_user_id', newUserId);
+                    addDoc(collection(db, "users"), {
+                        id: newUserId,
+                        fcmToken: currentToken,
+                        createdAt: Date.now(),
+                        lastActive: Date.now()
+                    }).catch(console.error);
+                }
+              } else {
+                console.log('No registration token available. Request permission to generate one.');
+              }
+            }).catch((err) => {
+              console.log('❌ Ocurrió un error obteniendo el token. ', err);
+            });
+          } else {
+            console.log('🔕 Permiso de notificaciones denegado.');
+          }
+        });
+
+        // 📬 FCM: Escuchar mensajes en primer plano (Foreground)
+        onMessage(messaging, (payload) => {
+          console.log('[main.js] Mensaje recibido en Foreground ', payload);
+          // Opcional: Mostrar un Toast custom en la UI en vez de la nativa
+          const title = payload.notification?.title || "Nueva alerta";
+          const body = payload.notification?.body || "";
+          alert(`🔔 ${title}\n${body}`);
+        });
 
         // Lógica de Actualización Manual (Botón) - AlDía Style
         reg.addEventListener('updatefound', () => {

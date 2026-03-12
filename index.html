@@ -97,7 +97,7 @@
 
     <main id="home-view">
       <!-- Filter Bar: DENTRO del main y ANTES del hero para que sticky funcione -->
-      <div class="filter-bar" id="filter-bar">
+      <div class="filter-bar" id="filter-bar" style="position:fixed !important; top:60px; left:0; right:0; z-index:500; background:rgba(5,5,5,0.95); backdrop-filter:blur(12px);">
         <button class="filter-btn active" id="filter-all" onclick="window.setFilter('')">🏠 Inicio</button>
         <button class="filter-btn" id="filter-movies" onclick="window.setFilter('movies')">🎬 Películas</button>
         <button class="filter-btn" id="filter-series" onclick="window.setFilter('series')">🏆 Series</button>
@@ -105,7 +105,7 @@
 
       <!-- Genre Sub-filters (shown in movies/series view) -->
       <div class="filter-bar" id="genre-bar"
-        style="display:none; padding-top:4px; padding-bottom:4px; border-top: 1px solid rgba(255,255,255,0.06);">
+        style="position:fixed !important; top:100px; left:0; right:0; z-index:499; display:none; padding-top:4px; padding-bottom:4px; border-top: 1px solid rgba(255,255,255,0.06); background:rgba(5,5,5,0.95); backdrop-filter:blur(12px);">
         <button class="filter-btn active" id="genre-all" onclick="window.setGenre('')">🎞️ Todas</button>
         <button class="filter-btn" onclick="window.setGenre('28')">💥 Acción</button>
         <button class="filter-btn" onclick="window.setGenre('35')">😂 Comedia</button>

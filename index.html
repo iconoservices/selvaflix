@@ -626,39 +626,8 @@
     </div>
   </div>
 
-  <!-- NUCLEAR REFRESH SCRIPT v2.35 -->
-  <script>
-    (async function() {
-        try {
-            const cacheVersion = 'v2.35';
-            const storedVersion = localStorage.getItem('selva_app_version');
-            if (storedVersion !== cacheVersion) {
-                console.log(`🧹 NUCLEAR REFRESH: Actualizando de ${storedVersion || 'nd'} a ${cacheVersion}`);
-                // Limpiar todas las cachés
-                if ('caches' in window) {
-                    const cacheNames = await caches.keys();
-                    await Promise.all(cacheNames.map(name => caches.delete(name)));
-                    console.log('✅ Cachés destruidas');
-                }
-                // Desregistrar Service Workers antiguos
-                if ('serviceWorker' in navigator) {
-                    const registrations = await navigator.serviceWorker.getRegistrations();
-                    for (let registration of registrations) {
-                        await registration.unregister();
-                    }
-                    console.log('✅ Service Workers eliminados');
-                }
-                localStorage.setItem('selva_app_version', cacheVersion);
-                // Forzar recarga desde el servidor (no caché)
-                window.location.reload(true);
-            }
-        } catch (e) {
-            console.error('Error en Limpieza Nuclear:', e);
-        }
-    })();
-  </script>
-
-  <script type="module" src="/src/main.js?v=2.35"></script>
+  <script type="module" src="/src/main.js?v=2.36"></script>
 </body>
 
-</html>
+</html>
+

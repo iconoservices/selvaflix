@@ -96,22 +96,7 @@
 
 
     <main id="home-view">
-      <section class="hero-banners" id="hero-section" style="display: none;"></section>
-
-      <!-- FASE 2: Continuar Viendo Row (Ubicada debajo del Hero) -->
-      <section id="continue-watching-row" style="display: none; padding: 20px; margin-bottom: 20px;">
-        <h2 style="color: white; font-size: 1.2rem; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
-          🍿 Continuar viendo
-        </h2>
-        <div id="continue-watching-grid" style="display: flex; gap: 15px; overflow-x: auto; padding-bottom: 10px; scroll-behavior: smooth;">
-          <!-- Items se inyectan aquí -->
-        </div>
-      </section>
-
-      <!-- FASE 3: Mi Selva Row (Removida a Modal) -->
-      <div id="my-list-row" style="display: none;"></div>
-
-      <!-- Filter Bar -->
+      <!-- Filter Bar: DENTRO del main y ANTES del hero para que sticky funcione -->
       <div class="filter-bar" id="filter-bar">
         <button class="filter-btn active" id="filter-all" onclick="window.setFilter('')">🏠 Inicio</button>
         <button class="filter-btn" id="filter-movies" onclick="window.setFilter('movies')">🎬 Películas</button>
@@ -134,6 +119,22 @@
         <button class="filter-btn" onclick="window.setGenre('10770')">📺 Telenovela</button>
       </div>
 
+      <section class="hero-banners" id="hero-section" style="display: none;"></section>
+
+      <!-- FASE 2: Continuar Viendo Row -->
+      <section id="continue-watching-row" style="display: none; padding: 20px; margin-bottom: 20px;">
+        <h2 style="color: white; font-size: 1.2rem; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+          🍿 Continuar viendo
+        </h2>
+        <div id="continue-watching-grid" style="display: flex; gap: 15px; overflow-x: auto; padding-bottom: 10px; scroll-behavior: smooth;">
+          <!-- Items se inyectan aquí -->
+        </div>
+      </section>
+
+      <!-- FASE 3: Mi Selva Row -->
+      <div id="my-list-row" style="display: none;"></div>
+
+      <!-- Main Content -->
       <div class="content-sections" id="main-content">
         <!-- Rows will be injected here -->
       </div>
@@ -165,8 +166,7 @@
           <p>Sigue estos pasos para llevar la selva a tu inicio:</p>
           <ol>
             <li>Toca el botón <strong>Compartir</strong> ( <span class="ios-icon">↑</span> ) en la barra inferior.</li>
-            <li>Desliza hacia arriba y elige <strong>"Agregar al inicio"</strong> ( <span class="ios-icon">+</span> ).
-            </li>
+            <li>Desliza hacia arriba y elige <strong>"Agregar al inicio"</strong> ( <span class="ios-icon">+</span> ).</li>
             <li>Toca <strong>"Agregar"</strong> y ¡listo! 🍿🌴</li>
           </ol>
         </div>

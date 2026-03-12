@@ -597,18 +597,19 @@ export const SelvaStream = {
                     // ⚙️ MODO ADMIN: Botón para coronar fuente
                     const isAdmin = sessionStorage.getItem('selva_admin_active');
                     const movieRef = this.currentPlayerMovie || {};
-                    const isSuggested = movieRef.suggestedVipHash && s.infoHash === movieRef.suggestedVipHash;
+                    const hashes = movieRef.suggestedVipHashes || (movieRef.suggestedVipHash ? [movieRef.suggestedVipHash] : []);
+                    const isSuggested = hashes.includes(s.infoHash) || hashes.includes(s.url);
                     const isPlaying = this.currentPlayingHash && (s.infoHash === this.currentPlayingHash || s.url === this.currentPlayingHash);
                     
                     // Escape de comillas para evitar romper el atributo onclick
                     const safeTitle = (s.title || '').replace(/'/g, "").replace(/"/g, ""); // Limpieza total para el confirm
                     const crownBtn = isAdmin ? `
                         <button class="crown-btn" 
-                                onclick="console.log('👑 Click Corona v2.17'); event.stopPropagation(); window.selvaExecuteCrownPromotion('${movieRef.id}', '${s.infoHash}')" 
-                                style="position:absolute; bottom:12px; left:12px; background:rgba(0,0,0,0.6); border:1.5px solid #FF7A00; color:#FF7A00; border-radius:50%; width:38px; height:38px; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:9999; font-size:1.2rem; box-shadow:0 0 15px rgba(255,122,0,0.4); transition: all 0.2s;" 
+                                onclick="event.stopPropagation(); window.selvaExecuteCrownPromotion('${movieRef.id}', '${s.infoHash || s.url}')" 
+                                style="position:absolute; bottom:12px; left:12px; background:rgba(0,0,0,0.6); border:1.5px solid ${isSuggested ? '#E74C3C' : '#FF7A00'}; color:#FF7A00; border-radius:50%; width:38px; height:38px; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:9999; font-size:1.2rem; box-shadow:0 0 15px ${isSuggested ? 'rgba(231,76,60,0.4)' : 'rgba(255,122,0,0.4)'}; transition: all 0.2s;" 
                                 onmouseover="this.style.transform='scale(1.2)';" onmouseout="this.style.transform='scale(1)';"
-                                title="Coronar esta fuente">
-                            👑
+                                title="${isSuggested ? 'Quitar Corona' : 'Coronar esta fuente'}">
+                            ${isSuggested ? '🚫' : '👑'}
                         </button>
                     ` : '';
 
@@ -822,7 +823,8 @@ export const SelvaStream = {
                 // 0. EL DEDO DE DIOS: Prioridad Absoluta Manual (Protegida)
                 try {
                    const movieRef = this.currentPlayerMovie || {};
-                   if (movieRef.suggestedVipHash && s.infoHash && s.infoHash === movieRef.suggestedVipHash) {
+                   const hashes = movieRef.suggestedVipHashes || (movieRef.suggestedVipHash ? [movieRef.suggestedVipHash] : []);
+                   if (hashes.includes(s.infoHash) || hashes.includes(s.url)) {
                        score += 10000; // El Rey de la Selva
                    }
                 } catch(err) { /* Silenciar error para no trapar el loop */ }

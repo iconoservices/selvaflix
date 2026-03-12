@@ -1097,30 +1097,52 @@ function startPlayer(movie) {
 
 // 👑 EL DEDO DE DIOS: Fijar fuente VIP principal
 window.selvaExecuteCrownPromotion = async (movieId, hash) => {
-  console.log("👑 DEDO DE DIOS (v2.17): Solicitud de promoción para:", { movieId, hash });
+  console.log("👑 DEDO DE DIOS (v2.18): Solicitud de promoción/toggle para:", { movieId, hash });
   
-  if (!movieId || movieId === 'undefined') {
-    alert("❌ Error: No se pudo identificar la película (ID faltante).");
+  if (!movieId || movieId === 'undefined' || !hash) {
+    alert("❌ Error: No se pudo identificar la película o la fuente.");
     return;
   }
 
   // Obtener el título de la película de la base de datos local
   const movie = movieDatabase.trending.find(m => m.id === movieId);
-  const movieTitle = movie ? movie.title : "esta fuente";
+  if (!movie) return;
+  const movieTitle = movie.title || "esta fuente";
 
-  if (!confirm(`¿Quieres fijar este servidor como el principal para: "${movieTitle}"? 👑`)) return;
+  const currentHashes = movie.suggestedVipHashes || (movie.suggestedVipHash ? [movie.suggestedVipHash] : []);
+  const isCrowned = currentHashes.includes(hash);
+  let newHashes;
+
+  if (isCrowned) {
+      if (!confirm(`¿Quieres QUITARLE la corona a este servidor para: "${movieTitle}"? 🚫👑`)) return;
+      newHashes = currentHashes.filter(h => h !== hash);
+  } else {
+      if (!confirm(`¿Quieres CORONAR este servidor para: "${movieTitle}"? ✨👑\n(Puedes tener múltiples coronas)`)) return;
+      newHashes = [...currentHashes, hash];
+  }
   
   try {
     await updateDoc(doc(db, "movies", movieId), { 
-      suggestedVipHash: hash,
+      suggestedVipHashes: newHashes,
       updatedAt: Date.now() 
     });
+    
+    // Update local cache directly to avoid immediate reload requirement
+    movie.suggestedVipHashes = newHashes;
     sessionStorage.removeItem('selvaflix_full_database');
     sessionStorage.removeItem('selvaflix_cache_timestamp');
-    alert("¡Fuente coronada con éxito! 👑🌴\nRefresca para ver los cambios.");
+    
+    // Re-render the UI smoothly!
+    import('./components/Player/Player.js').then(({ SelvaStream }) => {
+        if (SelvaStream.lastScrapedStreams) {
+            SelvaStream.renderVipMenuList(); 
+        }
+    });
+
+    alert(isCrowned ? "❌ Corona removida con éxito. (Cierra y repite para ordenar)" : "¡Fuente coronada con éxito! 👑🌴");
   } catch (e) {
-    console.error("Error al fijar fuente:", e);
-    alert("No se pudo coronar la fuente. Revisa la consola.");
+    console.error("Error al fijar corona:", e);
+    alert("No se pudo modificar la corona. Revisa la consola.");
   }
 };
 

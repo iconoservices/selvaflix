@@ -1722,53 +1722,82 @@ window.confirmBatchSeed = async () => {
 };
 
 
+// 🎬 HERO CAROUSEL INMERSIVO (Netflix Style)
+let _heroCurrentIndex = 0;
+let _heroPaused = false;
+
 function updateHeroCarousel() {
   if (!heroPool || heroPool.length === 0) return;
-  const section = document.getElementById('hero-section');
-  if (!section) return;
 
-  section.style.display = 'flex';
-  section.style.gap = '15px';
-  section.style.overflowX = 'auto';
-  section.style.padding = '10px 5%';
-  section.style.marginTop = window.innerWidth <= 768 ? '70px' : '90px';
-  section.style.marginBottom = '10px';
-  section.style.scrollbarWidth = 'none';
+  const track = document.getElementById('hero-track');
+  const indicators = document.getElementById('hero-indicators');
+  const heroSection = document.getElementById('hero-section');
+  if (!track) return;
 
-  // Mostrar 3 tarjetas a partir del indice actual (circular)
-  const itemsToShow = [];
-  for (let i = 0; i < 3; i++) {
-    const item = heroPool[(currentHeroIndex + i) % heroPool.length];
-    if (item) itemsToShow.push(item);
-  }
+  // Ocultar el viejo hero-section (ya no lo usamos)
+  if (heroSection) heroSection.style.display = 'none';
 
-  section.innerHTML = itemsToShow.map(item => `
-    <div class="hero-card" onclick="window.openPlayer('${item.id}')" style="flex: 1; min-width: ${window.innerWidth <= 768 ? '260px' : '300px'}; height: ${window.innerWidth <= 768 ? '180px' : '300px'}; background-image: linear-gradient(to top, rgba(0,0,0,0.95), rgba(0,0,0,0.2)), url('${item.img}'); background-size: cover; background-position: center 20%; border-radius: 20px; position: relative; cursor: pointer; border: 1px solid var(--glass-border); transition: transform 0.3s ease; box-shadow: 0 10px 30px rgba(0,0,0,0.6);">
-      <div style="position: absolute; bottom: 15px; left: 15px; right: 15px;">
-        <h2 style="color: white; font-size: ${window.innerWidth <= 768 ? '1.1rem' : '1.6rem'}; margin-bottom: 4px; text-shadow: 0 2px 5px rgba(0,0,0,0.9); font-family: 'Outfit', sans-serif; font-weight: 800; line-height: 1.2;">${item.title}</h2>
-        <p style="color: var(--primary); font-size: 0.75rem; font-weight: bold; text-shadow: 0 1px 3px rgba(0,0,0,0.8);">⭐ ${item.rating || '4.8'} • ${item.year || '2024'}</p>
-        <button class="btn btn-primary" style="margin-top: 8px; padding: 6px 15px; font-size: 0.7rem;">▶ Reproducir</button>
+  // Mostrar el nuevo hero-carousel
+  const carousel = document.getElementById('hero-carousel');
+  if (carousel) carousel.style.display = 'block';
+
+  // Renderizar slides
+  track.innerHTML = heroPool.map((item, i) => `
+    <div class="hero-slide" style="background-image: url('${item.img}');">
+      <div class="hero-slide-content">
+        <h2 class="hero-slide-title">${item.title}</h2>
+        <div class="hero-slide-meta">
+          <span style="color: var(--primary); font-weight: bold;">⭐ ${item.rating || '4.8'}</span>
+          <span>•</span>
+          <span>${item.year || '2024'}</span>
+        </div>
+        <button class="hero-slide-btn" onclick="window.openPlayer('${item.id}')">
+          ▶ Reproducir
+        </button>
       </div>
     </div>
   `).join('');
+
+  // Renderizar dots indicadores
+  if (indicators) {
+    indicators.innerHTML = heroPool.map((_, i) =>
+      `<div class="hero-dot${i === _heroCurrentIndex ? ' active' : ''}" onclick="goToSlide(${i})"></div>`
+    ).join('');
+  }
+
+  // Aplicar posición actual
+  goToSlide(_heroCurrentIndex, false);
+}
+
+function goToSlide(index, animate = true) {
+  const track = document.getElementById('hero-track');
+  const dots = document.querySelectorAll('.hero-dot');
+  if (!track) return;
+
+  _heroCurrentIndex = index;
+  track.style.transition = animate ? 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1)' : 'none';
+  track.style.transform = `translateX(-${index * 100}%)`;
+  dots.forEach((d, i) => d.classList.toggle('active', i === index));
 }
 
 function startHeroAutoRotation() {
   if (heroTimer) clearInterval(heroTimer);
   heroTimer = setInterval(() => {
-    if (heroPool.length > 3) {
-      currentHeroIndex = (currentHeroIndex + 1) % heroPool.length;
-      const section = document.getElementById('hero-section');
-      if (section) {
-        section.style.opacity = '0.5';
-        setTimeout(() => {
-          updateHeroCarousel();
-          section.style.opacity = '1';
-        }, 500);
-      }
+    if (!_heroPaused && heroPool.length > 1) {
+      _heroCurrentIndex = (_heroCurrentIndex + 1) % heroPool.length;
+      goToSlide(_heroCurrentIndex);
     }
-  }, 10000); // Rota cada 10 segundos
+  }, 6000); // Rota cada 6 segundos
 }
+
+// Navbar se oscurece al hacer scroll
+window.addEventListener('scroll', () => {
+  const navbar = document.querySelector('.navbar');
+  if (navbar) {
+    navbar.classList.toggle('scrolled', window.scrollY > 20);
+  }
+}, { passive: true });
+
 
 function renderSkeletons() {
   const container = document.getElementById('main-content');

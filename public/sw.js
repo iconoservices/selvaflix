@@ -32,7 +32,7 @@ messaging.onBackgroundMessage((payload) => {
    4. Blindaje contra Opaque Responses (CORS).
 */
 
-const CACHE_NAME = 'selvaflix-cache-v2.1';
+const CACHE_NAME = 'selvaflix-cache-v2.2';
 const STATIC_ASSETS = [
     '/',
     '/index.html',

@@ -1054,6 +1054,17 @@ export const SelvaStream = {
                     nativePlayer.style.display = 'block';
                     nativeContainer.style.display = 'block';
 
+                    // ✅ SINCRONIZACIÓN DE PROGRESO (Para fuentes Debrid)
+                    nativePlayer.ontimeupdate = () => {
+                        const now = Math.floor(nativePlayer.currentTime);
+                        const duration = Math.floor(nativePlayer.duration);
+                        if (now > 0 && (now % 10 === 0 || now === duration)) {
+                            if (window.syncPlaybackProgress) {
+                                window.syncPlaybackProgress(this.currentPlayerMovie, now, duration);
+                            }
+                        }
+                    };
+
                     // ✅ SIN AUTOPLAY: mostrar instrucción clara al usuario
                     const notif = document.getElementById('player-notifications');
                     if (notif) notif.innerHTML = `

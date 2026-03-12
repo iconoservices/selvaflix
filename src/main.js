@@ -381,17 +381,26 @@ function _renderCardsInto(container, data) {
 
   function renderNextChunk() {
     const chunk = data.slice(currentIndex, currentIndex + CHUNK_SIZE);
-    const html = chunk.map(item => `
-        <div class="movie-card" data-id="${item.id}" onclick="window.handleCardClick('${item.id}')">
-          ${item.status === 'maintenance' ? '<div class="badge-maintenance">Mantenimiento</div>' : ''}
-          <img src="${item.img}" alt="${item.title}" class="card-img" loading="lazy"
-            onerror="this.parentElement.style.border='2px solid #E74C3C'; this.src='https://via.placeholder.com/500x750/1a1a1a/E74C3C?text=Sin+Imagen';">
-          <div class="card-info">
-            <h3 class="card-title">${item.title}</h3>
-            <p class="card-meta">${item.year || 'Estreno'} • ★ ${item.rating || '4.8'}</p>
-          </div>
-        </div>
-      `).join('');
+    const html = chunk.map(item => {
+        const isFavorite = window._myListIds && window._myListIds.has(item.id);
+        const favClass = isFavorite ? 'active' : '';
+        const favIcon = isFavorite ? '❤️' : '🤍';
+        
+        return `
+            <div class="movie-card" data-id="${item.id}" onclick="window.handleCardClick('${item.id}')">
+              <div class="btn-add-list ${favClass}" onclick="event.stopPropagation(); window.toggleMyList('${item.id}', this)" title="Añadir a mi selva">
+                ${favIcon}
+              </div>
+              ${item.status === 'maintenance' ? '<div class="badge-maintenance">Mantenimiento</div>' : ''}
+              <img src="${item.img}" alt="${item.title}" class="card-img" loading="lazy"
+                onerror="this.parentElement.style.border='2px solid #E74C3C'; this.src='https://via.placeholder.com/500x750/1a1a1a/E74C3C?text=Sin+Imagen';">
+              <div class="card-info">
+                <h3 class="card-title">${item.title}</h3>
+                <p class="card-meta">${item.year || 'Estreno'} • ★ ${item.rating || '4.8'}</p>
+              </div>
+            </div>
+        `;
+    }).join('');
 
     container.insertAdjacentHTML('beforeend', html);
     currentIndex += CHUNK_SIZE;
@@ -464,17 +473,26 @@ function renderGallery(title, groups) {
 
     function renderNextChunk() {
       const chunk = items.slice(currentIndex, currentIndex + CHUNK_SIZE);
-      const html = chunk.map(item => `
-        <div class="movie-card gallery-card" data-id="${item.id}" onclick="window.handleCardClick('${item.id}')">
-          ${item.status === 'maintenance' ? '<div class="badge-maintenance">Mantenimiento</div>' : ''}
-          <img src="${item.img}" alt="${item.title}" class="card-img" loading="lazy"
-            onerror="this.parentElement.style.border='2px solid #E74C3C'; this.src='https://via.placeholder.com/500x750/1a1a1a/E74C3C?text=Sin+Imagen';">
-          <div class="card-info">
-            <h3 class="card-title">${item.title}</h3>
-            <p class="card-meta">${item.year || 'Estreno'} • ★ ${item.rating || '4.8'}</p>
+      const html = chunk.map(item => {
+        const isFavorite = window._myListIds && window._myListIds.has(item.id);
+        const favClass = isFavorite ? 'active' : '';
+        const favIcon = isFavorite ? '❤️' : '🤍';
+
+        return `
+          <div class="movie-card gallery-card" data-id="${item.id}" onclick="window.handleCardClick('${item.id}')">
+            <div class="btn-add-list ${favClass}" onclick="event.stopPropagation(); window.toggleMyList('${item.id}', this)" title="Añadir a mi selva">
+                ${favIcon}
+            </div>
+            ${item.status === 'maintenance' ? '<div class="badge-maintenance">Mantenimiento</div>' : ''}
+            <img src="${item.img}" alt="${item.title}" class="card-img" loading="lazy"
+              onerror="this.parentElement.style.border='2px solid #E74C3C'; this.src='https://via.placeholder.com/500x750/1a1a1a/E74C3C?text=Sin+Imagen';">
+            <div class="card-info">
+              <h3 class="card-title">${item.title}</h3>
+              <p class="card-meta">${item.year || 'Estreno'} • ★ ${item.rating || '4.8'}</p>
+            </div>
           </div>
-        </div>
-      `).join('');
+        `;
+      }).join('');
 
       grid.insertAdjacentHTML('beforeend', html);
       currentIndex += CHUNK_SIZE;
@@ -2352,18 +2370,21 @@ window.handleLogout = async () => {
 };
 
 window.showSettings = () => {
-    const newName = prompt("Cambiar nombre del perfil:", _currentProfile.name);
-    if (!newName) return;
+    const input = document.getElementById('edit-profile-name-input');
+    const modal = document.getElementById('profile-edit-name-modal');
+    const saveBtn = document.getElementById('btn-save-profile-name');
     
-    _currentProfile.name = newName;
-    document.getElementById('user-name').innerText = newName;
-    document.getElementById('dropdown-profile-name').innerText = newName;
+    input.value = _currentProfile.name;
+    modal.style.display = 'flex';
     
-    // Actualizar en Firestore
-    const profileRef = doc(db, "users", auth.currentUser.uid, "profiles", _currentProfile.id);
-    updateDoc(profileRef, { name: newName });
-    sessionStorage.setItem('selva_active_profile', JSON.stringify(_currentProfile));
-    alert("¡Configuración guardada! ⚙️");
+    saveBtn.onclick = () => {
+        const newName = input.value.trim();
+        if (!newName) return;
+        window._tempProfileToUpdate = { id: _currentProfile.id, name: newName };
+        modal.style.display = 'none';
+        window.openAvatarPicker();
+    };
+    
     document.getElementById('user-dropdown').style.display = 'none';
 };
 
@@ -2392,7 +2413,9 @@ onAuthStateChanged(auth, async (user) => {
         // En una implementación real verificaríamos un campo 'banned' en el documento del usuario.
         
         document.getElementById('user-initials').innerText = user.displayName.charAt(0);
-        if (user.photoURL) {
+        // Nota: La foto de Google se ignora si hay un perfil activo con avatar propio
+        const saved = sessionStorage.getItem('selva_active_profile');
+        if (!saved && user.photoURL) {
             const img = document.getElementById('user-avatar-img');
             img.src = user.photoURL;
             img.style.display = 'block';
@@ -2437,6 +2460,19 @@ window.applyProfile = (p) => {
     document.getElementById('user-name').innerText = p.name;
     document.getElementById('dropdown-profile-name').innerText = p.name;
     document.getElementById('dropdown-active-profile').innerText = p.avatar || '🐯';
+    
+    // ✅ ACTUALIZAR AVATAR EN NAVBAR (Prioridad al animalito)
+    const initials = document.getElementById('user-initials');
+    const avatarImg = document.getElementById('user-avatar-img');
+    
+    if (p.avatar) {
+        initials.innerText = p.avatar;
+        initials.style.display = 'flex';
+        initials.style.background = 'none';
+        initials.style.fontSize = '1.2rem';
+        avatarImg.style.display = 'none';
+    }
+    
     _currentProfile = p;
     window.loadContinueWatching(); // 🍿 Cargar historial al cambiar perfil
 };
@@ -2449,13 +2485,15 @@ window.toggleManageProfiles = () => {
     
     if (_isManagingProfiles) {
         btn.innerText = "LISTO";
-        btn.style.background = "white";
+        btn.style.background = "#FF7A00";
         btn.style.color = "black";
+        btn.style.borderColor = "#FF7A00";
         title.innerText = "ADMINISTRAR PERFILES";
     } else {
         btn.innerText = "ADMINISTRAR PERFILES";
         btn.style.background = "none";
-        btn.style.color = "#555";
+        btn.style.color = "#888";
+        btn.style.borderColor = "#444";
         title.innerText = "¿QUIÉN ESTÁ VIENDO?";
     }
     
@@ -2508,12 +2546,20 @@ window.selectProfile = (id, name, avatar) => {
 };
 
 window.editSpecificProfile = (id, name, avatar) => {
-    const newName = prompt("Nombre del perfil:", name);
-    if (!newName) return;
+    const input = document.getElementById('edit-profile-name-input');
+    const modal = document.getElementById('profile-edit-name-modal');
+    const saveBtn = document.getElementById('btn-save-profile-name');
     
-    // Guardar ID temporal para el selector de avatar
-    window._tempProfileToUpdate = { id, name: newName };
-    window.openAvatarPicker();
+    input.value = name;
+    modal.style.display = 'flex';
+    
+    saveBtn.onclick = () => {
+        const newName = input.value.trim();
+        if (!newName) return;
+        window._tempProfileToUpdate = { id, name: newName };
+        modal.style.display = 'none';
+        window.openAvatarPicker();
+    };
 };
 
 window.openAvatarPicker = () => {
@@ -2557,12 +2603,21 @@ window.finalizeProfileUpdate = async (avatar) => {
 };
 
 window.showAddProfile = async () => {
-    const name = prompt("¿Cómo se llama el nuevo explorador? 🐒");
-    if (!name) return;
+    const input = document.getElementById('edit-profile-name-input');
+    const modal = document.getElementById('profile-edit-name-modal');
+    const saveBtn = document.getElementById('btn-save-profile-name');
     
-    window._tempNewName = name;
-    window._tempProfileToUpdate = null; // Indicamos que es nuevo
-    window.openAvatarPicker();
+    input.value = "";
+    modal.style.display = 'flex';
+    
+    saveBtn.onclick = () => {
+        const name = input.value.trim();
+        if (!name) return;
+        window._tempNewName = name;
+        window._tempProfileToUpdate = null; // Indicamos que es nuevo
+        modal.style.display = 'none';
+        window.openAvatarPicker();
+    };
 };
 
 // --- FASE 2: CONTINUAR VIENDO (Retención) ---
@@ -2615,6 +2670,108 @@ window.loadContinueWatching = async () => {
             </div>
         `;
     }).join('');
+};
+
+// --- FASE 3: MI SELVA (Favoritos) ---
+window._myListIds = new Set();
+
+window.toggleMyList = async (movieId, btn) => {
+    if (!auth.currentUser || !_currentProfile) {
+        alert("¡Únete a la selva para guardar tus favoritos! 🦁");
+        return;
+    }
+
+    const movie = movieDatabase.trending.find(m => m.id === movieId);
+    
+    if (!movie) return;
+
+    const listRef = doc(db, "users", auth.currentUser.uid, "profiles", _currentProfile.id, "mylist", movieId);
+    
+    if (window._myListIds.has(movieId)) {
+        // Quitar
+        await deleteDoc(listRef);
+        window._myListIds.delete(movieId);
+        btn.classList.remove('active');
+        btn.innerHTML = '🤍';
+    } else {
+        // Añadir
+        await setDoc(listRef, {
+            movieId: movie.id,
+            title: movie.title || movie.name,
+            poster: movie.img || movie.poster_path,
+            type: movie.type,
+            timestamp: Date.now()
+        });
+        window._myListIds.add(movieId);
+        btn.classList.add('active', 'heart-animation');
+        btn.innerHTML = '❤️';
+        setTimeout(() => btn.classList.remove('heart-animation'), 400);
+    }
+    
+    
+    console.log("✅ Mi Lista actualizada:", Array.from(window._myListIds));
+    window.loadMyList(); // Refrescar fila
+};
+
+window.loadMyList = async () => {
+    if (!auth.currentUser || !_currentProfile) return;
+
+    const listCol = collection(db, "users", auth.currentUser.uid, "profiles", _currentProfile.id, "mylist");
+    const q = query(listCol, orderBy("timestamp", "desc"));
+    const snap = await getDocs(q);
+    
+    const myList = [];
+    window._myListIds.clear();
+    snap.forEach(d => {
+        const data = d.data();
+        myList.push(data);
+        window._myListIds.add(data.movieId);
+    });
+    
+    const container = document.getElementById('my-list-row');
+    if (!container) return;
+
+    if (myList.length === 0) {
+        container.style.display = 'none';
+        return;
+    }
+
+    container.style.display = 'block';
+    const grid = document.getElementById('my-list-grid');
+    grid.innerHTML = myList.map(m => {
+        return `
+            <div class="movie-card" onclick='window.openMovieDetail("${m.movieId}")' style="flex: 0 0 auto; width: 140px; position: relative;">
+                <img src="${m.poster.startsWith('http') ? m.poster : 'https://image.tmdb.org/t/p/w200' + m.poster}" style="width: 100%; border-radius: 8px;">
+                <div class="btn-add-list active" onclick="event.stopPropagation(); window.toggleMyList('${m.movieId}', this)">❤️</div>
+            </div>
+        `;
+    }).join('');
+};
+
+window.applyProfile = (p) => {
+    document.getElementById('user-name').innerText = p.name;
+    document.getElementById('dropdown-profile-name').innerText = p.name;
+    document.getElementById('dropdown-active-profile').innerText = p.avatar || '🐯';
+    
+    // ✅ ACTUALIZAR AVATAR EN NAVBAR (Prioridad al animalito)
+    const initials = document.getElementById('user-initials');
+    const avatarImg = document.getElementById('user-avatar-img');
+    
+    if (p.avatar) {
+        initials.innerText = p.avatar;
+        initials.style.display = 'flex';
+        initials.style.background = 'none';
+        initials.style.fontSize = '1.2rem';
+        avatarImg.style.display = 'none';
+    }
+    
+    _currentProfile = p;
+    window.loadContinueWatching(); 
+    window.loadMyList().then(() => {
+        console.log("🍿 Favoritos cargados, refrescando UI...");
+        // Forzar un re-renderizado del Home con los datos de favoritos frescos
+        if (_currentFilter !== undefined) window.initApp(_currentFilter, _currentGenre);
+    });
 };
 
 // Cerrar dropdown al hacer clic fuera

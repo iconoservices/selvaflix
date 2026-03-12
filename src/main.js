@@ -678,37 +678,8 @@ window.loadMetrics = async () => {
             `;
     }).join('');
 
-    // 🚨 Render reportes (usando la data ya cargada por window.loadReports)
-    const reportsContainer = document.getElementById('metrics-reports-list') || (() => {
-      const div = document.createElement('div');
-      div.id = 'metrics-reports-list';
-      div.style = 'margin-top: 20px;';
-      deviceChart?.parentElement?.after(div);
-      return div;
-    })();
-
-    const pending = (window._linkReports || []).filter(r => r.status !== 'resolved');
-    if (window._linkReports && window._linkReports.length > 0) {
-      reportsContainer.innerHTML = `
-        <h4 style="color: #E74C3C; margin-bottom: 10px;">🚨 Links Reportados (${pending.length} pendientes)</h4>
-        <div style="display: flex; flex-direction: column; gap: 8px;">
-          ${window._linkReports.map(r => `
-            <div style="background: ${r.status === 'resolved' ? 'rgba(46,204,113,0.1)' : 'rgba(231,76,60,0.1)'}; border: 1px solid ${r.status === 'resolved' ? '#2ECC71' : '#E74C3C'}; border-radius: 8px; padding: 10px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
-              <div>
-                <p style="font-weight: bold; font-size: 0.8rem; margin: 0;">${r.movieTitle || 'Sin título'}</p>
-                <p style="font-size: 0.65rem; color: var(--text-muted); margin: 2px 0;">Reportado: ${new Date(r.reportedAt).toLocaleString()}</p>
-              </div>
-              <div style="display: flex; gap: 6px;">
-                <button onclick="window.openPlayer('${r.movieId}')" class="btn btn-secondary" style="font-size: 0.6rem; padding: 4px 8px;">▶ Probar</button>
-                ${r.status !== 'resolved' ? `<button onclick="window.resolveReport('${r.id}')" class="btn" style="background:#2ECC71; color:black; font-size: 0.6rem; padding: 4px 8px;">✓ OK</button>` : ''}
-              </div>
-            </div>
-          `).join('')}
-        </div>
-      `;
-    } else {
-      reportsContainer.innerHTML = '<p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 15px;">✅ Sin reportes de links caídos. ¡La selva está sana! 🌴</p>';
-    }
+    // La sección de "Links Reportados" ha sido removida del panel de Métricas
+    // ya que esta información se gestiona desde los filtros del "Inventario".
   } catch (err) {
     console.error("Error loading metrics:", err);
     if (log) {

@@ -964,8 +964,24 @@ export const SelvaStream = {
                     }
                 } else {
                     nativePlayer.src = stream.url;
+                    if (this.currentPlayerMovie.resumeTime > 0) {
+                        nativePlayer.currentTime = this.currentPlayerMovie.resumeTime;
+                    }
                     nativePlayer.play().catch(e => console.warn("Auto-play prevented", e));
                 }
+
+                // ✅ SINCRONIZACIÓN DE PROGRESO (Continuar Viendo)
+                nativePlayer.ontimeupdate = () => {
+                    const now = Math.floor(nativePlayer.currentTime);
+                    const duration = Math.floor(nativePlayer.duration);
+                    
+                    // Sincronizar cada 10 segundos o al final
+                    if (now > 0 && (now % 10 === 0 || now === duration)) {
+                        if (window.syncPlaybackProgress) {
+                            window.syncPlaybackProgress(this.currentPlayerMovie, now, duration);
+                        }
+                    }
+                };
 
                 // Si es un source directo, le pasamos la URL al botón externo
                 const extBtn = document.getElementById('external-player-btn');
@@ -1032,6 +1048,9 @@ export const SelvaStream = {
 
                     // Mostrar reproductor con URL lista
                     nativePlayer.src = result.url;
+                    if (this.currentPlayerMovie.resumeTime > 0) {
+                        nativePlayer.currentTime = this.currentPlayerMovie.resumeTime;
+                    }
                     nativePlayer.style.display = 'block';
                     nativeContainer.style.display = 'block';
 

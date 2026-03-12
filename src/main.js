@@ -1258,6 +1258,27 @@ window.openPlayer = async (movieId) => {
 
   collectUserData("watch_attempt", { title: movie.title, id: movie.id });
 
+  // 🍿 RECUPERAR PROGRESO (Continuar Viendo)
+  if (auth.currentUser && _currentProfile) {
+    try {
+        const historyRef = doc(db, "users", auth.currentUser.uid, "profiles", _currentProfile.id, "history", movie.id);
+        const historySnap = await getDocs(query(collection(db, "users", auth.currentUser.uid, "profiles", _currentProfile.id, "history"), limit(1))); // Direct fetch logic below is better
+        // Simplemente lo buscamos en el documento específico
+        const docSnap = await getDocs(query(collection(db, "users", auth.currentUser.uid, "profiles", _currentProfile.id, "history"))); // Need to find the specific one
+        
+        // Better way with doc() and getDoc
+        const { getDoc } = await import("firebase/firestore"); 
+        const snap = await getDoc(historyRef);
+        if (snap.exists()) {
+            const data = snap.data();
+            if (data.lastTime > 0) {
+                movie.resumeTime = data.lastTime;
+                console.log(`🎬 Retomando en: ${data.lastTime}s`);
+            }
+        }
+    } catch (e) { console.warn("Error recuperando historial:", e); }
+  }
+
   currentPlayerMovie = movie;
 
   // Iniciar la secuencia de seguridad y comerciales antes del Play
@@ -2417,6 +2438,7 @@ window.applyProfile = (p) => {
     document.getElementById('dropdown-profile-name').innerText = p.name;
     document.getElementById('dropdown-active-profile').innerText = p.avatar || '🐯';
     _currentProfile = p;
+    window.loadContinueWatching(); // 🍿 Cargar historial al cambiar perfil
 };
 
 window.renderProfiles = (profiles) => {
@@ -2462,6 +2484,58 @@ window.showAddProfile = async () => {
     const profilesCol = collection(db, "users", auth.currentUser.uid, "profiles");
     await addDoc(profilesCol, { name, avatar: randomAvatar, isChild: false });
     window.loadProfiles(auth.currentUser.uid);
+};
+
+// --- FASE 2: CONTINUAR VIENDO (Retención) ---
+window.syncPlaybackProgress = async (movie, lastTime, duration) => {
+    if (!auth.currentUser || !_currentProfile) return;
+
+    const historyRef = doc(db, "users", auth.currentUser.uid, "profiles", _currentProfile.id, "history", movie.id);
+    
+    await setDoc(historyRef, {
+        movieId: movie.id,
+        title: movie.title || movie.name,
+        poster: movie.img || movie.poster_path,
+        type: movie.type,
+        lastTime,
+        duration,
+        timestamp: Date.now()
+    }, { merge: true });
+    
+    console.log(`🎬 Progreso guardado: ${movie.title} (${lastTime}s)`);
+};
+
+window.loadContinueWatching = async () => {
+    if (!auth.currentUser || !_currentProfile) return;
+
+    const historyCol = collection(db, "users", auth.currentUser.uid, "profiles", _currentProfile.id, "history");
+    const q = query(historyCol, orderBy("timestamp", "desc"), limit(10));
+    const snap = await getDocs(q);
+    
+    const history = [];
+    snap.forEach(d => history.push(d.data()));
+    
+    const container = document.getElementById('continue-watching-row');
+    if (!container) return;
+
+    if (history.length === 0) {
+        container.style.display = 'none';
+        return;
+    }
+
+    container.style.display = 'block';
+    const grid = document.getElementById('continue-watching-grid');
+    grid.innerHTML = history.map(h => {
+        const progress = (h.lastTime / h.duration) * 100;
+        return `
+            <div class="movie-card" onclick='window.openMovieDetail("${h.movieId}")' style="flex: 0 0 auto; width: 140px; position: relative;">
+                <img src="${h.poster.startsWith('http') ? h.poster : 'https://image.tmdb.org/t/p/w200' + h.poster}" style="width: 100%; border-radius: 8px;">
+                <div style="position: absolute; bottom: 5px; left: 10px; right: 10px; height: 3px; background: rgba(255,255,255,0.2); border-radius: 3px; overflow: hidden;">
+                    <div style="width: ${progress}%; height: 100%; background: var(--primary);"></div>
+                </div>
+            </div>
+        `;
+    }).join('');
 };
 
 // Cerrar dropdown al hacer clic fuera

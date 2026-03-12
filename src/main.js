@@ -232,10 +232,10 @@ window.setFilter = (type) => {
   if (homeEl) homeEl.style.display = 'block';
 
   // Update filter pill active state (only main pills)
-  ['filter-all', 'filter-movies', 'filter-series', 'filter-live'].forEach(id => {
+  ['filter-all', 'filter-movies', 'filter-series'].forEach(id => {
     document.getElementById(id)?.classList.remove('active');
   });
-  const idMap = { '': 'filter-all', 'movies': 'filter-movies', 'series': 'filter-series', 'live': 'filter-live' };
+  const idMap = { '': 'filter-all', 'movies': 'filter-movies', 'series': 'filter-series' };
   document.getElementById(idMap[type] || 'filter-all')?.classList.add('active');
 
   // Show genre sub-bar only in movies/series view; reset genre pills
@@ -306,13 +306,13 @@ function handleRouting() {
     const hashVal = hash || '';
 
     // Top filters
-    const idMap = { '': 'filter-all', 'movies': 'filter-movies', 'series': 'filter-series', 'live': 'filter-live' };
-    ['filter-all', 'filter-movies', 'filter-series', 'filter-live'].forEach(id => document.getElementById(id)?.classList.remove('active'));
+    const idMap = { '': 'filter-all', 'movies': 'filter-movies', 'series': 'filter-series' };
+    ['filter-all', 'filter-movies', 'filter-series'].forEach(id => document.getElementById(id)?.classList.remove('active'));
     document.getElementById(idMap[hashVal])?.classList.add('active');
 
     // Bottom nav (Mobile)
-    const btmMap = { '': 'btn-nav-home', 'movies': 'btn-nav-movies', 'series': 'btn-nav-series', 'live': 'btn-nav-live' };
-    ['btn-nav-home', 'btn-nav-movies', 'btn-nav-series', 'btn-nav-live'].forEach(id => document.getElementById(id)?.classList.remove('active'));
+    const btmMap = { '': 'btn-nav-home', 'movies': 'btn-nav-movies', 'series': 'btn-nav-series' };
+    ['btn-nav-home', 'btn-nav-movies', 'btn-nav-series'].forEach(id => document.getElementById(id)?.classList.remove('active'));
     document.getElementById(btmMap[hashVal])?.classList.add('active');
 
     const genreBar = document.getElementById('genre-bar');
@@ -321,27 +321,7 @@ function handleRouting() {
   }
 }
 
-function renderChannels(container) {
-  if (!container) return;
-  const liveChannels = [...movieDatabase.trending]
-    .filter(c => c.type === 'live' || (c.embed && !c.tmdbId))
-    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-
-  if (liveChannels.length === 0) {
-    container.innerHTML = '<p style="color:var(--text-muted);padding:50px;text-align:center;width:100%;">Buscando señal... 📡</p>';
-    return;
-  }
-
-  container.innerHTML = liveChannels.map(ch => `
-    <div class="tv-card" onclick="window.handleChannelClick('${ch.embed}')">
-      <img src="${ch.img}" alt="${ch.title}" style="width:100%;height:100%;object-fit:cover;" onerror="this.src='https://via.placeholder.com/600x400/111/FF7A00?text=SIN+SEÑAL'">
-      <div class="tv-info">
-        <h3 style="font-size:0.95rem;">${ch.title}</h3>
-        <p style="font-size:0.7rem;color:var(--primary);">&#x25cf; EN VIVO</p>
-      </div>
-    </div>
-  `).join('');
-}
+// removed renderChannels
 
 window.handleChannelClick = (url) => {
   const modal = document.getElementById('player-modal');
@@ -538,7 +518,8 @@ function _updateDetailedStats(items) {
 
   document.getElementById('count-movies').innerText = m;
   document.getElementById('count-series').innerText = s;
-  document.getElementById('count-live').innerText = l;
+  const liveEl = document.getElementById('count-live');
+  if (liveEl) liveEl.innerText = l;
   document.getElementById('count-broken').innerText = b;
   const rEl = document.getElementById('count-reported');
   if (rEl) rEl.innerText = r;
@@ -1816,6 +1797,40 @@ function initApp(filterType = '', genreId = '') {
     renderSkeletons(); // Flash visual instantáneo
   }
 
+  // --- NUCLEAR CLEANUP (v2.29) ---
+  // Hacemos desaparecer lo que el cache del HTML se niega a soltar
+  const elementsToHide = [
+    'filter-live',             // Boton en la barra principal
+    'btn-discover-live',       // Boton en admin
+    'nav-live-tv'              // Posible nav link
+  ];
+  elementsToHide.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+          console.log(`🧹 Nuclear Cleanup: Ocultando ${id}`);
+          el.style.display = 'none';
+          el.remove(); // Directamente al basurero de la selva
+      }
+  });
+
+  // Limpiar selects (m-type y inventory-type-filter)
+  ['m-type', 'inventory-type-filter'].forEach(id => {
+      const sel = document.getElementById(id);
+      if (sel) {
+          const opt = sel.querySelector('option[value="live"]');
+          if (opt) {
+              console.log(`🧹 Nuclear Cleanup: Borrando "live" de ${id}`);
+              opt.remove();
+          }
+      }
+  });
+  
+  // Limpiar stats de admin
+  const liveStat = document.getElementById('count-live')?.parentElement;
+  if (liveStat && liveStat.innerText.includes('Live')) {
+      liveStat.style.display = 'none';
+  }
+
   // Actividad: Vista de página
   collectUserData("page_view", { page: filterType || 'home' });
 
@@ -1842,19 +1857,32 @@ function initApp(filterType = '', genreId = '') {
   heroPool = allContent.filter(c => !window._brokenIds.has(c.id));
 
   if (filterType === 'series') heroPool = heroPool.filter(c => c.type === 'series' || c.type === 'tv' || c.type === 'anime');
-  else if (filterType === 'live') heroPool = heroPool.filter(c => c.type === 'live');
   else if (filterType === 'movies') heroPool = heroPool.filter(c => c.type === 'movie' || !c.type);
   else heroPool = heroPool.slice(0, 10);
 
   heroPool = heroPool.slice(0, 3);
 
   // Hero Carousel Priority (v4.4)
+  const heroSection = document.getElementById('hero-section');
   if (heroPool.length > 0) {
-    document.getElementById('hero-section').style.display = 'flex';
+    if (heroSection) {
+        heroSection.style.display = 'flex';
+        heroSection.style.minHeight = window.innerWidth <= 768 ? '180px' : '300px';
+    }
     updateHeroCarousel();
-    // La rotación iniciará al final para no estorbar el pintado inicial
   } else {
-    document.getElementById('hero-section').style.display = 'none';
+    // Si no hay series en el hero, intentamos poner peliculas destacadas para no dejar el hueco
+    if (filterType === 'series') {
+        heroPool = allContent.filter(c => c.type === 'movie' || !c.type).slice(0, 3);
+        if (heroPool.length > 0 && heroSection) {
+            heroSection.style.display = 'flex';
+            updateHeroCarousel();
+        } else if (heroSection) {
+            heroSection.style.display = 'none';
+        }
+    } else if (heroSection) {
+        heroSection.style.display = 'none';
+    }
   }
 
   // Rows / Gallery based on filter
@@ -1869,19 +1897,16 @@ function initApp(filterType = '', genreId = '') {
   } else if (filterType === 'series') {
     const series = allContent.filter(c => c.type === 'series' || c.type === 'tv');
     const anime = allContent.filter(c => c.type === 'anime');
+    console.log(`🏆 Renderizando Series (${series.length}) y Anime (${anime.length})`);
     renderGallery('🏆 Series & Anime', [
       { label: `🏆 Series${genreId ? ' · filtradas' : ''}`, items: series },
       { label: `⛩️ Anime`, items: anime }
     ]);
 
   } else if (filterType === 'live') {
-    if (container) container.innerHTML = '';
-    renderRow('Canales en Vivo 🔴', []);
-    const sec = container.lastElementChild;
-    const list = sec.querySelector('.movie-list');
-    list.id = 'main-channels';
-    renderChannels(list);
-
+    // Categoría eliminada
+    window.location.hash = '';
+    return;
   } else {
     // HOME: filas de muestra + 'Ver todos'
     if (container) container.innerHTML = ''; // Los skeletons cumplieron su misión
@@ -1889,19 +1914,11 @@ function initApp(filterType = '', genreId = '') {
     const series = allContent.filter(c => c.type === 'series' || c.type === 'tv').slice(0, 12);
     const anime = allContent.filter(c => c.type === 'anime').slice(0, 12);
     const releases = allContent.filter(c => c.type !== 'live').slice(0, 12);
-    const liveChannels = allContent.filter(c => c.type === 'live');
 
     // Se removió 'Lo más nuevo' por petición del usuario
     if (movies.length > 0) renderRow('🎬 Películas', movies, 'movies');
     if (series.length > 0) renderRow('🏆 Series', series, 'series');
     if (anime.length > 0) renderRow('⛩️ Anime', anime, 'series');
-    if (liveChannels.length > 0) {
-      renderRow('🔴 Canales en Vivo', [], 'live');
-      const sec = container.lastElementChild;
-      const list = sec.querySelector('.movie-list');
-      list.id = 'main-channels';
-      renderChannels(list);
-    }
 
     // 🔥 ALGORITMO 1: Tendencias PROPIAS (por plays acumulados del celular)
     const playCounts = JSON.parse(localStorage.getItem('selva_play_counts') || '{}');
@@ -1954,33 +1971,7 @@ function initApp(filterType = '', genreId = '') {
   }
 }
 
-window.renderChannels = (container) => {
-  const channels = movieDatabase.trending.filter(m => m.type === 'live');
-  if (channels.length === 0) {
-    container.innerHTML = `
-      <div style="grid-column: 1/-1; padding: 40px; text-align: center; background: rgba(255,255,255,0.02); border-radius: 20px; border: 1px dashed #333;">
-        <p style="color:var(--text-muted); margin-bottom:15px;">La selva está en silencio... No hay canales aún.</p>
-        <button onclick="window.location.hash='admin'; window.switchAdminTab('inventory');" class="btn btn-primary" style="font-size:0.8rem;">🚜 Sembrar Canales</button>
-      </div>
-    `;
-    return;
-  }
-
-  container.innerHTML = channels.map(ch => `
-    <div class="movie-card live-card" onclick="window.handleCardClick('${ch.id}')" style="min-width: 200px; height: 120px;">
-       <div class="card-img-wrapper" style="height: 100%;">
-          <img src="${ch.img}" alt="${ch.title}" loading="lazy" style="object-fit: contain; background: #fff; padding: 10px;">
-          <div class="card-overlay">
-            <div class="play-btn-circle"><span>▶</span></div>
-          </div>
-          <div class="live-badge">EN VIVO</div>
-       </div>
-       <div class="card-info" style="padding: 8px;">
-          <h3 class="card-title" style="font-size: 0.8rem;">${ch.title}</h3>
-       </div>
-    </div>
-  `).join('');
-};
+// function renderChannels removed
 
 window.handleCardClick = (id) => {
   const movie = movieDatabase.trending.find(m => m.id === id);
@@ -2127,8 +2118,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (btnDiscoverMovies) btnDiscoverMovies.addEventListener('click', () => window.massSeedMovies('movie'));
   if (btnDiscoverSeries) btnDiscoverSeries.addEventListener('click', () => window.massSeedMovies('series'));
-  if (btnDiscoverM3U) btnDiscoverM3U.addEventListener('click', () => window.discoverM3U());
-  if (btnDivLive) btnDivLive.addEventListener('click', () => window.suggestTVChannels());
   if (btnConfirmSeed) btnConfirmSeed.addEventListener('click', () => window.confirmBatchSeed());
 
   document.getElementById('btn-tmdb-search').addEventListener('click', () => {
@@ -2638,38 +2627,54 @@ window.syncPlaybackProgress = async (movie, lastTime, duration) => {
     
     console.log(`🎬 Progreso guardado: ${movie.title} (${lastTime}s)`);
 };
-
 window.loadContinueWatching = async () => {
     if (!auth.currentUser || !_currentProfile) return;
+    try {
+        const historyCol = collection(db, "users", auth.currentUser.uid, "profiles", _currentProfile.id, "history");
+        const q = query(historyCol, orderBy("timestamp", "desc"), limit(10));
+        const snap = await getDocs(q);
+        
+        const history = [];
+        snap.forEach(d => history.push(d.data()));
+        console.log("📺 Historial recuperado:", history);
+        
+        const container = document.getElementById('continue-watching-row');
+        if (!container) {
+            console.error("❌ ERROR: No se encontró 'continue-watching-row'");
+            return;
+        }
 
-    const historyCol = collection(db, "users", auth.currentUser.uid, "profiles", _currentProfile.id, "history");
-    const q = query(historyCol, orderBy("timestamp", "desc"), limit(10));
-    const snap = await getDocs(q);
-    
-    const history = [];
-    snap.forEach(d => history.push(d.data()));
-    
-    const container = document.getElementById('continue-watching-row');
-    if (!container) return;
+        if (history.length === 0) {
+            console.log("ℹ️ Historial vacío para este perfil.");
+            container.style.display = 'none';
+            return;
+        }
 
-    if (history.length === 0) {
-        container.style.display = 'none';
-        return;
-    }
-
-    container.style.display = 'block';
-    const grid = document.getElementById('continue-watching-grid');
-    grid.innerHTML = history.map(h => {
-        const progress = (h.lastTime / h.duration) * 100;
-        return `
-            <div class="movie-card" onclick='window.openMovieDetail("${h.movieId}")' style="flex: 0 0 auto; width: 140px; position: relative;">
-                <img src="${h.poster.startsWith('http') ? h.poster : 'https://image.tmdb.org/t/p/w200' + h.poster}" style="width: 100%; border-radius: 8px;">
-                <div style="position: absolute; bottom: 5px; left: 10px; right: 10px; height: 3px; background: rgba(255,255,255,0.2); border-radius: 3px; overflow: hidden;">
-                    <div style="width: ${progress}%; height: 100%; background: var(--primary);"></div>
+        container.style.display = 'block';
+        const grid = document.getElementById('continue-watching-grid');
+        if (!grid) {
+            console.error("❌ ERROR: No se encontró 'continue-watching-grid'");
+            return;
+        }
+        
+        grid.innerHTML = history.map(h => {
+            const progress = (h.lastTime / h.duration) * 100;
+            const poster = (h.poster && h.poster.startsWith('http')) ? h.poster : 'https://image.tmdb.org/t/p/w300' + (h.poster || h.poster_path);
+            return `
+                <div class="card-horizontal" onclick="window.handleCardClick('${h.movieId}')">
+                    <img src="${poster}" alt="${h.title}" loading="lazy" onerror="this.src='/icon_192.png'">
+                    <div class="card-h-info">
+                        <div class="card-h-title">${h.title}</div>
+                        <div class="progress-bar-h">
+                            <div class="progress-fill-h" style="width: ${progress}%;"></div>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        `;
-    }).join('');
+            `;
+        }).join('');
+    } catch (e) {
+        console.error("❌ ERROR CRITICO en loadContinueWatching:", e);
+    }
 };
 
 // --- FASE 3: MI SELVA (Favoritos) ---
@@ -2707,10 +2712,30 @@ window.toggleMyList = async (movieId, btn) => {
         btn.innerHTML = '❤️';
         setTimeout(() => btn.classList.remove('heart-animation'), 400);
     }
-    
-    
     console.log("✅ Mi Lista actualizada:", Array.from(window._myListIds));
-    window.loadMyList(); // Refrescar fila
+    
+    // Actualizar Badge en Navbar
+    const badge = document.getElementById('nav-fav-count');
+    if (badge) {
+        if (window._myListIds.size === 0) {
+            badge.style.display = 'none';
+        } else {
+            badge.innerText = window._myListIds.size;
+            badge.style.display = 'block';
+        }
+    }
+
+    window.loadMyList(); // Refrescar modal/datos
+};
+
+window.toggleMyListModal = () => {
+    const modal = document.getElementById('my-list-modal');
+    if (!modal) return;
+    const isVisible = modal.style.display === 'flex';
+    modal.style.display = isVisible ? 'none' : 'flex';
+    document.body.style.overflow = isVisible ? '' : 'hidden';
+    
+    if (!isVisible) window.loadMyList();
 };
 
 window.loadMyList = async () => {
@@ -2728,21 +2753,32 @@ window.loadMyList = async () => {
         window._myListIds.add(data.movieId);
     });
     
-    const container = document.getElementById('my-list-row');
-    if (!container) return;
-
+    const badge = document.getElementById('nav-fav-count');
+    const modalBadge = document.getElementById('modal-fav-count');
+    
     if (myList.length === 0) {
-        container.style.display = 'none';
+        if (badge) badge.style.display = 'none';
+        if (modalBadge) modalBadge.innerText = '(0 títulos)';
+        const grid = document.getElementById('modal-my-list-grid');
+        if (grid) grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 50px; color: #555;">Tu selva está vacía... 🦁🌵</div>';
         return;
     }
 
-    container.style.display = 'block';
-    const grid = document.getElementById('my-list-grid');
+    if (badge) {
+        badge.innerText = myList.length;
+        badge.style.display = 'block';
+    }
+    if (modalBadge) modalBadge.innerText = `(${myList.length} títulos)`;
+
+    const grid = document.getElementById('modal-my-list-grid');
+    if (!grid) return;
+
     grid.innerHTML = myList.map(m => {
         return `
-            <div class="movie-card" onclick='window.openMovieDetail("${m.movieId}")' style="flex: 0 0 auto; width: 140px; position: relative;">
-                <img src="${m.poster.startsWith('http') ? m.poster : 'https://image.tmdb.org/t/p/w200' + m.poster}" style="width: 100%; border-radius: 8px;">
+            <div class="movie-card" onclick='window.openMovieDetail("${m.movieId}")' style="position: relative;">
+                <img src="${m.poster.startsWith('http') ? m.poster : 'https://image.tmdb.org/t/p/w300' + m.poster}" style="width: 100%; border-radius: 8px;">
                 <div class="btn-add-list active" onclick="event.stopPropagation(); window.toggleMyList('${m.movieId}', this)">❤️</div>
+                <div style="font-size: 0.75rem; margin-top: 5px; color: #eee; text-align: center;">${m.title}</div>
             </div>
         `;
     }).join('');

@@ -7,7 +7,7 @@
   <link rel="manifest" href="/manifest.json">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>SelvaFlix | Tu Cine, Tu Naturaleza</title>
-  <meta name="description" content="La mejor plataforma de streaming tropical. Películas, series y TV en vivo.">
+  <meta name="description" content="La mejor plataforma de streaming tropical. Películas y series.">
 
   <!-- PWA & iOS Optimization -->
   <meta name="mobile-web-app-capable" content="yes">
@@ -20,7 +20,20 @@
   <!-- Motor Selva P2P (WebTorrent) -->
   <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
   <!-- Motor HLS (TV en Vivo) -->
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <!-- Cache Buster v2.29 -->
+  <script>
+    console.log('🚀 SelvaFlix Loader v2.29 checking for updates...');
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        for(let registration of registrations) {
+          if (!registration.active?.scriptURL.includes('v2.3')) {
+            console.log('🧹 Limpciondo SW viejo...');
+            registration.unregister();
+          }
+        }
+      });
+    }
+  </script>
 </head>
 
 <body>
@@ -37,6 +50,11 @@
         <div class="search-wrapper">
           <span class="search-icon" onclick="this.parentElement.classList.toggle('open')">🔍</span>
           <input type="text" placeholder="Buscar en la selva..." class="search-bar" id="global-search">
+        </div>
+
+        <!-- Favorites Icon -->
+        <div class="nav-fav-icon" onclick="window.toggleMyListModal()" title="Mi Selva">
+          ❤️<span id="nav-fav-count" class="fav-badge" style="display: none;">0</span>
         </div>
 
         <!-- Profile Button -->
@@ -90,22 +108,14 @@
         </div>
       </section>
 
-      <!-- FASE 3: Mi Selva Row (Favoritos) -->
-      <section id="my-list-row" style="display: none; padding: 20px; margin-bottom: 20px;">
-        <h2 style="color: white; font-size: 1.2rem; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
-          ❤️ Mi Selva
-        </h2>
-        <div id="my-list-grid" style="display: flex; gap: 15px; overflow-x: auto; padding-bottom: 10px; scroll-behavior: smooth;">
-          <!-- Items se inyectan aquí -->
-        </div>
-      </section>
+      <!-- FASE 3: Mi Selva Row (Removida a Modal) -->
+      <div id="my-list-row" style="display: none;"></div>
 
       <!-- Filter Bar -->
       <div class="filter-bar" id="filter-bar">
         <button class="filter-btn active" id="filter-all" onclick="window.setFilter('')">🏠 Inicio</button>
         <button class="filter-btn" id="filter-movies" onclick="window.setFilter('movies')">🎬 Películas</button>
         <button class="filter-btn" id="filter-series" onclick="window.setFilter('series')">🏆 Series</button>
-        <button class="filter-btn" id="filter-live" onclick="window.setFilter('live')">🔴 En Vivo</button>
       </div>
 
       <!-- Genre Sub-filters (shown in movies/series view) -->
@@ -355,7 +365,6 @@
                   <option value="movie">🎬 Película</option>
                   <option value="series">🏆 Serie</option>
                   <option value="anime">⛩️ Anime</option>
-                  <option value="live">🔴 Canal en Vivo (M3U8)</option>
                 </select>
               </div>
               <div class="form-group">
@@ -444,7 +453,6 @@
               style="display: flex; gap: 15px; margin-bottom: 20px; font-size: 0.75rem; background: rgba(255,255,255,0.02); padding: 10px; border-radius: 10px; border: 1px solid var(--glass-border);">
               <div style="color: var(--primary);">🎬 <strong id="count-movies">0</strong> Pelis</div>
               <div style="color: #9B59B2;">🏆 <strong id="count-series">0</strong> Series</div>
-              <div style="color: #2ECC71;">🔴 <strong id="count-live">0</strong> Live</div>
               <div style="color: #F1C40F; margin-left:15px;">🚨 <strong id="count-reported">0</strong> Reportadas</div>
               <div style="color: #E74C3C; margin-left: auto;">⚠️ <strong id="count-broken">0</strong> Rotas</div>
             </div>
@@ -459,7 +467,6 @@
                 <option value="movie">🎬 Pelis</option>
                 <option value="series">🏆 Series</option>
                 <option value="anime">⛩️ Anime</option>
-                <option value="live">🔴 En Vivo</option>
               </select>
               <select id="inventory-filter" class="form-control" onchange="window.filterInventoryByCategory()">
                 <option value="all">Salud: Todas</option>
@@ -603,8 +610,21 @@
 
     <!-- El reproductor se inyecta dinámicamente mediante SelvaStream Engine 🍿 -->
     <div id="player-modal" class="player-modal" style="display: none;"></div>
+
+    <!-- MODAL MI SELVA ❤️ -->
+    <div id="my-list-modal" class="custom-modal" style="display: none;">
+      <div class="modal-content-premium">
+        <span class="close-modal" onclick="window.toggleMyListModal()">&times;</span>
+        <h2 style="margin-bottom: 25px; display: flex; align-items: center; gap: 15px;">
+          ❤️ Mi Selva <span id="modal-fav-count" style="font-size: 0.9rem; color: var(--text-muted); font-weight: 400;">(0 títulos)</span>
+        </h2>
+        <div id="modal-my-list-grid" class="premium-grid">
+          <!-- Favoritos aquí -->
+        </div>
+      </div>
+    </div>
   </div>
-  <script type="module" src="/src/main.js?v=2.26"></script>
+  <script type="module" src="/src/main.js?v=2.29"></script>
 </body>
 
 </html>

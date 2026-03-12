@@ -1,5 +1,6 @@
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
+console.log('🌴 SW Check: Script cargado (v2.3)');
 
 const firebaseConfig = {
   apiKey: "AIzaSyCABaNkvUlMjBatNh0Giih01IDH4sNbt1Q",
@@ -32,7 +33,7 @@ messaging.onBackgroundMessage((payload) => {
    4. Blindaje contra Opaque Responses (CORS).
 */
 
-const CACHE_NAME = 'selvaflix-cache-v2.2';
+const CACHE_NAME = 'selvaflix-cache-v2.3';
 const STATIC_ASSETS = [
     '/',
     '/index.html',

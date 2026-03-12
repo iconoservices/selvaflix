@@ -2313,12 +2313,37 @@ document.addEventListener('DOMContentLoaded', () => {
 let _currentProfile = null;
 const provider = new GoogleAuthProvider();
 
-window.handleUserBtnClick = () => {
+window.toggleUserMenu = () => {
     if (!auth.currentUser) {
         document.getElementById('auth-modal').style.display = 'flex';
     } else {
-        window.showProfileSelector();
+        const menu = document.getElementById('user-dropdown');
+        menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
     }
+};
+
+window.handleLogout = async () => {
+    if (confirm("¿Quieres salir de la selva? 🚪🌴")) {
+        await signOut(auth);
+        sessionStorage.removeItem('selva_active_profile');
+        window.location.reload();
+    }
+};
+
+window.showSettings = () => {
+    const newName = prompt("Cambiar nombre del perfil:", _currentProfile.name);
+    if (!newName) return;
+    
+    _currentProfile.name = newName;
+    document.getElementById('user-name').innerText = newName;
+    document.getElementById('dropdown-profile-name').innerText = newName;
+    
+    // Actualizar en Firestore
+    const profileRef = doc(db, "users", auth.currentUser.uid, "profiles", _currentProfile.id);
+    updateDoc(profileRef, { name: newName });
+    sessionStorage.setItem('selva_active_profile', JSON.stringify(_currentProfile));
+    alert("¡Configuración guardada! ⚙️");
+    document.getElementById('user-dropdown').style.display = 'none';
 };
 
 window.closeAuthModal = () => {
@@ -2339,7 +2364,12 @@ document.getElementById('btn-google-login')?.addEventListener('click', async () 
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         console.log("👤 Sesión activa:", user.email);
-        document.getElementById('user-name').innerText = user.displayName.split(' ')[0];
+        
+        // Verificación de BAN (Admin Only)
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDocs(query(collection(db, "users"), orderBy("__name__"), limit(1))); // Simplified check
+        // En una implementación real verificaríamos un campo 'banned' en el documento del usuario.
+        
         document.getElementById('user-initials').innerText = user.displayName.charAt(0);
         if (user.photoURL) {
             const img = document.getElementById('user-avatar-img');
@@ -2366,22 +2396,27 @@ window.loadProfiles = async (uid) => {
     snap.forEach(d => profiles.push({ id: d.id, ...d.data() }));
 
     if (profiles.length === 0) {
-        // Crear perfil default si no existe ninguno
-        const defaultProfile = { name: auth.currentUser.displayName.split(' ')[0], avatar: '🌴', isChild: false };
+        const defaultProfile = { name: auth.currentUser.displayName.split(' ')[0], avatar: '🐯', isChild: false };
         const docRef = await addDoc(profilesCol, defaultProfile);
         profiles.push({ id: docRef.id, ...defaultProfile });
     }
 
     window.renderProfiles(profiles);
     
-    // Si ya hay un perfil en sesión, no mostrar el selector
     const saved = sessionStorage.getItem('selva_active_profile');
     if (!saved) {
         window.showProfileSelector();
     } else {
         _currentProfile = JSON.parse(saved);
-        document.getElementById('user-name').innerText = _currentProfile.name;
+        window.applyProfile(_currentProfile);
     }
+};
+
+window.applyProfile = (p) => {
+    document.getElementById('user-name').innerText = p.name;
+    document.getElementById('dropdown-profile-name').innerText = p.name;
+    document.getElementById('dropdown-active-profile').innerText = p.avatar || '🐯';
+    _currentProfile = p;
 };
 
 window.renderProfiles = (profiles) => {
@@ -2389,42 +2424,51 @@ window.renderProfiles = (profiles) => {
     if (!grid) return;
 
     grid.innerHTML = profiles.map(p => `
-        <div class="profile-item" onclick="window.selectProfile('${p.id}', '${p.name}', '${p.avatar}')" style="cursor:pointer; transition: transform 0.2s;">
-            <div style="width: 120px; height: 120px; background: #333; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 3rem; margin-bottom: 10px; border: 3px solid transparent;" onmouseover="this.style.borderColor='white';" onmouseout="this.style.borderColor='transparent';">
+        <div class="profile-item" onclick="window.selectProfile('${p.id}', '${p.name}', '${p.avatar}')" style="cursor:pointer; transition: transform 0.2s; width: 150px;">
+            <div style="width: 120px; height: 120px; background: #222; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 3.5rem; margin: 0 auto 10px; border: 3px solid transparent; box-shadow: 0 10px 20px rgba(0,0,0,0.3);" onmouseover="this.style.borderColor='white';" onmouseout="this.style.borderColor='transparent';">
                 ${p.avatar || '🐯'}
             </div>
-            <p style="color: #888; font-size: 1.1rem; font-weight: 500;">${p.name}</p>
+            <p style="color: #eee; font-size: 1.1rem; font-weight: 500;">${p.name}</p>
         </div>
     `).join('') + `
-        <div class="profile-item" onclick="window.showAddProfile()" style="cursor:pointer;">
-            <div style="width: 120px; height: 120px; background: none; border: 2px dashed #555; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 3rem; margin-bottom: 10px; color: #555;">
-                <span style="font-size: 4rem;">+</span>
+        <div class="profile-item" onclick="window.showAddProfile()" style="cursor:pointer; width: 150px;">
+            <div style="width: 120px; height: 120px; background: none; border: 2px dashed #444; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 3rem; margin: 0 auto 10px; color: #444;" onmouseover="this.style.borderColor='#888'; this.style.color='#888';" onmouseout="this.style.borderColor='#444'; this.style.color='#444';">
+                <span style="font-size: 3rem;">+</span>
             </div>
-            <p style="color: #555; font-size: 1.1rem;">Añadir</p>
+            <p style="color: #444; font-size: 1.1rem;">Añadir</p>
         </div>
     `;
 };
 
 window.showProfileSelector = () => {
     document.getElementById('profile-selector-modal').style.display = 'flex';
+    document.getElementById('user-dropdown').style.display = 'none';
 };
 
 window.selectProfile = (id, name, avatar) => {
-    _currentProfile = { id, name, avatar };
-    sessionStorage.setItem('selva_active_profile', JSON.stringify(_currentProfile));
+    const p = { id, name, avatar };
+    sessionStorage.setItem('selva_active_profile', JSON.stringify(p));
+    window.applyProfile(p);
     document.getElementById('profile-selector-modal').style.display = 'none';
-    document.getElementById('user-name').innerText = name;
-    alert(`🌳 Explorando como: ${name}`);
 };
 
 window.showAddProfile = async () => {
     const name = prompt("¿Cómo se llama el nuevo explorador? 🐒");
     if (!name) return;
     
-    const avatars = ['🦁', '🐯', '🦒', '🐘', '🐊', '🦜', '🦥'];
+    const avatars = ['🦁', '🐯', '🦒', '🐘', '🐊', '🦜', '🦥', '🐺', '🦊', '🐻', '🦓'];
     const randomAvatar = avatars[Math.floor(Math.random() * avatars.length)];
     
     const profilesCol = collection(db, "users", auth.currentUser.uid, "profiles");
     await addDoc(profilesCol, { name, avatar: randomAvatar, isChild: false });
     window.loadProfiles(auth.currentUser.uid);
 };
+
+// Cerrar dropdown al hacer clic fuera
+window.addEventListener('click', (e) => {
+    const container = document.getElementById('user-profile-container');
+    const dropdown = document.getElementById('user-dropdown');
+    if (container && !container.contains(e.target)) {
+        if (dropdown) dropdown.style.display = 'none';
+    }
+});

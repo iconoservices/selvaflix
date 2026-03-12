@@ -153,22 +153,15 @@ h3,
   top: 0;
   left: 0;
   right: 0;
-  height: 70px;
+  height: 80px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 4%;
-  background: transparent;
-  backdrop-filter: none;
+  padding: 0 5%;
+  background: linear-gradient(to bottom, rgba(5, 5, 5, 0.8), transparent);
+  backdrop-filter: blur(10px);
   z-index: 1000;
-  border-bottom: none;
-  transition: background 0.3s ease, backdrop-filter 0.3s ease;
-}
-
-/* Al hacer scroll el navbar toma fondo oscuro (via JS class) */
-.navbar.scrolled {
-  background: rgba(5, 5, 5, 0.92);
-  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--glass-border);
 }
 
 .logo {
@@ -236,172 +229,97 @@ h3,
   filter: drop-shadow(0 0 5px var(--primary-glow));
 }
 
+/* ---- NAVBAR MOBILE FIX ---- */
+.navbar {
+  height: 60px; /* más compacto en móvil */
+  padding: 0 4%;
+}
+
+/* Search wrapper: en desktop muestra el input, en móvil oculta con ícono */
+.search-wrapper {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.search-icon {
+  display: none; /* oculto en desktop */
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid var(--glass-border);
+  line-height: 1;
+}
+
+/* El nombre del usuario (texto "Login" o nombre del perfil) */
+.nav-username {
+  color: white;
+  font-size: 0.7rem;
+  font-weight: bold;
+  max-width: 70px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @media (max-width: 768px) {
-  .bottom-nav {
+  .navbar {
+    height: 56px;
+    padding: 0 4%;
+  }
+
+  /* Ocultar el nombre de usuario en móvil, solo mostrar el avatar */
+  .nav-username {
+    display: none;
+  }
+
+  /* El botón del perfil se achica sin el texto */
+  #user-profile-btn {
+    padding: 4px !important;
+    border-radius: 50% !important;
+    gap: 0 !important;
+  }
+
+  /* Search: mostrar ícono en vez del input */
+  .search-icon {
     display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .search-bar {
-    width: 35px;
-    height: 35px;
-    padding: 8px;
-    border-radius: 50%;
-    transition: width 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid var(--glass-border);
-    cursor: pointer;
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0;
+    opacity: 0;
+    pointer-events: none;
+    padding: 0;
+    border: none;
+    transition: width 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s;
+    background: rgba(10,10,10,0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
   }
 
-  .search-bar:focus {
-    width: 150px;
-    border-radius: 20px;
-    padding: 8px 15px;
-    background: rgba(255, 255, 255, 0.15);
-    outline: none;
+  /* Cuando el wrapper tiene .open, se expande el input */
+  .search-wrapper.open .search-bar {
+    width: 185px;
+    opacity: 1;
+    pointer-events: auto;
+    padding: 8px 14px;
+    border: 1px solid var(--primary);
+    right: 38px; /* no tape el ícono */
+  }
+
+  .search-wrapper.open .search-icon {
+    z-index: 1;
+    background: rgba(255,122,0,0.15);
     border-color: var(--primary);
   }
-
-  .nav-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  
-  /* Hide text when search is expanded on very small screens */
-  @media (max-width: 360px) {
-    .search-bar:focus {
-      width: 120px;
-    }
-  }
-
-/* Hero Carousel Inmersivo (Netflix Style) */
-.hero-carousel {
-  position: relative;
-  width: 100%;
-  height: 70vh;
-  min-height: 450px;
-  overflow: hidden;
-  /* El navbar flota encima */
-  margin-top: 0;
-}
-
-.hero-track {
-  display: flex;
-  height: 100%;
-  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.hero-slide {
-  flex: 0 0 100%;
-  height: 100%;
-  background-size: cover;
-  background-position: center top;
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  padding: 0 5% 60px;
-}
-
-/* Gradiente agresivo hacia abajo (funde con filas) */
-.hero-slide::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(to bottom,
-      rgba(5,5,5,0.2) 0%,
-      rgba(5,5,5,0.0) 30%,
-      rgba(5,5,5,0.0) 50%,
-      rgba(5,5,5,0.75) 80%,
-      rgba(5,5,5,1) 100%),
-    linear-gradient(to right,
-      rgba(5,5,5,0.8) 0%,
-      transparent 60%);
-  pointer-events: none;
-}
-
-.hero-slide-content {
-  position: relative;
-  z-index: 2;
-  max-width: 380px;
-}
-
-.hero-slide-title {
-  font-family: 'Outfit', sans-serif;
-  font-size: 2.2rem;
-  font-weight: 800;
-  color: white;
-  line-height: 1.1;
-  margin-bottom: 8px;
-  text-shadow: 0 2px 10px rgba(0,0,0,0.5);
-}
-
-.hero-slide-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.85rem;
-  color: rgba(255,255,255,0.75);
-  margin-bottom: 15px;
-}
-
-.hero-slide-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 28px;
-  background: var(--primary);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.95rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: var(--transition);
-  box-shadow: 0 4px 15px rgba(255,122,0,0.4);
-}
-
-.hero-slide-btn:hover {
-  background: #e06e00;
-  transform: scale(1.03);
-}
-
-.hero-indicators {
-  position: absolute;
-  bottom: 20px;
-  right: 5%;
-  display: flex;
-  gap: 6px;
-  z-index: 10;
-}
-
-.hero-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.35);
-  transition: all 0.3s;
-  cursor: pointer;
-}
-
-.hero-dot.active {
-  background: white;
-  width: 18px;
-  border-radius: 3px;
-}
-
-@media (max-width: 768px) {
-  .hero-carousel {
-    height: 55vh;
-    min-height: 360px;
-  }
-  .hero-slide {
-    padding: 0 5% 40px;
-  }
-  .hero-slide-title {
-    font-size: 1.8rem;
-  }
-}
 
   .filter-bar {
     padding: 8px 12px;
@@ -409,12 +327,12 @@ h3,
     border-bottom: 1px solid var(--glass-border);
     margin-top: 0;
     position: sticky;
-    top: 0;
+    top: 56px;
     z-index: 100;
   }
 
   #genre-bar.filter-bar {
-    top: 46px;
+    top: 104px;
     margin-top: 0;
   }
 
@@ -429,6 +347,7 @@ h3,
     padding-top: 80px;
   }
 }
+
 
 /* Install Button Animation */
 #pwa-install-btn.pulse {

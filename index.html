@@ -26,22 +26,31 @@
 <body>
   <div id="app">
     <nav class="navbar">
+      <!-- Logo -->
       <div class="logo">
         <span>SELVA</span><span>FLIX</span>
       </div>
+
+      <!-- Nav Actions (right side) -->
       <div class="nav-actions">
-        <input type="text" placeholder="Buscar en la selva..." class="search-bar" id="global-search">
+        <!-- Search: icon on mobile, expands on click -->
+        <div class="search-wrapper">
+          <span class="search-icon" onclick="this.parentElement.classList.toggle('open')">🔍</span>
+          <input type="text" placeholder="Buscar en la selva..." class="search-bar" id="global-search">
+        </div>
+
+        <!-- Profile Button -->
         <div id="user-profile-container" style="position: relative;">
-            <div id="user-profile-btn" onclick="window.toggleUserMenu()" style="cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 4px 12px; border-radius: 20px; background: rgba(255,122,0,0.1); border: 1px solid rgba(255,122,0,0.3);">
-                <div id="user-avatar" style="width: 28px; height: 28px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 900; color: black; font-size: 0.65rem; overflow: hidden; border: 1px solid rgba(0,0,0,0.2);">
+            <div id="user-profile-btn" onclick="window.toggleUserMenu()" style="cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px; background: rgba(255,122,0,0.1); border: 1px solid rgba(255,122,0,0.3);">
+                <div id="user-avatar" style="width: 28px; height: 28px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 900; color: black; font-size: 0.65rem; overflow: hidden; flex-shrink: 0;">
                     <img id="user-avatar-img" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;">
                     <span id="user-initials">G</span>
                 </div>
-                <span id="user-name" style="color: white; font-size: 0.7rem; font-weight: bold; max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Login</span>
+                <span id="user-name" class="nav-username">Login</span>
             </div>
             
             <!-- Perfil Dropdown -->
-            <div id="user-dropdown" style="display: none; position: absolute; top: 45px; right: 0; background: #111; border: 1px solid var(--glass-border); border-radius: 12px; width: 180px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 1001; overflow: hidden; animation: authPop 0.3s ease;">
+            <div id="user-dropdown" style="display: none; position: absolute; top: 45px; right: 0; background: #111; border: 1px solid var(--glass-border); border-radius: 12px; width: 180px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 1001; overflow: hidden;">
                 <div style="padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center;">
                     <p style="font-size: 0.6rem; color: #555; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">Explorador Activo</p>
                     <div id="dropdown-active-profile" style="font-size: 1.2rem; margin-bottom: 5px;">🐯</div>
@@ -58,9 +67,10 @@
                 </button>
             </div>
         </div>
+
         <button id="pwa-install-btn" class="btn btn-secondary"
-          style="display: none; padding: 6px 12px; font-size: 0.8rem; border-color: var(--primary); color: var(--primary); gap: 5px; align-items: center;">
-          📲 Instalar App
+          style="display: none; padding: 6px 12px; font-size: 0.8rem; border-color: var(--primary); color: var(--primary);">
+          📲 Instalar
         </button>
       </div>
     </nav>

@@ -2684,7 +2684,7 @@ window.renderProfiles = (profiles) => {
                     ` : ''}
                 </div>
                 ${_isManagingProfiles ? `
-                    <div onclick="event.stopPropagation(); window.deleteProfile('${p.id}', '${p.name}')" style="position: absolute; top: -5px; right: 5px; width: 30px; height: 30px; background: #E74C3C; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1rem; box-shadow: 0 5px 15px rgba(231,76,60,0.5); z-index: 10;">
+                    <div onclick="event.stopPropagation(); window.deleteProfile('${p.id}', '${p.name}', '${p.pin || ''}')" style="position: absolute; top: -5px; right: 5px; width: 30px; height: 30px; background: #E74C3C; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1rem; box-shadow: 0 5px 15px rgba(231,76,60,0.5); z-index: 10;">
                         ✖
                     </div>
                 ` : ''}
@@ -2709,7 +2709,7 @@ window.showProfileSelector = () => {
 let pendingProfile = null;
 
 window.selectProfile = (id, name, avatar, pin) => {
-    const p = { id, name, avatar, pin };
+    const p = { id, name, avatar, pin, action: 'login' };
     
     if (pin && pin.trim() !== "") {
         pendingProfile = p;
@@ -2744,13 +2744,21 @@ window.validatePinEntry = async (el) => {
     if (pinEntered.length < 4) return;
 
     if (pinEntered === pendingProfile.pin) {
-        const p = { ...pendingProfile };
-        delete p.pin; // Seguridad mínima
-        sessionStorage.setItem('selva_active_profile', JSON.stringify(p));
-        window.applyProfile(p);
         window.closePinModal();
-        document.getElementById('profile-selector-modal').style.display = 'none';
-        window.hideSplashScreen();
+        
+        if (pendingProfile.action === 'edit') {
+            window.openEditModal(pendingProfile.id, pendingProfile.name, pendingProfile.avatar, pendingProfile.pin);
+        } else if (pendingProfile.action === 'delete') {
+            window.executeProfileDeletion(pendingProfile.id, pendingProfile.name);
+        } else {
+            const p = { ...pendingProfile };
+            delete p.pin; // Seguridad mínima
+            delete p.action;
+            sessionStorage.setItem('selva_active_profile', JSON.stringify(p));
+            window.applyProfile(p);
+            document.getElementById('profile-selector-modal').style.display = 'none';
+            window.hideSplashScreen();
+        }
     } else {
         document.getElementById('pin-error-msg').style.display = 'block';
         document.querySelectorAll('.pin-dot').forEach(i => i.value = '');
@@ -2759,6 +2767,18 @@ window.validatePinEntry = async (el) => {
 };
 
 window.editSpecificProfile = (id, name, avatar, pin = '') => {
+    if (pin && pin.trim() !== "") {
+        pendingProfile = { id, name, avatar, pin, action: 'edit' };
+        document.getElementById('pin-profile-name').innerText = name + " (Editar)";
+        document.getElementById('pin-modal').style.display = 'flex';
+        document.querySelectorAll('.pin-dot').forEach(i => i.value = '');
+        document.getElementById('pin-1').focus();
+    } else {
+        window.openEditModal(id, name, avatar, pin);
+    }
+};
+
+window.openEditModal = (id, name, avatar, pin) => {
     const input = document.getElementById('edit-profile-name-input');
     const pinInput = document.getElementById('edit-profile-pin-input');
     const modal = document.getElementById('profile-edit-name-modal');
@@ -2772,7 +2792,7 @@ window.editSpecificProfile = (id, name, avatar, pin = '') => {
     // Mostrar botón de eliminar solo al editar un perfil existente
     if (deleteBtn) {
         deleteBtn.style.display = 'block';
-        deleteBtn.onclick = () => window.deleteProfile(id, name);
+        deleteBtn.onclick = () => window.deleteProfile(id, name, pin);
     }
     
     saveBtn.onclick = () => {
@@ -2787,7 +2807,20 @@ window.editSpecificProfile = (id, name, avatar, pin = '') => {
     };
 };
 
-window.deleteProfile = async (id, name) => {
+window.deleteProfile = async (id, name, pin = '') => {
+    if (pin && pin.trim() !== "") {
+        pendingProfile = { id, name, pin, action: 'delete' };
+        document.getElementById('pin-profile-name').innerText = name + " (Borrar)";
+        document.getElementById('pin-modal').style.display = 'flex';
+        document.querySelectorAll('.pin-dot').forEach(i => i.value = '');
+        document.getElementById('pin-1').focus();
+        return;
+    }
+    
+    window.executeProfileDeletion(id, name);
+};
+
+window.executeProfileDeletion = async (id, name) => {
     if (!confirm(`¿Estás seguro que deseas eliminar el perfil "${name}"? Esta acción no se puede deshacer. 🗑️`)) return;
 
     try {

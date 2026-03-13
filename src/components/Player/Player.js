@@ -168,126 +168,36 @@ export const SelvaStream = {
                 window.reportBrokenLink(this.currentPlayerMovie.id, this.currentPlayerMovie.title);
             }
         });
-        if (!document.getElementById('selva-player-css')) {
-            const style = document.createElement('style');
-            style.id = 'selva-player-css';
-            style.innerHTML = `
-                .player-start-screen {
-                    position: absolute; top:0; left:0; width:100%; height:100%;
-                    z-index: 200; display: flex; align-items: center; justify-content: center;
-                    background: #000; overflow: hidden;
-                }
-                .start-bg {
-                    position: absolute; top:0; left:0; width:100%; height:100%;
-                    background-size: cover; background-position: center;
-                    filter: blur(20px) brightness(0.3); opacity: 0.6;
-                    transform: scale(1.1);
-                }
-                .start-content {
-                    position: relative; z-index: 10; text-align: center; color: white;
-                    animation: fadeIn 0.8s ease-out;
-                }
-                .start-content h2 { font-size: 1.8rem; text-shadow: 0 4px 15px rgba(0,0,0,0.9); margin-bottom: 20px; font-weight: 800; padding: 0 20px; }
-                .start-play-btn {
-                    margin: 0 auto;
-                    background: var(--primary); color: black; border: none;
-                    padding: 15px 40px; border-radius: 60px; font-size: 1.1rem;
-                    font-weight: 900; cursor: pointer; display: flex; align-items: center; gap: 10px;
-                    transition: all 0.3s;
-                    box-shadow: 0 10px 30px rgba(255,122,0,0.4);
-                }
-                @media (max-width: 600px) {
-                    .start-content h2 { font-size: 1.3rem; }
-                    .start-play-btn { padding: 12px 30px; font-size: 1rem; }
-                }
-                .start-play-btn:hover { transform: scale(1.05); box-shadow: 0 0 50px rgba(255,122,0,0.8); }
-                .play-icon { font-size: 1.3rem; }
-                .start-subtitle { margin-top: 12px; font-size: 0.75rem; opacity: 0.7; letter-spacing: 1.5px; }
+    },
 
-                .guide-sidebar { width: 140px !important; min-width: 140px !important; flex-shrink: 0; font-size: 10px; }
-                .video-container { flex: 1; }
+    /**
+     * Activa el modo de pantalla completa y bloquea la orientación a horizontal.
+     * Estilo Netflix 🍿
+     */
+    async lockLandscape() {
+        try {
+            const playerModal = document.getElementById('player-modal');
+            if (!playerModal) return;
 
-                .vip-badge { background: #2ecc71; color: black; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 5px; }
-                .latino-badge { background: var(--primary); color: black; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 5px; }
-                
-                /* Floating VIP Menu */
-                .floating-sources-btn {
-                    position: absolute; bottom: 80px; right: 20px; z-index: 250;
-                    background: rgba(0,0,0,0.8); color: var(--primary); border: 1px solid var(--primary);
-                    padding: 8px 15px; border-radius: 20px; font-weight: 800; font-size: 11px;
-                    cursor: pointer; transition: all 0.3s;
-                }
-                .floating-sources-btn:hover { background: var(--primary); color: black; }
-                
-                .side-vip-menu {
-                    position: absolute; top: 0; right: -300px; width: 300px; height: 100%;
-                    background: rgba(10,10,10,0.95); backdrop-filter: blur(20px);
-                    z-index: 10005; transition: right 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-                    border-left: 1px solid #333; padding: 85px 20px 20px 20px; overflow-y: auto;
-                }
-                .side-vip-menu.active { right: 0; }
-                .vip-menu-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; color: var(--primary); font-weight: 800; border-bottom: 1px solid #333; padding-bottom: 10px; }
-                .vip-menu-header button { background: none; border: none; color: white; font-size: 24px; cursor: pointer; }
+            // 1. Fullscreen Nativo
+            if (playerModal.requestFullscreen) {
+                await playerModal.requestFullscreen();
+            } else if (playerModal.webkitRequestFullscreen) {
+                await playerModal.webkitRequestFullscreen();
+            }
 
-                .compact-sidebar { width: 180px !important; font-size: 11px; }
-                .sidebar-ad-space { margin-top: auto; background: rgba(255,122,0,0.1); border: 1px dashed var(--primary); padding: 10px; text-align: center; border-radius: 8px; font-weight: bold; font-size: 10px; color: var(--primary); }
-
-                @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-
-                .series-selectors {
-                    background: rgba(255,255,255,0.03);
-                    border: 1px solid rgba(255,255,255,0.08);
-                    border-radius: 18px;
-                    padding: 15px;
-                    margin-bottom: 20px;
-                    display: flex;
-                    gap: 15px;
-                    backdrop-filter: blur(10px);
-                }
-                .selva-select-wrapper {
-                    flex: 1;
-                    position: relative;
-                }
-                .selva-select-wrapper label {
-                    font-size: 10px;
-                    color: var(--primary);
-                    font-weight: 900;
-                    text-transform: uppercase;
-                    letter-spacing: 1.5px;
-                    margin-bottom: 8px;
-                    display: block;
-                    opacity: 0.8;
-                }
-                .selva-custom-select {
-                    width: 100%;
-                    background: #0a0a0a;
-                    color: #fff;
-                    border: 1px solid #333;
-                    padding: 12px 15px;
-                    border-radius: 12px;
-                    font-size: 14px;
-                    font-weight: 600;
-                    outline: none;
-                    cursor: pointer;
-                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                    appearance: none;
-                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23FF7A00' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-                    background-repeat: no-repeat;
-                    background-position: right 12px center;
-                    background-size: 18px;
-                }
-                .selva-custom-select:hover {
-                    border-color: var(--primary);
-                    box-shadow: 0 0 15px rgba(255,122,0,0.2);
-                    transform: translateY(-2px);
-                }
-                .selva-custom-select:focus {
-                    border-color: var(--primary);
-                }
-            `;
-            document.head.appendChild(style);
+            // 2. Bloqueo de Orientación (Donde esté disponible)
+            if (screen.orientation && screen.orientation.lock) {
+                await screen.orientation.lock('landscape').catch(e => console.warn("Orientación no bloqueada:", e));
+            }
+        } catch (err) {
+            console.warn("Fallo al intentar modo cine horizontal:", err);
         }
-        // El Spinner se apaga cuando el iframe carga
+    },
+    },
+
+    // El Spinner se apaga cuando el iframe carga
+    setupIframeLoader() {
         const iframe = document.getElementById('player-iframe');
         if (iframe) {
             iframe.onload = () => {
@@ -296,32 +206,14 @@ export const SelvaStream = {
                     loader.style.opacity = '0';
                     setTimeout(() => loader.style.display = 'none', 500);
                 }
-
-                // Intento heurístico de detección de errores por Cross-Origin (Si el iframe está en blanco por bloqueo)
-                try {
-                    // Si el servidor se niega a conectar por sandbox/x-frame-options, el título interno o el body estarán vacíos
-                    // Muchos navegadores modernos bloquean directamente el acceso y lanzan una DOMException
-                    // Atrapamos la DOMException en el catch como indicador de que el iframe CARGÓ, pero de un origen externo exitoso.
-                    // Si el iframe está "en blanco" por bloqueo del navegador (CORS/Sandbox estricto en la misma ventana), a veces no lanza error sino que queda accesible pero vacío.
-                    const iframeWindow = iframe.contentWindow;
-                    if (iframeWindow && iframeWindow.document && iframe.style.display !== 'none' && iframeWindow.document.body.innerHTML.length < 50) {
-                        // Sospechoso de bloqueo de Sandbox.
-                        this.handlePlayerError();
-                    }
-                } catch (error) {
-                    // DOMException por Cross-Origin significa que el sitio externo cargó correctamente y protegió su DOM.
-                    // Esto es lo que queremos que pase. Significa que hay contenido.
-                }
-            };
-
-            // OnError nativo (Rara vez dispara para iframes cors, pero es bueno tenerlo)
-            iframe.onerror = () => {
-                this.handlePlayerError();
             };
         }
     },
+    },
 
-    // Rescate de emergencia temporalmente desactivado para depuración de pantalla negra
+    /**
+     * Fallback para errores de reproductor.
+     */
     handlePlayerError() {
         console.warn("⚠️ Servidor bloqueado u hostil detectado. Análisis nativo (Fallback desactivado).");
         // const activeBtn = document.querySelector('.server-btn.active');
@@ -951,6 +843,9 @@ export const SelvaStream = {
         // tocándolo en el hilo exacto del click del usuario.
         nativePlayer.play().catch(() => {});
         nativePlayer.pause();
+
+        // 🍿 Modo Cine Horizontal Automático
+        this.lockLandscape();
         
         const statusDiv = document.getElementById('webtorrent-status');
         const loader = document.getElementById('player-loader');

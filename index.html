@@ -20,21 +20,91 @@
 
   <!-- Motor Selva P2P (WebTorrent) -->
   <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
-  <!-- Motor HLS (TV en Vivo) -->
+  
+  <style>
+    :root {
+      --bg-deep: #050505;
+      --primary: #FF7A00;
+      --primary-glow: rgba(255, 122, 0, 0.4);
+    }
+    
+    #splash-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--bg-deep);
+      z-index: 30000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.8s ease, visibility 0.8s;
+      font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    .splash-logo-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      animation: splashEntrance 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .splash-logo {
+      filter: drop-shadow(0 0 30px var(--primary-glow));
+      margin-bottom: 25px;
+      text-align: center;
+      font-size: 3.5rem;
+      font-weight: 900;
+      letter-spacing: -2px;
+    }
+
+    .splash-logo span:first-child { color: white; }
+    .splash-logo span:last-child { color: var(--primary); }
+
+    .splash-loader-bar {
+      width: 140px;
+      height: 2px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      overflow: hidden;
+      margin: 0 auto;
+    }
+
+    .splash-loader-fill {
+      width: 100%;
+      height: 100%;
+      background: var(--primary);
+      box-shadow: 0 0 10px var(--primary);
+      animation: splashLoadingLoop 2s infinite ease-in-out;
+    }
+
+    @keyframes splashEntrance {
+      0% { transform: scale(0.9); opacity: 0; filter: blur(10px); }
+      100% { transform: scale(1); opacity: 1; filter: blur(0); }
+    }
+
+    @keyframes splashLoadingLoop {
+      0% { transform: translateX(-100%); }
+      50% { transform: translateX(0%); }
+      100% { transform: translateX(100%); }
+    }
+  </style>
 </head>
 
 <body>
-  <!-- Splash Screen Pro v2.40 🎬 -->
-  <div id="splash-screen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #050505; z-index: 30000; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.8s ease, visibility 0.8s;">
+  <!-- Splash Screen Premium v2.42 🎬 -->
+  <div id="splash-screen">
     <div class="splash-logo-container">
       <div class="splash-logo">
-        <span style="color: white; font-size: 3.5rem; font-weight: 900; letter-spacing: -2px; font-family: 'Outfit', sans-serif;">SELVA</span><span style="color: var(--primary); font-size: 3.5rem; font-weight: 900; letter-spacing: -2px; font-family: 'Outfit', sans-serif;">FLIX</span>
+        <span>SELVA</span><span>FLIX</span>
       </div>
       <div class="splash-loader-bar">
         <div class="splash-loader-fill"></div>
       </div>
     </div>
-    <p style="color: var(--primary); font-size: 0.6rem; letter-spacing: 4px; margin-top: 25px; font-family: 'Outfit', sans-serif; opacity: 0.4; text-transform: uppercase; font-weight: 300;">Explorando...</p>
+    <p style="color: var(--primary); font-size: 0.6rem; letter-spacing: 4px; margin-top: 25px; opacity: 0.6; text-transform: uppercase; font-weight: 400;">Explorando la Selva...</p>
   </div>
 
   <div id="app">
@@ -187,39 +257,32 @@
         </div>
     </div>
 
-    <!-- Modal de Selección de Perfiles (Estilo Netflix) -->
-    <div id="profile-selector-modal" class="modal-overlay" style="display: none; z-index: 20005; background: #000;">
-        <div style="text-align: center; width: 100%;">
+    <!-- MODAL SELECTOR DE PERFILES 👤 (v2.42 completo con PIN y Cleanup) -->
+    <div id="profile-selector-modal" class="modal-overlay" style="display: none; z-index: 20005; background: #141414; align-items: center; justify-content: center;">
+        <div style="text-align: center; width: 100%; max-width: 800px; padding: 20px;">
             <h1 id="profile-selector-title" style="color: white; font-size: 2.5rem; font-weight: 800; margin-bottom: 40px; letter-spacing: 2px;">¿QUIÉN ESTÁ VIENDO?</h1>
             <div id="profiles-grid" style="display: flex; gap: 30px; justify-content: center; flex-wrap: wrap; padding: 20px;">
                 <!-- Perfiles se inyectan aquí -->
             </div>
-            <div style="display: flex; gap: 20px; justify-content: center; margin-top: 50px; flex-wrap: wrap;">
-                <button id="btn-manage-profiles" onclick="window.toggleManageProfiles()" style="background: none; border: 1px solid #555; color: #555; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; letter-spacing: 2px; transition: all 0.3s;" onmouseover="this.style.borderColor='white'; this.style.color='white';">ADMINISTRAR PERFILES</button>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 15px; margin-top: 40px;">
+                <button id="btn-manage-profiles" onclick="window.toggleManageProfiles()" style="background: none; border: 1px solid #555; color: #555; padding: 10px 25px; font-size: 1rem; letter-spacing: 2px; cursor: pointer; transition: all 0.3s; border-radius: 4px;" onmouseover="this.style.borderColor='white'; this.style.color='white';" onmouseout="this.style.borderColor='#555'; this.style.color='#555';">ADMINISTRAR PERFILES</button>
+                <button id="btn-cleanup-profiles" class="btn" style="display: none; background: rgba(231,76,60,0.1); border: 1px solid #E74C3C; color: #E74C3C; padding: 10px 25px; font-size: 0.8rem; letter-spacing: 1px;" onclick="window.openCleanupModal()">🧹 Limpieza Rápida</button>
             </div>
         </div>
     </div>
 
-    <!-- Modal: Selector de Avatar (Pop-up) -->
-    <div id="avatar-selector-modal" class="modal-overlay avatar-modal-overlay" style="display: none;">
-        <div class="avatar-modal-content">
-            <h2 style="color: white; margin-bottom: 20px;">Elige tu Icono 🐾</h2>
-            <div id="avatar-options-grid" class="avatar-grid">
-                <!-- Iconos inyectados por JS -->
-            </div>
-            <button onclick="document.getElementById('avatar-selector-modal').style.display='none'" class="btn btn-secondary" style="width: 100%;">Cancelar</button>
-        </div>
-    </div>
-
-    <!-- Modal: Editar Nombre Perfil (Evitamos prompts nativos) -->
-    <div id="profile-edit-name-modal" class="modal-overlay" style="display: none; z-index: 20008; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px);">
-        <div style="background: #111; padding: 30px; border-radius: 20px; max-width: 400px; width: 90%; text-align: center; border: 1px solid rgba(255,255,255,0.1);">
+    <!-- MODAL EDITAR NOMBRE/PIN ✏️ (v2.42 completo) -->
+    <div id="profile-edit-name-modal" class="modal-overlay" style="display: none; z-index: 28000; background: rgba(0,0,0,0.85); align-items: center; justify-content: center;">
+        <div style="background: #111; padding: 30px; border-radius: 20px; max-width: 380px; width: 90%; text-align: center; border: 1px solid rgba(255,255,255,0.1);">
             <h2 style="color: white; margin-bottom: 20px;">Nombre del Perfil 🐒</h2>
-            <input type="text" id="edit-profile-name-input" class="form-control" style="width: 100%; margin-bottom: 20px; background: #222; border: 1px solid #444; color: white; padding: 12px; border-radius: 8px;" placeholder="Ej: Juan">
+            <input type="text" id="edit-profile-name-input" class="form-control" style="width: 100%; margin-bottom: 15px; background: #222; border: 1px solid #444; color: white; padding: 12px; border-radius: 8px; text-align: center; font-size: 1.2rem;" placeholder="Ej: Explorador">
+            <input type="password" id="edit-profile-pin-input" class="form-control" placeholder="PIN 4 dígitos (opcional)" maxlength="4" inputmode="numeric" style="width: 100%; margin-bottom: 8px; background: #222; border: 1px solid #444; color: white; padding: 12px; border-radius: 8px; text-align: center; letter-spacing: 6px;">
+            <p style="font-size: 0.65rem; color: #555; margin-bottom: 20px;">Deja vacío para no usar PIN. 🔒</p>
             <div style="display: flex; gap: 10px;">
                 <button onclick="document.getElementById('profile-edit-name-modal').style.display='none'" class="btn btn-secondary" style="flex: 1;">Cancelar</button>
                 <button id="btn-save-profile-name" class="btn btn-primary" style="flex: 1;">Siguiente</button>
             </div>
+            <button id="btn-delete-profile" class="btn" style="background: rgba(231,76,60,0.1); border: 1px solid rgba(231,76,60,0.3); color: #E74C3C; width: 100%; margin-top: 15px; display: none;">🗑️ Eliminar Perfil</button>
         </div>
     </div>
 
@@ -405,9 +468,19 @@
                   </label>
                 </div>
               </div>
-              <div class="form-group">
-                <label>URL del Video (Embed / M3U8)</label>
-                <input type="url" id="m-embed" class="form-control" placeholder="Deja vacio para usar Multi-Servidor">
+              <div class="form-group" style="display: flex; gap: 10px;">
+                <div style="flex: 2;">
+                  <label>URL del Video (Embed / M3U8)</label>
+                  <input type="url" id="m-embed" class="form-control" placeholder="Deja vacio para usar Multi-Servidor">
+                </div>
+                <div style="flex: 1;">
+                  <label>Estado 🏥</label>
+                  <select id="m-status" class="form-control" style="background:#222; color:white; border:1px solid #444;">
+                    <option value="healthy">✅ Healthy</option>
+                    <option value="review">⚠️ Review</option>
+                    <option value="broken">❌ Broken</option>
+                  </select>
+                </div>
               </div>
               <div class="form-group" style="display: flex; gap: 10px;">
                 <div style="flex: 1;">
@@ -620,7 +693,13 @@
                           <label>Texto del Banner</label>
                           <input type="text" class="form-control" placeholder="Ej: ¡Nuevo estreno de anime!">
                       </div>
+                  <div style="opacity: 0.3; pointer-events: none;">
+                      <div class="form-group">
+                          <label>Texto del Banner</label>
+                          <input type="text" class="form-control" placeholder="Ej: ¡Nuevo estreno de anime!">
+                      </div>
                       <button class="btn btn-primary" style="width: 100%;">Publicar Aviso</button>
+                  </div>
                   </div>
               </div>
           </div>
@@ -683,44 +762,6 @@
       </div>
       
       <button onclick="window.closePinModal()" class="btn btn-secondary" style="width: 100%; font-size: 0.8rem; opacity: 0.6;">Cancelar</button>
-    </div>
-  </div>
-
-  <!-- MODAL SELECTOR DE PERFILES 👤 -->
-  <div id="profile-selector-modal" class="modal-overlay" style="display: none; z-index: 20000; align-items: center; justify-content: center; background: #141414;">
-    <div style="text-align: center; width: 100%; max-width: 800px; padding: 20px;">
-      <h1 id="profile-selector-title" style="color: white; font-size: 2.5rem; margin-bottom: 40px; font-weight: 500; letter-spacing: 2px;">¿QUIÉN ESTÁ VIENDO?</h1>
-      
-      <div id="profiles-grid" style="display: flex; flex-wrap: wrap; gap: 30px; justify-content: center; margin-bottom: 50px;">
-        <!-- Perfiles inyectados por JS -->
-      </div>
-      
-      <div style="display: flex; flex-direction: column; align-items: center; gap: 15px;">
-          <button id="btn-manage-profiles" class="btn" style="background: none; border: 1px solid #555; color: #555; padding: 10px 25px; font-size: 1rem; letter-spacing: 2px; cursor: pointer; transition: all 0.3s;" onclick="window.toggleManageProfiles()">ADMINISTRAR PERFILES</button>
-          
-          <button id="btn-cleanup-profiles" class="btn" style="display: none; background: rgba(231,76,60,0.1); border: 1px solid #E74C3C; color: #E74C3C; padding: 10px 25px; font-size: 0.8rem; letter-spacing: 1px;" onclick="window.openCleanupModal()">🧹 Limpieza Rápida</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODAL EDITAR NOMBRE/PIN ✏️ -->
-  <div id="profile-edit-name-modal" class="modal-overlay" style="display: none; z-index: 28000; align-items: center; justify-content: center;">
-    <div class="auth-card" style="max-width: 350px; text-align: center;">
-      <h2 style="margin-bottom: 25px;">Nombre del Perfil 🐒</h2>
-      <div class="form-group">
-        <label>Nombre</label>
-        <input type="text" id="edit-profile-name-input" class="form-control" placeholder="Ej: Explorador" style="text-align: center; font-size: 1.2rem;">
-      </div>
-      <div class="form-group" style="margin-top: 15px;">
-        <label>PIN de Seguridad (4 dígitos)</label>
-        <input type="password" id="edit-profile-pin-input" class="form-control" placeholder="Opcional" maxlength="4" inputmode="numeric" style="text-align: center; letter-spacing: 5px;">
-        <p style="font-size: 0.65rem; color: var(--text-muted); margin-top: 5px;">Deja vacío para no usar PIN. 🔒</p>
-      </div>
-      <div style="display: flex; gap: 10px; margin-top: 30px;">
-        <button onclick="document.getElementById('profile-edit-name-modal').style.display='none'" class="btn btn-secondary" style="flex: 1;">Cancelar</button>
-        <button id="btn-save-profile-name" class="btn btn-primary" style="flex: 1;">Siguiente</button>
-      </div>
-      <button id="btn-delete-profile" class="btn" style="background: rgba(231,76,60,0.1); border: 1px solid rgba(231,76,60,0.3); color: #E74C3C; width: 100%; margin-top: 15px; display: none;">🗑️ Eliminar Perfil</button>
     </div>
   </div>
 

@@ -449,7 +449,7 @@ export const SelvaStream = {
 
     async loadSeriesMetadata(tmdbId) {
         try {
-            const TMDB_API_KEY = '15d2ea6d0dc1d476efbca3eba2b9bbfb';
+            const TMDB_API_KEY = import.meta.env.VITE_TMDB_KEY || '15d2ea6d0dc1d476efbca3eba2b9bbfb';
             const TMDB_URL = 'https://api.themoviedb.org/3';
 
             const resp = await fetch(`${TMDB_URL}/tv/${tmdbId}?api_key=${TMDB_API_KEY}&language=es-PE`);
@@ -469,7 +469,17 @@ export const SelvaStream = {
                     eSel.innerHTML = Array.from({ length: count }, (_, i) => `<option value="${i + 1}">Capítulo ${i + 1}</option>`).join('');
                 };
 
-                updateE(details.seasons.find(s => s.season_number > 0)?.season_number || 1);
+                let initialSeason = details.seasons.find(s => s.season_number > 0)?.season_number || 1;
+                let initialEpisode = 1;
+                
+                if (this.currentPlayerMovie && this.currentPlayerMovie.resumeSeason) {
+                    initialSeason = this.currentPlayerMovie.resumeSeason;
+                    initialEpisode = this.currentPlayerMovie.resumeEpisode || 1;
+                }
+                
+                sSel.value = initialSeason;
+                updateE(initialSeason);
+                eSel.value = initialEpisode;
 
                 sSel.onchange = () => {
                     updateE(sSel.value);
@@ -496,20 +506,21 @@ export const SelvaStream = {
 
     updateServer(serverKey, season = 1, episode = 1) {
         const loader = document.getElementById('player-loader');
-        if (!loader) return;
-
-        const startScreen = document.getElementById('player-start-screen');
-        if (startScreen) startScreen.style.display = 'none';
-
-        loader.style.display = 'flex';
-        loader.style.opacity = '1';
-
-        // ✅ SERVIDORES CLÁSICOS ELIMINADOS (Premium Only)
-        loader.innerHTML = `
-            <div class="loader-logo">SOLO VIP</div>
-            <div class="loader-text">Los servidores con publicidad fueron eliminados para tu seguridad.</div>
-            <button onclick="SelvaStream.loadDebridAuto()" style="margin-top:20px; background:var(--primary); color:black; border:none; padding:10px 20px; border-radius:10px; font-weight:bold; cursor:pointer;">REPRODUCIR VIP</button>
-        `;
+        if (loader) {
+            loader.style.display = 'flex';
+            loader.style.opacity = '1';
+            loader.innerHTML = `
+                <div class="loader-logo">SELVAFLIX</div>
+                <div class="loader-text">Explorando la selva...</div>
+                <div class="spinner-tropical"></div>
+            `;
+        }
+        
+        const nativePlayer = document.getElementById('native-video-player');
+        if (nativePlayer) nativePlayer.pause();
+        
+        // Auto-scan para la nueva temporada/episodio
+        this.loadDebridAuto();
     },
 
     setPreference(lang) {
@@ -729,8 +740,26 @@ export const SelvaStream = {
         if (nativeContainer) nativeContainer.style.display = 'none';
         if (nativePlayer) nativePlayer.pause();
 
-
         const movie = this.currentPlayerMovie;
+        let queryId = id || movie?.imdbId || movie?.tmdbId;
+        const queryType = type || (['series', 'tv', 'anime'].includes(movie?.type) ? 'series' : 'movie');
+
+        // Si es serie, recolectamos temporada y episodio actual
+        let season = 1;
+        let episode = 1;
+        if (queryType === 'series') {
+            const sEl = document.getElementById('selva-season');
+            const eEl = document.getElementById('selva-episode');
+            if (sEl) season = parseInt(sEl.value) || 1;
+            if (eEl) episode = parseInt(eEl.value) || 1;
+            
+            this.currentEpisodeId = `s${season}e${episode}`;
+            this.currentEpisodeLabel = `T${season} E${episode}`;
+            queryId = `${queryId}:${season}:${episode}`;
+        } else {
+            this.currentEpisodeId = null;
+            this.currentEpisodeLabel = null;
+        }
 
         // PRIORIDAD 1: Link Manual de Administrador (Vía Panel Admin)
         if (movie && movie.embed && (movie.embed.startsWith('http') || movie.embed.includes('<iframe'))) {
@@ -753,8 +782,8 @@ export const SelvaStream = {
             const tConfig = `providers=${providers}|sort=seeders|qualityfilter=scr,cam`;
 
             const urls = [
-                `https://torrentio.strem.fun/${tConfig}/stream/${type}/${id}.json`,
-                `https://comet.strem.fun/stream/${type}/${id}.json`
+                `https://torrentio.strem.fun/${tConfig}/stream/${queryType}/${queryId}.json`,
+                `https://comet.strem.fun/stream/${queryType}/${queryId}.json`
             ];
 
             const controller = new AbortController();
@@ -978,7 +1007,7 @@ export const SelvaStream = {
                     // Sincronizar cada 10 segundos o al final
                     if (now > 0 && (now % 10 === 0 || now === duration)) {
                         if (window.syncPlaybackProgress) {
-                            window.syncPlaybackProgress(this.currentPlayerMovie, now, duration);
+                            window.syncPlaybackProgress(this.currentPlayerMovie, now, duration, this.currentEpisodeId, this.currentEpisodeLabel);
                         }
                     }
                 };
@@ -1060,7 +1089,7 @@ export const SelvaStream = {
                         const duration = Math.floor(nativePlayer.duration);
                         if (now > 0 && (now % 10 === 0 || now === duration)) {
                             if (window.syncPlaybackProgress) {
-                                window.syncPlaybackProgress(this.currentPlayerMovie, now, duration);
+                                window.syncPlaybackProgress(this.currentPlayerMovie, now, duration, this.currentEpisodeId, this.currentEpisodeLabel);
                             }
                         }
                     };

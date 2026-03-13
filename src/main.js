@@ -6,7 +6,7 @@ import './components/Player/Player.css'
    Mantiene un ojo en los datos y nos avisa al instante cuando algo cambia en la selva.
 */
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, setDoc, query, orderBy, limit, getDocs } from "firebase/firestore";
+import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, setDoc, query, orderBy, limit, getDocs, getDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { getMessaging, getToken, onMessage } from "firebase/messaging"; // 🔔 FCM SDK
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "firebase/auth"; // 🔑 Auth SDK
@@ -124,7 +124,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // --- TMDB API Config ---
-const TMDB_API_KEY = '15d2ea6d0dc1d476efbca3eba2b9bbfb'; // Clave publica para demos
+const TMDB_API_KEY = import.meta.env.VITE_TMDB_KEY || '15d2ea6d0dc1d476efbca3eba2b9bbfb';
 const TMDB_URL = 'https://api.themoviedb.org/3';
 const TMDB_IMG_URL = 'https://image.tmdb.org/t/p/w500';
 
@@ -1304,19 +1304,19 @@ window.openPlayer = async (movieId) => {
   // 🍿 RECUPERAR PROGRESO (Continuar Viendo)
   if (auth.currentUser && _currentProfile) {
     try {
+        // 1. Obtener progreso de cache o Firestore (Optimizado v2.42)
         const historyRef = doc(db, "users", auth.currentUser.uid, "profiles", _currentProfile.id, "history", movie.id);
-        const historySnap = await getDocs(query(collection(db, "users", auth.currentUser.uid, "profiles", _currentProfile.id, "history"), limit(1))); // Direct fetch logic below is better
-        // Simplemente lo buscamos en el documento específico
-        const docSnap = await getDocs(query(collection(db, "users", auth.currentUser.uid, "profiles", _currentProfile.id, "history"))); // Need to find the specific one
-        
-        // Better way with doc() and getDoc
-        const { getDoc } = await import("firebase/firestore"); 
         const snap = await getDoc(historyRef);
         if (snap.exists()) {
             const data = snap.data();
             if (data.lastTime > 0) {
                 movie.resumeTime = data.lastTime;
                 console.log(`🎬 Retomando en: ${data.lastTime}s`);
+            }
+            if (data.season && data.episode) {
+                movie.resumeSeason = data.season;
+                movie.resumeEpisode = data.episode;
+                console.log(`📺 Retomando Serie: Temp ${data.season} Ep ${data.episode}`);
             }
         }
     } catch (e) { console.warn("Error recuperando historial:", e); }
@@ -2934,11 +2934,21 @@ window.showAddProfile = async () => {
 };
 
 // --- FASE 2: CONTINUAR VIENDO (Retención) ---
-window.syncPlaybackProgress = async (movie, lastTime, duration) => {
+window.syncPlaybackProgress = async (movie, lastTime, duration, episodeId = null, episodeLabel = null) => {
     if (!auth.currentUser || !_currentProfile) return;
 
     const historyRef = doc(db, "users", auth.currentUser.uid, "profiles", _currentProfile.id, "history", movie.id);
     
+    let season = null;
+    let episode = null;
+    if (episodeId) {
+        const match = episodeId.match(/s(\d+)e(\d+)/i);
+        if (match) {
+            season = parseInt(match[1]);
+            episode = parseInt(match[2]);
+        }
+    }
+
     await setDoc(historyRef, {
         movieId: movie.id,
         title: movie.title || movie.name,
@@ -2946,10 +2956,13 @@ window.syncPlaybackProgress = async (movie, lastTime, duration) => {
         type: movie.type,
         lastTime,
         duration,
+        season,
+        episode,
+        episodeLabel,
         timestamp: Date.now()
     }, { merge: true });
     
-    console.log(`🎬 Progreso guardado: ${movie.title} (${lastTime}s)`);
+    console.log(`🎬 Progreso guardado: ${movie.title} ${episodeLabel ? `(${episodeLabel})` : ''} (${lastTime}s)`);
 };
 window.loadContinueWatching = async () => {
     if (!auth.currentUser || !_currentProfile) return;
@@ -2984,11 +2997,12 @@ window.loadContinueWatching = async () => {
         grid.innerHTML = history.map(h => {
             const progress = (h.lastTime / h.duration) * 100;
             const poster = (h.poster && h.poster.startsWith('http')) ? h.poster : 'https://image.tmdb.org/t/p/w300' + (h.poster || h.poster_path);
+            const extraLabel = h.episodeLabel ? ` <span style="color:var(--primary); font-size:0.75rem; margin-left: 5px; font-weight: normal;">${h.episodeLabel}</span>` : '';
             return `
                 <div class="card-horizontal" onclick="window.handleCardClick('${h.movieId}')">
                     <img src="${poster}" alt="${h.title}" loading="lazy" onerror="this.src='/icon_192.png'">
                     <div class="card-h-info">
-                        <div class="card-h-title">${h.title}</div>
+                        <div class="card-h-title" style="display:flex; align-items:center; flex-wrap:wrap;">${h.title}${extraLabel}</div>
                         <div class="progress-bar-h">
                             <div class="progress-fill-h" style="width: ${progress}%;"></div>
                         </div>
@@ -3099,7 +3113,7 @@ window.loadMyList = async () => {
 
     grid.innerHTML = myList.map(m => {
         return `
-            <div class="movie-card" onclick='window.openMovieDetail("${m.movieId}")' style="position: relative;">
+            <div class="movie-card" onclick='window.handleCardClick("${m.movieId}")' style="position: relative;">
                 <img src="${m.poster.startsWith('http') ? m.poster : 'https://image.tmdb.org/t/p/w300' + m.poster}" style="width: 100%; border-radius: 8px;">
                 <div class="btn-add-list active" onclick="event.stopPropagation(); window.toggleMyList('${m.movieId}', this)">❤️</div>
                 <div style="font-size: 0.75rem; margin-top: 5px; color: #eee; text-align: center;">${m.title}</div>

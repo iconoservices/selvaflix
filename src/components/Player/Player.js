@@ -678,7 +678,7 @@ export const SelvaStream = {
         const statusDiv = document.getElementById('webtorrent-status');
 
         if (modal) modal.style.display = 'none';
-        if (iframe) iframe.src = '';
+        if (iframe) window.setIframeSource('player-iframe', '');
 
         if (nativePlayer) {
             nativePlayer.pause();
@@ -983,7 +983,7 @@ export const SelvaStream = {
             if (isDirectVideo) {
                 // Motor VIP de Real Debrid (Reproductor Nativo con URL directa)
                 iframe.style.display = 'none';
-                iframe.src = '';
+                window.setIframeSource('player-iframe', '');
                 statusDiv.style.display = 'none';
                 loader.style.display = 'none';
 
@@ -1044,7 +1044,7 @@ export const SelvaStream = {
         } else if (stream.infoHash) {
             // FASE 3: Motor VIP 🚀 
             iframe.style.display = 'none';
-            iframe.src = '';
+            window.setIframeSource('player-iframe', '');
 
             const nativeContainer = document.getElementById('native-player-container');
             const extBtn2 = document.getElementById('external-player-btn');

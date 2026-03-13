@@ -350,6 +350,17 @@ window.setGenre = (genreId) => {
 };
 
 
+// Helper para actualizar src del iframe sin contaminar el historial (Evita "about:blank" al volver)
+window.setIframeSource = (id, url) => {
+  const oldIframe = document.getElementById(id);
+  if (!oldIframe) return;
+  const parent = oldIframe.parentNode;
+  const newIframe = oldIframe.cloneNode(false);
+  newIframe.src = url || 'about:blank';
+  parent.replaceChild(newIframe, oldIframe);
+  return newIframe;
+};
+
 function showView(active) {
   const adminEl = document.getElementById('admin-view');
   const homeEl = document.getElementById('home-view');
@@ -391,7 +402,7 @@ function handleRouting() {
       } else {
           playerModal.style.display = 'none';
           const iframe = document.getElementById('player-iframe');
-          if (iframe) iframe.src = '';
+          if (iframe) window.setIframeSource('player-iframe', '');
           document.body.style.overflow = '';
       }
   }
@@ -439,11 +450,10 @@ function handleRouting() {
 
 window.handleChannelClick = (url) => {
   const modal = document.getElementById('player-modal');
-  const iframe = document.getElementById('player-iframe');
   modal.style.display = 'flex';
   document.getElementById('server-switcher').style.display = 'none';
   document.getElementById('ad-overlay').style.display = 'none';
-  iframe.src = url;
+  window.setIframeSource('player-iframe', url);
 };
 
 // Global Search (Filter)

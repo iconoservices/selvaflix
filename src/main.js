@@ -397,6 +397,19 @@ function handleRouting() {
   }
 
   if (hash === 'admin') {
+    const isAdminAuthenticated = localStorage.getItem('selva_admin_auth') === 'true';
+    if (!isAdminAuthenticated) {
+        const password = prompt("🔒 Área Restringida. Introduce la contraseña de administrador:");
+        if (password === "selva2025") { // Puedes cambiar esta contraseña
+            localStorage.setItem('selva_admin_auth', 'true');
+            alert("✅ Acceso Concedido.");
+        } else {
+            alert("❌ Contraseña incorrecta. Volviendo a la selva.");
+            window.location.hash = ''; // Redirigir al inicio
+            return;
+        }
+    }
+    
     sessionStorage.setItem('selva_admin_active', '1');
     showView('admin-view');
     renderInventory();

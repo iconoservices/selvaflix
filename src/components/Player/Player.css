@@ -115,6 +115,10 @@
     border: none;
 }
 
+#native-player-container {
+    z-index: 200; /* 🚀 Asegura que el video nativo esté por encima de TODO cuando se muestre */
+}
+
 /* Spinner Tropical 🍍 */
 .spinner-tropical {
     width: 50px;

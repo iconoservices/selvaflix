@@ -1089,6 +1089,8 @@ export const SelvaStream = {
                     if (loader) loader.style.display = 'none';
 
                     nativePlayer.src = result.url;
+                    nativePlayer.load(); // 🍎 TRUCO VITAL iOS: Forzar a Safari a asimilar la nueva URL
+
                     if (this.currentPlayerMovie.resumeTime > 0) {
                         nativePlayer.currentTime = this.currentPlayerMovie.resumeTime;
                     }

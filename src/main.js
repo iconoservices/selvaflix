@@ -1303,55 +1303,9 @@ window.selvaExecuteCrownPromotion = async (movieId, hash) => {
 };
 
 function startWarningOverlay(movie) {
-  const adOverlay = document.getElementById('ad-overlay');
-  const skipBtn = document.getElementById('skip-ad-btn');
-
-  // Lógica: Una vez por película/serie al día
-  const today = new Date().toISOString().split('T')[0];
-  const storageKey = `warned_${movie.id}_${today}`;
-
-  if (localStorage.getItem(storageKey)) {
-    startPlayer(movie);
-    return;
-  }
-
-  if (adOverlay) adOverlay.style.display = 'flex';
-
-  const isAdmin = document.getElementById('admin-view')?.style.display === 'block';
-  let timeLeft = 5;
-
-  const timer = setInterval(() => {
-    timeLeft--;
-    if (skipBtn && !isAdmin) skipBtn.innerText = `Cerrando en ${timeLeft}...`;
-
-    if (timeLeft <= 0) {
-      finish();
-    }
-  }, 1000);
-
-  function finish() {
-    if (timer) clearInterval(timer);
-    localStorage.setItem(storageKey, 'true');
-    if (adOverlay) adOverlay.style.display = 'none';
-    if (skipBtn) skipBtn.onclick = null; // Clear handler
-    startPlayer(movie);
-  }
-
-  if (skipBtn) {
-    if (isAdmin) {
-      skipBtn.innerText = "⚡ Saltar y Comprobar (Modo Admin)";
-      skipBtn.disabled = false;
-      skipBtn.style.cursor = "pointer";
-      skipBtn.style.opacity = "1";
-      skipBtn.onclick = finish;
-    } else {
-      skipBtn.innerText = `Cerrando en ${timeLeft}...`;
-      skipBtn.disabled = true;
-      skipBtn.style.cursor = "not-allowed";
-      skipBtn.style.opacity = "0.7";
-      skipBtn.onclick = null;
-    }
-  }
+  // El overlay de anuncios HTML fue removido para mejorar la experiencia
+  // Pasamos directo al player instantáneamente sin el molesto delay de 5 segundos.
+  startPlayer(movie);
 }
 
 window.closeWarningOverlay = () => {
@@ -1425,11 +1379,6 @@ window.addEventListener('keydown', (e) => {
         }
     }
 });
-
-// Fallback preventivo por si algo llamaba a closePlayer explícitamente
-window.closePlayer = () => {
-    history.back();
-};
 
 // Fallback preventivo por si algo llamaba a closePlayer explícitamente
 window.closePlayer = () => {
@@ -1672,14 +1621,7 @@ window.quickSeedContent = async (s, type) => {
   alert("¡Sembrado con éxito! 🌴");
 };
 
-window.quickSeedManual = async (ch, type) => {
-  const exists = movieDatabase.trending.find(m => m.title == ch.name);
-  if (exists) { alert("Este canal ya existe."); return; }
-  const data = { ...ch, title: ch.name, type, status: 'healthy', createdAt: Date.now() };
-  delete data.name;
-  await addDoc(moviesCol, data);
-  alert("¡Canal Agregado! 📺");
-};
+// quickSeedManual consolidada más abajo
 
 window.massSeedMovies = async (contentType) => {
   const type = contentType || document.getElementById('m-type').value || 'movie';
@@ -2208,18 +2150,24 @@ window.discoverM3U = async () => {
 };
 
 window.quickSeedManual = async (data, type = 'movie') => {
-  if (!confirm(`¿Agregar "${data.title}" a la selva ahora? ➕🌴`)) return;
+  const finalTitle = data.title || data.name || 'Sin título';
+  const exists = movieDatabase.trending.find(m => m.title === finalTitle);
+  if (exists) { alert(`¡"${finalTitle}" ya existe en la selva!`); return; }
+
+  if (!confirm(`¿Agregar "${finalTitle}" a la selva ahora? ➕🌴`)) return;
   
   const mData = {
     ...data,
+    title: finalTitle,
     status: 'healthy',
     type: type,
     createdAt: Date.now()
   };
+  delete mData.name; // Limpieza por seguridad
 
   try {
     await addDoc(collection(db, "movies"), mData);
-    if (window.showToast) window.showToast(`✅ "${data.title}" agregado con éxito.`, "success");
+    if (window.showToast) window.showToast(`✅ "${finalTitle}" agregado con éxito.`, "success");
     sessionStorage.removeItem('selvaflix_full_database');
   } catch (e) {
     console.error("Error en quickSeed:", e);
@@ -2595,7 +2543,6 @@ onAuthStateChanged(auth, async (user) => {
         
         // Verificación de BAN (Admin Only)
         const userRef = doc(db, "users", user.uid);
-        const userSnap = await getDocs(query(collection(db, "users"), orderBy("__name__"), limit(1))); // Simplified check
         // En una implementación real verificaríamos un campo 'banned' en el documento del usuario.
         
         document.getElementById('user-initials').innerText = user.displayName.charAt(0);

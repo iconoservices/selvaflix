@@ -322,30 +322,7 @@ export const SelvaStream = {
     },
 
     // Rescate de emergencia temporalmente desactivado para depuración de pantalla negra
-    handlePlayerError() {
-        console.warn("⚠️ Servidor bloqueado u hostil detectado. Análisis nativo (Fallback desactivado).");
-        // const activeBtn = document.querySelector('.server-btn.active');
-        // const currentServer = activeBtn ? activeBtn.dataset.server : '';
-
-        // Si falló el PRO (5) o S1, saltamos directo al confiable Streamwish (S2)
-        // if (currentServer === 'latino-5' || currentServer === 'latino-1') {
-        //     const s = document.getElementById('selva-season')?.value || 1;
-        //     const e = document.getElementById('selva-episode')?.value || 1;
-        //     console.log("🔄 Saltando automáticamente al Servidor 2 (Respaldo)");
-
-        //     if (activeBtn) {
-        //         activeBtn.innerText = "⏳ Vuelve en 1h";
-        //         activeBtn.style.background = "rgba(231, 76, 60, 0.4)";
-        //         activeBtn.style.borderColor = "#c0392b";
-        //     }
-
-        //     this.updateServer('latino-2', s, e);
-        // }
-    },
-    /**
-     * Abre el reproductor con el contenido seleccionado.
-     */
-    // Abre el reproductor con el contenido seleccionado.
+    handlePlayerError() {},
     /**
      * Abre el reproductor con el contenido seleccionado.
      */
@@ -507,9 +484,7 @@ export const SelvaStream = {
         this.updateServer(server, s, e);
     },
 
-    loadInitialSource() {
-        // Obsoleto: Ahora se maneja vía Start Screen -> loadDebridAuto
-    },
+
 
     updateServer(serverKey, season = 1, episode = 1) {
         const loader = document.getElementById('player-loader');
@@ -710,8 +685,6 @@ export const SelvaStream = {
 
         const dynamicSources = document.getElementById('vip-dynamic-container');
         if (dynamicSources) dynamicSources.style.display = 'none';
-
-        if (statusDiv) statusDiv.style.display = 'none';
 
         if (this.hls) {
             this.hls.destroy();
@@ -952,6 +925,17 @@ export const SelvaStream = {
         nativePlayer.play().catch(() => {});
         nativePlayer.pause();
         
+        // Asignación unificada de progreso
+        nativePlayer.ontimeupdate = () => {
+            const now = Math.floor(nativePlayer.currentTime);
+            const duration = Math.floor(nativePlayer.duration);
+            if (now > 0 && (now % 10 === 0 || now === duration)) {
+                if (window.syncPlaybackProgress) {
+                    window.syncPlaybackProgress(this.currentPlayerMovie, now, duration, this.currentEpisodeId, this.currentEpisodeLabel);
+                }
+            }
+        };
+        
         const statusDiv = document.getElementById('webtorrent-status');
         const loader = document.getElementById('player-loader');
 
@@ -1006,18 +990,7 @@ export const SelvaStream = {
                     nativePlayer.play().catch(e => console.warn("Auto-play prevented", e));
                 }
 
-                // ✅ SINCRONIZACIÓN DE PROGRESO (Continuar Viendo)
-                nativePlayer.ontimeupdate = () => {
-                    const now = Math.floor(nativePlayer.currentTime);
-                    const duration = Math.floor(nativePlayer.duration);
-                    
-                    // Sincronizar cada 10 segundos o al final
-                    if (now > 0 && (now % 10 === 0 || now === duration)) {
-                        if (window.syncPlaybackProgress) {
-                            window.syncPlaybackProgress(this.currentPlayerMovie, now, duration, this.currentEpisodeId, this.currentEpisodeLabel);
-                        }
-                    }
-                };
+
 
                 // Si es un source directo, le pasamos la URL al botón externo
                 const extBtn = document.getElementById('external-player-btn');
@@ -1090,16 +1063,7 @@ export const SelvaStream = {
                     nativePlayer.style.display = 'block';
                     nativeContainer.style.display = 'block';
 
-                    // ✅ SINCRONIZACIÓN DE PROGRESO (Para fuentes Debrid)
-                    nativePlayer.ontimeupdate = () => {
-                        const now = Math.floor(nativePlayer.currentTime);
-                        const duration = Math.floor(nativePlayer.duration);
-                        if (now > 0 && (now % 10 === 0 || now === duration)) {
-                            if (window.syncPlaybackProgress) {
-                                window.syncPlaybackProgress(this.currentPlayerMovie, now, duration, this.currentEpisodeId, this.currentEpisodeLabel);
-                            }
-                        }
-                    };
+
 
                     // ✅ SIN AUTOPLAY: mostrar instrucción clara al usuario
                     const notif = document.getElementById('player-notifications');

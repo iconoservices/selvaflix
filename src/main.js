@@ -137,6 +137,29 @@ window._brokenIds = new Set();
 let pendingSeeds = [];
 let deferredPrompt;
 
+// --- Splash Screen Engine v2.40 ---
+// --- Splash Screen Engine v2.40 🎬 ---
+window.hideSplashScreen = (force = false) => {
+  const splash = document.getElementById('splash-screen');
+  if (splash) {
+    // 🚀 DESBLOQUEO INTELIGENTE:
+    const isProfileActive = sessionStorage.getItem('selva_active_profile');
+    const isAuthModalOpen = document.getElementById('auth-modal')?.style.display === 'flex';
+    const isProfileModalOpen = document.getElementById('profile-selector-modal')?.style.display === 'flex';
+
+    if (force || isProfileActive || !auth.currentUser || isAuthModalOpen || isProfileModalOpen) {
+      splash.style.opacity = '0';
+      splash.style.pointerEvents = 'none'; 
+      setTimeout(() => {
+        splash.style.visibility = 'hidden';
+      }, 800);
+    }
+  }
+};
+
+// Fallback de seguridad: Si en 5 segundos no se ha quitado, lo quitamos a la fuerza
+setTimeout(() => window.hideSplashScreen(true), 5000);
+
 // --- Data Loading System (15-Minute Cache) v4.2 ---
 /* 
    🔗 El "Hilo de Ariadna": Mantenemos una conexión inteligente con la base de datos.
@@ -168,7 +191,7 @@ async function loadSelvaFlixData() {
     try {
       hydratedObject = JSON.parse(cachedStored);
 
-      // �️ Vigía Inteligente: Validar que el objeto tenga cara y ojos
+      // ️ Vigía Inteligente: Validar que el objeto tenga cara y ojos
       if (!hydratedObject || !Array.isArray(hydratedObject.trending)) {
         throw new Error("Caché incompleto o corrupto");
       }
@@ -210,6 +233,9 @@ async function loadSelvaFlixData() {
 
   // Nota: handleRouting ya sabe si es la primera vez al revisar el DOM
   handleRouting();
+  
+  // 🚀 Siempre intentar ocultar al finalizar carga de datos si ya estamos en un estado listo
+  window.hideSplashScreen();
 }
 
 // Iniciar recolección al cargar
@@ -252,6 +278,9 @@ window.setFilter = (type) => {
   history.replaceState(null, '', type ? `#${type}` : '#');
   initApp(type, '');
   
+  // 🚀 Splash Screen: Ocultar si es la primera carga y ya tenemos los datos
+  window.hideSplashScreen();
+
   // 🧭 Navegación Fluida: Scroll suave al inicio del contenido para no perderse
   const filterOffset = document.getElementById('filter-bar')?.offsetTop || 0;
   window.scrollTo({ top: filterOffset - 80, behavior: 'smooth' });
@@ -519,17 +548,19 @@ function renderInventory() {
 function _updateDetailedStats(items) {
   const m = items.filter(i => i.type === 'movie' || !i.type).length;
   const s = items.filter(i => i.type === 'series' || i.type === 'tv' || i.type === 'anime').length;
-  const l = items.filter(i => i.type === 'live').length;
   const b = items.filter(i => window._brokenIds.has(i.id)).length;
   const r = window._reportedIds ? window._reportedIds.size : 0;
+  const w = items.filter(i => i.status === 'waiting').length;
 
   document.getElementById('count-movies').innerText = m;
   document.getElementById('count-series').innerText = s;
-  const liveEl = document.getElementById('count-live');
-  if (liveEl) liveEl.innerText = l;
   document.getElementById('count-broken').innerText = b;
   const rEl = document.getElementById('count-reported');
   if (rEl) rEl.innerText = r;
+  
+  // Mostrar conteo de espera si existe el elemento (v2.40)
+  const waitEl = document.getElementById('count-waiting');
+  if (waitEl) waitEl.innerText = w;
 }
 
 window.loadMoreInventory = () => {
@@ -586,9 +617,9 @@ function _renderInventoryRows(items) {
             <div style="display:flex; align-items:center; gap:4px;">
                 ${window._reportedIds && window._reportedIds.has(m.id) ? 
                   '<span style="font-size:0.55rem; background:rgba(231,76,60,0.3); color:#E74C3C; border:1px solid rgba(231,76,60,0.4); padding:1px 5px; border-radius:4px; font-weight:bold;">🚨</span>' :
-                  `<div style="width: 7px; height: 7px; border-radius: 50%; background: ${isBroken ? '#E74C3C' : (m.status === 'healthy' ? '#2ECC71' : '#F1C40F')}; box-shadow: 0 0 5px ${isBroken ? '#E74C3C' : (m.status === 'healthy' ? '#2ECC71' : '#F1C40F')};" ></div>`
+                  `<div style="width: 7px; height: 7px; border-radius: 50%; background: ${isBroken ? '#E74C3C' : (m.status === 'healthy' ? '#2ECC71' : (m.status === 'waiting' ? '#F1C40F' : '#3498DB'))}; box-shadow: 0 0 5px ${isBroken ? '#E74C3C' : (m.status === 'healthy' ? '#2ECC71' : (m.status === 'waiting' ? '#F1C40F' : '#3498DB'))};" ></div>`
                 }
-                <span style="font-size: 0.6rem; color: var(--text-muted);">${isBroken ? 'Error' : (m.status === 'healthy' ? 'OK' : m.status === 'review' ? 'Cola' : 'Mant.')}</span>
+                <span style="font-size: 0.6rem; color: var(--text-muted);">${isBroken ? 'Error' : (m.status === 'healthy' ? 'Sano' : (m.status === 'waiting' ? 'Espera' : 'Mant.'))}</span>
             </div>
             <div style="display: flex; gap: 6px;">
                 <button onclick="window.openPlayer('${m.id}')" title="Probar/Play" style="background: rgba(46,204,113,0.1); border: 1px solid rgba(46,204,113,0.2); color: #2ecc71; width:22px; height:22px; display:flex; align-items:center; justify-content:center; border-radius: 5px; cursor: pointer; font-size: 0.65rem;">▶</button>
@@ -1083,6 +1114,7 @@ window.selectTMDBMovie = async (index) => {
 
   document.getElementById('m-title').value = title;
   document.getElementById('m-img').value = m.poster_path ? (TMDB_IMG_URL + m.poster_path) : "";
+  document.getElementById('m-backdrop').value = m.backdrop_path ? (TMDB_IMG_URL + m.backdrop_path) : "";
   document.getElementById('m-tmdb-id').value = m.id;
   document.getElementById('m-type').value = type;
   document.getElementById('m-year').value = date.split('-')[0];
@@ -1104,7 +1136,7 @@ window.selectTMDBMovie = async (index) => {
     preview.src = m.poster_path ? (TMDB_IMG_URL + m.poster_path) : 'https://via.placeholder.com/150x220?text=Previsualización';
   }
 
-  alert(`Cosechada info de: ${title} 🥥🍹`);
+  alert(`Cosechada info de: ${title} 🥥🍹 (Incluyendo fondo horizontal)`);
 };
 
 // --- SISTEMA DE VISITANTE UNICO (UUID Anonimo) ---
@@ -1361,6 +1393,8 @@ window.editMovie = (id) => {
   document.getElementById('m-db-id').value = movie.id;
   document.getElementById('m-title').value = movie.title;
   document.getElementById('m-img').value = movie.img;
+  document.getElementById('m-backdrop').value = movie.backdrop || "";
+  document.getElementById('m-pinned').checked = movie.pinned || false;
   document.getElementById('m-tmdb-id').value = movie.tmdbId || "";
   document.getElementById('m-imdb-id').value = movie.imdbId || ""; // Operación IMDB-Latino
   document.getElementById('m-embed').value = movie.embed || "";
@@ -1748,15 +1782,21 @@ function updateHeroCarousel() {
     if (item) itemsToShow.push(item);
   }
 
-  section.innerHTML = itemsToShow.map(item => `
-    <div class="hero-card" onclick="window.openPlayer('${item.id}')" style="flex: 1; min-width: ${window.innerWidth <= 768 ? '260px' : '300px'}; height: ${window.innerWidth <= 768 ? '180px' : '300px'}; background-image: linear-gradient(to top, rgba(0,0,0,0.95), rgba(0,0,0,0.2)), url('${item.img}'); background-size: cover; background-position: center 20%; border-radius: 20px; position: relative; cursor: pointer; border: 1px solid var(--glass-border); transition: transform 0.3s ease; box-shadow: 0 10px 30px rgba(0,0,0,0.6);">
-      <div style="position: absolute; bottom: 15px; left: 15px; right: 15px;">
-        <h2 style="color: white; font-size: ${window.innerWidth <= 768 ? '1.1rem' : '1.6rem'}; margin-bottom: 4px; text-shadow: 0 2px 5px rgba(0,0,0,0.9); font-family: 'Outfit', sans-serif; font-weight: 800; line-height: 1.2;">${item.title}</h2>
-        <p style="color: var(--primary); font-size: 0.75rem; font-weight: bold; text-shadow: 0 1px 3px rgba(0,0,0,0.8);">⭐ ${item.rating || '4.8'} • ${item.year || '2024'}</p>
-        <button class="btn btn-primary" style="margin-top: 8px; padding: 6px 15px; font-size: 0.7rem;">▶ Reproducir</button>
+  section.innerHTML = itemsToShow.map(item => {
+    // 🔥 Motor Hero Pro: Prioridad al Backdrop horizontal, si no hay, usa el Poster
+    const heroImg = item.backdrop || item.img;
+    
+    return `
+      <div class="hero-card" onclick="window.openPlayer('${item.id}')" style="flex: 1; min-width: ${window.innerWidth <= 768 ? '260px' : '380px'}; height: ${window.innerWidth <= 768 ? '160px' : '280px'}; background-image: linear-gradient(to top, rgba(0,0,0,0.95), rgba(0,0,0,0.1)), url('${heroImg}'); background-size: cover; background-position: center 20%; border-radius: 20px; position: relative; cursor: pointer; border: 1px solid var(--glass-border); transition: transform 0.3s ease; box-shadow: 0 10px 30px rgba(0,0,0,0.6);">
+        <div style="position: absolute; bottom: 15px; left: 15px; right: 15px;">
+          ${item.pinned ? '<span style="position: absolute; top: -140px; right: 0; background: var(--primary); color:black; font-size: 0.6rem; padding: 2px 8px; border-radius: 10px; font-weight: 800; text-transform: uppercase; box-shadow: 0 0 10px var(--primary-glow);">📍 Destacado</span>' : ''}
+          <h2 style="color: white; font-size: ${window.innerWidth <= 768 ? '1.1rem' : '1.4rem'}; margin-bottom: 4px; text-shadow: 0 2px 5px rgba(0,0,0,0.9); font-family: 'Outfit', sans-serif; font-weight: 800; line-height: 1.2;">${item.title}</h2>
+          <p style="color: var(--primary); font-size: 0.75rem; font-weight: bold; text-shadow: 0 1px 3px rgba(0,0,0,0.8);">⭐ ${item.rating || '4.8'} • ${item.year || '2024'}</p>
+          <button class="btn btn-primary" style="margin-top: 8px; padding: 6px 15px; font-size: 0.7rem;">▶ Reproducir</button>
+        </div>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 }
 
 function startHeroAutoRotation() {
@@ -1853,23 +1893,45 @@ function initApp(filterType = '', genreId = '') {
   allContent = allContent.filter(c => c.status !== 'review');
 
   // Apply genre filter if set (genre stored as array or single string in item.genres)
-  if (genreId) {
+  if (genreId && genreId !== 'all') {
     allContent = allContent.filter(c => {
       const g = c.genres || c.genre_ids || [];
-      return Array.isArray(g) ? g.map(String).includes(String(genreId)) : String(g) === String(genreId);
+      const genreList = Array.isArray(g) ? g.map(String) : [String(g)];
+      return genreList.includes(String(genreId));
     });
   }
 
-  // Pool de Recomendados (Hero Carousel - 3 items)
-  heroPool = allContent.filter(c => !window._brokenIds.has(c.id));
+  // --- Motor Hero Elite Algorithm v2.40 ---
+  let heroPoolRaw = allContent.filter(c => !window._brokenIds.has(c.id));
+  
+  if (filterType === 'series') {
+    heroPoolRaw = heroPoolRaw.filter(c => c.type === 'series' || c.type === 'tv' || c.type === 'anime');
+  } else if (filterType === 'movies') {
+    heroPoolRaw = heroPoolRaw.filter(c => c.type === 'movie' || !c.type);
+  }
 
-  if (filterType === 'series') heroPool = heroPool.filter(c => c.type === 'series' || c.type === 'tv' || c.type === 'anime');
-  else if (filterType === 'movies') heroPool = heroPool.filter(c => c.type === 'movie' || !c.type);
-  else heroPool = heroPool.slice(0, 10);
+  // Prioridad: 1. Pinned (Fijados) | 2. Tendencias (Plays) | 3. Latest (createdAt)
+  const playCounts = JSON.parse(localStorage.getItem('selva_play_counts') || '{}');
+  
+  heroPool = heroPoolRaw.sort((a, b) => {
+    // 1. Pinned
+    const pinA = a.pinned ? 1 : 0;
+    const pinB = b.pinned ? 1 : 0;
+    if (pinA !== pinB) return pinB - pinA;
 
-  heroPool = heroPool.slice(0, 3);
+    // 2. Tendencias (si tienen plays)
+    const playsA = playCounts[a.tmdbId] || playCounts[a.id] || 0;
+    const playsB = playCounts[b.tmdbId] || playCounts[b.id] || 0;
+    if (playsA !== playsB) return playsB - playsA;
 
-  // Hero Carousel Priority (v4.4)
+    // 3. Latest (ya viene casi ordenado por createdAt en allContent, pero aseguramos)
+    return (b.createdAt || 0) - (a.createdAt || 0);
+  });
+
+  // Limitamos el pool de rotación para que sea "Elite"
+  heroPool = heroPool.slice(0, filterType ? 10 : 15);
+
+  // Hero Carousel Priority (v2.40)
   const heroSection = document.getElementById('hero-section');
   if (heroPool.length > 0) {
     if (heroSection) {
@@ -1880,8 +1942,9 @@ function initApp(filterType = '', genreId = '') {
   } else {
     // Si no hay series en el hero, intentamos poner peliculas destacadas para no dejar el hueco
     if (filterType === 'series') {
-        heroPool = allContent.filter(c => c.type === 'movie' || !c.type).slice(0, 3);
-        if (heroPool.length > 0 && heroSection) {
+        const fallbackPool = allContent.filter(c => !window._brokenIds.has(c.id) && (c.type === 'movie' || !c.type)).slice(0, 3);
+        if (fallbackPool.length > 0 && heroSection) {
+            heroPool = fallbackPool; 
             heroSection.style.display = 'flex';
             updateHeroCarousel();
         } else if (heroSection) {
@@ -2164,13 +2227,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const movieData = {
       title,
       img,
+      backdrop: document.getElementById('m-backdrop').value.trim(),
+      pinned: document.getElementById('m-pinned').checked,
       tmdbId: document.getElementById('m-tmdb-id').value.trim(),
       imdbId: document.getElementById('m-imdb-id').value.trim(), // Operación IMDB-Latino
       embed: document.getElementById('m-embed').value.trim(),
       year: document.getElementById('m-year').value || new Date().getFullYear().toString(),
       rating: document.getElementById('m-rating').value || '7.0',
       type: document.getElementById('m-type').value || 'movie',
-      status: 'healthy',
+      status: document.getElementById('m-status').value || 'healthy',
       updatedAt: Date.now()
     };
 
@@ -2386,6 +2451,7 @@ window.showSettings = () => {
 
 window.closeAuthModal = () => {
     document.getElementById('auth-modal').style.display = 'none';
+    window.hideSplashScreen(); // 🚀 Entra como invitado, fuera splash!
 };
 
 document.getElementById('btn-google-login')?.addEventListener('click', async () => {
@@ -2420,14 +2486,67 @@ onAuthStateChanged(auth, async (user) => {
         
         // Cargar perfiles
         await window.loadProfiles(user.uid);
+        
+        // 🚀 Si ya cargamos perfiles pero no hay uno activo, esconder splash para dejar ver el selector
+        if (!sessionStorage.getItem('selva_active_profile')) {
+            window.hideSplashScreen(true);
+        }
     } else {
         console.log("👻 Modo Invitado");
         document.getElementById('user-name').innerText = "Login";
         document.getElementById('user-initials').innerText = "G";
         document.getElementById('user-avatar-img').style.display = 'none';
         document.getElementById('user-initials').style.display = 'flex';
+        
+        // 🚀 Si es invitado, dejar ver la pantalla de Auth de inmediato
+        window.hideSplashScreen(true);
     }
 });
+
+window.applyProfile = async (p) => {
+    if (!p) return;
+    document.getElementById('user-name').innerText = p.name; // Actualizar nombre en la navbar
+    document.getElementById('dropdown-profile-name').innerText = p.name; // Actualizar nombre en el dropdown
+    document.getElementById('dropdown-active-profile').innerText = p.avatar || '🐯'; // Actualizar avatar en el dropdown
+    
+    // ✅ ACTUALIZAR AVATAR EN NAVBAR (Prioridad al animalito)
+    const initials = document.getElementById('user-initials');
+    const avatarImg = document.getElementById('user-avatar-img');
+    
+    if (p.avatar) {
+        initials.innerText = p.avatar;
+        initials.style.display = 'flex';
+        initials.style.background = 'none';
+        initials.style.fontSize = '1.2rem';
+        avatarImg.style.display = 'none';
+    } else {
+        // Fallback a la foto de Google si no hay avatar de perfil
+        if (auth.currentUser && auth.currentUser.photoURL) {
+            avatarImg.src = auth.currentUser.photoURL;
+            avatarImg.style.display = 'block';
+            initials.style.display = 'none';
+        } else {
+            initials.innerText = p.name.charAt(0);
+            initials.style.display = 'flex';
+            initials.style.background = 'var(--primary)'; // O algún color por defecto
+            initials.style.fontSize = '1rem';
+            avatarImg.style.display = 'none';
+        }
+    }
+    
+    _currentProfile = p;
+    
+    // Actualizar lastLogin en Firebase (v2.40)
+    const user = auth.currentUser;
+    if (user && p.id) {
+        const profileRef = doc(db, "users", user.uid, "profiles", p.id);
+        await updateDoc(profileRef, { lastLogin: Date.now() }).catch(e => console.warn("No se pudo actualizar lastLogin:", e));
+    }
+    
+    window.loadContinueWatching(); // 🍿 Cargar historial al cambiar perfil
+    window.loadMyList(); // Cargar favoritos
+    initApp(); // Re-renderizar el contenido principal
+};
 
 window.loadProfiles = async (uid) => {
     const profilesCol = collection(db, "users", uid, "profiles");
@@ -2452,31 +2571,11 @@ window.loadProfiles = async (uid) => {
     }
 };
 
-window.applyProfile = (p) => {
-    document.getElementById('user-name').innerText = p.name;
-    document.getElementById('dropdown-profile-name').innerText = p.name;
-    document.getElementById('dropdown-active-profile').innerText = p.avatar || '🐯';
-    
-    // ✅ ACTUALIZAR AVATAR EN NAVBAR (Prioridad al animalito)
-    const initials = document.getElementById('user-initials');
-    const avatarImg = document.getElementById('user-avatar-img');
-    
-    if (p.avatar) {
-        initials.innerText = p.avatar;
-        initials.style.display = 'flex';
-        initials.style.background = 'none';
-        initials.style.fontSize = '1.2rem';
-        avatarImg.style.display = 'none';
-    }
-    
-    _currentProfile = p;
-    window.loadContinueWatching(); // 🍿 Cargar historial al cambiar perfil
-};
-
 let _isManagingProfiles = false;
 window.toggleManageProfiles = () => {
     _isManagingProfiles = !_isManagingProfiles;
     const btn = document.getElementById('btn-manage-profiles');
+    const cleanupBtn = document.getElementById('btn-cleanup-profiles');
     const title = document.getElementById('profile-selector-title');
     
     if (_isManagingProfiles) {
@@ -2485,15 +2584,78 @@ window.toggleManageProfiles = () => {
         btn.style.color = "black";
         btn.style.borderColor = "#FF7A00";
         title.innerText = "ADMINISTRAR PERFILES";
+        if (cleanupBtn) cleanupBtn.style.display = 'inline-block';
     } else {
         btn.innerText = "ADMINISTRAR PERFILES";
         btn.style.background = "none";
-        btn.style.color = "#888";
-        btn.style.borderColor = "#444";
+        btn.style.color = "#555";
+        btn.style.borderColor = "#555";
         title.innerText = "¿QUIÉN ESTÁ VIENDO?";
+        if (cleanupBtn) cleanupBtn.style.display = 'none';
     }
     
     // Recargar la vista de perfiles para mostrar/ocultar el lápiz de edición
+    window.loadProfiles(auth.currentUser.uid);
+};
+
+// --- Auto-Limpieza de Perfiles (v2.40) ---
+let _profilesToClean = [];
+
+window.openCleanupModal = () => {
+    document.getElementById('cleanup-modal').style.display = 'flex';
+    window.previewCleanup();
+};
+
+window.closeCleanupModal = () => {
+    document.getElementById('cleanup-modal').style.display = 'none';
+};
+
+window.previewCleanup = async () => {
+    if (!auth.currentUser) return;
+    const days = parseInt(document.getElementById('cleanup-days').value);
+    const limitMs = days * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    
+    const profilesCol = collection(db, "users", auth.currentUser.uid, "profiles");
+    const snap = await getDocs(profilesCol);
+    
+    _profilesToClean = [];
+    snap.forEach(doc => {
+        const p = doc.data();
+        // Si no tiene lastLogin, usamos createdAt o 0 por seguridad
+        const lastActivity = p.lastLogin || p.createdAt || 0;
+        if (now - lastActivity > limitMs) {
+            _profilesToClean.push({ id: doc.id, name: p.name });
+        }
+    });
+
+    const preview = document.getElementById('cleanup-preview');
+    const countSpan = document.getElementById('cleanup-count');
+    const executeBtn = document.getElementById('btn-do-cleanup');
+
+    if (_profilesToClean.length > 0) {
+        preview.style.display = 'block';
+        countSpan.innerText = _profilesToClean.length;
+        executeBtn.style.display = 'inline-block';
+        executeBtn.innerText = `Eliminar ${_profilesToClean.length} perfiles 🗑️`;
+    } else {
+        preview.style.display = 'block';
+        preview.innerHTML = "No se encontraron perfiles inactivos. ✨";
+        executeBtn.style.display = 'none';
+    }
+};
+
+window.executeCleanup = async () => {
+    if (!confirm(`¿Estás seguro de eliminar ${_profilesToClean.length} perfiles permanentemente? Esta acción es irreversible. ⚠️`)) return;
+
+    for (const p of _profilesToClean) {
+        const profileRef = doc(db, "users", auth.currentUser.uid, "profiles", p.id);
+        await deleteDoc(profileRef);
+        console.log(`🧹 Perfil eliminado por inactividad: ${p.name}`);
+    }
+
+    alert(`¡Limpieza completada! Se eliminaron ${_profilesToClean.length} perfiles.`);
+    window.closeCleanupModal();
     window.loadProfiles(auth.currentUser.uid);
 };
 
@@ -2503,8 +2665,8 @@ window.renderProfiles = (profiles) => {
 
     grid.innerHTML = profiles.map(p => {
         const action = _isManagingProfiles 
-            ? `window.editSpecificProfile('${p.id}', '${p.name}', '${p.avatar}')`
-            : `window.selectProfile('${p.id}', '${p.name}', '${p.avatar}')`;
+            ? `window.editSpecificProfile('${p.id}', '${p.name}', '${p.avatar}', '${p.pin || ''}')`
+            : `window.selectProfile('${p.id}', '${p.name}', '${p.avatar}', '${p.pin || ''}')`;
             
         return `
             <div class="profile-item" onclick="${action}" style="cursor:pointer; transition: transform 0.2s; width: 150px; position: relative;">
@@ -2534,25 +2696,75 @@ window.showProfileSelector = () => {
     document.getElementById('user-dropdown').style.display = 'none';
 };
 
-window.selectProfile = (id, name, avatar) => {
-    const p = { id, name, avatar };
-    sessionStorage.setItem('selva_active_profile', JSON.stringify(p));
-    window.applyProfile(p);
-    document.getElementById('profile-selector-modal').style.display = 'none';
+let pendingProfile = null;
+
+window.selectProfile = (id, name, avatar, pin) => {
+    const p = { id, name, avatar, pin };
+    
+    if (pin && pin.trim() !== "") {
+        pendingProfile = p;
+        document.getElementById('pin-profile-name').innerText = name;
+        document.getElementById('pin-modal').style.display = 'flex';
+        document.querySelectorAll('.pin-dot').forEach(i => i.value = '');
+        document.getElementById('pin-1').focus();
+    } else {
+        sessionStorage.setItem('selva_active_profile', JSON.stringify(p));
+        window.applyProfile(p);
+        document.getElementById('profile-selector-modal').style.display = 'none';
+        window.hideSplashScreen(); // 🚀 Perfil listo, fuera splash!
+    }
 };
 
-window.editSpecificProfile = (id, name, avatar) => {
+window.focusNextPin = (el, nextId) => {
+    if (el.value.length === 1) {
+        document.getElementById(nextId)?.focus();
+    }
+};
+
+window.closePinModal = () => {
+    document.getElementById('pin-modal').style.display = 'none';
+    pendingProfile = null;
+    document.getElementById('pin-error-msg').style.display = 'none';
+};
+
+window.validatePinEntry = async (el) => {
+    if (el.value.length === 0) return;
+    
+    const pinEntered = Array.from(document.querySelectorAll('.pin-dot')).map(i => i.value).join('');
+    if (pinEntered.length < 4) return;
+
+    if (pinEntered === pendingProfile.pin) {
+        const p = { ...pendingProfile };
+        delete p.pin; // Seguridad mínima
+        sessionStorage.setItem('selva_active_profile', JSON.stringify(p));
+        window.applyProfile(p);
+        window.closePinModal();
+        document.getElementById('profile-selector-modal').style.display = 'none';
+        window.hideSplashScreen();
+    } else {
+        document.getElementById('pin-error-msg').style.display = 'block';
+        document.querySelectorAll('.pin-dot').forEach(i => i.value = '');
+        document.getElementById('pin-1').focus();
+    }
+};
+
+window.editSpecificProfile = (id, name, avatar, pin = '') => {
     const input = document.getElementById('edit-profile-name-input');
+    const pinInput = document.getElementById('edit-profile-pin-input');
     const modal = document.getElementById('profile-edit-name-modal');
     const saveBtn = document.getElementById('btn-save-profile-name');
     
-    input.value = name;
-    modal.style.display = 'flex';
+    if (input) input.value = name;
+    if (pinInput) pinInput.value = pin;
+    if (modal) modal.style.display = 'flex';
     
     saveBtn.onclick = () => {
         const newName = input.value.trim();
+        const newPin = pinInput.value.trim();
         if (!newName) return;
-        window._tempProfileToUpdate = { id, name: newName };
+        if (newPin && newPin.length !== 4) return alert("El PIN debe ser de 4 dígitos. 🔒");
+        
+        window._tempProfileToUpdate = { id, name: newName, pin: newPin };
         modal.style.display = 'none';
         window.openAvatarPicker();
     };
@@ -2579,11 +2791,18 @@ window.finalizeProfileUpdate = async (avatar) => {
     if (id) {
         // Actualizar existente
         const profileRef = doc(db, "users", uid, "profiles", id);
-        await updateDoc(profileRef, { name, avatar });
+        await updateDoc(profileRef, { name, avatar, pin: window._tempProfileToUpdate.pin || '' });
     } else {
         // Crear nuevo
         const profilesCol = collection(db, "users", uid, "profiles");
-        await addDoc(profilesCol, { name: window._tempNewName, avatar, isChild: false });
+        await addDoc(profilesCol, { 
+            name: window._tempProfileToUpdate.name, 
+            avatar, 
+            pin: window._tempProfileToUpdate.pin || '',
+            isChild: false,
+            createdAt: Date.now(),
+            lastLogin: Date.now()
+        });
     }
     
     document.getElementById('avatar-selector-modal').style.display = 'none';
@@ -2600,17 +2819,21 @@ window.finalizeProfileUpdate = async (avatar) => {
 
 window.showAddProfile = async () => {
     const input = document.getElementById('edit-profile-name-input');
+    const pinInput = document.getElementById('edit-profile-pin-input');
     const modal = document.getElementById('profile-edit-name-modal');
     const saveBtn = document.getElementById('btn-save-profile-name');
     
-    input.value = "";
-    modal.style.display = 'flex';
+    if (input) input.value = "";
+    if (pinInput) pinInput.value = "";
+    if (modal) modal.style.display = 'flex';
     
     saveBtn.onclick = () => {
         const name = input.value.trim();
-        if (!name) return;
-        window._tempNewName = name;
-        window._tempProfileToUpdate = null; // Indicamos que es nuevo
+        const pin = pinInput.value.trim();
+        if (!name) return alert("Dinos un nombre. 🐯");
+        if (pin && pin.length !== 4) return alert("El PIN debe ser de 4 dígitos. 🔒");
+
+        window._tempProfileToUpdate = { name, pin }; // Nuevo perfil
         modal.style.display = 'none';
         window.openAvatarPicker();
     };
@@ -2791,31 +3014,6 @@ window.loadMyList = async () => {
     }).join('');
 };
 
-window.applyProfile = (p) => {
-    document.getElementById('user-name').innerText = p.name;
-    document.getElementById('dropdown-profile-name').innerText = p.name;
-    document.getElementById('dropdown-active-profile').innerText = p.avatar || '🐯';
-    
-    // ✅ ACTUALIZAR AVATAR EN NAVBAR (Prioridad al animalito)
-    const initials = document.getElementById('user-initials');
-    const avatarImg = document.getElementById('user-avatar-img');
-    
-    if (p.avatar) {
-        initials.innerText = p.avatar;
-        initials.style.display = 'flex';
-        initials.style.background = 'none';
-        initials.style.fontSize = '1.2rem';
-        avatarImg.style.display = 'none';
-    }
-    
-    _currentProfile = p;
-    window.loadContinueWatching(); 
-    window.loadMyList().then(() => {
-        console.log("🍿 Favoritos cargados, refrescando UI...");
-        // Forzar un re-renderizado del Home con los datos de favoritos frescos
-        if (_currentFilter !== undefined) window.initApp(_currentFilter, _currentGenre);
-    });
-};
 
 // Cerrar dropdown al hacer clic fuera
 window.addEventListener('click', (e) => {

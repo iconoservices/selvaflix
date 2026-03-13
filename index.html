@@ -16,6 +16,7 @@
   <meta name="apple-mobile-web-app-title" content="SelvaFlix">
   <link rel="apple-touch-icon" href="/icon_192.png">
   <meta name="theme-color" content="#050505">
+  <meta name="msapplication-TileColor" content="#050505">
 
   <!-- Motor Selva P2P (WebTorrent) -->
   <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
@@ -23,6 +24,19 @@
 </head>
 
 <body>
+  <!-- Splash Screen Pro v2.40 🎬 -->
+  <div id="splash-screen" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #050505; z-index: 30000; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.8s ease, visibility 0.8s;">
+    <div class="splash-logo-container">
+      <div class="splash-logo">
+        <span style="color: white; font-size: 3.5rem; font-weight: 900; letter-spacing: -2px; font-family: 'Outfit', sans-serif;">SELVA</span><span style="color: var(--primary); font-size: 3.5rem; font-weight: 900; letter-spacing: -2px; font-family: 'Outfit', sans-serif;">FLIX</span>
+      </div>
+      <div class="splash-loader-bar">
+        <div class="splash-loader-fill"></div>
+      </div>
+    </div>
+    <p style="color: var(--primary); font-size: 0.6rem; letter-spacing: 4px; margin-top: 25px; font-family: 'Outfit', sans-serif; opacity: 0.4; text-transform: uppercase; font-weight: 300;">Explorando...</p>
+  </div>
+
   <div id="app">
     <nav class="navbar">
       <!-- Logo -->
@@ -180,14 +194,15 @@
             <div id="profiles-grid" style="display: flex; gap: 30px; justify-content: center; flex-wrap: wrap; padding: 20px;">
                 <!-- Perfiles se inyectan aquí -->
             </div>
-            <div style="display: flex; gap: 20px; justify-content: center; margin-top: 50px;">
+            <div style="display: flex; gap: 20px; justify-content: center; margin-top: 50px; flex-wrap: wrap;">
                 <button id="btn-manage-profiles" onclick="window.toggleManageProfiles()" style="background: none; border: 1px solid #555; color: #555; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; letter-spacing: 2px; transition: all 0.3s;" onmouseover="this.style.borderColor='white'; this.style.color='white';">ADMINISTRAR PERFILES</button>
+                <button id="btn-cleanup-profiles" onclick="window.openCleanupModal()" style="display: none; background: rgba(231,76,60,0.1); border: 1px solid rgba(231,76,60,0.2); color: #E74C3C; font-size: 0.8rem; padding: 10px 20px; border-radius: 4px; cursor: pointer;">🧹 AUTO-LIMPIEZA</button>
             </div>
         </div>
     </div>
 
     <!-- Modal: Selector de Avatar (Pop-up) -->
-    <div id="avatar-selector-modal" class="modal-overlay avatar-modal-overlay">
+    <div id="avatar-selector-modal" class="modal-overlay avatar-modal-overlay" style="display: none;">
         <div class="avatar-modal-content">
             <h2 style="color: white; margin-bottom: 20px;">Elige tu Icono 🐾</h2>
             <div id="avatar-options-grid" class="avatar-grid">
@@ -376,6 +391,19 @@
                 <img id="m-img-preview" src="https://via.placeholder.com/100x150?text=Prev"
                   style="width: 70px; border-radius: 8px; border: 1px solid var(--glass-border);">
               </div>
+              <div class="form-group" style="display: flex; gap: 15px; align-items: start;">
+                <div style="flex: 1;">
+                  <label>URL de Backdrop (Imagen Horizontal Hero)</label>
+                  <input type="url" id="m-backdrop" class="form-control" placeholder="https://... (TMDB la pondrá sola)">
+                </div>
+                <div style="text-align: center;">
+                  <label>📍 Fijar Hero</label>
+                  <label class="switch" style="margin-top: 5px;">
+                    <input type="checkbox" id="m-pinned">
+                    <span class="slider round"></span>
+                  </label>
+                </div>
+              </div>
               <div class="form-group">
                 <label>URL del Video (Embed / M3U8)</label>
                 <input type="url" id="m-embed" class="form-control" placeholder="Deja vacio para usar Multi-Servidor">
@@ -437,7 +465,8 @@
               style="display: flex; gap: 15px; margin-bottom: 20px; font-size: 0.75rem; background: rgba(255,255,255,0.02); padding: 10px; border-radius: 10px; border: 1px solid var(--glass-border);">
               <div style="color: var(--primary);">🎬 <strong id="count-movies">0</strong> Pelis</div>
               <div style="color: #9B59B2;">🏆 <strong id="count-series">0</strong> Series</div>
-              <div style="color: #F1C40F; margin-left:15px;">🚨 <strong id="count-reported">0</strong> Reportadas</div>
+              <div style="color: #F1C40F;">⏳ <strong id="count-waiting">0</strong> En Espera</div>
+              <div style="color: #F39C12; margin-left:15px;">🚨 <strong id="count-reported">0</strong> Reportadas</div>
               <div style="color: #E74C3C; margin-left: auto;">⚠️ <strong id="count-broken">0</strong> Rotas</div>
             </div>
 
@@ -455,6 +484,7 @@
               <select id="inventory-filter" class="form-control" onchange="window.filterInventoryByCategory()">
                 <option value="all">Salud: Todas</option>
                 <option value="review">🧪 En Revisión (Cola)</option>
+                <option value="waiting">⏳ En Espera (Descargas)</option>
                 <option value="reported">🚨 Reportados por Usuarios</option>
                 <option value="broken">🔴 Con Errores</option>
                 <option value="missing">🟠 Sin ID TMDB</option>
@@ -610,7 +640,54 @@
     </div>
   </div>
 
-  <script type="module" src="/src/main.js?v=2.39"></script>
+
+  <!-- Modal PIN entry 🔐 -->
+  <div id="pin-modal" class="modal-overlay" style="display: none; z-index: 25000; align-items: center; justify-content: center;">
+    <div class="auth-card" style="max-width: 320px; text-align: center; background: rgba(10, 10, 10, 0.95); padding: 40px; border-radius: 20px; border: 1px solid var(--glass-border); box-shadow: 0 20px 50px rgba(0,0,0,0.8); backdrop-filter: blur(20px);">
+      <h2 style="margin-bottom: 20px; font-family: 'Outfit', sans-serif;">🔒 Perfil Protegido</h2>
+      <p id="pin-profile-name" style="margin-bottom: 25px; color: var(--primary); font-weight: 800; font-family: 'Outfit', sans-serif; letter-spacing: 1px;"></p>
+      
+      <div id="pin-error-msg" style="color: #e74c3c; font-size: 0.7rem; margin-bottom: 15px; display: none;">PIN incorrecto. Reintenta.</div>
+
+      <div class="pin-inputs" style="display: flex; gap: 12px; justify-content: center; margin-bottom: 30px;">
+        <input type="password" maxlength="1" class="pin-dot" id="pin-1" inputmode="numeric" style="width: 50px; height: 55px; text-align: center; font-size: 1.5rem; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 12px; color: white; outline: none; transition: border-color 0.3s;" onkeyup="window.focusNextPin(this, 'pin-2')" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--glass-border)'">
+        <input type="password" maxlength="1" class="pin-dot" id="pin-2" inputmode="numeric" style="width: 50px; height: 55px; text-align: center; font-size: 1.5rem; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 12px; color: white; outline: none; transition: border-color 0.3s;" onkeyup="window.focusNextPin(this, 'pin-3')" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--glass-border)'">
+        <input type="password" maxlength="1" class="pin-dot" id="pin-3" inputmode="numeric" style="width: 50px; height: 55px; text-align: center; font-size: 1.5rem; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 12px; color: white; outline: none; transition: border-color 0.3s;" onkeyup="window.focusNextPin(this, 'pin-4')" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--glass-border)'">
+        <input type="password" maxlength="1" class="pin-dot" id="pin-4" inputmode="numeric" style="width: 50px; height: 55px; text-align: center; font-size: 1.5rem; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 12px; color: white; outline: none; transition: border-color 0.3s;" onkeyup="window.validatePinEntry(this)" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--glass-border)'">
+      </div>
+      
+      <button onclick="window.closePinModal()" class="btn btn-secondary" style="width: 100%; font-size: 0.8rem; opacity: 0.6;">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- Modal Auto-Limpieza Perfiles 🧹 -->
+  <div id="cleanup-modal" class="modal-overlay" style="display: none; z-index: 26000; align-items: center; justify-content: center;">
+    <div class="auth-card" style="max-width: 400px; text-align: center;">
+      <h2 style="margin-bottom: 20px;">🧹 Auto-Limpieza</h2>
+      <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 25px;">Selecciona el tiempo de inactividad para encontrar perfiles que ya no exploran la selva.</p>
+      
+      <div class="form-group">
+        <label>Inactividad Mayor a:</label>
+        <select id="cleanup-days" class="form-control" onchange="window.previewCleanup()">
+          <option value="30">30 Días</option>
+          <option value="45">45 Días</option>
+          <option value="60">60 Días</option>
+          <option value="90">90 Días</option>
+        </select>
+      </div>
+
+      <div id="cleanup-preview" style="margin: 20px 0; font-size: 0.8rem; color: #E74C3C; font-weight: bold; background: rgba(231,76,60,0.1); padding: 10px; border-radius: 8px; display: none;">
+        Se encontraron <span id="cleanup-count">0</span> perfiles inactivos.
+      </div>
+
+      <div style="display: flex; gap: 10px; margin-top: 20px;">
+        <button onclick="window.closeCleanupModal()" class="btn btn-secondary" style="flex: 1;">Cancelar</button>
+        <button id="btn-do-cleanup" onclick="window.executeCleanup()" class="btn" style="flex: 1; background: #E74C3C; color: white; display: none;">Eliminar Todo 🗑️</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js?v=2.40"></script>
 </body>
 
 </html>

@@ -1060,11 +1060,9 @@ export const SelvaStream = {
                 if (result && result.url) {
                     console.log("🚀 URL Liberada:", result.url);
                     
-                    // Ocultar loader y start screen
                     if (startScreen) startScreen.style.display = 'none';
                     loader.style.display = 'none';
 
-                    // Mostrar reproductor con URL lista
                     nativePlayer.src = result.url;
                     if (this.currentPlayerMovie.resumeTime > 0) {
                         nativePlayer.currentTime = this.currentPlayerMovie.resumeTime;
@@ -1072,18 +1070,17 @@ export const SelvaStream = {
                     nativePlayer.style.display = 'block';
                     nativeContainer.style.display = 'block';
 
+                    // ▶️ Auto-play: el usuario ya hizo click conscientemente
+                    nativePlayer.play().catch(e => console.warn("Auto-play prevented:", e));
 
-
-                    // ✅ SIN AUTOPLAY: mostrar instrucción clara al usuario
                     const notif = document.getElementById('player-notifications');
                     if (notif) notif.innerHTML = `
                         <div style="background: rgba(46,204,113,0.15); border: 1px solid #2ecc71; border-radius: 10px; padding: 10px; text-align:center;">
                             <div style="font-size: 1.5rem;">▶️</div>
-                            <p style="color:#2ecc71; font-weight:bold; margin:4px 0;">¡Película lista!</p>
-                            <p style="color:#ccc; font-size:0.75rem;">Toca el video de arriba para empezar.</p>
+                            <p style="color:#2ecc71; font-weight:bold; margin:4px 0;">¡Reproduciendo!</p>
+                            <p style="color:#ccc; font-size:0.75rem;">Si el video está en negro, toca la pantalla.</p>
                         </div>`;
 
-                    // Botón VLC de respaldo
                     const isAndroid = /Android/i.test(navigator.userAgent);
                     const extBtnFinal = document.getElementById('external-player-btn');
                     if (extBtnFinal) {
@@ -1093,18 +1090,30 @@ export const SelvaStream = {
                         extBtnFinal.style.display = 'flex';
                     }
                 } else {
-                    // Error: volver al start screen con mensaje claro + botón
-                    loader.style.display = 'none';
-                    if (startScreen) startScreen.style.display = 'flex';
-                    const msgEl = document.getElementById('vip-status-msg');
-                    if (msgEl) msgEl.innerHTML = `<span style="color:#e74c3c;">⚠️ No se pudo abrir esta fuente.</span>`;
-                    const startActions = document.getElementById('start-actions');
-                    if (startActions) {
-                        startActions.style.display = 'block';
-                        startActions.innerHTML = `
-                            <button class="play-btn-premium" onclick="SelvaStream.toggleVipMenu()" style="background: linear-gradient(135deg,#e74c3c,#c0392b); margin-top:10px;">
-                                📡 Elegir Otra Fuente VIP
-                            </button>`;
+                    // ⚡ FALLBACK AUTOMÁTICO: intentar la siguiente fuente disponible
+                    const currentIdx = this.lastScrapedStreams.findIndex(s => s.infoHash === stream.infoHash || s.url === stream.url);
+                    const nextStream = this.lastScrapedStreams[currentIdx + 1];
+
+                    if (nextStream) {
+                        console.warn(`⚠️ Fuente #${currentIdx + 1} falló. Probando fuente #${currentIdx + 2}...`);
+                        loader.style.display = 'none';
+                        if (startScreen) startScreen.style.display = 'flex';
+                        const msgEl2 = document.getElementById('vip-status-msg');
+                        if (msgEl2) msgEl2.innerHTML = `🔄 Probando siguiente fuente...`;
+                        setTimeout(() => this.handleExternalStream(nextStream), 800);
+                    } else {
+                        loader.style.display = 'none';
+                        if (startScreen) startScreen.style.display = 'flex';
+                        const msgEl = document.getElementById('vip-status-msg');
+                        if (msgEl) msgEl.innerHTML = `<span style="color:#e74c3c;">⚠️ Sin fuentes disponibles. Intenta elegir otra desde el menú VIP.</span>`;
+                        const startActions = document.getElementById('start-actions');
+                        if (startActions) {
+                            startActions.style.display = 'block';
+                            startActions.innerHTML = `
+                                <button class="play-btn-premium" onclick="SelvaStream.toggleVipMenu()" style="background: linear-gradient(135deg,#e74c3c,#c0392b); margin-top:10px;">
+                                    📡 Elegir Otra Fuente VIP
+                                </button>`;
+                        }
                     }
                 }
             }).catch(() => {
@@ -1133,32 +1142,49 @@ export const SelvaStream = {
 
 
     async callMasterWorker(infoHash, attempt = 1) {
+        const MAX_ATTEMPTS = 2; // ⬇️ Reducido de 4 a 2 para no bloquear tanto
+        const RETRY_DELAY = 1500; // ⬇️ Reducido de 2500ms a 1500ms
+        const FETCH_TIMEOUT = 12000; // ⏱️ NUEVO: Timeout de 12s por intento (antes: infinito)
+
         try {
             const magnet = `magnet:?xt=urn:btih:${infoHash}`;
-            const role = 'admin'; // Futuro: localStorage.getItem('user_role')
-
+            const role = 'admin';
             const url = `${this.MASTER_WORKER_URL}/flix/unrestrict?magnet=${encodeURIComponent(magnet)}&role=${role}`;
 
-            const res = await fetch(url, {
-                headers: { 'x-selva-auth': this.AUTH_TOKEN }
-            });
+            // ✅ AbortController: Si el worker no responde en 12s, cortamos
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+
+            let res;
+            try {
+                res = await fetch(url, {
+                    headers: { 'x-selva-auth': this.AUTH_TOKEN },
+                    signal: controller.signal
+                });
+            } finally {
+                clearTimeout(timeoutId);
+            }
 
             if (!res.ok) throw new Error(`HTTP_${res.status}`);
             const data = await res.json();
 
-            // 🚀 SYSTEMA AUTO-RETRY (Si Real-Debrid sigue descomprimiendo)
-            if (data.status === 'waiting' && attempt <= 4) {
-                console.log(`[Auto-Retry] Búnker procesando película... (Intento ${attempt}/4)`);
+            // 🔄 AUTO-RETRY (reducido a 2 intentos para no bloquear)
+            if (data.status === 'waiting' && attempt <= MAX_ATTEMPTS) {
+                console.log(`[Auto-Retry] Búnker procesando... (Intento ${attempt}/${MAX_ATTEMPTS})`);
                 const progressDiv = document.getElementById('wt-progress');
-                if (progressDiv) progressDiv.innerText = `🥥 Extrayendo de la selva profunda... (Intento ${attempt}/4)`;
+                if (progressDiv) progressDiv.innerText = `🥥 Procesando... (Intento ${attempt}/${MAX_ATTEMPTS})`;
 
-                // Esperar 2.5 segundos de gracia y preguntar de nuevo al servidor
-                await new Promise(resolve => setTimeout(resolve, 2500));
+                await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
                 return this.callMasterWorker(infoHash, attempt + 1);
             }
 
             return data;
         } catch (error) {
+            // Distinguir timeout de error de red real
+            if (error.name === 'AbortError') {
+                console.error('[Worker] Timeout — el worker tardó más de 12s');
+                return { error: 'timeout' };
+            }
             console.error('[Worker Connection Error]', error);
             return { error: error.message };
         }

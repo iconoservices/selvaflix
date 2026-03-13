@@ -642,28 +642,33 @@ export const SelvaStream = {
     renderControls() {
         const root = document.getElementById('player-controls-root');
         if (!root) return;
-        // Actualizar lista VIP también
-        this.renderVipMenuList();
-
+        
+        // 🚀 MEJORA: Solo renderizar el HTML si NO existe ya. 
+        // Esto evita borrar selectores ya poblados por TMDb.
         const isSeries = ['series', 'tv', 'anime'].includes(this.currentPlayerMovie?.type);
-        const seasonHtml = isSeries ? `
-            <div class="series-selectors">
-                <div class="selva-select-wrapper">
-                    <label>Temporada</label>
-                    <select id="selva-season" class="selva-custom-select"></select>
-                </div>
-                <div class="selva-select-wrapper">
-                    <label>Episodio</label>
-                    <select id="selva-episode" class="selva-custom-select"></select>
-                </div>
-            </div>
-        ` : '';
+        const hasSelectors = !!document.getElementById('selva-season');
 
-        root.innerHTML = `
-            <div class="player-controls" style="margin-top: 20px;">
-                ${seasonHtml}
-            </div>
-        `;
+        if (isSeries && !hasSelectors) {
+            root.innerHTML = `
+                <div class="player-controls" style="margin-top: 20px;">
+                    <div class="series-selectors">
+                        <div class="selva-select-wrapper">
+                            <label>Temporada</label>
+                            <select id="selva-season" class="selva-custom-select"></select>
+                        </div>
+                        <div class="selva-select-wrapper">
+                            <label>Episodio</label>
+                            <select id="selva-episode" class="selva-custom-select"></select>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else if (!isSeries) {
+            root.innerHTML = '';
+        }
+
+        // Siempre actualizar la lista VIP independientemente de los selectores generales
+        this.renderVipMenuList();
     },
 
     close() {
@@ -699,6 +704,10 @@ export const SelvaStream = {
         }
 
         document.body.style.overflow = ''; // Restaurar scroll
+        
+        // 🧹 Limpieza de controles
+        const root = document.getElementById('player-controls-root');
+        if (root) root.innerHTML = '';
     },
 
     async loadDebridAuto(id, type) {

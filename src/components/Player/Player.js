@@ -999,6 +999,19 @@ export const SelvaStream = {
                     nativePlayer.play().catch(e => console.warn("Auto-play prevented", e));
                 }
 
+                // 🚨 Si el video falla (URL expirada, formato no soportado, etc.)
+                nativePlayer.onerror = () => {
+                    console.error('❌ nativePlayer error en URL directa:', nativePlayer.error);
+                    const nativeContainer2 = document.getElementById('native-player-container');
+                    if (nativeContainer2) nativeContainer2.style.display = 'none';
+                    nativePlayer.removeAttribute('src');
+                    const startScreen2 = document.getElementById('player-start-screen');
+                    if (startScreen2) startScreen2.style.display = 'flex';
+                    const msgEl3 = document.getElementById('vip-status-msg');
+                    if (msgEl3) msgEl3.innerHTML = `<span style="color:#e74c3c;">❌ Esta fuente no pudo reproducirse. Elige otra desde el menú VIP.</span>`;
+                    this.toggleVipMenu();
+                };
+
 
 
                 // Si es un source directo, le pasamos la URL al botón externo
@@ -1069,6 +1082,17 @@ export const SelvaStream = {
                     }
                     nativePlayer.style.display = 'block';
                     nativeContainer.style.display = 'block';
+
+                    // 🚨 Si el video falla después de recibir la URL del Worker (RD expiró, formato, etc.)
+                    nativePlayer.onerror = () => {
+                        console.error('❌ nativePlayer error en URL de Worker:', nativePlayer.error);
+                        nativeContainer.style.display = 'none';
+                        nativePlayer.removeAttribute('src');
+                        if (startScreen) startScreen.style.display = 'flex';
+                        const msgEl4 = document.getElementById('vip-status-msg');
+                        if (msgEl4) msgEl4.innerHTML = `<span style="color:#e74c3c;">❌ La URL de RealDebrid no se pudo reproducir. Elige otra fuente.</span>`;
+                        this.toggleVipMenu();
+                    };
 
                     const notif = document.getElementById('player-notifications');
                     if (notif) notif.innerHTML = `

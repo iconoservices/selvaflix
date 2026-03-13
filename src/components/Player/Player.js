@@ -944,10 +944,6 @@ export const SelvaStream = {
 
         const iframe = document.getElementById('player-iframe');
         const nativePlayer = document.getElementById('native-video-player');
-        
-        // 🛠 TRUCO SELVAFLIX: Forzar el "desbloqueo" del reproductor en móviles 
-        // tocándolo en el hilo exacto del click del usuario.
-        nativePlayer.play().catch(() => {});
         nativePlayer.pause();
         
         // Asignación unificada de progreso
@@ -1101,13 +1097,17 @@ export const SelvaStream = {
 
                     // 🚨 Manejo de errores nativos (Mudo/Negro en iOS)
                     nativePlayer.onerror = () => {
-                        console.error('❌ nativePlayer error en URL de Worker:', nativePlayer.error);
-                        if (nativeContainer) nativeContainer.style.display = 'none';
-                        nativePlayer.removeAttribute('src');
-                        if (startScreen) startScreen.style.display = 'flex';
-                        const msgEl4 = document.getElementById('vip-status-msg');
-                        if (msgEl4) msgEl4.innerHTML = `<span style="color:#e74c3c;">❌ El formato de este video no es compatible con el reproductor de tu teléfono (posible MKV/HEVC o error de fuente). Prueba otro link o usa 'Reproducir en VLC'.</span>`;
-                        this.toggleVipMenu();
+                        const err = nativePlayer.error;
+                        console.error('❌ nativePlayer error en URL de Worker:', err);
+                        // Solo cortar si es error fatal (Decodificación o Soporte). Safari aveces lanza redes benignas.
+                        if (err && (err.code === 3 || err.code === 4)) {
+                            if (nativeContainer) nativeContainer.style.display = 'none';
+                            nativePlayer.removeAttribute('src');
+                            if (startScreen) startScreen.style.display = 'flex';
+                            const msgEl4 = document.getElementById('vip-status-msg');
+                            if (msgEl4) msgEl4.innerHTML = `<span style="color:#e74c3c;">❌ El formato no es compatible en este momento (Error ${err.code}). Prueba otro link en el menú lateral.</span>`;
+                            this.toggleVipMenu();
+                        }
                     };
 
                     const notif = document.getElementById('player-notifications');
@@ -1190,7 +1190,10 @@ export const SelvaStream = {
             if (data.status === 'waiting' && attempt <= 4) {
                 console.log(`[Auto-Retry] Búnker procesando película... (Intento ${attempt}/4)`);
                 const progressDiv = document.getElementById('wt-progress');
-                if (progressDiv) progressDiv.innerText = `🥥 Extrayendo de la selva profunda... (Intento ${attempt}/4)`;
+                const percentages = [30, 60, 85, 99];
+                const pct = percentages[attempt - 1] || 99;
+                
+                if (progressDiv) progressDiv.innerText = `🥥 Extrayendo de la selva profunda... ${pct}%`;
 
                 // Esperar 2.5 segundos de gracia y preguntar de nuevo al servidor
                 await new Promise(resolve => setTimeout(resolve, 2500));

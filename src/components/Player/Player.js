@@ -862,12 +862,28 @@ export const SelvaStream = {
                 if (qRaw.includes('[rd+]') || s.providerName === 'T-IO') score += 50;
                 
                 // C. Formato y Codecs (Amigabilidad iOS/Móvil)
-                if (s.detectedFormat === 'MP4' || s.detectedFormat === 'M3U8') score += 50; 
-                else if (s.detectedFormat === 'MKV') score += 5; 
-                else if (s.detectedFormat === 'VIDEO') score -= 100; // Formatos sin audio/identidad -> Abajo
+                // 🍎 Detección iOS: Safari no soporta MKV, HEVC, ni AC3
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+                              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-                if (s.detectedAudioCodec === 'AC3') score -= 50; // Riesgo mudo en iOS
-                else if (s.detectedAudioCodec === 'AAC') score += 20;
+                if (s.detectedFormat === 'MP4' || s.detectedFormat === 'M3U8') {
+                    score += isIOS ? 150 : 50; // iOS necesita este formato sí o sí
+                } else if (s.detectedFormat === 'MKV') {
+                    score += isIOS ? -300 : 5;  // 🍎 MKV = muerte en iOS Safari
+                } else if (s.detectedFormat === 'VIDEO') {
+                    score -= 100;
+                }
+
+                if (s.detectedAudioCodec === 'AC3') {
+                    score += isIOS ? -150 : -50; // 🍎 AC3 no funciona en iOS (mudo o error)
+                } else if (s.detectedAudioCodec === 'AAC') {
+                    score += 20;
+                }
+
+                if (s.detectedVideoCodec === 'HEVC' && isIOS) {
+                    score -= 200; // 🍎 HEVC (H.265) no es reproducible en iOS Safari antiguo
+                }
+
 
                 // D. Peso (Premia ligeros, castiga obesos)
                 if (s.weightGB > 0) {

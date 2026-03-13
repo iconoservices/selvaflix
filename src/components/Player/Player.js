@@ -1097,18 +1097,22 @@ export const SelvaStream = {
                     nativePlayer.style.display = 'block';
                     if (nativeContainer) nativeContainer.style.display = 'block';
 
-                    // 🚨 Manejo de errores nativos (Mudo/Negro en iOS)
+                    // 🚨 Manejo de advertencias nativas (Safari Mudo/Codec parcial)
                     nativePlayer.onerror = () => {
                         const err = nativePlayer.error;
-                        console.error('❌ nativePlayer error en URL de Worker:', err);
-                        // Solo cortar si es error fatal (Decodificación o Soporte). Safari aveces lanza redes benignas.
+                        console.error('⚠️ nativePlayer advertencia en URL de Worker:', err);
+                        
+                        // En lugar de bloquear el player, notificamos al usuario.
+                        // Muchos dispositivos logran reproducir video pero no audio en MKV.
                         if (err && (err.code === 3 || err.code === 4)) {
-                            if (nativeContainer) nativeContainer.style.display = 'none';
-                            nativePlayer.removeAttribute('src');
-                            if (startScreen) startScreen.style.display = 'flex';
-                            const msgEl4 = document.getElementById('vip-status-msg');
-                            if (msgEl4) msgEl4.innerHTML = `<span style="color:#e74c3c;">❌ El formato no es compatible en este momento (Error ${err.code}). Prueba otro link en el menú lateral.</span>`;
-                            this.toggleVipMenu();
+                            const notif = document.getElementById('player-notifications');
+                            if (notif) {
+                                notif.innerHTML = `
+                                    <div style="background: rgba(231,76,60,0.15); border: 1px solid #e74c3c; border-radius: 10px; padding: 10px; font-size: 0.8rem; text-align:center;">
+                                        <p style="color:#e74c3c; font-weight:bold; margin:0 0 5px 0;">⚠️ Formato Pesado / Sin Audio</p>
+                                        <p style="color:#ccc; margin:0;">Es posible que tu móvil no soporte el sonido o video de esta fuente específica. Trata otra fuente en el panel VIP si no puedes verlo bien.</p>
+                                    </div>`;
+                            }
                         }
                     };
 

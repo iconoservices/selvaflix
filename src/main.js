@@ -2646,7 +2646,6 @@ let _isManagingProfiles = false;
 window.toggleManageProfiles = () => {
     _isManagingProfiles = !_isManagingProfiles;
     const btn = document.getElementById('btn-manage-profiles');
-    const cleanupBtn = document.getElementById('btn-cleanup-profiles');
     const title = document.getElementById('profile-selector-title');
     
     if (_isManagingProfiles) {
@@ -2655,14 +2654,12 @@ window.toggleManageProfiles = () => {
         btn.style.color = "black";
         btn.style.borderColor = "#FF7A00";
         title.innerText = "ADMINISTRAR PERFILES";
-        if (cleanupBtn) cleanupBtn.style.display = 'inline-block';
     } else {
         btn.innerText = "ADMINISTRAR PERFILES";
         btn.style.background = "none";
         btn.style.color = "#555";
         btn.style.borderColor = "#555";
         title.innerText = "¿QUIÉN ESTÁ VIENDO?";
-        if (cleanupBtn) cleanupBtn.style.display = 'none';
     }
     
     // Recargar la vista de perfiles para mostrar/ocultar el lápiz de edición

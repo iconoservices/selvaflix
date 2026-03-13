@@ -12,18 +12,15 @@ import { getMessaging, getToken, onMessage } from "firebase/messaging"; // 🔔 
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "firebase/auth"; // 🔑 Auth SDK
 
 // --- Firebase Configuration ---
-// 🔒 Las claves se leen desde variables de entorno (Vite).
-// En local: .env.local (ignorado por git, regla *.local en .gitignore)
-// En producción (Vercel): Panel > Settings > Environment Variables
 const firebaseConfig = {
-  apiKey:            import.meta.env.VITE_FB_API_KEY            || '',
-  authDomain:        import.meta.env.VITE_FB_AUTH_DOMAIN        || '',
-  databaseURL:       import.meta.env.VITE_FB_DB_URL             || '',
-  projectId:         import.meta.env.VITE_FB_PROJECT_ID         || '',
-  storageBucket:     import.meta.env.VITE_FB_STORAGE_BUCKET     || '',
-  messagingSenderId: import.meta.env.VITE_FB_MESSAGING_SENDER_ID || '',
-  appId:             import.meta.env.VITE_FB_APP_ID             || '',
-  measurementId:     import.meta.env.VITE_FB_MEASUREMENT_ID     || ''
+  apiKey: "AIzaSyCABaNkvUlMjBatNh0Giih01IDH4sNbt1Q",
+  authDomain: "selvaflix-5d991.firebaseapp.com",
+  databaseURL: "https://selvaflix-5d991-default-rtdb.firebaseio.com",
+  projectId: "selvaflix-5d991",
+  storageBucket: "selvaflix-5d991.firebasestorage.app",
+  messagingSenderId: "935630160406",
+  appId: "1:935630160406:web:171ecfcb9e4258628bab37",
+  measurementId: "G-N4DRH9QPE3"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -51,8 +48,8 @@ if ('serviceWorker' in navigator) {
             
             // Retraso intencional para asegurar que SW está bootado
             setTimeout(() => {
-            getToken(messaging, { 
-                  vapidKey: import.meta.env.VITE_FB_VAPID_KEY || '',
+                getToken(messaging, { 
+                  vapidKey: 'BLqkFCsqZCYKUOauIQND6XOWbiDBPKKebs9kNDBI5YRnhJ6WuOy2b1EUCKlv8xstA-1AkNOobOwPKDT8i34ZSwQ',
                   serviceWorkerRegistration: reg 
                 }).then((currentToken) => {
                   if (currentToken) {

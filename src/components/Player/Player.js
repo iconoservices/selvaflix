@@ -194,7 +194,6 @@ export const SelvaStream = {
             console.warn("Fallo al intentar modo cine horizontal:", err);
         }
     },
-    },
 
     // El Spinner se apaga cuando el iframe carga
     setupIframeLoader() {
@@ -208,7 +207,6 @@ export const SelvaStream = {
                 }
             };
         }
-    },
     },
 
     /**

@@ -82,16 +82,14 @@
 
 
     <main id="home-view">
-      <!-- Filter Bar: DENTRO del main y ANTES del hero para que sticky funcione -->
-      <div class="filter-bar" id="filter-bar" style="position:fixed !important; top:60px; left:0; right:0; z-index:500; background:rgba(5,5,5,0.95); backdrop-filter:blur(12px);">
+      <div class="filter-bar" id="filter-bar">
         <button class="filter-btn active" id="filter-all" onclick="window.setFilter('')">🏠 Inicio</button>
         <button class="filter-btn" id="filter-movies" onclick="window.setFilter('movies')">🎬 Películas</button>
         <button class="filter-btn" id="filter-series" onclick="window.setFilter('series')">🏆 Series</button>
       </div>
 
       <!-- Genre Sub-filters (shown in movies/series view) -->
-      <div class="filter-bar" id="genre-bar"
-        style="position:fixed !important; top:100px; left:0; right:0; z-index:499; display:none; padding-top:4px; padding-bottom:4px; border-top: 1px solid rgba(255,255,255,0.06); background:rgba(5,5,5,0.95); backdrop-filter:blur(12px);">
+      <div class="filter-bar" id="genre-bar" style="display:none;">
         <button class="filter-btn active" id="genre-all" onclick="window.setGenre('')">🎞️ Todas</button>
         <button class="filter-btn" onclick="window.setGenre('28')">💥 Acción</button>
         <button class="filter-btn" onclick="window.setGenre('35')">😂 Comedia</button>
@@ -189,10 +187,10 @@
     </div>
 
     <!-- Modal: Selector de Avatar (Pop-up) -->
-    <div id="avatar-selector-modal" class="modal-overlay" style="display: none; z-index: 20010; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px);">
-        <div style="background: #111; padding: 30px; border-radius: 20px; max-width: 500px; width: 90%; text-align: center; border: 1px solid rgba(255,255,255,0.1);">
+    <div id="avatar-selector-modal" class="modal-overlay avatar-modal-overlay">
+        <div class="avatar-modal-content">
             <h2 style="color: white; margin-bottom: 20px;">Elige tu Icono 🐾</h2>
-            <div id="avatar-options-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 30px;">
+            <div id="avatar-options-grid" class="avatar-grid">
                 <!-- Iconos inyectados por JS -->
             </div>
             <button onclick="document.getElementById('avatar-selector-modal').style.display='none'" class="btn btn-secondary" style="width: 100%;">Cancelar</button>
@@ -612,7 +610,7 @@
     </div>
   </div>
 
-  <script type="module" src="/src/main.js?v=2.37"></script>
+  <script type="module" src="/src/main.js?v=2.39"></script>
 </body>
 
 </html>

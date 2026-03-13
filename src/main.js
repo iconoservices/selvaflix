@@ -198,6 +198,7 @@ async function loadSelvaFlixData() {
       sessionStorage.setItem(CACHE_TIME_KEY, now.toString());
     } catch (error) {
       console.error("❌ Error en la expedición de datos:", error);
+      alert("⚠️ Error cargando la selva: " + error.message + "\n\n(Prueba recargar o revisar tu conexión Wi-Fi)");
       return; // Muerte súbita
     }
   }

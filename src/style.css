@@ -567,7 +567,7 @@ h3,
   scrollbar-width: none;
   /* position:fixed = siempre visible sin importar el overflow del DOM */
   position: fixed;
-  top: 60px;
+  top: 80px;
   left: 0;
   right: 0;
   background: rgba(5, 5, 5, 0.92);
@@ -578,21 +578,58 @@ h3,
 
 /* Compensar la barra fija en el contenido de abajo */
 #home-view {
-  padding-top: 50px;
+  padding-top: 70px;
 }
 
 #genre-bar.filter-bar {
-  top: 100px; /* Debajo del filter-bar principal */
+  top: 139px; /* Debajo del filter-bar principal (80px + ~59px height) */
+  padding-top: 4px;
+  padding-bottom: 4px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  z-index: 499;
 }
 
 /* Compensar cuando genre-bar está visible */
 #home-view.genre-visible {
-  padding-top: 90px;
+  padding-top: 120px;
 }
 
 
-.filter-bar::-webkit-scrollbar {
+/* Avatar Selector Modal Styles */
+.avatar-modal-overlay {
   display: none;
+  z-index: 20010;
+  background: rgba(0,0,0,0.8);
+  backdrop-filter: blur(10px);
+}
+
+.avatar-modal-content {
+  background: #111;
+  padding: 30px;
+  border-radius: 20px;
+  max-width: 500px;
+  width: 90%;
+  text-align: center;
+  border: 1px solid rgba(255,255,255,0.1);
+  margin: auto;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.avatar-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 15px;
+  margin-bottom: 30px;
+}
+
+@media (max-width: 480px) {
+  .avatar-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
 }
 
 .filter-btn {
@@ -1545,6 +1582,37 @@ iframe {
 }
 
 @media (max-width: 768px) {
+  .navbar {
+    height: 65px;
+    padding: 0 15px;
+  }
+
+  .filter-bar {
+    top: 65px;
+    padding: 8px 15px;
+  }
+
+  #genre-bar.filter-bar {
+    top: 112px;
+  }
+
+  /* Compensaciones Navbar Mobile */
+  #home-view {
+    padding-top: 50px;
+  }
+  #home-view.genre-visible {
+    padding-top: 95px;
+  }
+
+  .filter-btn {
+    padding: 7px 14px;
+    font-size: 0.75rem;
+  }
+
+  .logo {
+    font-size: 1.2rem;
+  }
+
   .nav-links {
     display: none;
   }

@@ -115,7 +115,9 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (!refreshing) {
         refreshing = true;
-        window.location.reload();
+        // 🛑 CRÍTICO: Desactivamos el reload automático para detener bucles en Safari/iOS
+        // window.location.reload();
+        console.log('🔄 Nuevo SW ha tomado control. Actualiza para ver cambios.');
       }
     });
   });

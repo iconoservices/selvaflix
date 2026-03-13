@@ -20,20 +20,6 @@
   <!-- Motor Selva P2P (WebTorrent) -->
   <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
   <!-- Motor HLS (TV en Vivo) -->
-  <!-- Cache Buster v2.29 -->
-  <script>
-    console.log('🚀 SelvaFlix Loader v2.29 checking for updates...');
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(registrations => {
-        for(let registration of registrations) {
-          if (!registration.active?.scriptURL.includes('v2.3')) {
-            console.log('🧹 Limpciondo SW viejo...');
-            registration.unregister();
-          }
-        }
-      });
-    }
-  </script>
 </head>
 
 <body>

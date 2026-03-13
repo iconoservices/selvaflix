@@ -1070,15 +1070,12 @@ export const SelvaStream = {
                     nativePlayer.style.display = 'block';
                     nativeContainer.style.display = 'block';
 
-                    // ▶️ Auto-play: el usuario ya hizo click conscientemente
-                    nativePlayer.play().catch(e => console.warn("Auto-play prevented:", e));
-
                     const notif = document.getElementById('player-notifications');
                     if (notif) notif.innerHTML = `
                         <div style="background: rgba(46,204,113,0.15); border: 1px solid #2ecc71; border-radius: 10px; padding: 10px; text-align:center;">
                             <div style="font-size: 1.5rem;">▶️</div>
-                            <p style="color:#2ecc71; font-weight:bold; margin:4px 0;">¡Reproduciendo!</p>
-                            <p style="color:#ccc; font-size:0.75rem;">Si el video está en negro, toca la pantalla.</p>
+                            <p style="color:#2ecc71; font-weight:bold; margin:4px 0;">¡Listo! Toca el video para reproducir.</p>
+                            <p style="color:#ccc; font-size:0.75rem;">La película ya está cargada arriba.</p>
                         </div>`;
 
                     const isAndroid = /Android/i.test(navigator.userAgent);

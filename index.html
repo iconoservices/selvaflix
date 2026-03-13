@@ -196,7 +196,6 @@
             </div>
             <div style="display: flex; gap: 20px; justify-content: center; margin-top: 50px; flex-wrap: wrap;">
                 <button id="btn-manage-profiles" onclick="window.toggleManageProfiles()" style="background: none; border: 1px solid #555; color: #555; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; letter-spacing: 2px; transition: all 0.3s;" onmouseover="this.style.borderColor='white'; this.style.color='white';">ADMINISTRAR PERFILES</button>
-                <button id="btn-cleanup-profiles" onclick="window.openCleanupModal()" style="display: none; background: rgba(231,76,60,0.1); border: 1px solid rgba(231,76,60,0.2); color: #E74C3C; font-size: 0.8rem; padding: 10px 20px; border-radius: 4px; cursor: pointer;">🧹 AUTO-LIMPIEZA</button>
             </div>
         </div>
     </div>
@@ -240,6 +239,8 @@
             onclick="window.switchAdminTab('inventory')">📦 Inventario</button>
           <button class="btn btn-secondary" id="btn-admin-metrics" onclick="window.switchAdminTab('metrics')">📊
             Métricas</button>
+          <button class="btn btn-secondary" id="btn-admin-actions" onclick="window.switchAdminTab('actions')">⚡
+            Acciones</button>
         </div>
         <button class="btn btn-secondary" onclick="window.location.hash = ''">Volver a la Selva</button>
       </div>
@@ -600,6 +601,31 @@
         </div>
       </div> <!-- End Metrics Tab -->
 
+      <!-- Actions Tab (NUEVO v2.42) -->
+      <div id="admin-actions-tab" style="display: none;">
+          <div class="admin-grid">
+              <div class="admin-card">
+                  <h2 class="admin-title">👤 Gestión de Población</h2>
+                  <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 20px;">Mantén la selva limpia eliminando perfiles que han sido abandonados.</p>
+                  <button onclick="window.openCleanupModal()" class="btn" style="background: rgba(231,76,60,0.1); border: 1px solid rgba(231,76,60,0.3); color: #E74C3C; width: 100%; height: 50px; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                    🧹 Iniciar Auto-Limpieza de Perfiles
+                  </button>
+              </div>
+
+              <div class="admin-card" id="banner-management-card">
+                  <h2 class="admin-title">📢 Comunicaciones (Banners)</h2>
+                  <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 20px;">Próximamente: Configura anuncios y avisos globales aquí. 📡</p>
+                  <div style="opacity: 0.3; pointer-events: none;">
+                      <div class="form-group">
+                          <label>Texto del Banner</label>
+                          <input type="text" class="form-control" placeholder="Ej: ¡Nuevo estreno de anime!">
+                      </div>
+                      <button class="btn btn-primary" style="width: 100%;">Publicar Aviso</button>
+                  </div>
+              </div>
+          </div>
+      </div>
+
     </section>
 
 
@@ -657,6 +683,55 @@
       </div>
       
       <button onclick="window.closePinModal()" class="btn btn-secondary" style="width: 100%; font-size: 0.8rem; opacity: 0.6;">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- MODAL SELECTOR DE PERFILES 👤 -->
+  <div id="profile-selector-modal" class="modal-overlay" style="display: none; z-index: 20000; align-items: center; justify-content: center; background: #141414;">
+    <div style="text-align: center; width: 100%; max-width: 800px; padding: 20px;">
+      <h1 id="profile-selector-title" style="color: white; font-size: 2.5rem; margin-bottom: 40px; font-weight: 500; letter-spacing: 2px;">¿QUIÉN ESTÁ VIENDO?</h1>
+      
+      <div id="profiles-grid" style="display: flex; flex-wrap: wrap; gap: 30px; justify-content: center; margin-bottom: 50px;">
+        <!-- Perfiles inyectados por JS -->
+      </div>
+      
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 15px;">
+          <button id="btn-manage-profiles" class="btn" style="background: none; border: 1px solid #555; color: #555; padding: 10px 25px; font-size: 1rem; letter-spacing: 2px; cursor: pointer; transition: all 0.3s;" onclick="window.toggleManageProfiles()">ADMINISTRAR PERFILES</button>
+          
+          <button id="btn-cleanup-profiles" class="btn" style="display: none; background: rgba(231,76,60,0.1); border: 1px solid #E74C3C; color: #E74C3C; padding: 10px 25px; font-size: 0.8rem; letter-spacing: 1px;" onclick="window.openCleanupModal()">🧹 Limpieza Rápida</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL EDITAR NOMBRE/PIN ✏️ -->
+  <div id="profile-edit-name-modal" class="modal-overlay" style="display: none; z-index: 28000; align-items: center; justify-content: center;">
+    <div class="auth-card" style="max-width: 350px; text-align: center;">
+      <h2 style="margin-bottom: 25px;">Nombre del Perfil 🐒</h2>
+      <div class="form-group">
+        <label>Nombre</label>
+        <input type="text" id="edit-profile-name-input" class="form-control" placeholder="Ej: Explorador" style="text-align: center; font-size: 1.2rem;">
+      </div>
+      <div class="form-group" style="margin-top: 15px;">
+        <label>PIN de Seguridad (4 dígitos)</label>
+        <input type="password" id="edit-profile-pin-input" class="form-control" placeholder="Opcional" maxlength="4" inputmode="numeric" style="text-align: center; letter-spacing: 5px;">
+        <p style="font-size: 0.65rem; color: var(--text-muted); margin-top: 5px;">Deja vacío para no usar PIN. 🔒</p>
+      </div>
+      <div style="display: flex; gap: 10px; margin-top: 30px;">
+        <button onclick="document.getElementById('profile-edit-name-modal').style.display='none'" class="btn btn-secondary" style="flex: 1;">Cancelar</button>
+        <button id="btn-save-profile-name" class="btn btn-primary" style="flex: 1;">Siguiente</button>
+      </div>
+      <button id="btn-delete-profile" class="btn" style="background: rgba(231,76,60,0.1); border: 1px solid rgba(231,76,60,0.3); color: #E74C3C; width: 100%; margin-top: 15px; display: none;">🗑️ Eliminar Perfil</button>
+    </div>
+  </div>
+
+  <!-- MODAL SELECTOR DE AVATARES (Personajes) 🦁 -->
+  <div id="avatar-selector-modal" class="modal-overlay" style="display: none; z-index: 30000; align-items: center; justify-content: center; background: rgba(0,0,0,0.9);">
+    <div class="auth-card" style="max-width: 500px; text-align: center; background: #111; border: 1px solid #333;">
+      <h2 style="margin-bottom: 25px;">Elige tu Personaje 🐾</h2>
+      <div id="avatar-options-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; padding: 10px;">
+        <!-- Avatares inyectados por JS -->
+      </div>
+      <button onclick="document.getElementById('avatar-selector-modal').style.display='none'" class="btn btn-secondary" style="margin-top: 25px; width: 100%;">Volver</button>
     </div>
   </div>
 

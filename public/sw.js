@@ -3,26 +3,26 @@ importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-comp
 console.log('🌴 SW Check: Script cargado (v2.41)');
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCABaNkvUlMjBatNh0Giih01IDH4sNbt1Q",
-  authDomain: "selvaflix-5d991.firebaseapp.com",
-  projectId: "selvaflix-5d991",
-  storageBucket: "selvaflix-5d991.firebasestorage.app",
-  messagingSenderId: "935630160406",
-  appId: "1:935630160406:web:171ecfcb9e4258628bab37"
+    apiKey: "AIzaSyCABaNkvUlMjBatNh0Giih01IDH4sNbt1Q",
+    authDomain: "selvaflix-5d991.firebaseapp.com",
+    projectId: "selvaflix-5d991",
+    storageBucket: "selvaflix-5d991.firebasestorage.app",
+    messagingSenderId: "935630160406",
+    appId: "1:935630160406:web:171ecfcb9e4258628bab37"
 };
 
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
-  console.log('[sw.js] Mensaje push recibido en background:', payload);
-  const notificationTitle = payload.notification?.title || 'SelvaFlix';
-  const notificationOptions = {
-    body: payload.notification?.body || 'Nueva actualización',
-    icon: '/icon_192.png',
-    data: payload.data
-  };
-  self.registration.showNotification(notificationTitle, notificationOptions);
+    console.log('[sw.js] Mensaje push recibido en background:', payload);
+    const notificationTitle = payload.notification?.title || 'SelvaFlix';
+    const notificationOptions = {
+        body: payload.notification?.body || 'Nueva actualización',
+        icon: '/icon_192.png',
+        data: payload.data
+    };
+    self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
 /* 
@@ -33,7 +33,7 @@ messaging.onBackgroundMessage((payload) => {
    4. Blindaje contra Opaque Responses (CORS).
 */
 
-const CACHE_NAME = 'selvaflix-cache-v2.41';
+const CACHE_NAME = 'selvaflix-cache-v2.37';
 const STATIC_ASSETS = [
     '/',
     '/index.html',

@@ -646,21 +646,26 @@ window.updateSelectedCount = () => {
 window.switchAdminTab = (tab) => {
   const invTab = document.getElementById('admin-inventory-tab');
   const metTab = document.getElementById('admin-metrics-tab');
+  const actTab = document.getElementById('admin-actions-tab');
   const btnInv = document.getElementById('btn-admin-inventory');
   const btnMet = document.getElementById('btn-admin-metrics');
+  const btnAct = document.getElementById('btn-admin-actions');
+
+  // Reset all
+  [invTab, metTab, actTab].forEach(t => { if(t) t.style.display = 'none'; });
+  [btnInv, btnMet, btnAct].forEach(b => { if(b) b.classList.remove('active'); });
 
   if (tab === 'inventory') {
-    invTab.style.display = 'block';
-    metTab.style.display = 'none';
-    btnInv.classList.add('active');
-    btnMet.classList.remove('active');
+    if(invTab) invTab.style.display = 'block';
+    if(btnInv) btnInv.classList.add('active');
     renderInventory();
-  } else {
-    invTab.style.display = 'none';
-    metTab.style.display = 'block';
-    btnInv.classList.remove('active');
-    btnMet.classList.add('active');
+  } else if (tab === 'metrics') {
+    if(metTab) metTab.style.display = 'block';
+    if(btnMet) btnMet.classList.add('active');
     window.loadMetrics();
+  } else if (tab === 'actions') {
+    if(actTab) actTab.style.display = 'block';
+    if(btnAct) btnAct.classList.add('active');
   }
 };
 
@@ -2669,8 +2674,8 @@ window.renderProfiles = (profiles) => {
             : `window.selectProfile('${p.id}', '${p.name}', '${p.avatar}', '${p.pin || ''}')`;
             
         return `
-            <div class="profile-item" onclick="${action}" style="cursor:pointer; transition: transform 0.2s; width: 150px; position: relative;">
-                <div style="width: 120px; height: 120px; background: #222; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 3.5rem; margin: 0 auto 10px; border: 3px solid transparent; box-shadow: 0 10px 20px rgba(0,0,0,0.3); position: relative;" onmouseover="this.style.borderColor='white';" onmouseout="this.style.borderColor='transparent';">
+            <div class="profile-item" style="width: 150px; position: relative;">
+                <div onclick="${action}" style="cursor:pointer; transition: transform 0.2s; width: 120px; height: 120px; background: #222; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 3.5rem; margin: 0 auto 10px; border: 3px solid transparent; box-shadow: 0 10px 20px rgba(0,0,0,0.3); position: relative;" onmouseover="this.style.borderColor='white';" onmouseout="this.style.borderColor='transparent';">
                     ${p.avatar || '🐯'}
                     ${_isManagingProfiles ? `
                         <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
@@ -2678,7 +2683,12 @@ window.renderProfiles = (profiles) => {
                         </div>
                     ` : ''}
                 </div>
-                <p style="color: #eee; font-size: 1.1rem; font-weight: 500;">${p.name}</p>
+                ${_isManagingProfiles ? `
+                    <div onclick="event.stopPropagation(); window.deleteProfile('${p.id}', '${p.name}')" style="position: absolute; top: -5px; right: 5px; width: 30px; height: 30px; background: #E74C3C; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1rem; box-shadow: 0 5px 15px rgba(231,76,60,0.5); z-index: 10;">
+                        ✖
+                    </div>
+                ` : ''}
+                <p style="text-align: center; color: #eee; font-size: 1.1rem; font-weight: 500;">${p.name}</p>
             </div>
         `;
     }).join('') + `
@@ -2753,10 +2763,17 @@ window.editSpecificProfile = (id, name, avatar, pin = '') => {
     const pinInput = document.getElementById('edit-profile-pin-input');
     const modal = document.getElementById('profile-edit-name-modal');
     const saveBtn = document.getElementById('btn-save-profile-name');
+    const deleteBtn = document.getElementById('btn-delete-profile');
     
     if (input) input.value = name;
     if (pinInput) pinInput.value = pin;
     if (modal) modal.style.display = 'flex';
+    
+    // Mostrar botón de eliminar solo al editar un perfil existente
+    if (deleteBtn) {
+        deleteBtn.style.display = 'block';
+        deleteBtn.onclick = () => window.deleteProfile(id, name);
+    }
     
     saveBtn.onclick = () => {
         const newName = input.value.trim();
@@ -2770,18 +2787,58 @@ window.editSpecificProfile = (id, name, avatar, pin = '') => {
     };
 };
 
+window.deleteProfile = async (id, name) => {
+    if (!confirm(`¿Estás seguro que deseas eliminar el perfil "${name}"? Esta acción no se puede deshacer. 🗑️`)) return;
+
+    try {
+        const uid = auth.currentUser.uid;
+        
+        // Verificar cuántos perfiles quedan para no borrar el único que existe
+        const profilesCol = collection(db, "users", uid, "profiles");
+        const snap = await getDocs(profilesCol);
+        if (snap.size <= 1) {
+            alert("No puedes eliminar tu último perfil. ¡Siempre necesitas al menos un aventurero en la selva! 🦁");
+            return;
+        }
+
+        // Proceder con la eliminación
+        const profileRef = doc(db, "users", uid, "profiles", id);
+        await deleteDoc(profileRef);
+        console.log(`✅ Perfil ${name} eliminado.`);
+        
+        document.getElementById('profile-edit-name-modal').style.display = 'none';
+        window.loadProfiles(uid);
+
+        // Si se borró el perfil que estaba activo, forzar selección
+        if (_currentProfile && _currentProfile.id === id) {
+            sessionStorage.removeItem('selva_active_profile');
+            _currentProfile = null;
+            window.showProfileSelector();
+        }
+    } catch (e) {
+        console.error("❌ Error al eliminar perfil:", e);
+        alert("Ocurrió un error al intentar eliminar el perfil.");
+    }
+};
+
 window.openAvatarPicker = () => {
+    console.log("🐾 Abriendo Selector de Personajes...");
     const modal = document.getElementById('avatar-selector-modal');
     const grid = document.getElementById('avatar-options-grid');
-    const avatars = ['🦁', '🐯', '🦒', '🐘', '🐊', '🦜', '🦥', '🐺', '🦊', '🐻', '🦓', '🐼', '🐨', '🐵', '🐸', '🦉'];
+    const avatars = ['🦁', '🐯', '🦒', '🐘', '🐊', '🦜', '🦥', '🐺', '🦊', '🐶', '🐱', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵'];
     
-    grid.innerHTML = avatars.map(a => `
-        <div onclick="window.finalizeProfileUpdate('${a}')" style="font-size: 3rem; cursor: pointer; padding: 10px; border-radius: 10px; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='none'">
-            ${a}
-        </div>
-    `).join('');
+    if (grid) {
+        grid.innerHTML = avatars.map(a => `
+            <div onclick="window.finalizeProfileUpdate('${a}')" style="font-size: 3rem; cursor: pointer; padding: 10px; border-radius: 10px; transition: background 0.2s; display: flex; align-items: center; justify-content: center;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='none'">
+                ${a}
+            </div>
+        `).join('');
+    }
     
-    modal.style.display = 'flex';
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.style.zIndex = '30000'; // Asegurar que esté por encima de todo
+    }
 };
 
 window.finalizeProfileUpdate = async (avatar) => {
@@ -2822,10 +2879,14 @@ window.showAddProfile = async () => {
     const pinInput = document.getElementById('edit-profile-pin-input');
     const modal = document.getElementById('profile-edit-name-modal');
     const saveBtn = document.getElementById('btn-save-profile-name');
+    const deleteBtn = document.getElementById('btn-delete-profile');
     
     if (input) input.value = "";
     if (pinInput) pinInput.value = "";
     if (modal) modal.style.display = 'flex';
+    
+    // Ocultar botón eliminar porque estamos creando, no editando
+    if (deleteBtn) deleteBtn.style.display = 'none';
     
     saveBtn.onclick = () => {
         const name = input.value.trim();

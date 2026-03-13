@@ -84,10 +84,14 @@ if ('serviceWorker' in navigator) {
         // 📬 FCM: Escuchar mensajes en primer plano (Foreground)
         onMessage(messaging, (payload) => {
           console.log('[main.js] Mensaje recibido en Foreground ', payload);
-          // Opcional: Mostrar un Toast custom en la UI en vez de la nativa
+          // Mostramos un Toast premium en vez de bloquear la pantalla con alert()
           const title = payload.notification?.title || "Nueva alerta";
           const body = payload.notification?.body || "";
-          alert(`🔔 ${title}\n${body}`);
+          if (window.showToast) {
+            window.showToast(`🔔 ${title} - ${body}`, "success");
+          } else {
+            console.log(`🔔 Notificación recibida: ${title} - ${body}`);
+          }
         });
 
         // Lógica de Actualización Manual (Botón) - AlDía Style
@@ -160,6 +164,47 @@ window.hideSplashScreen = (force = false) => {
 // Fallback de seguridad: Si en 5 segundos no se ha quitado, lo quitamos a la fuerza
 setTimeout(() => window.hideSplashScreen(true), 5000);
 
+// --- Notificaciones UI Premium (Toasts) ---
+window.showToast = (message, type = 'info', duration = 4000) => {
+  const container = document.getElementById('toast-container');
+  if (!container) return; // Si no existe el HTML, silencioso
+
+  const toast = document.createElement('div');
+  const typeColors = {
+      'success': '#2ecc71',
+      'error': '#e74c3c',
+      'warning': '#f1c40f',
+      'info': '#3498db',
+      'primary': 'var(--primary)'
+  };
+  const color = typeColors[type] || typeColors['info'];
+
+  toast.innerHTML = `
+      <div style="background: rgba(15,15,15,0.95); border: 1px solid ${color}; border-left: 4px solid ${color}; 
+                  color: white; padding: 12px 18px; border-radius: 8px; font-size: 0.85rem; 
+                  box-shadow: 0 10px 25px rgba(0,0,0,0.5); font-family: 'Outfit', sans-serif;
+                  display: flex; align-items: center; gap: 10px; pointer-events: auto;
+                  transform: translateX(120%); transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
+          ${message}
+      </div>
+  `;
+  container.appendChild(toast);
+
+  // Animar Entrada
+  requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+          toast.firstElementChild.style.transform = 'translateX(0)';
+      });
+  });
+
+  // Salida Opcional Automática
+  setTimeout(() => {
+      toast.firstElementChild.style.transform = 'translateX(120%)';
+      toast.firstElementChild.style.opacity = '0';
+      setTimeout(() => toast.remove(), 400); // Dar tiempo a la animación css
+  }, duration);
+};
+
 // --- Data Loading System (15-Minute Cache) v4.2 ---
 /* 
    🔗 El "Hilo de Ariadna": Mantenemos una conexión inteligente con la base de datos.
@@ -221,7 +266,7 @@ async function loadSelvaFlixData() {
       sessionStorage.setItem(CACHE_TIME_KEY, now.toString());
     } catch (error) {
       console.error("❌ Error en la expedición de datos:", error);
-      alert("⚠️ Error cargando la selva: " + error.message + "\n\n(Prueba recargar o revisar tu conexión Wi-Fi)");
+      if (window.showToast) window.showToast("⚠️ Error cargando la selva: " + error.message, "error");
       return; // Muerte súbita
     }
   }
@@ -319,16 +364,36 @@ function showView(active) {
 
 function handleRouting() {
   const hash = window.location.hash.replace('#', '');
+  const playerModal = document.getElementById('player-modal');
   
-  // 1. Detección de Enlaces Profundos (Deep Links)
+  // 1. Detección de Enlaces Profundos y Apertura de Player
   if (hash.startsWith('play/')) {
     const movieId = hash.split('play/')[1];
     if (movieId) {
       showView('home-view');
-      initApp('', ''); // Carga el home de base
-      window.handleCardClick(movieId); // Abre el player automáticamente
+      // Si la base de datos está vacía (carga inicial directa), initApp se encargará.
+      // Si ya hay datos, buscamos y abrimos.
+      const movie = movieDatabase.trending.find(m => String(m.id) === String(movieId));
+      if (movie) {
+          window.openPlayer(movieId);
+      } else if (movieDatabase.trending.length === 0) {
+          // Si estamos cargando, esperamos a que loadSelvaFlixData llame a handleRouting de nuevo
+          initApp('', ''); 
+      }
       return;
     }
+  }
+
+  // 2. Cierre Automático del Player si el hash cambió a algo que no sea 'play/'
+  if (playerModal && playerModal.style.display !== 'none') {
+      if (typeof SelvaStream !== 'undefined' && SelvaStream.close) {
+          SelvaStream.close();
+      } else {
+          playerModal.style.display = 'none';
+          const iframe = document.getElementById('player-iframe');
+          if (iframe) iframe.src = '';
+          document.body.style.overflow = '';
+      }
   }
 
   if (hash === 'admin') {
@@ -1296,10 +1361,29 @@ window.closeWarningOverlay = () => {
 
 window.openPlayer = async (movieId) => {
   const allMovies = [...movieDatabase.trending];
-  const movie = allMovies.find(m => m.id === movieId);
-  if (!movie) return;
+  const movie = allMovies.find(m => String(m.id) === String(movieId));
+  if (!movie) {
+      console.warn("Player abortado: No se encontró película con id", movieId);
+      return;
+  }
 
   collectUserData("watch_attempt", { title: movie.title, id: movie.id });
+
+  // 🧼 LIMPIEZA DE MODALES (Asegurar que favoritos/ajustes se cierren antes de jugar)
+  const modalsToClose = [
+    'my-list-modal', 
+    'auth-modal', 
+    'profile-selector-modal', 
+    'profile-edit-name-modal', 
+    'pin-modal', 
+    'avatar-selector-modal', 
+    'cleanup-modal'
+  ];
+  modalsToClose.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  document.body.style.overflow = ''; // Restaurar scroll por si acaso
 
   // 🍿 RECUPERAR PROGRESO (Continuar Viendo)
   if (auth.currentUser && _currentProfile) {
@@ -1329,24 +1413,32 @@ window.openPlayer = async (movieId) => {
 }
 
 // --- REPRODUCTOR INTEGRATION ---
-window.closePlayer = () => {
-    const modal = document.getElementById('player-modal');
-    const iframe = document.getElementById('player-iframe');
-    if (modal) modal.style.display = 'none';
-    if (iframe) iframe.src = '';
-    document.body.style.overflow = '';
-    
-    const hash = window.location.hash.replace('#', '');
-    if (hash.startsWith('play/')) {
-        // Al cerrar, volvemos atrás para limpiar la URL
-        history.back();
+// Ruteo Unificado: handleRouting es ahora la única fuente de verdad
+window.addEventListener('hashchange', handleRouting);
+
+// Soporte para Tecla Escape (Laptop/Desktop)
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('player-modal');
+        if (modal && modal.style.display !== 'none') {
+            history.back();
+        }
     }
+});
+
+// Fallback preventivo por si algo llamaba a closePlayer explícitamente
+window.closePlayer = () => {
+    history.back();
 };
 
-// La lógica de servidores y episodios vive en SelvaStream Engine 🍿 (Player.js)
+// Fallback preventivo por si algo llamaba a closePlayer explícitamente
+window.closePlayer = () => {
+    history.back();
+};
 
 // Exported Actions
 window.handleCardClick = (id) => {
+    // Al cambiar el hash, se disparará automáticamente el listener de arriba y abrirá el player.
     window.location.hash = `play/${id}`;
 };
 
@@ -1357,7 +1449,7 @@ window.deleteMovie = async (id) => {
       sessionStorage.removeItem('selvaflix_full_database');
       sessionStorage.removeItem('selvaflix_cache_timestamp');
       movieDatabase.trending = movieDatabase.trending.filter(m => m.id !== id);
-      alert("¡Eliminada! 🗑️");
+      if (window.showToast) window.showToast("¡Película eliminada de la selva! 🗑️", "success");
       if (document.getElementById('admin-view')?.style.display === 'block') renderInventory();
     } catch (e) {
       console.error("Error eliminando pelicula: ", e);
@@ -1372,7 +1464,7 @@ window.approveMovie = async (id) => {
     sessionStorage.removeItem('selvaflix_cache_timestamp');
     const movie = movieDatabase.trending.find(m => m.id === id);
     if (movie) movie.status = 'healthy';
-    alert("¡Aprobada y movida a la selva principal! ✅🌴");
+    if (window.showToast) window.showToast("¡Aprobada y movida a la selva principal! ✅🌴", "success");
     if (document.getElementById('admin-view')?.style.display === 'block') renderInventory();
   } catch (e) {
     console.error("Error aprobando pelicula: ", e);
@@ -1602,7 +1694,11 @@ window.massSeedMovies = async (contentType) => {
 
   if (!list || !status || !container || !confirmBtn) {
     console.error('Faltan elementos del DOM para la siembra');
-    alert('Error interno: recarga la página e inténtalo de nuevo.');
+    if (window.showToast) {
+        window.showToast("❌ Error interno: recarga la página e inténtalo de nuevo.", "error");
+    } else {
+        console.error('Faltan elementos del DOM para la siembra');
+    }
     return;
   }
 
@@ -1762,7 +1858,9 @@ window.confirmBatchSeed = async () => {
   sessionStorage.removeItem('selvaflix_cache_timestamp');
 
   if (overlay) overlay.style.display = 'none';
-  alert(`¡Siembra masiva completada! ${count} elementos añadidos. 🌴🍿`);
+  if (window.showToast) {
+    window.showToast(`✅ ¡Siembra masiva completada! ${count} elementos añadidos. 🌴🍿`, "success");
+  }
   document.getElementById('discover-container').style.display = 'none';
 };
 
@@ -2048,11 +2146,6 @@ function initApp(filterType = '', genreId = '') {
 
 // function renderChannels removed
 
-window.handleCardClick = (id) => {
-  const movie = movieDatabase.trending.find(m => m.id === id);
-  if (movie) openPlayer(id);
-};
-
 window.suggestTVChannels = () => {
   const container = document.getElementById('discover-container');
   const list = document.getElementById('discover-list');
@@ -2111,6 +2204,26 @@ window.discoverM3U = async () => {
     }).join('');
   } catch (err) {
     status.innerText = "❌ Error al cargar lista de GitHub.";
+  }
+};
+
+window.quickSeedManual = async (data, type = 'movie') => {
+  if (!confirm(`¿Agregar "${data.title}" a la selva ahora? ➕🌴`)) return;
+  
+  const mData = {
+    ...data,
+    status: 'healthy',
+    type: type,
+    createdAt: Date.now()
+  };
+
+  try {
+    await addDoc(collection(db, "movies"), mData);
+    if (window.showToast) window.showToast(`✅ "${data.title}" agregado con éxito.`, "success");
+    sessionStorage.removeItem('selvaflix_full_database');
+  } catch (e) {
+    console.error("Error en quickSeed:", e);
+    if (window.showToast) window.showToast("❌ No se pudo agregar a la selva.", "error");
   }
 };
 
@@ -2193,6 +2306,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (btnDiscoverMovies) btnDiscoverMovies.addEventListener('click', () => window.massSeedMovies('movie'));
   if (btnDiscoverSeries) btnDiscoverSeries.addEventListener('click', () => window.massSeedMovies('series'));
+  if (btnDiscoverM3U) btnDiscoverM3U.addEventListener('click', () => window.discoverM3U());
+  if (btnDivLive) btnDivLive.addEventListener('click', () => window.suggestTVChannels());
   if (btnConfirmSeed) btnConfirmSeed.addEventListener('click', () => window.confirmBatchSeed());
 
   document.getElementById('btn-tmdb-search').addEventListener('click', () => {
@@ -2466,7 +2581,11 @@ document.getElementById('btn-google-login')?.addEventListener('click', async () 
         window.closeAuthModal();
     } catch (error) {
         console.error("❌ Error en Login:", error);
-        alert("No pudimos conectar con la selva. Revisa tu internet.");
+        if (window.showToast) {
+            window.showToast("❌ No pudimos conectar con la selva. Revisa tu internet.", "error");
+        } else {
+            console.error("❌ Error en Login:", error);
+        }
     }
 });
 
@@ -2830,7 +2949,7 @@ window.executeProfileDeletion = async (id, name) => {
         const profilesCol = collection(db, "users", uid, "profiles");
         const snap = await getDocs(profilesCol);
         if (snap.size <= 1) {
-            alert("No puedes eliminar tu último perfil. ¡Siempre necesitas al menos un aventurero en la selva! 🦁");
+            if (window.showToast) window.showToast("No puedes eliminar tu último perfil. ¡Siempre necesitas al menos un aventurero en la selva! 🦁", "warning");
             return;
         }
 
@@ -2850,7 +2969,7 @@ window.executeProfileDeletion = async (id, name) => {
         }
     } catch (e) {
         console.error("❌ Error al eliminar perfil:", e);
-        alert("Ocurrió un error al intentar eliminar el perfil.");
+        if (window.showToast) window.showToast("Ocurrió un error al intentar eliminar el perfil.", "error");
     }
 };
 
@@ -2924,8 +3043,8 @@ window.showAddProfile = async () => {
     saveBtn.onclick = () => {
         const name = input.value.trim();
         const pin = pinInput.value.trim();
-        if (!name) return alert("Dinos un nombre. 🐯");
-        if (pin && pin.length !== 4) return alert("El PIN debe ser de 4 dígitos. 🔒");
+        if (!name) { if (window.showToast) window.showToast("Dinos un nombre. 🐯", "warning"); return; }
+        if (pin && pin.length !== 4) { if (window.showToast) window.showToast("El PIN debe ser de 4 dígitos. 🔒", "warning"); return; }
 
         window._tempProfileToUpdate = { name, pin }; // Nuevo perfil
         modal.style.display = 'none';
@@ -3020,11 +3139,11 @@ window._myListIds = new Set();
 
 window.toggleMyList = async (movieId, btn) => {
     if (!auth.currentUser || !_currentProfile) {
-        alert("¡Únete a la selva para guardar tus favoritos! 🦁");
+        if (window.showToast) window.showToast("¡Únete a la selva para guardar tus favoritos! 🦁", "primary");
         return;
     }
 
-    const movie = movieDatabase.trending.find(m => m.id === movieId);
+    const movie = movieDatabase.trending.find(m => String(m.id) === String(movieId));
     
     if (!movie) return;
 

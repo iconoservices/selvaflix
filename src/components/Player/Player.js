@@ -42,14 +42,18 @@ export const SelvaStream = {
         }
 
         // Si ya tiene contenido (ya fue inyectado), no lo duplicamos
-        if (document.getElementById('close-player')) return;
+        if (document.getElementById('admin-player-toolbar')) return;
 
         modal.innerHTML = `
-            <div id="close-player" class="player-close">&times;</div>
-            <div id="admin-player-toolbar" style="display:none; position:absolute; top:65px; left:20px; z-index:9999; gap: 10px; flex-wrap: wrap;">
-                <button id="admin-delete-player-btn" style="background:#e74c3c; color:white; border:none; padding:8px 15px; border-radius:8px; cursor:pointer; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.5); font-size: 11px;">🗑️ Ocultar/Borrar</button>
-                <button id="admin-approve-player-btn" style="display:none; background:#2ecc71; color:black; border:none; padding:8px 15px; border-radius:8px; cursor:pointer; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.5); font-size: 11px;">✅ Aprobar a la Selva</button>
+            <div class="player-back-arrow" id="player-back-btn" title="Atrás (Esc)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
             </div>
+
+            <div id="admin-player-toolbar" class="admin-player-toolbar" style="display:none;">
+                <button id="admin-delete-player-btn" style="background:#e74c3c; color:white; border:none; padding:8px 15px; border-radius:8px; cursor:pointer; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.5); font-size: 11px;">🗑️ Borrar</button>
+                <button id="admin-approve-player-btn" style="display:none; background:#2ecc71; color:black; border:none; padding:8px 15px; border-radius:8px; cursor:pointer; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.5); font-size: 11px;">✅ Aprobar</button>
+            </div>
+
             <div class="video-layout">
                 <div class="video-container">
                     <div id="player-loader" class="loader-overlay">
@@ -135,15 +139,14 @@ export const SelvaStream = {
             <div id="player-controls-root"></div>
         `;
 
-        // Eventos básicos
-        document.getElementById('close-player')?.addEventListener('click', () => this.close());
+        // Eventos básicos eliminados: La X ya no existe, popstate manda.
 
         document.getElementById('admin-delete-player-btn')?.addEventListener('click', () => {
             if (window.deleteMovie && this.currentPlayerMovie) {
                 const id = this.currentPlayerMovie.id;
                 let hasNext = window.playNextReview ? window.playNextReview(id) : false;
                 window.deleteMovie(id);
-                if (!hasNext) this.close();
+                if (!hasNext) history.back();
             }
         });
 
@@ -152,8 +155,12 @@ export const SelvaStream = {
                 const id = this.currentPlayerMovie.id;
                 let hasNext = window.playNextReview ? window.playNextReview(id) : false;
                 window.approveMovie(id);
-                if (!hasNext) this.close();
+                if (!hasNext) history.back();
             }
+        });
+
+        document.getElementById('player-back-btn')?.addEventListener('click', () => {
+            history.back();
         });
 
         document.getElementById('report-broken-btn')?.addEventListener('click', () => {

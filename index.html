@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/vite.svg" />
   <link rel="manifest" href="/manifest.json">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>SelvaFlix | Tu Cine, Tu Naturaleza</title>
   <meta name="description" content="La mejor plataforma de streaming tropical. Películas y series.">
 
@@ -219,11 +219,6 @@
           <button id="pwa-banner-close" class="pwa-close-btn">✕</button>
         </div>
       </div>
-
-      <div class="hero-carousel" id="hero-carousel">
-        <div class="hero-track" id="hero-track"></div>
-        <div class="hero-indicators" id="hero-indicators"></div>
-      </div>
       <!-- iOS Installation Guide -->
       <div id="ios-install-guide" class="ios-guide">
         <div class="ios-guide-content">
@@ -290,6 +285,9 @@
     <div id="pwa-update-toast" style="display: none; position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: #27ae60; color: white; padding: 12px 20px; border-radius: 30px; z-index: 10000; box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4); text-align: center; font-weight: bold; cursor: pointer; border: 2px solid rgba(255,255,255,0.2); white-space: nowrap; font-size: 0.85rem;">
       🚀 ¡Nueva versión disponible! Tocar para Recargar
     </div>
+
+    <!-- ✅ Contenedor de Toasts Premium -->
+    <div id="toast-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 99999; display: flex; flex-direction: column; gap: 10px; pointer-events: none;"></div>
 
     <!-- Se removieron los viejos containers de views, ahorra reusamos main-content 🍿 -->
 

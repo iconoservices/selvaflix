@@ -847,17 +847,9 @@ window.loadAdConfig = async () => {
         
         if (docSnap.exists()) {
             const data = docSnap.data();
-            if (data) {
-                window.adCampaigns = data.campaigns || [];
-                document.getElementById('ad-active-global').checked = data.globalActive !== false;
-                
-                // Inyectar scripts desde CAMPAÑAS (Nueva lógica unificada)
-                if (data.globalActive !== false) {
-                    window.injectCampaignScripts();
-                }
-
-                window.renderAdCampaignList();
-            }
+            window.adCampaigns = data.campaigns || [];
+            document.getElementById('ad-active-global').checked = data.globalActive !== false;
+            window.renderAdCampaignList();
         }
     } catch (e) {
         console.error("Error cargando config de publicidad:", e);
@@ -876,25 +868,18 @@ window.renderAdCampaignList = () => {
     }
 
     list.innerHTML = campaigns.map(c => `
-        <div class="ad-campaign-item ${editingCampaignId === c.id ? 'active' : ''}" style="padding: 12px; border-radius: 12px; background: ${editingCampaignId === c.id ? 'rgba(255,122,0,0.1)' : 'rgba(255,255,255,0.03)'}; border: 1px solid ${editingCampaignId === c.id ? 'var(--primary)' : 'rgba(255,255,255,0.08)'}; cursor: pointer; transition: 0.3s; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
-            
-            <div onclick="window.editAdCampaign('${c.id}')" style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;">
-                <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0;">
-                    ${c.placement === 'video_preroll' ? '🎬' : (c.placement === 'in_player' ? '🕹️' : '🃏')}
+        <div class="ad-campaign-item ${editingCampaignId === c.id ? 'active' : ''}" style="padding: 10px; border-radius: 8px; background: ${editingCampaignId === c.id ? 'rgba(255,122,0,0.1)' : 'rgba(255,255,255,0.02)'}; border: 1px solid ${editingCampaignId === c.id ? 'var(--primary)' : 'rgba(255,255,255,0.05)'}; cursor: pointer; transition: 0.3s; position: relative;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+                <div onclick="window.editAdCampaign('${c.id}')" style="display: flex; align-items: center; gap: 10px; flex: 1;">
+                    <span style="font-size: 1rem;">${c.placement === 'video_preroll' ? '🎬' : (c.placement === 'in_player' ? '🕹️' : '🃏')}</span>
+                    <div>
+                        <p style="color: white; font-size: 0.75rem; font-weight: bold; margin: 0;">${c.name || 'Sin Nombre'}</p>
+                        <p style="color: #666; font-size: 0.6rem; margin: 0;">${c.placement}</p>
+                    </div>
                 </div>
-                <div style="overflow: hidden; flex: 1;">
-                    <p style="color: white; font-size: 0.75rem; font-weight: 800; margin: 0; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">${c.name || 'Sin Nombre'}</p>
-                    <p style="color: ${c.active ? '#2ecc71' : '#666'}; font-size: 0.55rem; margin: 0; font-weight: bold; text-transform: uppercase; display: flex; align-items: center; gap: 4px;">
-                        <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: ${c.active ? '#2ecc71' : '#666'};"></span>
-                        ${c.active ? 'ACTIVA' : 'INACTIVA'} • ${c.placement}
-                    </p>
-                </div>
-            </div>
-            
-            <!-- Toggle Rápido Robusto -->
-            <div onclick="window.toggleAdCampaignQuick('${c.id}')" style="flex-shrink: 0; padding: 4px;">
-                <div style="width: 36px; height: 18px; background: ${c.active ? 'var(--primary)' : '#444'}; border-radius: 20px; position: relative; cursor: pointer; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); border: 1px solid rgba(255,255,255,0.05);">
-                    <div style="width: 14px; height: 14px; background: white; border-radius: 50%; position: absolute; top: 1px; ${c.active ? 'right: 2px' : 'left: 2px'}; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>
+                <!-- Mini Toggle Rápido -->
+                <div onclick="window.toggleAdCampaignQuick('${c.id}')" style="width: 30px; height: 16px; background: ${c.active ? 'var(--primary)' : '#333'}; border-radius: 10px; position: relative; cursor: pointer; transition: 0.3s;">
+                    <div style="width: 12px; height: 12px; background: white; border-radius: 50%; position: absolute; top: 2px; ${c.active ? 'right: 2px' : 'left: 2px'}; transition: 0.3s;"></div>
                 </div>
             </div>
         </div>
@@ -1020,28 +1005,9 @@ window.updateFreqFields = () => {
 
 window.updateAdPlacementFields = () => {
     const p = document.getElementById('ad-edit-placement').value;
-    
-    // UI Helpers
-    const label = document.getElementById('ad-media-label');
-    const hint = document.getElementById('ad-media-hint');
-    const layoutGroup = document.getElementById('ad-layout-group');
-    
-    if (p === 'global_script') {
-        label.innerText = "⚡ Código del Script (Social Bar / Popunder)";
-        hint.innerHTML = "* Pega el código completo de Adsterra/Monetag. Se activará en todo el sitio.";
-        layoutGroup.style.display = 'none';
-        document.getElementById('placement-card-fields').style.display = 'none';
-    } else if (p === 'video_preroll') {
-        label.innerText = "🎬 URL del Video / VAST Tag";
-        hint.innerHTML = "* URL directa a .mp4 o link de VAST.";
-        layoutGroup.style.display = 'none';
-        document.getElementById('placement-card-fields').style.display = 'none';
-    } else {
-        label.innerText = "🖼️ URL de Medios (Imagen/Video)";
-        hint.innerHTML = "* URL de la imagen que verá el usuario.";
-        layoutGroup.style.display = 'block';
-        document.getElementById('placement-card-fields').style.display = 'block';
-    }
+    // Estos placements usan campos de texto/mensaje
+    const needsText = (p === 'card_overlay' || p === 'in_player' || p === 'app_banner');
+    document.getElementById('placement-card-fields').style.display = needsText ? 'block' : 'none';
 };
 
 window.deleteCurrentCampaign = () => {
@@ -2730,38 +2696,6 @@ window.showAdVideoPreroll = (camp, movie) => {
         localStorage.setItem(storageKey, JSON.stringify(history));
         startPlayer(m);
     };
-};
-
-window.injectCampaignScripts = () => {
-    const scripts = (window.adCampaigns || [])
-        .filter(c => c.placement === 'global_script' && c.active)
-        .map(c => c.media)
-        .join("\n");
-    
-    if (scripts && window.injectGlobalAdScripts) window.injectGlobalAdScripts(scripts);
-};
-
-window.openLinkLibrary = () => {
-    const links = (window.adCampaigns || [])
-        .map(c => c.media)
-        .filter(m => m && m.length > 5);
-    
-    const uniqueLinks = [...new Set(links)];
-    
-    if (uniqueLinks.length === 0) {
-        if (window.showToast) window.showToast("La biblioteca está vacía aún. 📖🍃", "info");
-        return;
-    }
-
-    const choice = prompt("📚 BIBLIOTECA DE LINKS / SCRIPTS:\n\n" + 
-        uniqueLinks.map((l, i) => `${i+1}. ${l.substring(0, 50)}...`).join("\n") + 
-        "\n\nEscribe el NÚMERO del link que quieres usar:");
-    
-    const idx = parseInt(choice) - 1;
-    if (uniqueLinks[idx]) {
-        document.getElementById('ad-edit-media').value = uniqueLinks[idx];
-        if (window.showToast) window.showToast("Link cargado desde la biblioteca. 💎", "success");
-    }
 };
 
 window.closeWarningOverlay = () => {

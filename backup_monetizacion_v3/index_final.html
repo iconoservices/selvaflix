@@ -894,19 +894,17 @@
       <!-- Ads Tab (Campaign Engine v3.0 🎬📅) -->
       <div id="admin-ads-tab" style="display: none;">
           <!-- Barra de Control Superior -->
-          <div class="admin-card" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 15px 20px; background: rgba(255,122,0,0.05); border: 1px solid rgba(255,122,0,0.1); border-left: 4px solid var(--primary);">
+          <div class="admin-card" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 12px 20px; background: rgba(255,122,0,0.05); border: 1px solid rgba(255,122,0,0.1); border-left: 4px solid var(--primary);">
               <div style="display: flex; align-items: center; gap: 15px;">
                   <h2 class="admin-title" style="margin:0; font-size: 1rem;">🚀 Motor de Campañas</h2>
-                  <button onclick="window.createNewAdCampaign()" class="btn" style="background: var(--primary); color: black; font-size: 0.7rem; padding: 6px 15px; font-weight: bold;">+ NUEVA CAMPAÑA</button>
+                  <button onclick="window.createNewAdCampaign()" class="btn" style="background: var(--primary); color: black; font-size: 0.7rem; padding: 5px 12px; font-weight: bold;">+ NUEVA CAMPAÑA</button>
               </div>
-              <div style="display: flex; align-items: center; gap: 15px;">
-                  <div style="display: flex; align-items: center; gap: 8px;">
-                      <span style="font-size: 0.65rem; color: #aaa;">Estado Global:</span>
-                      <label class="switch" style="transform: scale(0.75);">
-                          <input type="checkbox" id="ad-active-global" checked>
-                          <span class="slider round"></span>
-                      </label>
-                  </div>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="font-size: 0.7rem; color: #aaa;">Estado Global:</span>
+                  <label class="switch" style="transform: scale(0.7);">
+                      <input type="checkbox" id="ad-active-global" checked>
+                      <span class="slider round"></span>
+                  </label>
               </div>
           </div>
 
@@ -969,11 +967,10 @@
                                   <option value="card_overlay">🃏 Tarjeta Interactiva (Capa 1)</option>
                                   <option value="video_preroll">🎬 Video Pre-roll (VAST / Directo)</option>
                                   <option value="in_player">🕹️ Dentro del Reproductor (Banner)</option>
-                                  <option value="global_script">⚡ Script de Red (Social Bar / Popunder)</option>
                               </select>
                           </div>
 
-                          <div class="form-group" style="margin-top: 15px;" id="ad-layout-group">
+                          <div class="form-group" style="margin-top: 15px;">
                               <label style="font-size: 0.65rem;">Diseño del Anuncio (Layout)</label>
                               <select id="ad-edit-layout" class="form-control" style="font-size: 0.75rem;">
                                   <option value="glass">🪟 Vidrio (Media de Fondo)</option>
@@ -999,13 +996,10 @@
                               </div>
                           </div>
 
-                          <div class="form-group" id="ad-media-group">
-                               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                                   <label style="font-size: 0.65rem; margin:0;" id="ad-media-label">🖼️ URL de Medios (Imagen/Video)</label>
-                                   <button onclick="window.openLinkLibrary()" style="background: rgba(0,242,255,0.1); border: 1px solid rgba(0,242,255,0.2); color: #00f2ff; font-size: 0.55rem; padding: 2px 8px; border-radius: 4px; cursor: pointer;">📚 BIBLIOTECA</button>
-                               </div>
-                               <textarea id="ad-edit-media" class="form-control" placeholder="URL o Código Script..." style="font-size: 0.75rem; height: 60px;"></textarea>
-                               <p style="font-size: 0.55rem; color: #666; margin-top: 4px;" id="ad-media-hint">* Para <b>Scripts</b> (Social Bar), pega el código completo aquí.</p>
+                          <div class="form-group">
+                               <label style="font-size: 0.65rem;">🖼️ URL de Medios (Lo que se ve)</label>
+                               <input type="url" id="ad-edit-media" class="form-control" placeholder="URL de Imagen o Video .mp4">
+                               <p style="font-size: 0.55rem; color: #666; margin-top: 4px;">* Déjalo vacío si es un <b>Direct Link</b> de Monetag/Adsterra.</p>
                            </div>
 
                           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">

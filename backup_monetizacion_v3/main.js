@@ -241,14 +241,11 @@ async function loadSelvaFlixData() {
         throw new Error("Caché incompleto o corrupto");
       }
 
-      console.log(`🟢 Objeto rehidratado: { trending: ${hydratedObject.trending.length} elementos }. (0 lecturas)`);
+      console.log(`| Objeto rehidratado: { trending: ${hydratedObject.trending.length} }. (0 lecturas)`);
       movieDatabase = hydratedObject;
       
-      // ✅ Revisar anuncios de la app y detectar GEO al rehidratar
-      setTimeout(() => { 
-          if(window.checkAppBannerAd) window.checkAppBannerAd(); 
-          if(window.trackUserGeo) window.trackUserGeo();
-      }, 1500);
+      // ✅ Revisar anuncios de la app al rehidratar
+      setTimeout(() => { if(window.checkAppBannerAd) window.checkAppBannerAd(); }, 1500);
     } catch (e) {
       console.warn("⚠️ Fallo en rehidratación, limpiando búnker para fetch fresco...");
       sessionStorage.removeItem(CACHE_KEY);
@@ -847,17 +844,9 @@ window.loadAdConfig = async () => {
         
         if (docSnap.exists()) {
             const data = docSnap.data();
-            if (data) {
-                window.adCampaigns = data.campaigns || [];
-                document.getElementById('ad-active-global').checked = data.globalActive !== false;
-                
-                // Inyectar scripts desde CAMPAÑAS (Nueva lógica unificada)
-                if (data.globalActive !== false) {
-                    window.injectCampaignScripts();
-                }
-
-                window.renderAdCampaignList();
-            }
+            window.adCampaigns = data.campaigns || [];
+            document.getElementById('ad-active-global').checked = data.globalActive !== false;
+            window.renderAdCampaignList();
         }
     } catch (e) {
         console.error("Error cargando config de publicidad:", e);
@@ -876,43 +865,16 @@ window.renderAdCampaignList = () => {
     }
 
     list.innerHTML = campaigns.map(c => `
-        <div class="ad-campaign-item ${editingCampaignId === c.id ? 'active' : ''}" style="padding: 12px; border-radius: 12px; background: ${editingCampaignId === c.id ? 'rgba(255,122,0,0.1)' : 'rgba(255,255,255,0.03)'}; border: 1px solid ${editingCampaignId === c.id ? 'var(--primary)' : 'rgba(255,255,255,0.08)'}; cursor: pointer; transition: 0.3s; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
-            
-            <div onclick="window.editAdCampaign('${c.id}')" style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;">
-                <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0;">
-                    ${c.placement === 'video_preroll' ? '🎬' : (c.placement === 'in_player' ? '🕹️' : '🃏')}
-                </div>
-                <div style="overflow: hidden; flex: 1;">
-                    <p style="color: white; font-size: 0.75rem; font-weight: 800; margin: 0; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">${c.name || 'Sin Nombre'}</p>
-                    <p style="color: ${c.active ? '#2ecc71' : '#666'}; font-size: 0.55rem; margin: 0; font-weight: bold; text-transform: uppercase; display: flex; align-items: center; gap: 4px;">
-                        <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: ${c.active ? '#2ecc71' : '#666'};"></span>
-                        ${c.active ? 'ACTIVA' : 'INACTIVA'} • ${c.placement}
-                    </p>
-                </div>
-            </div>
-            
-            <!-- Toggle Rápido Robusto -->
-            <div onclick="window.toggleAdCampaignQuick('${c.id}')" style="flex-shrink: 0; padding: 4px;">
-                <div style="width: 36px; height: 18px; background: ${c.active ? 'var(--primary)' : '#444'}; border-radius: 20px; position: relative; cursor: pointer; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); border: 1px solid rgba(255,255,255,0.05);">
-                    <div style="width: 14px; height: 14px; background: white; border-radius: 50%; position: absolute; top: 1px; ${c.active ? 'right: 2px' : 'left: 2px'}; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>
+        <div class="ad-campaign-item ${editingCampaignId === c.id ? 'active' : ''}" onclick="window.editAdCampaign('${c.id}')" style="padding: 10px; border-radius: 8px; background: ${editingCampaignId === c.id ? 'rgba(255,122,0,0.1)' : 'rgba(255,255,255,0.02)'}; border: 1px solid ${editingCampaignId === c.id ? 'var(--primary)' : 'rgba(255,255,255,0.05)'}; cursor: pointer; transition: 0.3s; position: relative;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1rem;">${c.placement === 'video_preroll' ? '🎬' : (c.placement === 'in_player' ? '🕹️' : '🃏')}</span>
+                <div>
+                    <p style="color: white; font-size: 0.75rem; font-weight: bold; margin: 0;">${c.name || 'Sin Nombre'}</p>
+                    <p style="color: ${c.active ? '#2ecc71' : '#555'}; font-size: 0.6rem; margin: 0;">${c.active ? '● Activa' : '○ Pausada'}</p>
                 </div>
             </div>
         </div>
     `).join('');
-};
-
-window.toggleAdCampaignQuick = async (id) => {
-    const camp = window.adCampaigns.find(c => c.id === id);
-    if (!camp) return;
-    camp.active = !camp.active;
-    window.renderAdCampaignList();
-    if (editingCampaignId === id) {
-        document.getElementById('ad-edit-active').checked = camp.active;
-        const toggleLabel = document.getElementById('campaign-status-toggle');
-        toggleLabel.innerText = camp.active ? 'CAMPAÑA ON' : 'CAMPAÑA OFF';
-        toggleLabel.style.color = camp.active ? '#2ecc71' : '#555';
-    }
-    // No guardamos a Firestore en cada click para evitar cuota, el usuario debe dar a GUARDAR TODO
 };
 
 window.createNewAdCampaign = () => {
@@ -1020,28 +982,9 @@ window.updateFreqFields = () => {
 
 window.updateAdPlacementFields = () => {
     const p = document.getElementById('ad-edit-placement').value;
-    
-    // UI Helpers
-    const label = document.getElementById('ad-media-label');
-    const hint = document.getElementById('ad-media-hint');
-    const layoutGroup = document.getElementById('ad-layout-group');
-    
-    if (p === 'global_script') {
-        label.innerText = "⚡ Código del Script (Social Bar / Popunder)";
-        hint.innerHTML = "* Pega el código completo de Adsterra/Monetag. Se activará en todo el sitio.";
-        layoutGroup.style.display = 'none';
-        document.getElementById('placement-card-fields').style.display = 'none';
-    } else if (p === 'video_preroll') {
-        label.innerText = "🎬 URL del Video / VAST Tag";
-        hint.innerHTML = "* URL directa a .mp4 o link de VAST.";
-        layoutGroup.style.display = 'none';
-        document.getElementById('placement-card-fields').style.display = 'none';
-    } else {
-        label.innerText = "🖼️ URL de Medios (Imagen/Video)";
-        hint.innerHTML = "* URL de la imagen que verá el usuario.";
-        layoutGroup.style.display = 'block';
-        document.getElementById('placement-card-fields').style.display = 'block';
-    }
+    // Estos placements usan campos de texto/mensaje
+    const needsText = (p === 'card_overlay' || p === 'in_player' || p === 'app_banner');
+    document.getElementById('placement-card-fields').style.display = needsText ? 'block' : 'none';
 };
 
 window.deleteCurrentCampaign = () => {
@@ -1464,56 +1407,17 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
     deviceChart.innerHTML = Object.entries(platforms).map(([plat, count]) => {
       const width = (count / max) * 100;
       return `
-                <div style="background: rgba(255,255,255,0.02); padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.03);">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.6rem;">
-                        <span style="color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px;">${plat}</span>
-                        <span style="color: #3498DB; font-weight: 800;">${count}</span>
+                <div style="text-align: left; font-size: 0.7rem;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                        <span>${plat}</span>
+                        <span>${count}</span>
                     </div>
-                    <div style="height: 4px; background: rgba(255,122,0,0.05); border-radius: 2px; overflow: hidden;">
-                        <div style="width: ${width}%; height: 100%; background: #3498DB; box-shadow: 0 0 5px rgba(52,152,219,0.3);"></div>
+                    <div style="height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden;">
+                        <div style="width: ${width}%; height: 100%; background: #3498DB;"></div>
                     </div>
                 </div>
             `;
     }).join('');
-
-    // 🌍 ANALÍTICAS GEOGRÁFICAS (Fase 14)
-    try {
-        const geoQuery = query(
-            collection(db, "analytics_geo"),
-            where("ts", ">=", start.getTime()),
-            where("ts", "<=", end.getTime())
-        );
-        const geoSnap = await getDocs(geoQuery);
-        const geoData = [];
-        geoSnap.forEach(d => geoData.push(d.data()));
-
-        const geoStats = { countries: {}, cities: {} };
-        geoData.forEach(d => {
-            if (d.type === 'visit') {
-                geoStats.countries[d.country] = (geoStats.countries[d.country] || 0) + 1;
-                geoStats.cities[d.city] = (geoStats.cities[d.city] || 0) + 1;
-            }
-        });
-
-        // Gráficas en pestaña Métricas
-        window.renderGeoChart('metrics-geo-countries', 'Países', geoStats.countries, 'met_countries');
-        window.renderGeoChart('metrics-geo-cities', 'Ciudades', geoStats.cities, 'met_cities');
-
-        // Tabla de Desglose en Métricas
-        const geoTableBody = document.getElementById('metrics-geo-table-body');
-        if (geoTableBody) {
-            const topCons = Object.entries(geoStats.countries).sort((a,b) => b[1] - a[1]).slice(0, 5);
-            geoTableBody.innerHTML = topCons.map(([name, count]) => `
-                <tr>
-                    <td style="font-weight: bold; color: white;">${name}</td>
-                    <td style="text-align: center;">${count}</td>
-                    <td style="text-align: center; color: var(--primary);">
-                        ${((count / Math.max(geoData.length, 1)) * 100).toFixed(1)}%
-                    </td>
-                </tr>
-            `).join('') || '<tr><td colspan="3" style="text-align:center;">Sin datos geográficos.</td></tr>';
-        }
-    } catch (e) { console.warn("Error cargando analíticas geo:", e); }
 
     // La sección de "Links Reportados" ha sido removida del panel de Métricas
     // ya que esta información se gestiona desde los filtros del "Inventario".
@@ -2042,10 +1946,6 @@ window.selvaExecuteCrownPromotion = async (movieId, hash) => {
 // --- Selección de Anuncios In-Player / App Banner ---
 window.getFilteredAd = (placement) => {
     try {
-        // 🔥 Chequeo de Actividad Global
-        const globalActive = document.getElementById('ad-active-global')?.checked !== false;
-        if (!globalActive) return null;
-
         const nowTS = Date.now();
         const campaigns = window.adCampaigns || [];
         const activeCampaigns = campaigns.filter(c => c.active && c.placement === placement);
@@ -2053,17 +1953,10 @@ window.getFilteredAd = (placement) => {
         if (activeCampaigns.length === 0) return null;
 
         const eligible = activeCampaigns.filter(c => {
-            // 🕵️ MODO DIOS: Si está forzado, salta filtros de media y frecuencia
-            const forceAds = localStorage.getItem('selva_force_ads_debug') === 'true';
-            if (forceAds) return true;
-
-            // Soporte para campañas de "Solo Link" (Direct Link)
-            if (!c.media && !c.link) return false; 
-            
             const h = JSON.parse(localStorage.getItem(`selva_ad_${c.id}`) || '{}');
             const lastView = h.views && h.views.length > 0 ? Math.max(...h.views) : 0;
             const diffMin = (nowTS - lastView) / 60000;
-            return diffMin >= (c.freqValue || 60); // Usamos freqValue configurado
+            return diffMin >= (c.frequency || 0);
         });
 
         if (eligible.length === 0) return null;
@@ -2115,152 +2008,13 @@ window.checkAppBannerAd = () => {
     `;
 };
 
-// --- Geolocalización & Analíticas 🌎 ---
-window.trackUserGeo = async () => {
-    try {
-        const res = await fetch('https://ipapi.co/json/');
-        const data = await res.json();
-        
-        const geoInfo = {
-            country: data.country_name || 'Desconocido',
-            city: data.city || 'Desconocido',
-            region: data.region || 'Desconocido',
-            ip: data.ip || '0.0.0.0',
-            ts: Date.now()
-        };
-
-        sessionStorage.setItem('selva_geo_cache', JSON.stringify(geoInfo));
-        console.log("| Ubicación detectada:", geoInfo.city, geoInfo.country);
-
-        // Guardar visita (Cacheada 24h para no saturar Firestore por usuario)
-        const lastTrack = localStorage.getItem('selva_last_geo_track');
-        if (!lastTrack || (Date.now() - parseInt(lastTrack) > 86400000)) {
-            await addDoc(collection(db, "analytics_geo"), {
-                type: 'visit',
-                ...geoInfo
-            });
-            localStorage.setItem('selva_last_geo_track', Date.now());
-        }
-
-        return geoInfo;
-    } catch (e) {
-        return null;
-    }
-};
-
-let geoCharts = { countries: null, cities: null };
-
-window.refreshAdAnalytics = async () => {
-    try {
-        const analyticsRef = collection(db, "analytics_geo");
-        const querySnapshot = await getDocs(analyticsRef);
-        
-        let stats = { countries: {}, cities: {}, clicks: 0, views: 0 };
-        let geoData = [];
-
-        querySnapshot.forEach((doc) => {
-            const data = doc.data();
-            geoData.push(data);
-            
-            if (data.type === 'visit') {
-                stats.views++;
-                stats.countries[data.country] = (stats.countries[data.country] || 0) + 1;
-                stats.cities[data.city] = (stats.cities[data.city] || 0) + 1;
-            } else if (data.type === 'ad_click') {
-                stats.clicks++;
-            }
-        });
-
-        // 📊 Renderizar Gráficas
-        renderGeoChart('chart-countries', 'Países', stats.countries, 'countries');
-        renderGeoChart('chart-cities', 'Ciudades', stats.cities, 'cities');
-
-        // 📑 Renderizar Tabla
-        const tableBody = document.getElementById('ad-analytics-table-body');
-        if (tableBody) {
-            const topCountries = Object.entries(stats.countries)
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 5);
-
-            tableBody.innerHTML = topCountries.map(([name, count]) => `
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
-                    <td style="padding: 12px; font-weight: bold;">${name}</td>
-                    <td style="padding: 12px; text-align: center;">${count}</td>
-                    <td style="padding: 12px; text-align: center;">${Math.round(stats.clicks * (count/stats.views) || 0)}</td>
-                    <td style="padding: 12px; text-align: center; color: var(--primary); font-weight: 800;">
-                        ${((stats.clicks / stats.views) * 100 || 0).toFixed(1)}%
-                    </td>
-                </tr>
-            `).join('');
-        }
-
-    } catch (e) {
-        console.error("Error cargando analíticas:", e);
-    }
-};
-
-window.renderGeoChart = (canvasId, label, dataObj, chartKey) => {
-    const ctx = document.getElementById(canvasId);
-    if (!ctx) return;
-
-    if (!window.geoCharts) window.geoCharts = {};
-    if (window.geoCharts[chartKey]) window.geoCharts[chartKey].destroy();
-
-    const keys = Object.keys(dataObj).sort((a,b) => dataObj[b] - dataObj[a]).slice(0, 5);
-    const values = keys.map(k => dataObj[k]);
-
-    if (keys.length === 0) return;
-
-    window.geoCharts[chartKey] = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: keys,
-            datasets: [{
-                data: values,
-                backgroundColor: ['#FF7A00', '#3498DB', '#2ecc71', '#9B59B6', '#E74C3C'],
-                borderWidth: 1,
-                borderColor: 'rgba(0,0,0,0.5)'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { 
-                legend: { 
-                    display: true, 
-                    position: 'right', 
-                    labels: { color: '#aaa', font: { size: 9 }, usePointStyle: true, padding: 10 } 
-                } 
-            },
-            cutout: '75%'
-        }
-    });
-};
-
-function renderGeoChart(canvasId, label, dataObj, chartKey) {
-    window.renderGeoChart(canvasId, label, dataObj, chartKey);
-}
-
-// Refactor para registrar vista globalmente con GEO
-window.recordAdView = async (id) => {
+// Refactor para registrar vista globalmente
+window.recordAdView = (id) => {
     const key = `selva_ad_${id}`;
     const h = JSON.parse(localStorage.getItem(key) || '{}');
     if(!h.views) h.views = [];
-    const now = Date.now();
-    h.views.push(now);
+    h.views.push(Date.now());
     localStorage.setItem(key, JSON.stringify(h));
-
-    // Registrar en Firestore con Analytics
-    try {
-        const cachedGeo = JSON.parse(sessionStorage.getItem('selva_geo_cache') || '{}');
-        await addDoc(collection(db, "analytics_geo"), {
-            type: 'ad_click',
-            adId: id,
-            ts: now,
-            country: cachedGeo.country || 'Desconocido',
-            city: cachedGeo.city || 'Desconocido'
-        });
-    } catch (err) { }
 };
 
 async function startWarningOverlay(movie) {
@@ -2274,13 +2028,7 @@ async function startWarningOverlay(movie) {
     const docSnap = await getDoc(doc(db, "configs", "monetization"));
     const config = docSnap.exists() ? docSnap.data() : { globalActive: false };
 
-    // 🔥 Unificar estado global
-    const globalActive = (config.globalActive !== false);
-    if (document.getElementById('ad-active-global')) {
-        document.getElementById('ad-active-global').checked = globalActive;
-    }
-
-    if (!globalActive) {
+    if (!config.globalActive) {
       startPlayer(movie);
       return;
     }
@@ -2400,11 +2148,9 @@ async function startWarningOverlay(movie) {
             @keyframes adSlideUp { 0% { transform: translateY(40px) scale(0.95); opacity:0; } 100% { transform: translateY(0) scale(1); opacity:1; } } 
             .ad-hybrid-media { width: 100%; border-radius: 15px; margin: 20px 0; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.5); object-fit: cover; max-height: 250px; }
             .ad-fullscreen-media { position: absolute; top:0; left:0; width:100%; height:100%; object-fit: contain; z-index: 1; pointer-events: none; }
-            .direct-link-btn { background: var(--primary); color: black !important; padding: 15px 30px; border-radius: 50px; font-weight: 900; text-decoration: none; display: flex; align-items: center; gap: 10px; font-size: 1rem; transition: 0.3s; transform: scale(1.1); box-shadow: 0 0 30px var(--primary-glow); margin: 20px 0; }
-            .direct-link-btn:hover { transform: scale(1.15); box-shadow: 0 0 50px var(--primary-glow); }
         </style>
         
-        <!-- Media Elements / Direct Link Support -->
+        <!-- Media Elements -->
         ${hasMedia ? (isFullscreen ? 
             (activeCampaign.media.endsWith('.mp4') ? 
                 `<video src="${activeCampaign.media}" autoplay muted loop class="ad-fullscreen-media"></video>` : 
@@ -2414,19 +2160,10 @@ async function startWarningOverlay(movie) {
                     `<video src="${activeCampaign.media}" autoplay muted loop class="ad-hybrid-media"></video>` : 
                     `<img src="${activeCampaign.media}" class="ad-hybrid-media">`) :
                 (activeCampaign.media.endsWith('.mp4') ? 
-                    `<video src="${activeCampaign.media}" autoplay muted loop style="max-height: 300px; border-radius: 10px; margin-bottom: 20px;"></video>` : 
-                    `<img src="${activeCampaign.media}" style="max-height: 300px; border-radius: 10px; margin-bottom: 20px;">`
-                )
+                    `<video src="${activeCampaign.media}" autoplay muted loop style="position: absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; z-index:-1; opacity:0.4;"></video>` : 
+                    `<img src="${activeCampaign.media}" style="position: absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; z-index:-1; opacity:0.4;">`)
             )
-        ) : (activeCampaign.link ? `
-            <a href="${activeCampaign.link}" target="_blank" onclick="window.recordAdView('${activeCampaign.id}')" style="text-decoration: none; display: block; width: 100%;">
-                <div style="background: rgba(255,122,0,0.1); padding: 40px; border-radius: 25px; border: 2px dashed var(--primary); margin: 20px 0; transition: 0.3s; transform: scale(1.02); cursor: pointer;" onmouseover="this.style.background='rgba(255,122,0,0.2)'" onmouseout="this.style.background='rgba(255,122,0,0.1)'">
-                    <p style="font-size: 3rem; margin: 0;">🔗</p>
-                    <p style="color: white; font-weight: 900; margin-top: 15px; text-transform: uppercase; letter-spacing: 1px;">Enlace Directo / Sponsor</p>
-                    <p style="color: var(--primary); font-size: 0.8rem; font-weight: bold;">[ CLIC AQUÍ PARA DESBLOQUEAR ]</p>
-                </div>
-            </a>
-        ` : '🚩')}
+        ) : ''}
 
         <div style="position: relative; z-index: 2; width: 100%; padding: 40px; box-sizing: border-box; 
                     ${isFullscreen ? 'background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%); position: absolute; bottom: 0;' : ''}">
@@ -2622,146 +2359,63 @@ window.toggleForceAds = (enabled) => {
 // Auxiliar para Video Preroll (Básico por ahora)
 window.showAdVideoPreroll = (camp, movie) => {
     const overlay = document.getElementById('ad-overlay');
-    if (!overlay) return;
-
-    const skipTime = camp.timer || 5;
-    const hasLink = !!camp.link;
-
     overlay.style.display = 'flex';
-    overlay.style.background = 'black';
     overlay.innerHTML = `
-        <div style="width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; overflow:hidden;">
-            <!-- Background Glow -->
-            <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:600px; height:600px; background:radial-gradient(circle, rgba(255,122,0,0.15) 0%, transparent 70%); z-index:0; filter:blur(50px);"></div>
-            
-            <video id="ad-video-element" src="${camp.media}" autoplay playsinline style="width:100%; height:100%; object-fit:contain; z-index:1;"></video>
-            
-            <!-- Superiores: Badge de Patrocinio -->
-            <div style="position:absolute; top:30px; left:30px; z-index:2; display:flex; align-items:center; gap:12px; animation: adFadeInDown 0.8s ease;">
-                <div style="background: var(--primary); color:black; font-size: 0.65rem; font-weight: 900; padding: 4px 10px; border-radius: 4px; letter-spacing: 1px; box-shadow: 0 0 15px var(--primary-glow);">PUBLICIDAD</div>
-                <div style="color:white; font-size: 0.9rem; font-weight: 800; text-shadow: 0 2px 10px rgba(0,0,0,0.8);">${camp.name || "Patrocinador"}</div>
+        <div style="width:100%; height:100%; background:black; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative;">
+            <video id="ad-video-element" src="${camp.media}" autoplay style="max-width:100%; max-height:80vh;"></video>
+            <div style="position:absolute; bottom:40px; right:40px; display:flex; align-items:center; gap:20px;">
+                <p id="ad-video-timer" style="color:white; font-weight:bold;"></p>
+                <button id="btn-skip-video" disabled style="padding:10px 25px; border-radius:5px; border:none; background:rgba(255,255,255,0.1); color:#777; font-weight:bold;">SALTAR ANUNCIO en ...</button>
             </div>
-
-            <!-- Inferiores: Info y Skip -->
-            <div style="position:absolute; bottom:0; left:0; width:100%; z-index:2; padding:30px; box-sizing:border-box; background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%); display:flex; flex-direction:column; gap:20px;">
-                
-                <div style="display:flex; justify-content:space-between; align-items:flex-end;">
-                    <div style="display:flex; flex-direction:column; gap:10px;">
-                        ${hasLink ? `
-                            <a href="${camp.link}" target="_blank" onclick="window.recordAdView('${camp.id}')" style="background: rgba(255,255,255,1); color:black; padding:12px 25px; border-radius:50px; text-decoration:none; font-weight:900; font-size:0.8rem; display:flex; align-items:center; gap:10px; transition:0.3s; box-shadow:0 10px 30px rgba(255,255,255,0.3);" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-                                🌐 VISITAR SITIO <span style="font-size:1.1rem;">↗️</span>
-                            </a>
-                        ` : ''}
-                        <p style="color:rgba(255,255,255,0.6); font-size:0.7rem; margin:0; font-weight:500;">Anuncio de ${camp.name || "Sponsor"}</p>
-                    </div>
-
-                    <div style="display:flex; align-items:center; gap:15px;">
-                        <span id="ad-video-countdown" style="color:white; font-family:'Outfit', sans-serif; font-weight:900; font-size:1.2rem; min-width:30px; text-align:right;">${skipTime}</span>
-                        <button id="btn-skip-video" disabled style="padding:14px 28px; border-radius:12px; border:none; background:rgba(0,0,0,0.6); color:#666; font-weight:900; font-size:0.75rem; letter-spacing:1px; cursor:not-allowed; transition:0.4s; backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.1);">
-                            SALTAR ANUNCIO
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Barra de Progreso Core -->
-                <div style="width:100%; height:4px; background:rgba(255,255,255,0.1); border-radius:2px; overflow:hidden;">
-                    <div id="ad-video-progress" style="width:0%; height:100%; background:var(--primary); box-shadow:0 0 10px var(--primary-glow); transition: 0.1s linear;"></div>
-                </div>
-            </div>
-
-            <style>
-                @keyframes adFadeInDown { from { opacity:0; transform:translateY(-20px); } to { opacity:1; transform:translateY(0); } }
-            </style>
         </div>
     `;
-
+    
     const vid = document.getElementById('ad-video-element');
     const skipBtn = document.getElementById('btn-skip-video');
-    const progress = document.getElementById('ad-video-progress');
-    const countdown = document.getElementById('ad-video-countdown');
+    const skipTime = camp.timer || 5;
 
     let timeLeft = skipTime;
-    
-    const updateTimer = setInterval(() => {
+    const t = setInterval(() => {
         timeLeft--;
-        if (countdown) countdown.innerText = timeLeft > 0 ? timeLeft : "";
-        
+        if (skipBtn) skipBtn.innerText = `SALTAR ANUNCIO en ${timeLeft}s`;
         if (timeLeft <= 0) {
-            clearInterval(updateTimer);
-            if (skipBtn) {
-                skipBtn.disabled = false;
-                skipBtn.innerText = "SALTAR ANUNCIO ⏩";
-                skipBtn.style.background = "white";
-                skipBtn.style.color = "black";
-                skipBtn.style.cursor = "pointer";
-                if (countdown) countdown.style.display = "none";
+            clearInterval(t);
+            skipBtn.disabled = false;
+            skipBtn.innerText = "SALTAR ANUNCIO ⏩";
+            skipBtn.style.background = "white";
+            skipBtn.style.color = "black";
+            skipBtn.onclick = () => {
+                overlay.style.display = 'none';
                 
-                skipBtn.onclick = () => {
-                    clearInterval(progressInterval);
-                    overlay.style.display = 'none';
-                    window.recordAdCleanup(camp, movie);
-                };
-            }
+                // Actualizar Historial de Frecuencia
+                const storageKey = `selva_ad_${camp.id}`;
+                let history = JSON.parse(localStorage.getItem(storageKey) || '{}');
+                if (!history.views) history.views = [];
+                history.views.push(Date.now());
+                if (!history.movies) history.movies = {};
+                history.movies[movie.title || movie.name || 'unknown'] = Date.now();
+                localStorage.setItem(storageKey, JSON.stringify(history));
+
+                if (camp.link) window.open(camp.link, '_blank');
+                startPlayer(movie);
+            };
         }
     }, 1000);
 
-    const progressInterval = setInterval(() => {
-        if (vid.duration) {
-            const perc = (vid.currentTime / vid.duration) * 100;
-            if (progress) progress.style.width = perc + "%";
-        }
-    }, 100);
-
     vid.onended = () => {
-        clearInterval(updateTimer);
-        clearInterval(progressInterval);
         overlay.style.display = 'none';
-        window.recordAdCleanup(camp, movie);
-    };
-
-    // Helper para limpiar y arrancar
-    window.recordAdCleanup = (c, m) => {
-        const storageKey = `selva_ad_${c.id}`;
+        
+        // Actualizar Historial de Frecuencia
+        const storageKey = `selva_ad_${camp.id}`;
         let history = JSON.parse(localStorage.getItem(storageKey) || '{}');
         if (!history.views) history.views = [];
         history.views.push(Date.now());
         if (!history.movies) history.movies = {};
-        history.movies[m.title || m.name || 'unknown'] = Date.now();
+        history.movies[movie.title || movie.name || 'unknown'] = Date.now();
         localStorage.setItem(storageKey, JSON.stringify(history));
-        startPlayer(m);
+
+        startPlayer(movie);
     };
-};
-
-window.injectCampaignScripts = () => {
-    const scripts = (window.adCampaigns || [])
-        .filter(c => c.placement === 'global_script' && c.active)
-        .map(c => c.media)
-        .join("\n");
-    
-    if (scripts && window.injectGlobalAdScripts) window.injectGlobalAdScripts(scripts);
-};
-
-window.openLinkLibrary = () => {
-    const links = (window.adCampaigns || [])
-        .map(c => c.media)
-        .filter(m => m && m.length > 5);
-    
-    const uniqueLinks = [...new Set(links)];
-    
-    if (uniqueLinks.length === 0) {
-        if (window.showToast) window.showToast("La biblioteca está vacía aún. 📖🍃", "info");
-        return;
-    }
-
-    const choice = prompt("📚 BIBLIOTECA DE LINKS / SCRIPTS:\n\n" + 
-        uniqueLinks.map((l, i) => `${i+1}. ${l.substring(0, 50)}...`).join("\n") + 
-        "\n\nEscribe el NÚMERO del link que quieres usar:");
-    
-    const idx = parseInt(choice) - 1;
-    if (uniqueLinks[idx]) {
-        document.getElementById('ad-edit-media').value = uniqueLinks[idx];
-        if (window.showToast) window.showToast("Link cargado desde la biblioteca. 💎", "success");
-    }
 };
 
 window.closeWarningOverlay = () => {

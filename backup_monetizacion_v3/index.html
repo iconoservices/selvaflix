@@ -19,9 +19,8 @@
   <meta name="msapplication-TileColor" content="#050505">
 
   <!-- Motor Selva P2P (WebTorrent) -->
-  <!-- 📊 Analytics Engine (Chart.js) -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
+  <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
+  
   <style>
     :root {
       --bg-deep: #050505;
@@ -743,6 +742,10 @@
                 <h3 style="color: #F39C12; font-size: 0.7rem; margin-bottom: 5px; text-transform: uppercase;">⚡ Pico</h3>
                 <p id="stat-peak-hour" style="font-size: 1.2rem; font-weight: 900; color: white; margin: 0;">—</p>
               </div>
+              <div class="admin-card" style="text-align: center; padding: 12px;">
+                <h3 style="color: #3498DB; font-size: 0.7rem; margin-bottom: 5px; text-transform: uppercase;">📱 Equipos</h3>
+                <div id="metrics-device-chart" style="padding: 0; display: flex; flex-direction: column; gap: 2px;"></div>
+              </div>
             </div>
 
             <!-- Gráficos -->
@@ -755,42 +758,7 @@
                 <h2 class="admin-title" style="margin-bottom: 15px; font-size: 0.85rem;">🕒 Mapa de Horas <span style="font-size:0.5rem; color:var(--text-muted); font-weight:400;">(00h - 23h)</span></h2>
                 <div id="metrics-hour-chart" style="padding: 10px 0; display: flex; align-items: flex-end; gap: 2px; height: 120px; background: rgba(255,255,255,0.01);"></div>
               </div>
-              <div class="admin-card" style="display: flex; flex-direction: column;">
-                <h2 class="admin-title" style="margin-bottom: 12px; font-size: 0.85rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 10px;">📱 Equipos y Plataformas</h2>
-                <div id="metrics-device-chart" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; overflow-y: auto; max-height: 120px; padding-right: 5px; scrollbar-width: thin;"></div>
-              </div>
             </div> <!-- End Activity Charts -->
-
-            <!-- 🌍 Geografía de la Selva (Fase 14) ✨ -->
-            <div class="admin-card" style="border-left: 4px solid #3498DB;">
-                <h2 class="admin-title" style="margin-bottom: 20px; font-size: 0.85rem; display: flex; align-items: center; gap: 8px;">
-                    🌎 Geografía y Audiencia <span style="font-size:0.5rem; color:var(--text-muted); font-weight:400;">(Top Países y Ciudades)</span>
-                </h2>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
-                    <div style="text-align: center;">
-                        <p style="font-size: 0.65rem; color: #aaa; margin-bottom: 10px; text-transform: uppercase;">Top Países</p>
-                        <canvas id="metrics-geo-countries" height="180"></canvas>
-                    </div>
-                    <div style="text-align: center;">
-                        <p style="font-size: 0.65rem; color: #aaa; margin-bottom: 10px; text-transform: uppercase;">Top Ciudades</p>
-                        <canvas id="metrics-geo-cities" height="180"></canvas>
-                    </div>
-                </div>
-                <div style="margin-top: 20px; border-top: 1px solid rgba(255,122,0,0.05); padding-top: 15px;">
-                    <table class="admin-table" style="font-size: 0.65rem;">
-                        <thead>
-                            <tr>
-                                <th>Ubicación</th>
-                                <th style="text-align:center;">Visitas</th>
-                                <th style="text-align:center;">% Audiencia</th>
-                            </tr>
-                        </thead>
-                        <tbody id="metrics-geo-table-body">
-                            <!-- Injected by JS -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
 
           </div> <!-- End Main Content area -->
 
@@ -894,19 +862,17 @@
       <!-- Ads Tab (Campaign Engine v3.0 🎬📅) -->
       <div id="admin-ads-tab" style="display: none;">
           <!-- Barra de Control Superior -->
-          <div class="admin-card" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 15px 20px; background: rgba(255,122,0,0.05); border: 1px solid rgba(255,122,0,0.1); border-left: 4px solid var(--primary);">
+          <div class="admin-card" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 12px 20px; background: rgba(255,122,0,0.05); border: 1px solid rgba(255,122,0,0.1); border-left: 4px solid var(--primary);">
               <div style="display: flex; align-items: center; gap: 15px;">
                   <h2 class="admin-title" style="margin:0; font-size: 1rem;">🚀 Motor de Campañas</h2>
-                  <button onclick="window.createNewAdCampaign()" class="btn" style="background: var(--primary); color: black; font-size: 0.7rem; padding: 6px 15px; font-weight: bold;">+ NUEVA CAMPAÑA</button>
+                  <button onclick="window.createNewAdCampaign()" class="btn" style="background: var(--primary); color: black; font-size: 0.7rem; padding: 5px 12px; font-weight: bold;">+ NUEVA CAMPAÑA</button>
               </div>
-              <div style="display: flex; align-items: center; gap: 15px;">
-                  <div style="display: flex; align-items: center; gap: 8px;">
-                      <span style="font-size: 0.65rem; color: #aaa;">Estado Global:</span>
-                      <label class="switch" style="transform: scale(0.75);">
-                          <input type="checkbox" id="ad-active-global" checked>
-                          <span class="slider round"></span>
-                      </label>
-                  </div>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="font-size: 0.7rem; color: #aaa;">Estado Global:</span>
+                  <label class="switch" style="transform: scale(0.7);">
+                      <input type="checkbox" id="ad-active-global" checked>
+                      <span class="slider round"></span>
+                  </label>
               </div>
           </div>
 
@@ -969,11 +935,10 @@
                                   <option value="card_overlay">🃏 Tarjeta Interactiva (Capa 1)</option>
                                   <option value="video_preroll">🎬 Video Pre-roll (VAST / Directo)</option>
                                   <option value="in_player">🕹️ Dentro del Reproductor (Banner)</option>
-                                  <option value="global_script">⚡ Script de Red (Social Bar / Popunder)</option>
                               </select>
                           </div>
 
-                          <div class="form-group" style="margin-top: 15px;" id="ad-layout-group">
+                          <div class="form-group" style="margin-top: 15px;">
                               <label style="font-size: 0.65rem;">Diseño del Anuncio (Layout)</label>
                               <select id="ad-edit-layout" class="form-control" style="font-size: 0.75rem;">
                                   <option value="glass">🪟 Vidrio (Media de Fondo)</option>
@@ -999,14 +964,10 @@
                               </div>
                           </div>
 
-                          <div class="form-group" id="ad-media-group">
-                               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                                   <label style="font-size: 0.65rem; margin:0;" id="ad-media-label">🖼️ URL de Medios (Imagen/Video)</label>
-                                   <button onclick="window.openLinkLibrary()" style="background: rgba(0,242,255,0.1); border: 1px solid rgba(0,242,255,0.2); color: #00f2ff; font-size: 0.55rem; padding: 2px 8px; border-radius: 4px; cursor: pointer;">📚 BIBLIOTECA</button>
-                               </div>
-                               <textarea id="ad-edit-media" class="form-control" placeholder="URL o Código Script..." style="font-size: 0.75rem; height: 60px;"></textarea>
-                               <p style="font-size: 0.55rem; color: #666; margin-top: 4px;" id="ad-media-hint">* Para <b>Scripts</b> (Social Bar), pega el código completo aquí.</p>
-                           </div>
+                          <div class="form-group">
+                              <label style="font-size: 0.65rem;">Media URL (Video o Imagen)</label>
+                              <input type="url" id="ad-edit-media" class="form-control" placeholder="https://...">
+                          </div>
 
                           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                               <div class="form-group">
@@ -1076,47 +1037,6 @@
                       <p style="font-size: 3rem; margin-bottom: 20px;">📅</p>
                       <p>Selecciona una campaña para editar o crea una nueva.</p>
                   </div>
-              </div>
-          </div>
-
-          <!-- 🌍 Panel de Analíticas Geográficas ✨ -->
-          <div id="ad-analytics-panel" class="admin-card" style="margin-top: 30px; padding: 25px; border: 1px solid rgba(255,255,255,0.05); background: linear-gradient(145deg, rgba(20,20,20,0.8), rgba(10,10,10,0.9));">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
-                  <div>
-                      <h3 style="color: var(--primary); font-size: 1rem; font-weight: 900; text-transform: uppercase;">📊 Métricas de la Selva Pro</h3>
-                      <p style="font-size: 0.65rem; color: #666;">Top Ubicaciones y Rendimiento de Anuncios</p>
-                  </div>
-                  <button onclick="window.refreshAdAnalytics()" class="btn" style="background: var(--primary); color: black; font-size: 0.65rem; font-weight: 900; padding: 8px 15px; border-radius: 8px;">🔄 ACTUALIZAR DATOS</button>
-              </div>
-
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
-                  <!-- Gráfica de Países -->
-                  <div style="background: rgba(255,255,255,0.02); padding: 20px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.05);">
-                      <p style="font-size: 0.75rem; font-weight: bold; margin-bottom: 15px; color: white;">🌍 Top Países (Visitas)</p>
-                      <canvas id="chart-countries" height="200"></canvas>
-                  </div>
-                  <!-- Gráfica de Ciudades -->
-                  <div style="background: rgba(255,255,255,0.02); padding: 20px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.05);">
-                      <p style="font-size: 0.75rem; font-weight: bold; margin-bottom: 15px; color: white;">🏙️ Top Ciudades (Audiencia)</p>
-                      <canvas id="chart-cities" height="200"></canvas>
-                  </div>
-              </div>
-
-              <!-- Tabla de Desglose -->
-              <div style="margin-top: 25px; background: rgba(0,0,0,0.2); border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05);">
-                  <table style="width: 100%; font-size: 0.7rem; color: #ccc; border-collapse: collapse;">
-                      <thead style="background: rgba(255,255,255,0.05);">
-                          <tr>
-                              <th style="padding: 12px; text-align: left;">Ubicación</th>
-                              <th style="padding: 12px; text-align: center;">Visitas</th>
-                              <th style="padding: 12px; text-align: center;">Clics en Anuncios</th>
-                              <th style="padding: 12px; text-align: center;">CTR %</th>
-                          </tr>
-                      </thead>
-                      <tbody id="ad-analytics-table-body">
-                          <!-- Datos inyectados por JS -->
-                      </tbody>
-                  </table>
               </div>
           </div>
       </div>

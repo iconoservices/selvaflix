@@ -144,6 +144,15 @@
                         70% { box-shadow: 0 0 0 8px rgba(0, 242, 255, 0); transform: scale(1); }
                         100% { box-shadow: 0 0 0 0 rgba(0, 242, 255, 0); transform: scale(0.9); }
                     }
+                    /* --- Publicidad Toggles --- */
+                    .switch { position: relative; display: inline-block; width: 44px; height: 22px; }
+                    .switch input { opacity: 0; width: 0; height: 0; }
+                    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.05); transition: .4s; border-radius: 34px; border: 1px solid rgba(255,255,255,0.1); }
+                    .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.4); }
+                    input:checked + .slider { background-color: var(--primary); }
+                    input:checked + .slider:before { transform: translateX(22px); }
+                    .slider.round { border-radius: 34px; }
+                    .slider.round:before { border-radius: 50%; }
                 </style>
                 <span id="user-name" class="nav-username">Login</span>
             </div>
@@ -312,6 +321,8 @@
             Métricas</button>
           <button class="btn btn-secondary" id="btn-admin-actions" onclick="window.switchAdminTab('actions')">⚡
             Acciones</button>
+          <button class="btn btn-secondary" id="btn-admin-ads" onclick="window.switchAdminTab('ads')">💰
+            Publicidad</button>
         </div>
         <button class="btn btn-secondary" onclick="window.location.hash = ''">Volver a la Selva</button>
       </div>
@@ -760,6 +771,160 @@
           </div>
       </div>
 
+      <!-- Ads Tab (Campaign Engine v3.0 🎬📅) -->
+      <div id="admin-ads-tab" style="display: none;">
+          <!-- Barra de Control Superior -->
+          <div class="admin-card" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 12px 20px; background: rgba(255,122,0,0.05); border: 1px solid rgba(255,122,0,0.1); border-left: 4px solid var(--primary);">
+              <div style="display: flex; align-items: center; gap: 15px;">
+                  <h2 class="admin-title" style="margin:0; font-size: 1rem;">🚀 Motor de Campañas</h2>
+                  <button onclick="window.createNewAdCampaign()" class="btn" style="background: var(--primary); color: black; font-size: 0.7rem; padding: 5px 12px; font-weight: bold;">+ NUEVA CAMPAÑA</button>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                  <span style="font-size: 0.7rem; color: #aaa;">Estado Global:</span>
+                  <label class="switch" style="transform: scale(0.7);">
+                      <input type="checkbox" id="ad-active-global" checked>
+                      <span class="slider round"></span>
+                  </label>
+              </div>
+          </div>
+
+          <div class="admin-grid" style="grid-template-columns: 200px 1fr; gap: 15px;">
+              <!-- Lista de Campañas -->
+              <div class="admin-card" style="padding: 10px; min-height: 400px; display: flex; flex-direction: column;">
+                  <p style="font-size: 0.6rem; color: #555; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; padding-left: 5px;">Campañas Activas</p>
+                  <div id="ad-campaign-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 5px;">
+                      <!-- Inyectado dinámicamente -->
+                  </div>
+              </div>
+
+              <!-- Editor de Campaña -->
+              <div id="ad-campaign-editor" class="admin-card" style="padding: 20px; display: none;">
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px;">
+                      <div>
+                          <input type="text" id="ad-edit-name" style="background: transparent; border: none; color: white; font-size: 1.2rem; font-weight: bold; outline: none; width: 300px;" placeholder="Nombre de la campaña...">
+                          <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 5px;">ID: <span id="ad-edit-id">---</span></p>
+                      </div>
+                      <button onclick="window.deleteCurrentCampaign()" class="btn" style="background: rgba(231,76,60,0.1); color: #E74C3C; border: 1px solid rgba(231,76,60,0.2); font-size: 0.65rem; padding: 4px 10px;">🗑️ Eliminar</button>
+                  </div>
+
+                  <div class="admin-grid" style="grid-template-columns: 1fr 1fr; gap: 20px;">
+                      <!-- Lógica y Programación -->
+                      <div>
+                          <h4 style="font-size: 0.75rem; color: var(--primary); margin-bottom: 15px; text-transform: uppercase;">⏰ Programación</h4>
+                          
+                          <div class="form-group">
+                              <label style="font-size: 0.65rem;">Días de la Semana</label>
+                              <div id="ad-edit-days" style="display: flex; gap: 5px; margin-top: 5px;">
+                                  <button class="day-btn" data-day="1">L</button>
+                                  <button class="day-btn" data-day="2">M</button>
+                                  <button class="day-btn" data-day="3">M</button>
+                                  <button class="day-btn" data-day="4">J</button>
+                                  <button class="day-btn" data-day="5">V</button>
+                                  <button class="day-btn" data-day="6">S</button>
+                                  <button class="day-btn" data-day="0">D</button>
+                              </div>
+                              <style>
+                                  .day-btn { width: 25px; height: 25px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: #777; font-size: 0.6rem; cursor: pointer; transition: 0.3s; }
+                                  .day-btn.active { background: var(--primary); color: black; border-color: var(--primary); }
+                              </style>
+                          </div>
+
+                          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+                              <div class="form-group">
+                                  <label style="font-size: 0.65rem;">Hora Inicio</label>
+                                  <input type="number" id="ad-edit-start" class="form-control" min="0" max="23">
+                              </div>
+                              <div class="form-group">
+                                  <label style="font-size: 0.65rem;">Hora Fin</label>
+                                  <input type="number" id="ad-edit-end" class="form-control" min="0" max="23">
+                              </div>
+                          </div>
+
+                          <h4 style="font-size: 0.75rem; color: var(--primary); margin-bottom: 15px; text-transform: uppercase; margin-top: 25px;">🎯 Ubicación y Tipo</h4>
+                          <div class="form-group">
+                              <label style="font-size: 0.65rem;">Lugar de Aparición</label>
+                              <select id="ad-edit-placement" class="form-control" onchange="window.updateAdPlacementFields()">
+                                  <option value="card_overlay">🃏 Tarjeta Interactiva (Capa 1)</option>
+                                  <option value="video_preroll">🎬 Video Pre-roll (VAST / Directo)</option>
+                              </select>
+                          </div>
+                      </div>
+
+                      <!-- Contenido -->
+                      <div>
+                          <h4 style="font-size: 0.75rem; color: var(--primary); margin-bottom: 15px; text-transform: uppercase;">🎨 Contenido Visual</h4>
+                          
+                          <div id="placement-card-fields">
+                              <div class="form-group">
+                                  <label style="font-size: 0.65rem;">Mensaje</label>
+                                  <textarea id="ad-edit-message" class="form-control" rows="2" style="font-size: 0.8rem;"></textarea>
+                              </div>
+                          </div>
+
+                          <div class="form-group">
+                              <label style="font-size: 0.65rem;">Media URL (Video o Imagen)</label>
+                              <input type="url" id="ad-edit-media" class="form-control" placeholder="https://...">
+                          </div>
+
+                          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                              <div class="form-group">
+                                  <label style="font-size: 0.65rem;">Esperas (seg)</label>
+                                  <input type="number" id="ad-edit-timer" class="form-control" min="0">
+                              </div>
+                              <div class="form-group">
+                                  <label style="font-size: 0.65rem;">Prioridad del Anuncio</label>
+                                  <select id="ad-edit-priority" class="form-control" style="font-size: 0.75rem;">
+                                      <option value="3">💎 VIP / Pago (Máxima Prioridad)</option>
+                                      <option value="2" selected>🎬 Normal / Estándar</option>
+                                      <option value="1">🏖️ Relleno / Local (Baja Prioridad)</option>
+                                  </select>
+                              </div>
+                              <div class="form-group">
+                                  <label style="font-size: 0.65rem;">Modo de Frecuencia Inteligente</label>
+                                  <select id="ad-edit-freq-mode" class="form-control" style="font-size: 0.75rem;" onchange="window.updateFreqFields()">
+                                      <option value="interval">⏳ Cada X Horas (Intervalo Fijo)</option>
+                                      <option value="per_movie_daily">🌅 Una vez al día por Película</option>
+                                      <option value="per_movie_once">🎬 Una vez por Película (Siempre)</option>
+                                  </select>
+                              </div>
+                              <div id="freq-value-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                  <div class="form-group">
+                                      <label style="font-size: 0.65rem;">Veces (Máx)</label>
+                                      <input type="number" id="ad-edit-freq-times" class="form-control" min="1" value="1">
+                                  </div>
+                                  <div class="form-group">
+                                      <label id="freq-value-label" style="font-size: 0.65rem;">Cada (Minutos)</label>
+                                      <input type="number" id="ad-edit-freq" class="form-control" min="1" value="60">
+                                  </div>
+                              </div>
+                          </div>
+
+                          <div class="form-group">
+                              <label style="font-size: 0.65rem;">Enlace de Salto / Click-through</label>
+                              <input type="url" id="ad-edit-link" class="form-control" placeholder="https://...">
+                          </div>
+                      </div>
+                  </div>
+
+                  <div style="margin-top: 30px; display: flex; gap: 15px;">
+                      <button onclick="window.saveAdsCampaigns()" class="btn btn-primary" style="flex: 1; height: 50px; font-weight: 800;">💾 GUARDAR TODAS LAS CAMPAÑAS</button>
+                      <label class="switch" style="height: 50px; width: 100px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border-radius: 12px; cursor: pointer; gap: 10px; border: 1px solid rgba(255,255,255,0.1);">
+                          <input type="checkbox" id="ad-edit-active" style="display:none;">
+                          <div id="campaign-status-toggle" style="font-size: 0.7rem; font-weight: bold; color: #555;">CAMPAÑA OFF</div>
+                      </label>
+                  </div>
+              </div>
+              
+              <!-- Empty State -->
+              <div id="ad-campaign-empty" class="admin-card" style="display: flex; align-items: center; justify-content: center; height: 400px; color: #444; border: 2px dashed rgba(255,255,255,0.05);">
+                  <div style="text-align: center;">
+                      <p style="font-size: 3rem; margin-bottom: 20px;">📅</p>
+                      <p>Selecciona una campaña para editar o crea una nueva.</p>
+                  </div>
+              </div>
+          </div>
+      </div>
+
     </section>
 
 
@@ -784,6 +949,9 @@
 
     <!-- El reproductor se inyecta dinámicamente mediante SelvaStream Engine 🍿 -->
     <div id="player-modal" class="player-modal" style="display: none;"></div>
+
+    <!-- Overlay de Publicidad Dinámica (El Puente) 🥥 -->
+    <div id="ad-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 100000; align-items: center; justify-content: center;"></div>
 
     <!-- MODAL MI SELVA ❤️ -->
     <div id="my-list-modal" class="custom-modal" style="display: none;">

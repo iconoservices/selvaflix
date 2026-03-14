@@ -787,13 +787,15 @@ window.switchAdminTab = (tab) => {
   const invTab = document.getElementById('admin-inventory-tab');
   const metTab = document.getElementById('admin-metrics-tab');
   const actTab = document.getElementById('admin-actions-tab');
+  const adsTab = document.getElementById('admin-ads-tab');
   const btnInv = document.getElementById('btn-admin-inventory');
   const btnMet = document.getElementById('btn-admin-metrics');
   const btnAct = document.getElementById('btn-admin-actions');
+  const btnAds = document.getElementById('btn-admin-ads');
 
   // Reset all
-  [invTab, metTab, actTab].forEach(t => { if(t) t.style.display = 'none'; });
-  [btnInv, btnMet, btnAct].forEach(b => { if(b) b.classList.remove('active'); });
+  [invTab, metTab, actTab, adsTab].forEach(t => { if(t) t.style.display = 'none'; });
+  [btnInv, btnMet, btnAct, btnAds].forEach(b => { if(b) b.classList.remove('active'); });
 
   if (tab === 'inventory') {
     if(invTab) invTab.style.display = 'block';
@@ -808,7 +810,198 @@ window.switchAdminTab = (tab) => {
     if(actTab) actTab.style.display = 'block';
     if(btnAct) btnAct.classList.add('active');
     window.renderAdminBannerList(); // Carga inicial de destacados
+  } else if (tab === 'ads') {
+    if(adsTab) adsTab.style.display = 'block';
+    if(btnAds) btnAds.classList.add('active');
+    window.loadAdConfig();
   }
+};
+
+// --- Monetization Engine v3.0 (Campaigns & Calendar) 🎬📅 ---
+let adCampaigns = [];
+let editingCampaignId = null;
+
+window.loadAdConfig = async () => {
+    try {
+        const docRef = doc(db, "configs", "monetization");
+        const docSnap = await getDoc(docRef);
+        
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            adCampaigns = data.campaigns || [];
+            document.getElementById('ad-active-global').checked = data.globalActive !== false;
+            window.renderAdCampaignList();
+        }
+    } catch (e) {
+        console.error("Error cargando config de publicidad:", e);
+    }
+};
+
+window.renderAdCampaignList = () => {
+    const list = document.getElementById('ad-campaign-list');
+    if (!list) return;
+
+    if (adCampaigns.length === 0) {
+        list.innerHTML = '<p style="font-size: 0.7rem; color: #444; text-align: center; padding: 20px;">No hay campañas. Crea una para empezar. 🌴</p>';
+        return;
+    }
+
+    list.innerHTML = adCampaigns.map(c => `
+        <div class="ad-campaign-item ${editingCampaignId === c.id ? 'active' : ''}" onclick="window.editAdCampaign('${c.id}')" style="padding: 10px; border-radius: 8px; background: ${editingCampaignId === c.id ? 'rgba(255,122,0,0.1)' : 'rgba(255,255,255,0.02)'}; border: 1px solid ${editingCampaignId === c.id ? 'var(--primary)' : 'rgba(255,255,255,0.05)'}; cursor: pointer; transition: 0.3s; position: relative;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1rem;">${c.placement === 'card_overlay' ? '🃏' : '🎬'}</span>
+                <div>
+                    <p style="color: white; font-size: 0.75rem; font-weight: bold; margin: 0;">${c.name || 'Sin Nombre'}</p>
+                    <p style="color: ${c.active ? '#2ecc71' : '#555'}; font-size: 0.6rem; margin: 0;">${c.active ? '● Activa' : '○ Pausada'}</p>
+                </div>
+            </div>
+        </div>
+    `).join('');
+};
+
+window.createNewAdCampaign = () => {
+    const newCamp = {
+        id: 'camp_' + Date.now().toString(36),
+        name: 'Nueva Campaña ' + (adCampaigns.length + 1),
+        active: true,
+        placement: 'card_overlay',
+        days: [0,1,2,3,4,5,6], // Todos los días por defecto
+        startHour: 0,
+        endHour: 23,
+        message: "¡Apóyanos viendo este pequeño anuncio para mantener la selva viva y gratuita para todos! 🌴🐒",
+        media: "",
+        timer: 5,
+        priority: 2, // Normal por defecto
+        freqMode: 'interval',
+        freqTimes: 1, 
+        freqValue: 60, 
+        link: ""
+    };
+    adCampaigns.push(newCamp);
+    window.renderAdCampaignList();
+    window.editAdCampaign(newCamp.id);
+};
+
+window.editAdCampaign = (id) => {
+    editingCampaignId = id;
+    const camp = adCampaigns.find(c => c.id === id);
+    if (!camp) return;
+
+    window.renderAdCampaignList();
+    document.getElementById('ad-campaign-empty').style.display = 'none';
+    const editor = document.getElementById('ad-campaign-editor');
+    editor.style.display = 'block';
+
+    // Llenar campos
+    document.getElementById('ad-edit-id').innerText = camp.id;
+    document.getElementById('ad-edit-name').value = camp.name;
+    document.getElementById('ad-edit-active').checked = camp.active;
+    document.getElementById('ad-edit-start').value = camp.startHour;
+    document.getElementById('ad-edit-end').value = camp.endHour;
+    document.getElementById('ad-edit-placement').value = camp.placement;
+    document.getElementById('ad-edit-message').value = camp.message;
+    document.getElementById('ad-edit-media').value = camp.media;
+    document.getElementById('ad-edit-timer').value = camp.timer;
+    document.getElementById('ad-edit-priority').value = camp.priority || 2;
+    document.getElementById('ad-edit-freq-mode').value = camp.freqMode || 'interval';
+    document.getElementById('ad-edit-freq-times').value = camp.freqTimes || 1;
+    document.getElementById('ad-edit-freq').value = camp.freqValue || 60;
+    document.getElementById('ad-edit-link').value = camp.link || "";
+
+    // Días
+    const dayBtns = document.querySelectorAll('.day-btn');
+    dayBtns.forEach(btn => {
+        const day = parseInt(btn.dataset.day);
+        if (camp.days.includes(day)) btn.classList.add('active');
+        else btn.classList.remove('active');
+        
+        btn.onclick = () => {
+            btn.classList.toggle('active');
+        };
+    });
+
+    // Toggle label
+    const toggleLabel = document.getElementById('campaign-status-toggle');
+    toggleLabel.innerText = camp.active ? 'CAMPAÑA ON' : 'CAMPAÑA OFF';
+    toggleLabel.style.color = camp.active ? '#2ecc71' : '#555';
+    
+    document.getElementById('ad-edit-active').onchange = (e) => {
+        toggleLabel.innerText = e.target.checked ? 'CAMPAÑA ON' : 'CAMPAÑA OFF';
+        toggleLabel.style.color = e.target.checked ? '#2ecc71' : '#555';
+    };
+
+    window.updateAdPlacementFields();
+    window.updateFreqFields();
+};
+
+window.updateFreqFields = () => {
+    const mode = document.getElementById('ad-edit-freq-mode').value;
+    const group = document.getElementById('freq-value-group');
+    if (group) {
+        group.style.display = mode === 'interval' ? 'grid' : 'none';
+    }
+};
+
+window.updateAdPlacementFields = () => {
+    const p = document.getElementById('ad-edit-placement').value;
+    document.getElementById('placement-card-fields').style.display = p === 'card_overlay' ? 'block' : 'none';
+};
+
+window.deleteCurrentCampaign = () => {
+    if (!editingCampaignId) return;
+    if (!confirm('¿Seguro que quieres borrar esta campaña de la selva? 🌴🗑️')) return;
+
+    adCampaigns = adCampaigns.filter(c => c.id !== editingCampaignId);
+    editingCampaignId = null;
+    document.getElementById('ad-campaign-editor').style.display = 'none';
+    document.getElementById('ad-campaign-empty').style.display = 'flex';
+    window.renderAdCampaignList();
+};
+
+window.saveAdsCampaigns = async () => {
+    const btn = document.querySelector('#btn-save-ads');
+    if (btn) btn.innerText = "💾 GUARDANDO...";
+
+    // Primero sincronizar la campaña actual al array
+    if (editingCampaignId) {
+        const camp = adCampaigns.find(c => c.id === editingCampaignId);
+        if (camp) {
+            camp.name = document.getElementById('ad-edit-name').value;
+            camp.active = document.getElementById('ad-edit-active').checked;
+            camp.startHour = parseInt(document.getElementById('ad-edit-start').value);
+            camp.endHour = parseInt(document.getElementById('ad-edit-end').value);
+            camp.placement = document.getElementById('ad-edit-placement').value;
+            camp.message = document.getElementById('ad-edit-message').value;
+            camp.media = document.getElementById('ad-edit-media').value;
+            camp.timer = parseInt(document.getElementById('ad-edit-timer').value);
+            camp.priority = parseInt(document.getElementById('ad-edit-priority').value);
+            camp.freqMode = document.getElementById('ad-edit-freq-mode').value;
+            camp.freqTimes = parseInt(document.getElementById('ad-edit-freq-times').value);
+            camp.freqValue = parseInt(document.getElementById('ad-edit-freq').value);
+            camp.link = document.getElementById('ad-edit-link').value;
+            
+            // Días
+            const activeDays = [];
+            document.querySelectorAll('.day-btn.active').forEach(b => activeDays.push(parseInt(b.dataset.day)));
+            camp.days = activeDays;
+        }
+    }
+
+    const config = {
+        globalActive: document.getElementById('ad-active-global').checked,
+        campaigns: adCampaigns
+    };
+
+    try {
+        await setDoc(doc(db, "configs", "monetization"), config);
+        if(window.showToast) window.showToast("✅ Campañas actualizadas en la selva.", "success");
+        window.renderAdCampaignList();
+    } catch (e) {
+        console.error("Error guardando campañas:", e);
+        if(window.showToast) window.showToast("❌ Error al guardar las campañas.", "error");
+    } finally {
+        if (btn) btn.innerText = "💾 GUARDAR TODAS LAS CAMPAÑAS";
+    }
 };
 
 // --- GESTIÓN DE BANNER (Featured) ---
@@ -1706,11 +1899,230 @@ window.selvaExecuteCrownPromotion = async (movieId, hash) => {
   }
 };
 
-function startWarningOverlay(movie) {
-  // El overlay de anuncios HTML fue removido para mejorar la experiencia
-  // Pasamos directo al player instantáneamente sin el molesto delay de 5 segundos.
-  startPlayer(movie);
+async function startWarningOverlay(movie) {
+  const overlay = document.getElementById('ad-overlay');
+  if (!overlay) {
+    startPlayer(movie);
+    return;
+  }
+
+  try {
+    const docSnap = await getDoc(doc(db, "configs", "monetization"));
+    const config = docSnap.exists() ? docSnap.data() : { globalActive: false };
+
+    if (!config.globalActive) {
+      startPlayer(movie);
+      return;
+    }
+
+    // 🕵️ Buscar campaña activa que encaje con el horario y día
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentDay = now.getDay(); // 0=D, 1=L...
+    
+    if (config.campaigns) {
+        // 1. Filtrar candidatos por horario y día
+        const timeMatchCandidates = config.campaigns.filter(c => {
+            return c.active && 
+                   c.days.includes(currentDay) && 
+                   currentHour >= c.startHour && 
+                   currentHour < c.endHour;
+        });
+
+        if (timeMatchCandidates.length > 0) {
+            // 2. Filtrar los que pasan el test de frecuencia
+            const eligibleCandidates = timeMatchCandidates.filter(c => {
+                const storageKey = `selva_ad_${c.id}`;
+                const h = JSON.parse(localStorage.getItem(storageKey) || '{}');
+                const mode = c.freqMode || 'interval';
+                
+                if (mode === 'interval') {
+                    const cooldownMs = (c.freqValue || 60) * 60 * 1000;
+                    const maxTimes = c.freqTimes || 1;
+                    const recentViews = (h.views || []).filter(ts => nowTs - ts < cooldownMs);
+                    return recentViews.length < maxTimes;
+                } 
+                else if (mode === 'per_movie_daily') {
+                    const lastMovieTs = (h.movies && h.movies[movieKey]) || 0;
+                    const lastDate = new Date(lastMovieTs).toDateString();
+                    return !(lastMovieTs > 0 && lastDate === new Date().toDateString());
+                } 
+                else if (mode === 'per_movie_once') {
+                    return !(h.movies && h.movies[movieKey]);
+                }
+                return true;
+            });
+
+            if (eligibleCandidates.length > 0) {
+                // 3. Agrupar por prioridad y elegir el nivel más alto disponible
+                // Nivel 3 (VIP) > Nivel 2 (Normal) > Nivel 1 (Relleno)
+                const priorities = eligibleCandidates.map(c => c.priority || 2);
+                const maxPriority = Math.max(...priorities);
+                const topCandidates = eligibleCandidates.filter(c => (c.priority || 2) === maxPriority);
+
+                // 4. Aplicar Rotación Inteligente (LRU) dentro de ese nivel
+                const candidatesWithHistory = topCandidates.map(c => {
+                    const h = JSON.parse(localStorage.getItem(`selva_ad_${c.id}`) || '{}');
+                    const lastSeen = h.views && h.views.length > 0 ? Math.max(...h.views) : 0;
+                    return { campaign: c, lastSeen };
+                });
+
+                candidatesWithHistory.sort((a, b) => a.lastSeen - b.lastSeen);
+                const neverSeen = candidatesWithHistory.filter(x => x.lastSeen === 0);
+                activeCampaign = neverSeen.length > 1 ? 
+                    neverSeen[Math.floor(Math.random() * neverSeen.length)].campaign : 
+                    candidatesWithHistory[0].campaign;
+            }
+        }
+    }
+
+    if (!activeCampaign) {
+      console.log("🍹 No hay campañas elegibles (o frecuencia bloqueada). Saltando...");
+      startPlayer(movie);
+      return;
+    }
+
+    // --- Ejecutar según Placement ---
+    if (activeCampaign.placement === 'video_preroll') {
+        // Lógica de VAST / Video Directo (Próxima implementación refinada)
+        // Por ahora lo manejamos como un overlay con video si no es VAST
+        window.showAdVideoPreroll(activeCampaign, movie);
+        return;
+    }
+
+    // Default: card_overlay
+    overlay.style.display = 'flex';
+    overlay.innerHTML = `
+      <div class="ad-card-content" style="position: relative; z-index: 10; background: rgba(10,10,10,0.8); backdrop-filter: blur(20px); padding: 40px; border-radius: 30px; border: 1px solid rgba(255,122,0,0.3); max-width: 500px; width: 90%; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.8); overflow: hidden; animation: adSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);">
+        <style> @keyframes adSlideUp { 0% { transform: translateY(30px); opacity:0; } 100% { transform: translateY(0); opacity:1; } } </style>
+        
+        <!-- Background Media -->
+        ${activeCampaign.media ? (activeCampaign.media.endsWith('.mp4') ? 
+          `<video src="${activeCampaign.media}" autoplay muted loop style="position: absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; z-index:-1; opacity:0.4;"></video>` : 
+          `<img src="${activeCampaign.media}" style="position: absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; z-index:-1; opacity:0.4;">`) : ''}
+
+        <div style="position: relative; z-index: 2;">
+            <img src="/icon_192.png" style="width: 70px; margin-bottom: 20px; filter: drop-shadow(0 0 10px var(--primary));">
+            <h2 style="color: white; font-size: 1.5rem; font-weight: 800; margin-bottom: 15px;">Aviso de la Selva 🌴</h2>
+            <p style="color: #ccc; line-height: 1.6; margin-bottom: 30px; font-size: 0.95rem;">${activeCampaign.message || "Disfruta de tu película."}</p>
+            
+            <div id="ad-timer-display" style="font-size: 2.5rem; font-weight: 900; color: var(--primary); margin-bottom: 20px; font-family: 'Outfit', sans-serif;">${activeCampaign.timer}</div>
+            
+            <button id="btn-proceed-ad" disabled style="width: 100%; padding: 18px; border-radius: 12px; border: none; background: rgba(255,255,255,0.05); color: #555; font-weight: bold; cursor: not-allowed; transition: all 0.3s; font-size: 0.9rem; letter-spacing: 1px;">
+              ESPERA UN MOMENTO...
+            </button>
+        </div>
+      </div>
+    `;
+
+    let timeLeft = activeCampaign.timer;
+    const timerInterval = setInterval(() => {
+      timeLeft--;
+      const display = document.getElementById('ad-timer-display');
+      if (display) {
+          display.innerText = timeLeft > 0 ? timeLeft : "✓";
+          display.style.transform = "scale(1.2)";
+          setTimeout(() => display.style.transform = "scale(1)", 200);
+      }
+      
+      if (timeLeft <= 0) {
+        clearInterval(timerInterval);
+        const btn = document.getElementById('btn-proceed-ad');
+        if (btn) {
+          btn.disabled = false;
+          btn.innerText = "CONTINUAR A LA PELÍCULA 🍿";
+          btn.style.background = 'var(--primary)';
+          btn.style.color = 'black';
+          btn.style.cursor = 'pointer';
+          btn.style.boxShadow = '0 10px 30px var(--primary-glow)';
+          btn.onclick = () => {
+             overlay.style.display = 'none';
+             
+             // Actualizar Historial de Frecuencia
+             const storageKey = `selva_ad_${activeCampaign.id}`;
+             let history = JSON.parse(localStorage.getItem(storageKey) || '{}');
+             if (!history.views) history.views = [];
+             history.views.push(Date.now());
+             if (!history.movies) history.movies = {};
+             history.movies[movie.title || movie.name || 'unknown'] = Date.now();
+             localStorage.setItem(storageKey, JSON.stringify(history));
+
+             if (activeCampaign.link) {
+                window.open(activeCampaign.link, '_blank');
+             }
+             startPlayer(movie);
+          };
+        }
+      }
+    }, 1000);
+
+  } catch (e) {
+    console.error("Error al iniciar el puente de anuncios:", e);
+    startPlayer(movie);
+  }
 }
+
+// Auxiliar para Video Preroll (Básico por ahora)
+window.showAdVideoPreroll = (camp, movie) => {
+    const overlay = document.getElementById('ad-overlay');
+    overlay.style.display = 'flex';
+    overlay.innerHTML = `
+        <div style="width:100%; height:100%; background:black; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative;">
+            <video id="ad-video-element" src="${camp.media}" autoplay style="max-width:100%; max-height:80vh;"></video>
+            <div style="position:absolute; bottom:40px; right:40px; display:flex; align-items:center; gap:20px;">
+                <p id="ad-video-timer" style="color:white; font-weight:bold;"></p>
+                <button id="btn-skip-video" disabled style="padding:10px 25px; border-radius:5px; border:none; background:rgba(255,255,255,0.1); color:#777; font-weight:bold;">SALTAR ANUNCIO en ...</button>
+            </div>
+        </div>
+    `;
+    
+    const vid = document.getElementById('ad-video-element');
+    const skipBtn = document.getElementById('btn-skip-video');
+    const skipTime = camp.timer || 5;
+
+    let timeLeft = skipTime;
+    const t = setInterval(() => {
+        timeLeft--;
+        if (skipBtn) skipBtn.innerText = `SALTAR ANUNCIO en ${timeLeft}s`;
+        if (timeLeft <= 0) {
+            clearInterval(t);
+            skipBtn.disabled = false;
+            skipBtn.innerText = "SALTAR ANUNCIO ⏩";
+            skipBtn.style.background = "white";
+            skipBtn.style.color = "black";
+            skipBtn.onclick = () => {
+                overlay.style.display = 'none';
+                
+                // Actualizar Historial de Frecuencia
+                const storageKey = `selva_ad_${camp.id}`;
+                let history = JSON.parse(localStorage.getItem(storageKey) || '{}');
+                if (!history.views) history.views = [];
+                history.views.push(Date.now());
+                if (!history.movies) history.movies = {};
+                history.movies[movie.title || movie.name || 'unknown'] = Date.now();
+                localStorage.setItem(storageKey, JSON.stringify(history));
+
+                if (camp.link) window.open(camp.link, '_blank');
+                startPlayer(movie);
+            };
+        }
+    }, 1000);
+
+    vid.onended = () => {
+        overlay.style.display = 'none';
+        
+        // Actualizar Historial de Frecuencia
+        const storageKey = `selva_ad_${camp.id}`;
+        let history = JSON.parse(localStorage.getItem(storageKey) || '{}');
+        if (!history.views) history.views = [];
+        history.views.push(Date.now());
+        if (!history.movies) history.movies = {};
+        history.movies[movie.title || movie.name || 'unknown'] = Date.now();
+        localStorage.setItem(storageKey, JSON.stringify(history));
+
+        startPlayer(movie);
+    };
+};
 
 window.closeWarningOverlay = () => {
   const overlay = document.getElementById('ad-overlay');
@@ -1726,6 +2138,9 @@ window.openPlayer = async (movieId) => {
   }
 
   collectUserData("watch_attempt", { title: movie.title, id: movie.id });
+
+  // --- Iniciar Puente de Anuncios (Capa 1 & 2) ---
+  startWarningOverlay(movie);
 
   // 🧼 LIMPIEZA DE MODALES (Asegurar que favoritos/ajustes se cierren antes de jugar)
   const modalsToClose = [

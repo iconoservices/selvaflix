@@ -851,10 +851,14 @@ window.loadAdConfig = async () => {
                 window.adCampaigns = data.campaigns || [];
                 document.getElementById('ad-active-global').checked = data.globalActive !== false;
                 
-                // Inyectar scripts desde CAMPAÑAS (Nueva lógica unificada)
                 if (data.globalActive !== false) {
                     window.injectCampaignScripts();
                 }
+
+                // Sincronizar Debug Checkbox
+                const forceAds = localStorage.getItem('selva_force_ads_debug') === 'true';
+                const debugToggle = document.getElementById('ad-debug-force');
+                if (debugToggle) debugToggle.checked = forceAds;
 
                 window.renderAdCampaignList();
             }
@@ -2383,6 +2387,19 @@ async function startWarningOverlay(movie) {
     }
 
     // Default: card_overlay
+    window.showWarningOverlayCard(activeCampaign, movie);
+
+  } catch (e) {
+    console.error("Error al iniciar el puente de anuncios:", e);
+    startPlayer(movie);
+  }
+}
+
+// 🃏 RENDERIZADO DE TARJETA (Reutilizable para Preview)
+window.showWarningOverlayCard = (activeCampaign, movie, isPreview = false) => {
+    const overlay = document.getElementById('ad-overlay');
+    if (!overlay) return;
+
     const isHybrid = activeCampaign.layout === 'hybrid';
     const isFullscreen = activeCampaign.layout === 'fullscreen';
     const canSkipNow = activeCampaign.canSkip || false;
@@ -2391,6 +2408,7 @@ async function startWarningOverlay(movie) {
 
     overlay.style.display = 'flex';
     overlay.style.background = isFullscreen ? 'black' : 'rgba(0,0,0,0.85)';
+    overlay.style.zIndex = '50000';
     
     overlay.innerHTML = `
       <div class="ad-card-content" style="position: relative; z-index: 10; 
@@ -2412,11 +2430,9 @@ async function startWarningOverlay(movie) {
             @keyframes adSlideUp { 0% { transform: translateY(40px) scale(0.95); opacity:0; } 100% { transform: translateY(0) scale(1); opacity:1; } } 
             .ad-hybrid-media { width: 100%; border-radius: 15px; margin: 20px 0; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.5); object-fit: cover; max-height: 250px; }
             .ad-fullscreen-media { position: absolute; top:0; left:0; width:100%; height:100%; object-fit: contain; z-index: 1; pointer-events: none; }
-            .direct-link-btn { background: var(--primary); color: black !important; padding: 15px 30px; border-radius: 50px; font-weight: 900; text-decoration: none; display: flex; align-items: center; gap: 10px; font-size: 1rem; transition: 0.3s; transform: scale(1.1); box-shadow: 0 0 30px var(--primary-glow); margin: 20px 0; }
-            .direct-link-btn:hover { transform: scale(1.15); box-shadow: 0 0 50px var(--primary-glow); }
         </style>
         
-        <!-- Media Elements / Direct Link Support -->
+        <!-- Media Elements -->
         ${(hasMedia && !activeCampaign.media.trim().startsWith('<script')) ? (isFullscreen ? 
             (activeCampaign.media.toLowerCase().endsWith('.mp4') ? 
                 `<video src="${activeCampaign.media}" autoplay muted loop class="ad-fullscreen-media"></video>` : 
@@ -2432,12 +2448,11 @@ async function startWarningOverlay(movie) {
             )
         ) : (activeCampaign.link || activeCampaign.media.trim().startsWith('<script') ? `
             <a href="${activeCampaign.link || '#'}" target="_blank" onclick="window.recordAdView('${activeCampaign.id}')" style="text-decoration: none; display: block; width: 100%;">
-                <div style="background: rgba(255,122,0,0.1); padding: 40px; border-radius: 25px; border: 2px dashed var(--primary); margin: 20px 0; transition: 0.3s; transform: scale(1.02); cursor: pointer;" onmouseover="this.style.background='rgba(255,122,0,0.2)'" onmouseout="this.style.background='rgba(255,122,0,0.1)'">
+                <div style="background: rgba(255,122,0,0.1); padding: 40px; border-radius: 25px; border: 2px dashed var(--primary); margin: 20px 0;">
                     <p style="font-size: 3rem; margin: 0;">${activeCampaign.media.trim().startsWith('<script') ? '⚡' : '🔗'}</p>
-                    <p style="color: white; font-weight: 900; margin-top: 15px; text-transform: uppercase; letter-spacing: 1px;">
+                    <p style="color: white; font-weight: 900; margin-top: 15px; text-transform: uppercase;">
                         ${activeCampaign.media.trim().startsWith('<script') ? 'Script de Red Activo' : 'Enlace de Patrocinador'}
                     </p>
-                    <p style="color: var(--primary); font-size: 0.8rem; font-weight: bold;">[ CLIC AQUÍ PARA DESBLOQUEAR ]</p>
                 </div>
             </a>
         ` : '🚩')}
@@ -2447,21 +2462,22 @@ async function startWarningOverlay(movie) {
             
             ${!isFullscreen || hasMessage ? `
                 <div style="display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 20px;">
-                    <img src="/icon_192.png" style="width: 45px; filter: drop-shadow(0 0 10px var(--primary));">
-                    <span style="color: var(--primary); font-weight: 900; font-size: 0.7rem; letter-spacing: 2px; text-transform: uppercase;">Aviso de la Selva 🌴</span>
+                    <img src="/icon_192.png" style="width: 45px;">
+                    <span style="color: var(--primary); font-weight: 900; font-size: 0.7rem; letter-spacing: 2px;">AVISO DE LA SELVA 🌴</span>
                 </div>
             ` : ''}
             
             ${hasMessage ? `
-                <h2 style="color: white; font-size: 1.3rem; font-weight: 800; margin-bottom: 15px; line-height: 1.2;">${activeCampaign.name || "Mensaje Importante"}</h2>
-                <p style="color: #bbb; line-height: 1.5; margin-bottom: ${isHybrid ? '10px' : '25px'}; font-size: 0.9rem; padding: 0 10px;">${activeCampaign.message}</p>
+                <h2 style="color: white; font-size: 1.3rem; font-weight: 800; margin-bottom: 15px;">${activeCampaign.name || "Mensaje Importante"}</h2>
+                <p style="color: #bbb; font-size: 0.9rem;">${activeCampaign.message}</p>
             ` : ''}
 
-            <div id="ad-timer-display" style="font-size: 2.2rem; font-weight: 900; color: var(--primary); margin-bottom: 20px; font-family: 'Outfit', sans-serif; text-shadow: 0 0 20px var(--primary-glow);">${activeCampaign.timer}</div>
+            <div id="ad-timer-display" style="font-size: 2.2rem; font-weight: 900; color: var(--primary); margin-bottom: 20px;">${activeCampaign.timer}</div>
             
-            <button id="btn-proceed-ad" ${canSkipNow ? '' : 'disabled'} style="width: 100%; max-width: 400px; margin: 0 auto; padding: 18px; border-radius: 12px; border: none; background: ${canSkipNow ? 'var(--primary)' : 'rgba(255,255,255,0.05)'}; color: ${canSkipNow ? 'black' : '#555'}; font-weight: 900; cursor: ${canSkipNow ? 'pointer' : 'not-allowed'}; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); font-size: 0.85rem; letter-spacing: 1px; box-shadow: ${canSkipNow ? '0 10px 30px var(--primary-glow)' : 'none'}; display: block;">
+            <button id="btn-proceed-ad" ${canSkipNow ? '' : 'disabled'} style="width: 100%; padding: 18px; border-radius: 12px; background: ${canSkipNow ? 'var(--primary)' : 'rgba(255,255,255,0.05)'}; font-weight: 900;">
               ${canSkipNow ? 'CONTINUAR A LA PELÍCULA 🍿' : 'ESPERA UN MOMENTO...'}
             </button>
+            ${isPreview ? `<p style="color:#666; font-size:0.6rem; margin-top:10px;">[ MODO VISTA PREVIA ]</p>` : ''}
         </div>
       </div>
     `;
@@ -2469,44 +2485,52 @@ async function startWarningOverlay(movie) {
     let timeLeft = activeCampaign.timer;
     const btn = document.getElementById('btn-proceed-ad');
     
-    // Si ya puede saltar, asimilar el click de una vez
     if (canSkipNow) {
-        btn.onclick = () => window.finishAdFlow(activeCampaign, movie);
+        btn.onclick = () => {
+            overlay.style.display = 'none';
+            if (!isPreview) window.finishAdFlow(activeCampaign, movie);
+        };
     }
 
     const timerInterval = setInterval(() => {
       timeLeft--;
       const display = document.getElementById('ad-timer-display');
-      if (display) {
-          display.innerText = timeLeft > 0 ? timeLeft : "✓";
-          display.style.transform = "scale(1.2)";
-          setTimeout(() => display.style.transform = "scale(1)", 200);
-      }
+      if (display) display.innerText = timeLeft > 0 ? timeLeft : "✓";
       
       if (timeLeft <= 0) {
         clearInterval(timerInterval);
-        if (btn) {
-          btn.disabled = false;
-          btn.innerText = "CONTINUAR A LA PELÍCULA 🍿";
-          btn.style.background = 'var(--primary)';
-          btn.style.color = 'black';
-          btn.style.cursor = 'pointer';
-          btn.style.boxShadow = '0 10px 30px var(--primary-glow)';
-          btn.onclick = () => window.finishAdFlow(activeCampaign, movie);
-        }
+        btn.disabled = false;
+        btn.style.background = 'var(--primary)';
+        btn.style.color = 'black';
+        btn.innerText = 'CONTINUAR A LA PELÍCULA 🍿';
+        btn.onclick = () => {
+          overlay.style.display = 'none';
+          if (!isPreview) window.finishAdFlow(activeCampaign, movie);
+        };
       }
     }, 1000);
-
-  } catch (e) {
-    console.error("Error al iniciar el puente de anuncios:", e);
-    startPlayer(movie);
-  }
-    // Sincronizar UI de depuración
-    const forceAdCheckbox = document.getElementById('ad-debug-force');
-    if (forceAdCheckbox) {
-        forceAdCheckbox.checked = localStorage.getItem('selva_force_ads_debug') === 'true';
-    }
 }
+
+window.previewCurrentAd = () => {
+    if (!editingCampaignId) {
+        if (window.showToast) window.showToast("Primero selecciona una campaña de la lista 👈", "info");
+        return;
+    }
+    const camp = (window.adCampaigns || []).find(c => c.id === editingCampaignId);
+    if (!camp) return;
+    
+    if (camp.placement === 'global_script') {
+        if (window.showToast) window.showToast("Los scripts globales no tienen tarjeta de vista previa. 👻", "warning");
+        return;
+    }
+
+    const mockMovie = { title: "Vista Previa 🌴", type: "movie" };
+    if (camp.placement === 'video_preroll') {
+        window.showAdVideoPreroll(camp, mockMovie);
+    } else {
+        window.showWarningOverlayCard(camp, mockMovie, true);
+    }
+};
 
 window.finishAdFlow = (activeCampaign, movie) => {
     const overlay = document.getElementById('ad-overlay');

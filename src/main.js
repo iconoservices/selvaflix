@@ -807,7 +807,99 @@ window.switchAdminTab = (tab) => {
   } else if (tab === 'actions') {
     if(actTab) actTab.style.display = 'block';
     if(btnAct) btnAct.classList.add('active');
+    window.renderAdminBannerList(); // Carga inicial de destacados
   }
+};
+
+// --- GESTIÓN DE BANNER (Featured) ---
+window.searchForBanner = () => {
+    const queryStr = document.getElementById('admin-banner-search').value.toLowerCase().trim();
+    const resultsContainer = document.getElementById('admin-banner-results');
+    if (!queryStr) return;
+
+    const matches = allContent.filter(m => m.title.toLowerCase().includes(queryStr)).slice(0, 10);
+    
+    resultsContainer.innerHTML = matches.map(m => `
+        <div class="banner-search-item" style="flex: 0 0 80px; text-align: center; cursor: pointer;" onclick="window.toggleBannerPin('${m.id}', true)">
+            <img src="${m.img}" style="width: 100%; border-radius: 8px; border: 2px solid transparent;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='transparent'">
+            <p style="font-size: 0.6rem; color: #aaa; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${m.title}</p>
+        </div>
+    `).join('') || '<p style="font-size: 0.8rem; color: #555;">No se encontró nada en la selva. 🌴</p>';
+};
+
+window.renderAdminBannerList = () => {
+    const container = document.getElementById('admin-banner-pinned-list');
+    if (!container) return;
+
+    const pinned = allContent.filter(m => m.pinned === true);
+    
+    if (pinned.length === 0) {
+        container.innerHTML = '<p style="font-size: 0.8rem; color: #555;">No hay tesoros fijados en el banner. La selva decidirá automáticamente. 🍃</p>';
+        return;
+    }
+
+    container.innerHTML = pinned.map(m => `
+        <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(255,122,0,0.05); padding: 10px; border-radius: 12px; border: 1px solid rgba(255,122,0,0.1); margin-bottom: 10px;">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <img src="${m.backdrop || m.img}" style="width: 70px; height: 40px; border-radius: 4px; object-fit: cover; border: 1px solid rgba(255,255,255,0.1);">
+                <div>
+                    <p style="color: white; font-weight: bold; font-size: 0.85rem; margin: 0;">${m.title}</p>
+                    <div style="display: flex; gap: 8px; margin-top: 5px;">
+                        <button class="btn" style="background: rgba(52, 152, 219, 0.2); color: #3498DB; border: 1px solid rgba(52,152,219,0.3); padding: 2px 8px; font-size: 0.6rem;" onclick="document.getElementById('banner-art-${m.id}').click()">🎨 Cambiar Arte</button>
+                        <input type="file" id="banner-art-${m.id}" style="display:none;" onchange="window.uploadBannerArt('${m.id}', this.files[0])">
+                    </div>
+                </div>
+            </div>
+            <button class="btn" style="background: rgba(231,76,60,0.1); color: #E74C3C; border: 1px solid rgba(231,76,60,0.2); padding: 5px 10px; font-size: 0.7rem;" onclick="window.toggleBannerPin('${m.id}', false)">Quitar ✖</button>
+        </div>
+    `).join('');
+};
+
+window.uploadBannerArt = async (movieId, file) => {
+    if (!file) return;
+    try {
+        if (window.showToast) window.showToast("Subiendo arte de banner... 🎨🌩️", "info");
+        const url = await window.handleImageUpload(file, true); // Retorna la URL
+        if (!url) throw new Error("No se pudo subir la imagen");
+
+        const movieRef = doc(db, "movies", movieId);
+        await updateDoc(movieRef, { backdrop: url });
+        
+        // Actualizar caché local
+        const idx = allContent.findIndex(m => m.id === movieId);
+        if (idx !== -1) allContent[idx].backdrop = url;
+
+        if (window.showToast) window.showToast("¡Banner actualizado! 🌈🌴", "success");
+        window.renderAdminBannerList();
+        sessionStorage.removeItem('selvaflix_full_database');
+    } catch (e) {
+        console.error("Error subiendo banner art:", e);
+        if (window.showToast) window.showToast("Error al subir el arte. 🐒", "error");
+    }
+};
+
+window.toggleBannerPin = async (movieId, isPinned) => {
+    try {
+        const movieRef = doc(db, "movies", movieId);
+        await updateDoc(movieRef, { pinned: isPinned });
+        
+        // Actualizar caché local
+        const idx = allContent.findIndex(m => m.id === movieId);
+        if (idx !== -1) allContent[idx].pinned = isPinned;
+        
+        if (isPinned && window.showToast) window.showToast("¡Tesoro fijado en el Banner! 🚩🌴", "success");
+        if (!isPinned && window.showToast) window.showToast("Quitado del Banner. 🍃", "primary");
+        
+        window.renderAdminBannerList();
+        document.getElementById('admin-banner-results').innerHTML = '';
+        document.getElementById('admin-banner-search').value = '';
+        
+        // Invalidar caché de BD para que se refleje globalmente si es necesario
+        sessionStorage.removeItem('selvaflix_full_database');
+    } catch (e) {
+        console.error("Error al fijar banner:", e);
+        if (window.showToast) window.showToast("No se pudo clavar la bandera en la selva. 🐒", "error");
+    }
 };
 
 window.setMetricsPreset = (preset) => {
@@ -2294,21 +2386,27 @@ function initApp(filterType = '', genreId = '') {
     heroPoolRaw = heroPoolRaw.filter(c => c.type === 'movie' || !c.type);
   }
 
-  // Prioridad: 1. Pinned (Fijados) | 2. Tendencias (Plays) | 3. Latest (createdAt)
+  // Prioridad: 1. Pinned (Fijados) | 2. Taquilleras (Rating/Trends) | 3. Latest (createdAt)
   const playCounts = JSON.parse(localStorage.getItem('selva_play_counts') || '{}');
   
   heroPool = heroPoolRaw.sort((a, b) => {
-    // 1. Pinned
+    // 1. Pinned (Máxima prioridad manual)
     const pinA = a.pinned ? 1 : 0;
     const pinB = b.pinned ? 1 : 0;
     if (pinA !== pinB) return pinB - pinA;
 
-    // 2. Tendencias (si tienen plays)
+    // 2. Taquilleras (Rating alto + Algo de tracción local)
+    const ratingA = parseFloat(a.rating || 0);
+    const ratingB = parseFloat(b.rating || 0);
     const playsA = playCounts[a.tmdbId] || playCounts[a.id] || 0;
     const playsB = playCounts[b.tmdbId] || playCounts[b.id] || 0;
-    if (playsA !== playsB) return playsB - playsA;
+    
+    // Si tiene rating superior a 8 y al menos un play, es taquillera
+    const isHotA = (ratingA >= 8.0 && playsA > 0) ? 1 : 0;
+    const isHotB = (ratingB >= 8.0 && playsB > 0) ? 1 : 0;
+    if (isHotA !== isHotB) return isHotB - isHotA;
 
-    // 3. Latest (ya viene casi ordenado por createdAt en allContent, pero aseguramos)
+    // 3. Estrenos / Lo más nuevo
     return (b.createdAt || 0) - (a.createdAt || 0);
   });
 
@@ -2362,32 +2460,35 @@ function initApp(filterType = '', genreId = '') {
     window.location.hash = '';
     return;
   } else {
-    // HOME: filas de muestra + 'Ver todos'
     if (container) container.innerHTML = ''; // Los skeletons cumplieron su misión
-    const movies = allContent.filter(c => c.type === 'movie' || !c.type).slice(0, 12);
-    const series = allContent.filter(c => c.type === 'series' || c.type === 'tv').slice(0, 12);
-    const anime = allContent.filter(c => c.type === 'anime').slice(0, 12);
-    const releases = allContent.filter(c => c.type !== 'live').slice(0, 12);
+    // --- NUEVO ORDEN DE PORTADA (v2.42) ---
+    // 🍿 1. Recomendadas (La Vieja Confiable: Mix Rating + Popularidad)
+    const recommended = [...allContent]
+      .map(c => ({ 
+        ...c, 
+        score: (parseFloat(c.rating || 0)) + (Math.log10((playCounts[c.tmdbId] || playCounts[c.id] || 0) + 1) * 3) 
+      }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 12);
+    if (recommended.length > 0) renderRow('🍹 Recomendadas para ti', recommended);
 
-    // Se removió 'Lo más nuevo' por petición del usuario
-    if (movies.length > 0) renderRow('🎬 Películas', movies, 'movies');
-    if (series.length > 0) renderRow('🏆 Series', series, 'series');
-    if (anime.length > 0) renderRow('⛩️ Anime', anime, 'series');
-
-    // 🔥 ALGORITMO 1: Tendencias PROPIAS (por plays acumulados del celular)
-    const playCounts = JSON.parse(localStorage.getItem('selva_play_counts') || '{}');
+    // 🔥 2. Tendencias en la Selva (Local)
     const popularity = [...allContent]
       .filter(c => c.type !== 'live')
       .map(c => ({ ...c, plays: playCounts[c.tmdbId] || playCounts[c.id] || 0 }))
       .filter(c => c.plays > 0)
       .sort((a, b) => b.plays - a.plays)
       .slice(0, 12);
+    if (popularity.length > 0) renderRow('🔥 Tendencias en la Selva', popularity);
 
-    if (popularity.length > 0) {
-      renderRow('🔥 Tendencias en la Selva', popularity.slice(0, 12));
-      const hotSection = container.lastElementChild;
-      container.insertBefore(hotSection, container.firstChild);
-    }
+    // 🎬 3. Categorías Estándar
+    const movies = allContent.filter(c => c.type === 'movie' || !c.type).slice(0, 12);
+    const series = allContent.filter(c => c.type === 'series' || c.type === 'tv').slice(0, 12);
+    const anime = allContent.filter(c => c.type === 'anime').slice(0, 12);
+
+    if (movies.length > 0) renderRow('🎬 Películas', movies, 'movies');
+    if (series.length > 0) renderRow('🏆 Series', series, 'series');
+    if (anime.length > 0) renderRow('⛩️ Anime', anime, 'series');
 
     // 🌍 ALGORITMO 2: Tendencias Globales de TMDB (para usuarios nuevos sin historial)
     // Corre en paralelo sin bloquear la UI (async fire-and-forget)

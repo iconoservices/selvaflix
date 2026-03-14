@@ -737,14 +737,24 @@
               </div>
 
               <div class="admin-card" id="banner-management-card">
-                  <h2 class="admin-title">📢 Comunicaciones (Banners)</h2>
-                  <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 20px;">Próximamente: Configura anuncios y avisos globales aquí. 📡</p>
-                  <div style="opacity: 0.3; pointer-events: none;">
-                      <div class="form-group">
-                          <label>Texto del Banner</label>
-                          <input type="text" class="form-control" placeholder="Ej: ¡Nuevo estreno de anime!">
+                  <h2 class="admin-title">📢 Gestión de Banner (Featured)</h2>
+                  <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 20px;">Controla qué se muestra en la marquesina principal de la selva.</p>
+                  
+                  <div class="form-group">
+                      <label>Buscar Película para el Banner</label>
+                      <div style="display: flex; gap: 8px;">
+                          <input type="text" id="admin-banner-search" class="form-control" placeholder="Escribe el nombre...">
+                          <button class="btn btn-primary" onclick="window.searchForBanner()">🔍</button>
                       </div>
-                      <button class="btn btn-primary" style="width: 100%;">Publicar Aviso</button>
+                      <div id="admin-banner-results" style="display: flex; gap: 10px; overflow-x: auto; margin-top: 10px; padding-bottom: 10px;"></div>
+                  </div>
+
+                  <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.05); margin: 20px 0;">
+
+                  <h3 style="color: white; font-size: 0.9rem; margin-bottom: 15px;">🚩 Títulos Destacados Actuales</h3>
+                  <div id="admin-banner-pinned-list" style="display: flex; flex-direction: column; gap: 10px;">
+                      <!-- Inyectado por JS -->
+                      <p style="font-size: 0.8rem; color: #555;">Cargando destacados...</p>
                   </div>
               </div>
           </div>

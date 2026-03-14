@@ -121,7 +121,10 @@ export const SelvaStream = {
                         </div>
                         <div class="sidebar-card actions-card">
                             <h3 style="color: var(--primary); font-size: 0.6rem; letter-spacing: 1px; margin-bottom: 10px; opacity: 0.8;">🚨 SOPORTE</h3>
-                            <button id="report-broken-btn" style="width:100%; height: auto; background: rgba(231,76,60,0.1); border: 1px solid rgba(231,76,60,0.2); color: #E74C3C; padding: 10px; border-radius: 8px; font-size: 0.65rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; margin-bottom: 15px;">🚩 REPORTAR ERROR</button>
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; margin-bottom: 15px;">
+                                <button id="report-broken-btn" style="background: rgba(231,76,60,0.1); border: 1px solid rgba(231,76,60,0.2); color: #E74C3C; padding: 10px; border-radius: 8px; font-size: 0.65rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;">🚩 REPORTAR</button>
+                                <button id="share-selva-btn" style="background: rgba(46,204,113,0.1); border: 1px solid rgba(46,204,113,0.2); color: #2ecc71; padding: 10px; border-radius: 8px; font-size: 0.65rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;">🔗 COMPARTIR</button>
+                            </div>
                             
                             <div id="admin-only-panel" style="display:none; flex-direction:column; gap:8px; border-top:1px solid rgba(255,255,255,0.08); padding-top:15px; margin-top: 5px;">
                                 <h3 style="color: #00f2ff; font-size: 0.6rem; letter-spacing: 1px; margin-bottom: 5px; opacity: 0.8;">🛠️ ADMINISTRACIÓN</h3>
@@ -140,11 +143,11 @@ export const SelvaStream = {
                                     <button id="admin-set-priority-btn" style="width: 100%; background: #00f2ff; color: #000; border: none; padding: 6px; border-radius: 4px; font-size: 0.6rem; font-weight: 900; cursor: pointer;">FIJAR PRIORIDAD</button>
                                 </div>
 
-                                <button id="admin-download-btn" style="width:100%; height: auto; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 10px; border-radius: 8px; font-size: 0.65rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;">⬇️ DESCARGAR FUENTE</button>
-                                
-                                <a id="external-player-btn" href="#" target="_blank" style="display:none; align-items:center; justify-content:center; gap:8px; background: linear-gradient(135deg, #e67e22, #d35400); color:white; padding:10px; border-radius: 8px; text-decoration:none; font-weight:bold; margin-top:10px; font-size:0.65rem; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
-                                    🎬 ABRIR EN VLC
-                                </a>
+                                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; margin-top:5px;">
+                                    <button id="admin-download-btn" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 10px; border-radius: 8px; font-size: 0.65rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;">⬇️ DESCARGA</button>
+                                    <button id="admin-copy-app-link-btn" style="background: rgba(0,242,255,0.05); border: 1px solid rgba(0,242,255,0.1); color: #00f2ff; padding: 10px; border-radius: 8px; font-size: 0.65rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;">🔗 LINK APP</button>
+                                </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -219,6 +222,19 @@ export const SelvaStream = {
                 if (window.showToast) window.showToast("No hay una fuente activa para descargar. 🕵️‍♂️", "warning");
             }
         });
+
+        const copyAppLink = () => {
+            const url = window.location.href;
+            navigator.clipboard.writeText(url).then(() => {
+                if (window.showToast) window.showToast("🚀 Link de SelvaFlix copiado al portapapeles.", "success");
+            }).catch(err => {
+                console.error('Error al copiar link:', err);
+                if (window.showToast) window.showToast("Error al copiar el link 🐒", "error");
+            });
+        };
+
+        document.getElementById('share-selva-btn')?.addEventListener('click', copyAppLink);
+        document.getElementById('admin-copy-app-link-btn')?.addEventListener('click', copyAppLink);
 
         document.getElementById('report-broken-btn')?.addEventListener('click', () => {
             if (window.reportBrokenLink && SelvaStream.currentPlayerMovie) {
@@ -1097,14 +1113,6 @@ export const SelvaStream = {
 
                 // Si es un source directo, le pasamos la URL al botón externo
                 const extBtn = document.getElementById('external-player-btn');
-                if (extBtn) {
-                    extBtn.style.display = 'flex';
-                    const isAndroid = /Android/i.test(navigator.userAgent);
-                    extBtn.href = isAndroid
-                        ? `intent://${stream.url.replace(/^https?:\/\//, '')}#Intent;package=org.videolan.vlc;type=video/*;scheme=https;end`
-                        : `vlc://${stream.url}`;
-                }
-
                 } else {
                     console.warn("🚫 Fuente de Terceros Bloqueada por Seguridad (Anti-Adware)");
                     const notif = document.getElementById('player-notifications');

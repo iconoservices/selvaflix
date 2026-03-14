@@ -2280,7 +2280,13 @@ async function startWarningOverlay(movie) {
         document.getElementById('ad-active-global').checked = globalActive;
     }
 
-    if (!globalActive) {
+    // 🕵️ MODO DIOS: Omitir filtros si el administrador lo desea
+    const forceAds = localStorage.getItem('selva_force_ads_debug') === 'true';
+
+    console.log("🎬 [AD ENGINE] Verificando monetización:", { globalActive, forceAds, movie: movie.title });
+
+    if (!globalActive && !forceAds) {
+      console.log("🍹 Publicidad desactivada globalmente. Saltando...");
       startPlayer(movie);
       return;
     }
@@ -2293,21 +2299,21 @@ async function startWarningOverlay(movie) {
     const currentDay = now.getDay(); // 0=D, 1=L...
     const movieKey = movie.title || movie.name || 'unknown';
 
-    // 🕵️ MODO DIOS: Omitir filtros si el administrador lo desea (Solo LocalStorage persistente)
-    const forceAds = localStorage.getItem('selva_force_ads_debug') === 'true';
-    
     if (config.campaigns) {
-        // 1. Filtrar candidatos por horario y día
+        // 1. Filtrar candidatos por horario y día (Solo Overlays)
         const timeMatchCandidates = config.campaigns.filter(c => {
-            const basicMatch = c.active && c.placement !== 'global_script';
+            const isOverlay = (c.placement === 'card_overlay' || c.placement === 'video_preroll');
+            const basicMatch = c.active && isOverlay;
             if (!basicMatch) return false;
             
-            if (forceAds) return true; // ⚡ MODO DIOS: Bypassear horario y días
+            if (forceAds) return true; // ⚡ MODO DIOS GIGA: Bypassear horario y días
             
             return c.days.includes(currentDay) && 
                    currentHour >= c.startHour && 
                    currentHour < c.endHour;
         });
+
+        console.log("🎯 [AD ENGINE] Candidatos potenciales:", timeMatchCandidates.map(c => c.name));
 
         if (timeMatchCandidates.length > 0) {
             // 2. Filtrar los que pasan el test de frecuencia

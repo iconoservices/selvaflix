@@ -137,6 +137,10 @@ export const SelvaStream = {
                                     <button id="admin-delete-player-btn" style="width:100%; background:#e74c3c; color:white; border:none; padding:8px; border-radius:6px; cursor:pointer; font-weight:900; font-size: 0.6rem;">🗑️ BORRAR</button>
                                 </div>
 
+                                <button id="admin-vip-config-btn" style="width:100%; background: linear-gradient(45deg, #FFD700, #FFA500); color: black; border:none; padding:10px; border-radius:10px; cursor:pointer; font-weight:900; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 15px rgba(255,215,0,0.3); margin-bottom: 5px;">
+                                    <span>👑 CONFIGURAR VIP</span>
+                                </button>
+
                                 <div class="admin-manual-link-box" style="background: rgba(0,242,255,0.05); border: 1px solid rgba(0,242,255,0.1); padding: 8px; border-radius: 8px; margin-bottom: 10px;">
                                     <label style="color: #00f2ff; font-size: 0.55rem; font-weight: 800; display: block; margin-bottom: 5px;">👑 LINK MAESTRO (PRIORIDAD)</label>
                                     <input type="text" id="admin-manual-link-input" placeholder="Pegar URL aquí..." style="width: 100%; background: #000; border: 1px solid #333; color: white; border-radius: 4px; padding: 6px; font-size: 0.65rem; outline: none; margin-bottom: 6px;">
@@ -183,6 +187,63 @@ export const SelvaStream = {
                 let hasNext = window.playNextReview ? window.playNextReview(id) : false;
                 window.moveToWaiting(id);
                 if (!hasNext) history.back();
+            }
+        });
+
+        document.getElementById('admin-vip-config-btn')?.addEventListener('click', async () => {
+            if (!SelvaStream.currentPlayerMovie) return;
+            const movie = SelvaStream.currentPlayerMovie;
+            const isCurrentlyVip = movie.isVIP || false;
+            
+            const action = confirm(`Estado Actual: ${isCurrentlyVip ? "👑 VIP" : "🐾 LIBRE"}\n\n¿Quieres cambiar el estado VIP de "${movie.title}"?`);
+            
+            if (action) {
+                const newVipStatus = !isCurrentlyVip;
+                let releaseDate = movie.releaseDate || null;
+
+                if (newVipStatus) {
+                    const dateStr = prompt("¿Deseas poner una fecha de estreno? (Formato: AAAA-MM-DD HH:MM)\nDejar vacío para VIP permanente.", "");
+                    if (dateStr) {
+                        const parsed = new Date(dateStr);
+                        if (!isNaN(parsed.getTime())) {
+                            releaseDate = parsed.getTime();
+                        } else {
+                            alert("Fecha no válida. No se guardará la fecha.");
+                        }
+                    } else {
+                        releaseDate = null;
+                    }
+                }
+
+                try {
+                    const { getFirestore, doc, updateDoc } = await import("firebase/firestore");
+                    const db = getFirestore();
+                    const movieRef = doc(db, "movies", movie.id);
+                    
+                    const updateData = { 
+                        isVIP: newVipStatus, 
+                        releaseDate: releaseDate,
+                        updatedAt: Date.now()
+                    };
+                    
+                    await updateDoc(movieRef, updateData);
+                    
+                    // Sincronizar localmente
+                    movie.isVIP = newVipStatus;
+                    movie.releaseDate = releaseDate;
+                    
+                    if (window.showToast) {
+                        window.showToast(`✅ VIP ${newVipStatus ? 'ACTIVADO' : 'DESACTIVADO'} para "${movie.title}"`, "success");
+                    }
+                    
+                    // Opcional: Refrescar la UI de la home si es necesario
+                    sessionStorage.removeItem('selvaflix_full_database');
+                    sessionStorage.removeItem('selvaflix_cache_timestamp');
+
+                } catch (e) {
+                    console.error("Error actualizando VIP:", e);
+                    if (window.showToast) window.showToast("Error al guardar cambios VIP.", "error");
+                }
             }
         });
 

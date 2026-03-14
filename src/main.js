@@ -528,7 +528,15 @@ function _renderCardsInto(container, data) {
                 onerror="this.parentElement.style.border='2px solid #E74C3C'; this.src='https://via.placeholder.com/500x750/1a1a1a/E74C3C?text=Sin+Imagen';">
               <div class="card-info">
                 <h3 class="card-title">${item.title}</h3>
-                <p class="card-meta">${item.year || 'Estreno'} • ★ ${item.rating || '4.8'}</p>
+                <div style="display:flex; align-items:center; gap:5px; margin-top:4px;">
+                  <p class="card-meta">${item.year || 'Estreno'} • ★ ${item.rating || '4.8'}</p>
+                  ${item.isVIP ? `
+                    <div class="vip-badge-sm" style="background: linear-gradient(45deg, #FFD700, #FFA500); color: black; font-size: 0.55rem; font-weight: 900; padding: 1px 5px; border-radius: 4px; display: flex; align-items: center; gap: 2px; box-shadow: 0 0 10px rgba(255,165,0,0.3);">
+                      <span>👑</span>
+                      <span>VIP</span>
+                    </div>
+                  ` : ''}
+                </div>
               </div>
             </div>
         `;
@@ -788,14 +796,15 @@ window.switchAdminTab = (tab) => {
   const metTab = document.getElementById('admin-metrics-tab');
   const actTab = document.getElementById('admin-actions-tab');
   const adsTab = document.getElementById('admin-ads-tab');
+  const levTab = document.getElementById('admin-levels-tab'); // 👑
   const btnInv = document.getElementById('btn-admin-inventory');
   const btnMet = document.getElementById('btn-admin-metrics');
-  const btnAct = document.getElementById('btn-admin-actions');
+  const btnLev = document.getElementById('btn-admin-levels'); // 👑
   const btnAds = document.getElementById('btn-admin-ads');
 
   // Reset all
-  [invTab, metTab, actTab, adsTab].forEach(t => { if(t) t.style.display = 'none'; });
-  [btnInv, btnMet, btnAct, btnAds].forEach(b => { if(b) b.classList.remove('active'); });
+  [invTab, metTab, actTab, adsTab, levTab].forEach(t => { if(t) t.style.display = 'none'; });
+  [btnInv, btnMet, btnLev, btnAds].forEach(b => { if(b) b.classList.remove('active'); });
 
   if (tab === 'inventory') {
     if(invTab) invTab.style.display = 'block';
@@ -806,14 +815,18 @@ window.switchAdminTab = (tab) => {
     if(btnMet) btnMet.classList.add('active');
     window.initMetricsSelectors();
     window.loadMetrics();
-  } else if (tab === 'actions') {
-    if(actTab) actTab.style.display = 'block';
-    if(btnAct) btnAct.classList.add('active');
-    window.renderAdminBannerList(); // Carga inicial de destacados
+  } else if (tab === 'actions' || tab === 'levels') { // Mapeamos ambos por compatibilidad
+    if(levTab) levTab.style.display = 'block';
+    if(btnLev) btnLev.classList.add('active');
+    // Aquí cargaríamos la matriz de beneficios desde Firestore en el futuro
   } else if (tab === 'ads') {
     if(adsTab) adsTab.style.display = 'block';
     if(btnAds) btnAds.classList.add('active');
     window.loadAdConfig();
+    const forceAdCheckbox = document.getElementById('ad-debug-force');
+    if (forceAdCheckbox) {
+        forceAdCheckbox.checked = localStorage.getItem('selva_force_ads_debug') === 'true';
+    }
   }
 };
 
@@ -865,6 +878,8 @@ window.createNewAdCampaign = () => {
         name: 'Nueva Campaña ' + (adCampaigns.length + 1),
         active: true,
         placement: 'card_overlay',
+        layout: 'glass',
+        canSkip: false,
         days: [0,1,2,3,4,5,6], // Todos los días por defecto
         startHour: 0,
         endHour: 23,
@@ -903,6 +918,8 @@ window.editAdCampaign = (id) => {
     document.getElementById('ad-edit-media').value = camp.media;
     document.getElementById('ad-edit-timer').value = camp.timer;
     document.getElementById('ad-edit-priority').value = camp.priority || 2;
+    document.getElementById('ad-edit-layout').value = camp.layout || 'glass';
+    document.getElementById('ad-edit-can-skip').checked = camp.canSkip || false;
     document.getElementById('ad-edit-freq-mode').value = camp.freqMode || 'interval';
     document.getElementById('ad-edit-freq-times').value = camp.freqTimes || 1;
     document.getElementById('ad-edit-freq').value = camp.freqValue || 60;
@@ -988,6 +1005,8 @@ window.saveAdsCampaigns = async () => {
             camp.media = document.getElementById('ad-edit-media').value;
             camp.timer = parseInt(document.getElementById('ad-edit-timer').value);
             camp.priority = parseInt(document.getElementById('ad-edit-priority').value);
+            camp.layout = document.getElementById('ad-edit-layout').value;
+            camp.canSkip = document.getElementById('ad-edit-can-skip').checked;
             camp.freqMode = document.getElementById('ad-edit-freq-mode').value;
             camp.freqTimes = parseInt(document.getElementById('ad-edit-freq-times').value);
             camp.freqValue = parseInt(document.getElementById('ad-edit-freq').value);
@@ -1930,10 +1949,16 @@ async function startWarningOverlay(movie) {
       return;
     }
 
-    // 🕵️ Buscar campaña activa que encaje con el horario y día
+    let activeCampaign = null;
+
     const now = new Date();
+    const nowTs = Date.now();
     const currentHour = now.getHours();
     const currentDay = now.getDay(); // 0=D, 1=L...
+    const movieKey = movie.title || movie.name || 'unknown';
+
+    // 🕵️ MODO DIOS: Omitir filtros si el administrador lo desea (Solo LocalStorage persistente)
+    const forceAds = localStorage.getItem('selva_force_ads_debug') === 'true';
     
     if (config.campaigns) {
         // 1. Filtrar candidatos por horario y día
@@ -1947,6 +1972,8 @@ async function startWarningOverlay(movie) {
         if (timeMatchCandidates.length > 0) {
             // 2. Filtrar los que pasan el test de frecuencia
             const eligibleCandidates = timeMatchCandidates.filter(c => {
+                if (forceAds) return true; // ⚡ MODO DIOS: Salta frecuencias
+
                 const storageKey = `selva_ad_${c.id}`;
                 const h = JSON.parse(localStorage.getItem(storageKey) || '{}');
                 const mode = c.freqMode || 'interval';
@@ -1973,7 +2000,6 @@ async function startWarningOverlay(movie) {
 
             if (eligibleCandidates.length > 0) {
                 // 3. Agrupar por prioridad y elegir el nivel más alto disponible
-                // Nivel 3 (VIP) > Nivel 2 (Normal) > Nivel 1 (Relleno)
                 const priorities = eligibleCandidates.map(c => c.priority || 2);
                 const maxPriority = Math.max(...priorities);
                 const topCandidates = eligibleCandidates.filter(c => (c.priority || 2) === maxPriority);
@@ -2009,31 +2035,84 @@ async function startWarningOverlay(movie) {
     }
 
     // Default: card_overlay
-    overlay.style.display = 'flex';
-    overlay.innerHTML = `
-      <div class="ad-card-content" style="position: relative; z-index: 10; background: rgba(10,10,10,0.8); backdrop-filter: blur(20px); padding: 40px; border-radius: 30px; border: 1px solid rgba(255,122,0,0.3); max-width: 500px; width: 90%; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.8); overflow: hidden; animation: adSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);">
-        <style> @keyframes adSlideUp { 0% { transform: translateY(30px); opacity:0; } 100% { transform: translateY(0); opacity:1; } } </style>
-        
-        <!-- Background Media -->
-        ${activeCampaign.media ? (activeCampaign.media.endsWith('.mp4') ? 
-          `<video src="${activeCampaign.media}" autoplay muted loop style="position: absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; z-index:-1; opacity:0.4;"></video>` : 
-          `<img src="${activeCampaign.media}" style="position: absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; z-index:-1; opacity:0.4;">`) : ''}
+    const isHybrid = activeCampaign.layout === 'hybrid';
+    const isFullscreen = activeCampaign.layout === 'fullscreen';
+    const canSkipNow = activeCampaign.canSkip || false;
+    const hasMessage = activeCampaign.message && activeCampaign.message.trim() !== "";
+    const hasMedia = activeCampaign.media && activeCampaign.media.trim() !== "";
 
-        <div style="position: relative; z-index: 2;">
-            <img src="/icon_192.png" style="width: 70px; margin-bottom: 20px; filter: drop-shadow(0 0 10px var(--primary));">
-            <h2 style="color: white; font-size: 1.5rem; font-weight: 800; margin-bottom: 15px;">Aviso de la Selva 🌴</h2>
-            <p style="color: #ccc; line-height: 1.6; margin-bottom: 30px; font-size: 0.95rem;">${activeCampaign.message || "Disfruta de tu película."}</p>
+    overlay.style.display = 'flex';
+    overlay.style.background = isFullscreen ? 'black' : 'rgba(0,0,0,0.85)';
+    
+    overlay.innerHTML = `
+      <div class="ad-card-content" style="position: relative; z-index: 10; 
+           background: ${isFullscreen ? 'transparent' : 'rgba(10,10,10,0.95)'}; 
+           backdrop-filter: ${isFullscreen ? 'none' : 'blur(25px)'}; 
+           padding: ${isFullscreen ? '0' : (isHybrid ? '30px' : '40px')}; 
+           border-radius: ${isFullscreen ? '0' : '30px'}; 
+           border: ${isFullscreen ? 'none' : '1px solid rgba(255,255,255,0.1)'}; 
+           max-width: ${isFullscreen ? '100%' : '500px'}; 
+           width: ${isFullscreen ? '100%' : '95%'}; 
+           height: ${isFullscreen ? '100%' : 'auto'};
+           text-align: center; 
+           box-shadow: ${isFullscreen ? 'none' : '0 25px 60px rgba(0,0,0,0.9)'}; 
+           overflow: hidden; 
+           display: flex; flex-direction: column; align-items: center; justify-content: center;
+           animation: adSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);">
+        
+        <style> 
+            @keyframes adSlideUp { 0% { transform: translateY(40px) scale(0.95); opacity:0; } 100% { transform: translateY(0) scale(1); opacity:1; } } 
+            .ad-hybrid-media { width: 100%; border-radius: 15px; margin: 20px 0; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.5); object-fit: cover; max-height: 250px; }
+            .ad-fullscreen-media { position: absolute; top:0; left:0; width:100%; height:100%; object-fit: contain; z-index: 1; pointer-events: none; }
+        </style>
+        
+        <!-- Media Elements -->
+        ${hasMedia ? (isFullscreen ? 
+            (activeCampaign.media.endsWith('.mp4') ? 
+                `<video src="${activeCampaign.media}" autoplay muted loop class="ad-fullscreen-media"></video>` : 
+                `<img src="${activeCampaign.media}" class="ad-fullscreen-media">`) :
+            (isHybrid ? 
+                (activeCampaign.media.endsWith('.mp4') ? 
+                    `<video src="${activeCampaign.media}" autoplay muted loop class="ad-hybrid-media"></video>` : 
+                    `<img src="${activeCampaign.media}" class="ad-hybrid-media">`) :
+                (activeCampaign.media.endsWith('.mp4') ? 
+                    `<video src="${activeCampaign.media}" autoplay muted loop style="position: absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; z-index:-1; opacity:0.4;"></video>` : 
+                    `<img src="${activeCampaign.media}" style="position: absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; z-index:-1; opacity:0.4;">`)
+            )
+        ) : ''}
+
+        <div style="position: relative; z-index: 2; width: 100%; padding: 40px; box-sizing: border-box; 
+                    ${isFullscreen ? 'background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%); position: absolute; bottom: 0;' : ''}">
             
-            <div id="ad-timer-display" style="font-size: 2.5rem; font-weight: 900; color: var(--primary); margin-bottom: 20px; font-family: 'Outfit', sans-serif;">${activeCampaign.timer}</div>
+            ${!isFullscreen || hasMessage ? `
+                <div style="display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 20px;">
+                    <img src="/icon_192.png" style="width: 45px; filter: drop-shadow(0 0 10px var(--primary));">
+                    <span style="color: var(--primary); font-weight: 900; font-size: 0.7rem; letter-spacing: 2px; text-transform: uppercase;">Aviso de la Selva 🌴</span>
+                </div>
+            ` : ''}
             
-            <button id="btn-proceed-ad" disabled style="width: 100%; padding: 18px; border-radius: 12px; border: none; background: rgba(255,255,255,0.05); color: #555; font-weight: bold; cursor: not-allowed; transition: all 0.3s; font-size: 0.9rem; letter-spacing: 1px;">
-              ESPERA UN MOMENTO...
+            ${hasMessage ? `
+                <h2 style="color: white; font-size: 1.3rem; font-weight: 800; margin-bottom: 15px; line-height: 1.2;">${activeCampaign.name || "Mensaje Importante"}</h2>
+                <p style="color: #bbb; line-height: 1.5; margin-bottom: ${isHybrid ? '10px' : '25px'}; font-size: 0.9rem; padding: 0 10px;">${activeCampaign.message}</p>
+            ` : ''}
+
+            <div id="ad-timer-display" style="font-size: 2.2rem; font-weight: 900; color: var(--primary); margin-bottom: 20px; font-family: 'Outfit', sans-serif; text-shadow: 0 0 20px var(--primary-glow);">${activeCampaign.timer}</div>
+            
+            <button id="btn-proceed-ad" ${canSkipNow ? '' : 'disabled'} style="width: 100%; max-width: 400px; margin: 0 auto; padding: 18px; border-radius: 12px; border: none; background: ${canSkipNow ? 'var(--primary)' : 'rgba(255,255,255,0.05)'}; color: ${canSkipNow ? 'black' : '#555'}; font-weight: 900; cursor: ${canSkipNow ? 'pointer' : 'not-allowed'}; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); font-size: 0.85rem; letter-spacing: 1px; box-shadow: ${canSkipNow ? '0 10px 30px var(--primary-glow)' : 'none'}; display: block;">
+              ${canSkipNow ? 'CONTINUAR A LA PELÍCULA 🍿' : 'ESPERA UN MOMENTO...'}
             </button>
         </div>
       </div>
     `;
 
     let timeLeft = activeCampaign.timer;
+    const btn = document.getElementById('btn-proceed-ad');
+    
+    // Si ya puede saltar, asimilar el click de una vez
+    if (canSkipNow) {
+        btn.onclick = () => window.finishAdFlow(activeCampaign, movie);
+    }
+
     const timerInterval = setInterval(() => {
       timeLeft--;
       const display = document.getElementById('ad-timer-display');
@@ -2045,7 +2124,6 @@ async function startWarningOverlay(movie) {
       
       if (timeLeft <= 0) {
         clearInterval(timerInterval);
-        const btn = document.getElementById('btn-proceed-ad');
         if (btn) {
           btn.disabled = false;
           btn.innerText = "CONTINUAR A LA PELÍCULA 🍿";
@@ -2053,23 +2131,7 @@ async function startWarningOverlay(movie) {
           btn.style.color = 'black';
           btn.style.cursor = 'pointer';
           btn.style.boxShadow = '0 10px 30px var(--primary-glow)';
-          btn.onclick = () => {
-             overlay.style.display = 'none';
-             
-             // Actualizar Historial de Frecuencia
-             const storageKey = `selva_ad_${activeCampaign.id}`;
-             let history = JSON.parse(localStorage.getItem(storageKey) || '{}');
-             if (!history.views) history.views = [];
-             history.views.push(Date.now());
-             if (!history.movies) history.movies = {};
-             history.movies[movie.title || movie.name || 'unknown'] = Date.now();
-             localStorage.setItem(storageKey, JSON.stringify(history));
-
-             if (activeCampaign.link) {
-                window.open(activeCampaign.link, '_blank');
-             }
-             startPlayer(movie);
-          };
+          btn.onclick = () => window.finishAdFlow(activeCampaign, movie);
         }
       }
     }, 1000);
@@ -2078,7 +2140,64 @@ async function startWarningOverlay(movie) {
     console.error("Error al iniciar el puente de anuncios:", e);
     startPlayer(movie);
   }
+    // Sincronizar UI de depuración
+    const forceAdCheckbox = document.getElementById('ad-debug-force');
+    if (forceAdCheckbox) {
+        forceAdCheckbox.checked = localStorage.getItem('selva_force_ads_debug') === 'true';
+    }
 }
+
+window.finishAdFlow = (activeCampaign, movie) => {
+    const overlay = document.getElementById('ad-overlay');
+    if (overlay) overlay.style.display = 'none';
+    
+    // Actualizar Historial de Frecuencia
+    const storageKey = `selva_ad_${activeCampaign.id}`;
+    const movieKey = movie.title || movie.name || 'unknown';
+    let history = JSON.parse(localStorage.getItem(storageKey) || '{}');
+    
+    if (!history.views) history.views = [];
+    history.views.push(Date.now());
+    
+    if (!history.movies) history.movies = {};
+    history.movies[movieKey] = Date.now();
+    
+    // Nuevo rastreo para multivista diaria per movie
+    if (!history.movies_history) history.movies_history = {};
+    if (!history.movies_history[movieKey]) history.movies_history[movieKey] = [];
+    history.movies_history[movieKey].push(Date.now());
+    
+    // Limpiar historial viejo de esa peli (más de 48h)
+    history.movies_history[movieKey] = history.movies_history[movieKey].filter(ts => Date.now() - ts < 172800000);
+    
+    localStorage.setItem(storageKey, JSON.stringify(history));
+
+    if (activeCampaign.link) {
+       window.open(activeCampaign.link, '_blank');
+    }
+    startPlayer(movie);
+};
+
+
+// --- Debugging Tools ---
+window.clearAdHistory = () => {
+    if (confirm("¿Quieres resetear todo el historial de vistas de anuncios? Esto simulará que eres un usuario nuevo. 🐒🧹")) {
+        const keys = Object.keys(localStorage);
+        keys.forEach(key => {
+            if (key.startsWith('selva_ad_')) {
+                localStorage.removeItem(key);
+            }
+        });
+        if (window.showToast) window.showToast("¡Historial de anuncios borrado! 🧼", "success");
+    }
+};
+
+window.toggleForceAds = (enabled) => {
+    localStorage.setItem('selva_force_ads_debug', enabled);
+    if (window.showToast) {
+        window.showToast(enabled ? "⚡ MODO DIOS ACTIVADO: Anuncios sin límites" : "🛡️ MODO NORMAL ACTIVADO", enabled ? "success" : "warning");
+    }
+};
 
 // Auxiliar para Video Preroll (Básico por ahora)
 window.showAdVideoPreroll = (camp, movie) => {
@@ -2156,6 +2275,18 @@ window.openPlayer = async (movieId) => {
   }
 
   collectUserData("watch_attempt", { title: movie.title, id: movie.id });
+
+  // 💎 VIP Engine: Verificar Acceso
+  const userTier = (auth.currentUser && auth.currentUser.customClaims?.tier) || 'free';
+  const isPremium = userTier === 'premium' || userTier === 'admin';
+  const now = Date.now();
+  const isVipLocked = movie.isVIP && (!movie.releaseDate || now < movie.releaseDate);
+
+  if (isVipLocked && !isPremium) {
+    // Bloqueado para Free: Mostrar Modal de Estreno o Upgrade
+    window.showVipLockModal(movie);
+    return;
+  }
 
   // --- Iniciar Puente de Anuncios (Capa 1 & 2) ---
   startWarningOverlay(movie);
@@ -2311,6 +2442,13 @@ window.editMovie = (id) => {
   document.getElementById('m-year').value = (movie.year || '2024').toString().split('-')[0];
   document.getElementById('m-rating').value = movie.rating || '4.8';
   document.getElementById('m-type').value = movie.type || 'movie';
+  
+  // VIP Fields
+  const isVip = movie.isVIP || false;
+  document.getElementById('m-is-vip').checked = isVip;
+  document.getElementById('m-vip-options').style.display = isVip ? 'block' : 'none';
+  document.getElementById('m-release-date').value = movie.releaseDate ? new Date(movie.releaseDate).toISOString().slice(0, 16) : "";
+  document.getElementById('m-show-countdown').checked = movie.showCountdown !== false;
 
   // Actualizar preview
   document.getElementById('m-img-preview').src = movie.img;
@@ -3177,6 +3315,12 @@ document.addEventListener('DOMContentLoaded', () => {
       rating: document.getElementById('m-rating').value || '7.0',
       type: document.getElementById('m-type').value || 'movie',
       status: dbId ? document.getElementById('m-status').value : (document.getElementById('discover-send-to-review')?.checked ? 'review' : 'healthy'),
+      
+      // 💎 VIP Engine
+      isVIP: document.getElementById('m-is-vip').checked,
+      releaseDate: document.getElementById('m-release-date').value ? new Date(document.getElementById('m-release-date').value).getTime() : null,
+      showCountdown: document.getElementById('m-show-countdown').checked,
+      
       updatedAt: Date.now()
     };
 

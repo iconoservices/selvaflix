@@ -14,6 +14,25 @@
   --pwa-bg: rgba(15, 15, 15, 0.95);
 }
 
+/* 💎 VIP & Premium Styles */
+.vip-badge-sm {
+  animation: vipGlow 2s infinite alternate;
+}
+
+@keyframes vipGlow {
+  from { box-shadow: 0 0 5px rgba(255,215,0,0.3); }
+  to { box-shadow: 0 0 15px rgba(255,215,0,0.6); }
+}
+
+@keyframes vipPop { 
+  0% { transform: scale(0.9); opacity:0; } 
+  100% { transform: scale(1); opacity:1; } 
+}
+
+.glow-text-vip { 
+  text-shadow: 0 0 15px rgba(255,215,0,0.6); 
+}
+
 @keyframes pulse-primary {
   0% {
     box-shadow: 0 0 0 0 rgba(255, 122, 0, 0.6);

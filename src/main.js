@@ -937,8 +937,21 @@ window.editAdCampaign = (id) => {
 window.updateFreqFields = () => {
     const mode = document.getElementById('ad-edit-freq-mode').value;
     const group = document.getElementById('freq-value-group');
+    const timesOnly = document.getElementById('freq-times-only-group'); // Nuevo contenedor para cuando solo queremos veces
+    
     if (group) {
         group.style.display = mode === 'interval' ? 'grid' : 'none';
+    }
+    
+    // Si es diario por peli, mostramos solo el campo de "Veces"
+    const timesInput = document.getElementById('ad-edit-freq-times').closest('.form-group');
+    if (mode === 'per_movie_daily') {
+        if (group) group.style.display = 'grid';
+        document.getElementById('freq-value-label').parentElement.style.opacity = '0.3';
+        document.getElementById('ad-edit-freq').disabled = true;
+    } else if (mode === 'interval') {
+        document.getElementById('freq-value-label').parentElement.style.opacity = '1';
+        document.getElementById('ad-edit-freq').disabled = false;
     }
 };
 
@@ -1945,9 +1958,12 @@ async function startWarningOverlay(movie) {
                     return recentViews.length < maxTimes;
                 } 
                 else if (mode === 'per_movie_daily') {
-                    const lastMovieTs = (h.movies && h.movies[movieKey]) || 0;
-                    const lastDate = new Date(lastMovieTs).toDateString();
-                    return !(lastMovieTs > 0 && lastDate === new Date().toDateString());
+                    const movieHistory = h.movies_history || {};
+                    const movieViews = movieHistory[movieKey] || [];
+                    const today = new Date().toDateString();
+                    const viewsToday = movieViews.filter(ts => new Date(ts).toDateString() === today);
+                    const maxTimes = c.freqTimes || 1;
+                    return viewsToday.length < maxTimes;
                 } 
                 else if (mode === 'per_movie_once') {
                     return !(h.movies && h.movies[movieKey]);

@@ -284,11 +284,14 @@ async function loadSelvaFlixData() {
 }
 
 // Iniciar recolección al cargar
-const urlParams = new URLSearchParams(window.location.search);
-if (urlParams.get('selva_admin_active') === 'true') {
-  sessionStorage.setItem('selva_admin_active', 'true');
-  console.log("🔓 Acceso de Administrador confirmado por URL.");
-}
+// Backdoor removed by Architect Antigravity 🌴
+// Access only via #admin password check.
+window.updateAdminUI = () => {
+  const isAdmin = localStorage.getItem('selva_admin_auth') === 'true';
+  const dot = document.getElementById('admin-status-dot');
+  if (dot) dot.style.display = isAdmin ? 'block' : 'none';
+};
+window.updateAdminUI(); 
 loadSelvaFlixData();
 
 
@@ -411,8 +414,9 @@ function handleRouting() {
     const isAdminAuthenticated = localStorage.getItem('selva_admin_auth') === 'true';
     if (!isAdminAuthenticated) {
         const password = prompt("🔒 Área Restringida. Introduce la contraseña de administrador:");
-        if (password === "selva2025") { // Puedes cambiar esta contraseña
+        if (password === "selva2025") { 
             localStorage.setItem('selva_admin_auth', 'true');
+            window.updateAdminUI(); // Sync dot
             alert("✅ Acceso Concedido.");
         } else {
             alert("❌ Contraseña incorrecta. Volviendo a la selva.");
@@ -445,6 +449,30 @@ function handleRouting() {
     initApp(hashVal, '');
   }
 }
+
+// --- Admin Power: Crown Promotion ---
+window.selvaExecuteCrownPromotion = async (movieId, sourceUrl) => {
+    if (localStorage.getItem('selva_admin_auth') !== 'true') return;
+    
+    if (!confirm("¿Deseas coronar esta fuente como la PRIORIDAD para esta película? 👑🌴")) return;
+
+    try {
+        await updateDoc(doc(db, "movies", movieId), { embed: sourceUrl });
+        if (window.showToast) window.showToast("👑 Fuente coronada con éxito. Ahora es la prioridad.", "success");
+        
+        // Sincronizar localmente si el reproductor está abierto
+        if (typeof SelvaStream !== 'undefined' && SelvaStream.currentPlayerMovie?.id === movieId) {
+            SelvaStream.currentPlayerMovie.embed = sourceUrl;
+            SelvaStream.loadDebridAuto(); // Recargar con la nueva corona
+        }
+        
+        // Limpiar caché para que otros vean el cambio
+        sessionStorage.removeItem('selvaflix_full_database');
+    } catch (e) {
+        console.error("Error coronando fuente:", e);
+        if (window.showToast) window.showToast("Error al coronar la fuente 🐒", "error");
+    }
+};
 
 // removed renderChannels
 

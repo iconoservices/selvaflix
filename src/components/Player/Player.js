@@ -120,21 +120,31 @@ export const SelvaStream = {
                             </div>
                         </div>
                         <div class="sidebar-card actions-card">
-                            <h3>🛠️ ACCIONES</h3>
-                            <div id="admin-reviewer-actions" style="display:none; flex-direction:column; gap:8px; margin-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:12px;">
-                                <button id="admin-approve-player-btn" style="width:100%; background:#2ecc71; color:black; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:900; font-size: 0.65rem; box-shadow:0 4px 10px rgba(46,204,113,0.3);">✅ APROBAR</button>
-                                <button id="admin-wait-player-btn" style="width:100%; background:#f1c40f; color:black; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:900; font-size: 0.65rem; box-shadow:0 4px 10px rgba(241,196,15,0.3);">⏳ EN ESPERA</button>
-                                <button id="admin-delete-player-btn" style="width:100%; background:#e74c3c; color:white; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:900; font-size: 0.65rem; box-shadow:0 4px 10px rgba(231,76,60,0.3);">🗑️ BORRAR</button>
-                            </div>
-
-                            <button id="report-broken-btn" style="width:100%; height: auto; background: rgba(231,76,60,0.15); border: 1px solid rgba(231,76,60,0.3); color: #E74C3C; padding: 10px; border-radius: 8px; font-size: 0.65rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;">🚨 REPORTE</button>
+                            <h3 style="color: var(--primary); font-size: 0.6rem; letter-spacing: 1px; margin-bottom: 10px; opacity: 0.8;">🚨 SOPORTE</h3>
+                            <button id="report-broken-btn" style="width:100%; height: auto; background: rgba(231,76,60,0.1); border: 1px solid rgba(231,76,60,0.2); color: #E74C3C; padding: 10px; border-radius: 8px; font-size: 0.65rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; margin-bottom: 15px;">🚩 REPORTAR ERROR</button>
                             
-                            <a id="external-player-btn" href="#" target="_blank" style="display:none; align-items:center; justify-content:center; gap:8px; background: linear-gradient(135deg, #e67e22, #d35400); color:white; padding:10px; border-radius: 8px; text-decoration:none; font-weight:bold; margin-top:10px; font-size:0.65rem; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
-                                🎬 ABRIR EN VLC
-                            </a>
+                            <div id="admin-only-panel" style="display:none; flex-direction:column; gap:8px; border-top:1px solid rgba(255,255,255,0.08); padding-top:15px; margin-top: 5px;">
+                                <h3 style="color: #00f2ff; font-size: 0.6rem; letter-spacing: 1px; margin-bottom: 5px; opacity: 0.8;">🛠️ ADMINISTRACIÓN</h3>
+                                
+                                <div id="admin-reviewer-actions" style="display:flex; flex-direction:column; gap:6px; margin-bottom:10px;">
+                                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px;">
+                                        <button id="admin-approve-player-btn" style="background:#2ecc71; color:black; border:none; padding:8px; border-radius:6px; cursor:pointer; font-weight:900; font-size: 0.6rem;">✅ APROBAR</button>
+                                        <button id="admin-wait-player-btn" style="background:#f1c40f; color:black; border:none; padding:8px; border-radius:6px; cursor:pointer; font-weight:900; font-size: 0.6rem;">⏳ ESPERA</button>
+                                    </div>
+                                    <button id="admin-delete-player-btn" style="width:100%; background:#e74c3c; color:white; border:none; padding:8px; border-radius:6px; cursor:pointer; font-weight:900; font-size: 0.6rem;">🗑️ BORRAR</button>
+                                </div>
 
-                            <div class="sidebar-ad-space" style="margin-top: 8px;">
-                                <span>🔥 SelvaFlix VIP</span>
+                                <div class="admin-manual-link-box" style="background: rgba(0,242,255,0.05); border: 1px solid rgba(0,242,255,0.1); padding: 8px; border-radius: 8px; margin-bottom: 10px;">
+                                    <label style="color: #00f2ff; font-size: 0.55rem; font-weight: 800; display: block; margin-bottom: 5px;">👑 LINK MAESTRO (PRIORIDAD)</label>
+                                    <input type="text" id="admin-manual-link-input" placeholder="Pegar URL aquí..." style="width: 100%; background: #000; border: 1px solid #333; color: white; border-radius: 4px; padding: 6px; font-size: 0.65rem; outline: none; margin-bottom: 6px;">
+                                    <button id="admin-set-priority-btn" style="width: 100%; background: #00f2ff; color: #000; border: none; padding: 6px; border-radius: 4px; font-size: 0.6rem; font-weight: 900; cursor: pointer;">FIJAR PRIORIDAD</button>
+                                </div>
+
+                                <button id="admin-download-btn" style="width:100%; height: auto; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 10px; border-radius: 8px; font-size: 0.65rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;">⬇️ DESCARGAR FUENTE</button>
+                                
+                                <a id="external-player-btn" href="#" target="_blank" style="display:none; align-items:center; justify-content:center; gap:8px; background: linear-gradient(135deg, #e67e22, #d35400); color:white; padding:10px; border-radius: 8px; text-decoration:none; font-weight:bold; margin-top:10px; font-size:0.65rem; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
+                                    🎬 ABRIR EN VLC
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -147,8 +157,8 @@ export const SelvaStream = {
         // Eventos básicos eliminados: La X ya no existe, popstate manda.
 
         document.getElementById('admin-delete-player-btn')?.addEventListener('click', () => {
-            if (window.deleteMovie && this.currentPlayerMovie) {
-                const id = this.currentPlayerMovie.id;
+            if (window.deleteMovie && SelvaStream.currentPlayerMovie) {
+                const id = SelvaStream.currentPlayerMovie.id;
                 let hasNext = window.playNextReview ? window.playNextReview(id) : false;
                 window.deleteMovie(id);
                 if (!hasNext) history.back();
@@ -156,8 +166,8 @@ export const SelvaStream = {
         });
 
         document.getElementById('admin-approve-player-btn')?.addEventListener('click', () => {
-            if (window.approveMovie && this.currentPlayerMovie) {
-                const id = this.currentPlayerMovie.id;
+            if (window.approveMovie && SelvaStream.currentPlayerMovie) {
+                const id = SelvaStream.currentPlayerMovie.id;
                 let hasNext = window.playNextReview ? window.playNextReview(id) : false;
                 window.approveMovie(id);
                 if (!hasNext) history.back();
@@ -165,8 +175,8 @@ export const SelvaStream = {
         });
         
         document.getElementById('admin-wait-player-btn')?.addEventListener('click', () => {
-            if (window.moveToWaiting && this.currentPlayerMovie) {
-                const id = this.currentPlayerMovie.id;
+            if (window.moveToWaiting && SelvaStream.currentPlayerMovie) {
+                const id = SelvaStream.currentPlayerMovie.id;
                 let hasNext = window.playNextReview ? window.playNextReview(id) : false;
                 window.moveToWaiting(id);
                 if (!hasNext) history.back();
@@ -177,9 +187,42 @@ export const SelvaStream = {
             history.back();
         });
 
+        // --- Admin Functions for Sidebar ---
+        document.getElementById('admin-set-priority-btn')?.addEventListener('click', async () => {
+            const input = document.getElementById('admin-manual-link-input');
+            const link = input.value.trim();
+            if (!SelvaStream.currentPlayerMovie || !link) return;
+            
+            try {
+                const { getFirestore, doc, updateDoc } = await import("firebase/firestore");
+                const db = getFirestore();
+                const movieRef = doc(db, "movies", SelvaStream.currentPlayerMovie.id);
+                await updateDoc(movieRef, { embed: link });
+                SelvaStream.currentPlayerMovie.embed = link; // Sync local
+                if (window.showToast) window.showToast("👑 Link Maestro fijado con éxito.", "success");
+                // Recargar el reproductor con la nueva fuente
+                SelvaStream.loadDebridAuto();
+            } catch (e) {
+                console.error("Error fijando link:", e);
+                if (window.showToast) window.showToast("Error al fijar prioridad.", "error");
+            }
+        });
+
+        document.getElementById('admin-download-btn')?.addEventListener('click', () => {
+            const iframe = document.getElementById('player-iframe');
+            const nativeVideo = document.getElementById('native-video-player');
+            let currentUrl = (iframe && iframe.style.display !== 'none') ? iframe.src : (nativeVideo?.src || '');
+            
+            if (currentUrl && currentUrl !== 'about:blank') {
+                window.open(currentUrl, '_blank');
+            } else {
+                if (window.showToast) window.showToast("No hay una fuente activa para descargar. 🕵️‍♂️", "warning");
+            }
+        });
+
         document.getElementById('report-broken-btn')?.addEventListener('click', () => {
-            if (window.reportBrokenLink && this.currentPlayerMovie) {
-                window.reportBrokenLink(this.currentPlayerMovie.id, this.currentPlayerMovie.title);
+            if (window.reportBrokenLink && SelvaStream.currentPlayerMovie) {
+                window.reportBrokenLink(SelvaStream.currentPlayerMovie.id, SelvaStream.currentPlayerMovie.title);
             }
         });
         if (!document.getElementById('selva-player-css')) {
@@ -348,14 +391,14 @@ export const SelvaStream = {
         document.body.style.overflow = 'hidden';
 
         // Check if Admin
-        const isAdmin = sessionStorage.getItem('selva_admin_active');
-        const adminReviewer = document.getElementById('admin-reviewer-actions');
+        const isAdmin = localStorage.getItem('selva_admin_auth') === 'true';
+        const adminPanel = document.getElementById('admin-only-panel');
         const adminAppBtn = document.getElementById('admin-approve-player-btn');
         const adminWaitBtn = document.getElementById('admin-wait-player-btn');
+        const manualInput = document.getElementById('admin-manual-link-input');
         
-        if (adminReviewer) {
-            adminReviewer.style.display = isAdmin ? 'flex' : 'none';
-        }
+        if (adminPanel) adminPanel.style.display = isAdmin ? 'flex' : 'none';
+        if (manualInput) manualInput.value = movie.embed || '';
 
         if (adminAppBtn) {
             // Solo mostrar Aprobar si está en review o waiting

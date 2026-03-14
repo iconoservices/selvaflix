@@ -1096,6 +1096,12 @@ export const SelvaStream = {
         nativePlayer.ontimeupdate = () => {
             const now = Math.floor(nativePlayer.currentTime);
             const duration = Math.floor(nativePlayer.duration);
+            
+            // 🔥 Gatillo de Anuncio In-Player (Solo una vez por sesión de playback)
+            if (now === 10 && !this.inPlayerAdShown) {
+                this.injectInPlayerBanner();
+            }
+
             if (now > 0 && (now % 10 === 0 || now === duration)) {
                 if (window.syncPlaybackProgress) {
                     window.syncPlaybackProgress(this.currentPlayerMovie, now, duration, this.currentEpisodeId, this.currentEpisodeLabel);
@@ -1315,6 +1321,57 @@ export const SelvaStream = {
 
 
 
+
+    injectInPlayerBanner() {
+        if (typeof window.getInPlayerAd !== 'function') return;
+        const ad = window.getInPlayerAd();
+        if (!ad) return;
+
+        this.inPlayerAdShown = true;
+        const container = document.getElementById('native-player-container');
+        if (!container) return;
+
+        const banner = document.createElement('div');
+        banner.id = 'selva-inplayer-ad';
+        banner.style.cssText = `
+            position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
+            width: 90%; max-width: 450px; background: rgba(10,10,10,0.95);
+            backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px; padding: 12px; display: flex; align-items: center;
+            gap: 12px; z-index: 1000; animation: bannerSlideIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-left: 4px solid var(--primary);
+        `;
+
+        banner.innerHTML = `
+            <style>
+                @keyframes bannerSlideIn { from { transform: translate(-50%, 50px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+            </style>
+            ${ad.media ? `<img src="${ad.media}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 6px;">` : ''}
+            <div style="flex: 1; text-align: left;">
+                <p style="color: var(--primary); font-size: 0.6rem; font-weight: 900; text-transform: uppercase; margin: 0; letter-spacing: 1px;">Auncio de Apoyo 🌴</p>
+                <p style="color: white; font-size: 0.75rem; font-weight: 600; margin: 2px 0;">${ad.message || "Apóyanos para seguir gratis"}</p>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 5px;">
+                <button id="close-inplayer-ad" style="background: none; border: none; color: #666; font-size: 1.2rem; cursor: pointer; line-height: 1;">&times;</button>
+                ${ad.link ? `<a href="${ad.link}" target="_blank" style="background: var(--primary); color: black; font-size: 0.6rem; font-weight: 900; padding: 5px 10px; border-radius: 4px; text-decoration: none; text-align: center;">ABRIR</a>` : ''}
+            </div>
+        `;
+
+        container.appendChild(banner);
+
+        document.getElementById('close-inplayer-ad').onclick = (e) => {
+            e.stopPropagation();
+            banner.style.opacity = '0';
+            banner.style.transform = 'translate(-50%, 20px)';
+            setTimeout(() => banner.remove(), 400);
+        };
+        
+        // Auto-click link handling if desired
+        if (ad.link) {
+            banner.style.cursor = 'pointer';
+            banner.onclick = () => window.open(ad.link, '_blank');
+        }
+    },
 
     async callMasterWorker(infoHash, attempt = 1) {
         try {

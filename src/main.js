@@ -241,8 +241,11 @@ async function loadSelvaFlixData() {
         throw new Error("Caché incompleto o corrupto");
       }
 
-      console.log(`🟢 Objeto rehidratado: { trending: ${hydratedObject.trending.length} }. (0 lecturas)`);
+      console.log(`| Objeto rehidratado: { trending: ${hydratedObject.trending.length} }. (0 lecturas)`);
       movieDatabase = hydratedObject;
+      
+      // ✅ Revisar anuncios de la app al rehidratar
+      setTimeout(() => { if(window.checkAppBannerAd) window.checkAppBannerAd(); }, 1500);
     } catch (e) {
       console.warn("⚠️ Fallo en rehidratación, limpiando búnker para fetch fresco...");
       sessionStorage.removeItem(CACHE_KEY);
@@ -831,7 +834,7 @@ window.switchAdminTab = (tab) => {
 };
 
 // --- Monetization Engine v3.0 (Campaigns & Calendar) 🎬📅 ---
-let adCampaigns = [];
+window.adCampaigns = [];
 let editingCampaignId = null;
 
 window.loadAdConfig = async () => {
@@ -841,7 +844,7 @@ window.loadAdConfig = async () => {
         
         if (docSnap.exists()) {
             const data = docSnap.data();
-            adCampaigns = data.campaigns || [];
+            window.adCampaigns = data.campaigns || [];
             document.getElementById('ad-active-global').checked = data.globalActive !== false;
             window.renderAdCampaignList();
         }
@@ -854,15 +857,17 @@ window.renderAdCampaignList = () => {
     const list = document.getElementById('ad-campaign-list');
     if (!list) return;
 
-    if (adCampaigns.length === 0) {
+    const campaigns = window.adCampaigns || [];
+
+    if (campaigns.length === 0) {
         list.innerHTML = '<p style="font-size: 0.7rem; color: #444; text-align: center; padding: 20px;">No hay campañas. Crea una para empezar. 🌴</p>';
         return;
     }
 
-    list.innerHTML = adCampaigns.map(c => `
+    list.innerHTML = campaigns.map(c => `
         <div class="ad-campaign-item ${editingCampaignId === c.id ? 'active' : ''}" onclick="window.editAdCampaign('${c.id}')" style="padding: 10px; border-radius: 8px; background: ${editingCampaignId === c.id ? 'rgba(255,122,0,0.1)' : 'rgba(255,255,255,0.02)'}; border: 1px solid ${editingCampaignId === c.id ? 'var(--primary)' : 'rgba(255,255,255,0.05)'}; cursor: pointer; transition: 0.3s; position: relative;">
             <div style="display: flex; align-items: center; gap: 10px;">
-                <span style="font-size: 1rem;">${c.placement === 'card_overlay' ? '🃏' : '🎬'}</span>
+                <span style="font-size: 1rem;">${c.placement === 'video_preroll' ? '🎬' : (c.placement === 'in_player' ? '🕹️' : '🃏')}</span>
                 <div>
                     <p style="color: white; font-size: 0.75rem; font-weight: bold; margin: 0;">${c.name || 'Sin Nombre'}</p>
                     <p style="color: ${c.active ? '#2ecc71' : '#555'}; font-size: 0.6rem; margin: 0;">${c.active ? '● Activa' : '○ Pausada'}</p>
@@ -873,9 +878,10 @@ window.renderAdCampaignList = () => {
 };
 
 window.createNewAdCampaign = () => {
+    const campaigns = window.adCampaigns || [];
     const newCamp = {
         id: 'camp_' + Date.now().toString(36),
-        name: 'Nueva Campaña ' + (adCampaigns.length + 1),
+        name: 'Nueva Campaña ' + (campaigns.length + 1),
         active: true,
         placement: 'card_overlay',
         layout: 'glass',
@@ -892,14 +898,16 @@ window.createNewAdCampaign = () => {
         freqValue: 60, 
         link: ""
     };
-    adCampaigns.push(newCamp);
+    
+    if (!window.adCampaigns) window.adCampaigns = [];
+    window.adCampaigns.push(newCamp);
     window.renderAdCampaignList();
     window.editAdCampaign(newCamp.id);
 };
 
 window.editAdCampaign = (id) => {
     editingCampaignId = id;
-    const camp = adCampaigns.find(c => c.id === id);
+    const camp = (window.adCampaigns || []).find(c => c.id === id);
     if (!camp) return;
 
     window.renderAdCampaignList();
@@ -974,14 +982,16 @@ window.updateFreqFields = () => {
 
 window.updateAdPlacementFields = () => {
     const p = document.getElementById('ad-edit-placement').value;
-    document.getElementById('placement-card-fields').style.display = p === 'card_overlay' ? 'block' : 'none';
+    // Estos placements usan campos de texto/mensaje
+    const needsText = (p === 'card_overlay' || p === 'in_player' || p === 'app_banner');
+    document.getElementById('placement-card-fields').style.display = needsText ? 'block' : 'none';
 };
 
 window.deleteCurrentCampaign = () => {
     if (!editingCampaignId) return;
     if (!confirm('¿Seguro que quieres borrar esta campaña de la selva? 🌴🗑️')) return;
 
-    adCampaigns = adCampaigns.filter(c => c.id !== editingCampaignId);
+    window.adCampaigns = (window.adCampaigns || []).filter(c => c.id !== editingCampaignId);
     editingCampaignId = null;
     document.getElementById('ad-campaign-editor').style.display = 'none';
     document.getElementById('ad-campaign-empty').style.display = 'flex';
@@ -1021,7 +1031,7 @@ window.saveAdsCampaigns = async () => {
 
     const config = {
         globalActive: document.getElementById('ad-active-global').checked,
-        campaigns: adCampaigns
+        campaigns: window.adCampaigns || []
     };
 
     console.log("🌴 Intentando guardar configuración de anuncios:", config);
@@ -1933,6 +1943,80 @@ window.selvaExecuteCrownPromotion = async (movieId, hash) => {
   }
 };
 
+// --- Selección de Anuncios In-Player / App Banner ---
+window.getFilteredAd = (placement) => {
+    try {
+        const nowTS = Date.now();
+        const campaigns = window.adCampaigns || [];
+        const activeCampaigns = campaigns.filter(c => c.active && c.placement === placement);
+        
+        if (activeCampaigns.length === 0) return null;
+
+        const eligible = activeCampaigns.filter(c => {
+            const h = JSON.parse(localStorage.getItem(`selva_ad_${c.id}`) || '{}');
+            const lastView = h.views && h.views.length > 0 ? Math.max(...h.views) : 0;
+            const diffMin = (nowTS - lastView) / 60000;
+            return diffMin >= (c.frequency || 0);
+        });
+
+        if (eligible.length === 0) return null;
+
+        const priorities = eligible.map(c => c.priority || 2);
+        const maxPriority = Math.max(...priorities);
+        const topCandidates = eligible.filter(c => (c.priority || 2) === maxPriority);
+
+        const candidatesWithHistory = topCandidates.map(c => {
+            const h = JSON.parse(localStorage.getItem(`selva_ad_${c.id}`) || '{}');
+            const lastSeen = h.views && h.views.length > 0 ? Math.max(...h.views) : 0;
+            return { campaign: c, lastSeen };
+        });
+
+        candidatesWithHistory.sort((a, b) => a.lastSeen - b.lastSeen);
+        return candidatesWithHistory[0].campaign;
+
+    } catch (e) {
+        console.error(`Error en getFilteredAd (${placement}):`, e);
+        return null;
+    }
+};
+
+window.getInPlayerAd = () => window.getFilteredAd('in_player');
+
+window.checkAppBannerAd = () => {
+    const ad = window.getFilteredAd('app_banner');
+    const container = document.getElementById('app-sticky-banner');
+    if (!container) return;
+
+    if (!ad) {
+        container.style.display = 'none';
+        return;
+    }
+
+    container.style.display = 'flex';
+    container.innerHTML = `
+        <div style="flex: 1; display: flex; align-items: center; gap: 10px;">
+            ${ad.media ? `<img src="${ad.media}" style="height: 40px; width: 40px; border-radius: 6px; object-fit: cover;">` : '🚩'}
+            <div style="text-align: left;">
+                <p style="color: var(--primary); font-size: 0.55rem; font-weight: 900; margin: 0; text-transform: uppercase;">Patrocinado 🌴</p>
+                <p style="color: white; font-size: 0.7rem; font-weight: 600; margin: 0; line-height: 1.2;">${ad.message || "Anuncio"}</p>
+            </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            ${ad.link ? `<a href="${ad.link}" target="_blank" onclick="window.recordAdView('${ad.id}')" style="background: var(--primary); color: black; font-size: 0.6rem; font-weight: 900; padding: 6px 12px; border-radius: 6px; text-decoration: none;">VER</a>` : ''}
+            <button onclick="this.parentElement.parentElement.style.display='none'" style="background: none; border: none; color: #555; font-size: 1.2rem; cursor: pointer; padding: 0 5px;">&times;</button>
+        </div>
+    `;
+};
+
+// Refactor para registrar vista globalmente
+window.recordAdView = (id) => {
+    const key = `selva_ad_${id}`;
+    const h = JSON.parse(localStorage.getItem(key) || '{}');
+    if(!h.views) h.views = [];
+    h.views.push(Date.now());
+    localStorage.setItem(key, JSON.stringify(h));
+};
+
 async function startWarningOverlay(movie) {
   const overlay = document.getElementById('ad-overlay');
   if (!overlay) {
@@ -2178,6 +2262,79 @@ window.finishAdFlow = (activeCampaign, movie) => {
     startPlayer(movie);
 };
 
+
+window.showAdVideoPreroll = (activeCampaign, movie) => {
+    const overlay = document.getElementById('ad-overlay');
+    if (!overlay) return startPlayer(movie);
+
+    overlay.style.display = 'flex';
+    overlay.style.background = 'black';
+    overlay.style.zIndex = '9999';
+
+    const skipDelay = activeCampaign.timer || 5;
+    
+    overlay.innerHTML = `
+        <div style="position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: black;">
+            <video id="ad-video-element" src="${activeCampaign.media}" autoplay playsinline style="width: 100%; height: 100%; object-fit: contain;"></video>
+            
+            <!-- Ad Info Badge -->
+            <div style="position: absolute; bottom: 100px; left: 30px; background: rgba(0,0,0,0.6); padding: 10px 20px; border-radius: 8px; border-left: 4px solid var(--primary); backdrop-filter: blur(10px); z-index: 10;">
+                <p style="color: white; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; margin-bottom: 5px; letter-spacing: 1px;">Publicidad 🌴</p>
+                <p style="color: #ccc; font-size: 0.85rem; margin: 0;">${activeCampaign.name || "Aviso de la Selva"}</p>
+            </div>
+
+            <!-- YouTube Style Skip Button -->
+            <button id="btn-skip-ad" disabled style="position: absolute; bottom: 100px; right: 0; background: rgba(0,0,0,0.8); color: white; border: 1px solid rgba(255,255,255,0.2); border-right: none; padding: 15px 30px; font-weight: 900; font-size: 0.9rem; border-radius: 50px 0 0 50px; cursor: not-allowed; transition: all 0.3s; pointer-events: none; min-width: 150px; text-align: left;">
+                Puedes saltar en <span id="ad-skip-timer">${skipDelay}</span>
+            </button>
+        </div>
+    `;
+
+    const video = document.getElementById('ad-video-element');
+    const skipBtn = document.getElementById('btn-skip-ad');
+    const skipTimer = document.getElementById('ad-skip-timer');
+    let timeLeft = skipDelay;
+
+    // Manejar errores de video
+    video.onerror = () => {
+        console.error("Error al cargar video de anuncio");
+        window.finishAdFlow(activeCampaign, movie);
+    };
+
+    // Al terminar el video, saltar automáticamente
+    video.onended = () => {
+        window.finishAdFlow(activeCampaign, movie);
+    };
+
+    const interval = setInterval(() => {
+        timeLeft--;
+        if (skipTimer) skipTimer.innerText = timeLeft;
+
+        if (timeLeft <= 0) {
+            clearInterval(interval);
+            if (skipBtn) {
+                skipBtn.disabled = false;
+                skipBtn.style.cursor = 'pointer';
+                skipBtn.style.pointerEvents = 'auto';
+                skipBtn.innerHTML = 'SALTAR ANUNCIO ⏭️';
+                skipBtn.style.background = 'rgba(255,255,255,0.15)';
+                skipBtn.style.backdropFilter = 'blur(10px)';
+                skipBtn.onclick = () => {
+                    video.pause();
+                    window.finishAdFlow(activeCampaign, movie);
+                };
+            }
+        }
+    }, 1000);
+
+    // Permitir click en el video para ir al link si existe
+    if (activeCampaign.link) {
+        video.style.cursor = 'pointer';
+        video.onclick = () => {
+            window.open(activeCampaign.link, '_blank');
+        };
+    }
+};
 
 // --- Debugging Tools ---
 window.clearAdHistory = () => {

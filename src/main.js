@@ -6,7 +6,7 @@ import './components/Player/Player.css'
    Mantiene un ojo en los datos y nos avisa al instante cuando algo cambia en la selva.
 */
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, setDoc, query, orderBy, limit, getDocs, getDoc } from "firebase/firestore";
+import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, setDoc, query, orderBy, limit, getDocs, getDoc, where } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { getMessaging, getToken, onMessage } from "firebase/messaging"; // 🔔 FCM SDK
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "firebase/auth"; // 🔑 Auth SDK
@@ -750,6 +750,7 @@ window.switchAdminTab = (tab) => {
   } else if (tab === 'metrics') {
     if(metTab) metTab.style.display = 'block';
     if(btnMet) btnMet.classList.add('active');
+    window.initMetricsSelectors();
     window.loadMetrics();
   } else if (tab === 'actions') {
     if(actTab) actTab.style.display = 'block';
@@ -757,63 +758,217 @@ window.switchAdminTab = (tab) => {
   }
 };
 
-window.loadMetrics = async () => {
+window.setMetricsPreset = (preset) => {
+  const startEl = document.getElementById('metrics-start-date');
+  const endEl = document.getElementById('metrics-end-date');
+  const now = new Date();
+  let start = new Date();
+  let end = new Date();
+  
+  if (preset === 'today') {
+    start.setHours(0,0,0,0);
+  } else if (preset === 'week') {
+    start.setDate(now.getDate() - 7);
+  } else if (preset === 'month') {
+    start = new Date(now.getFullYear(), now.getMonth(), 1);
+  }
+  
+  startEl.value = start.toISOString().split('T')[0];
+  endEl.value = end.toISOString().split('T')[0];
+  window.loadMetrics(startEl.value, endEl.value);
+};
+
+window.handleSmartDate = (type) => {
+  if (type === 'start') {
+    const startVal = document.getElementById('metrics-start-date').value;
+    if (!startVal) return;
+    
+    // Si tocas el primero, autocompletamos el fin de ese mes en el segundo
+    const [year, month, day] = startVal.split('-').map(Number);
+    const lastDayOfMonth = new Date(year, month, 0);
+    document.getElementById('metrics-end-date').value = lastDayOfMonth.toISOString().split('T')[0];
+  }
+};
+
+window.initMetricsSelectors = () => {
+  // Por defecto: Este Mes al abrir el tab
+  const now = new Date();
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  const lastDay = now.toISOString().split('T')[0];
+  
+  const startEl = document.getElementById('metrics-start-date');
+  const endEl = document.getElementById('metrics-end-date');
+  
+  if (startEl && endEl) {
+    // Solo cargamos si los campos están vacíos (primera vez que se abre)
+    if (!startEl.value) {
+      startEl.value = firstDay;
+      endEl.value = lastDay;
+      window.loadMetrics(firstDay, lastDay);
+    }
+  }
+};
+
+window.applyMetricsFilters = () => {
+  const start = document.getElementById('metrics-start-date').value;
+  const end = document.getElementById('metrics-end-date').value;
+  if (!start || !end) return;
+  window.loadMetrics(start, end);
+};
+
+window.loadMetrics = async (startDateStr, endDateStr) => {
   const log = document.getElementById('metrics-recent-log');
   const popularList = document.getElementById('metrics-popular-list');
   const deviceChart = document.getElementById('metrics-device-chart');
+  
+  // KPI Elements
   const totalVisits = document.getElementById('stat-total-visits');
   const totalPlays = document.getElementById('stat-total-plays');
+  const totalUniqueEl = document.getElementById('stat-unique-visitors');
+  const growthEl = document.getElementById('stat-growth');
+  const growthLabel = document.getElementById('stat-growth-label');
+  const peakEl = document.getElementById('stat-peak-hour');
 
   if (log) log.innerText = "Sincronizando con la selva... 📡";
 
   try {
-    // Cargar reportes y métricas en paralelo
-    await window.loadReports();
+    // await window.loadReports();
     
-    const metricsQuery = query(collection(db, "user_activity"), orderBy("timestamp", "desc"), limit(100));
-    const snap = await getDocs(metricsQuery);
+    // Si no hay fechas, usar mes actual por defecto
+    if (!startDateStr || !endDateStr) {
+        const now = new Date();
+        startDateStr = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+        endDateStr = now.toISOString().split('T')[0];
+        document.getElementById('metrics-start-date').value = startDateStr;
+        document.getElementById('metrics-end-date').value = endDateStr;
+    }
 
+    const start = new Date(startDateStr);
+    start.setHours(0,0,0,0);
+    const end = new Date(endDateStr);
+    end.setHours(23,59,59,999);
+    
+    const metricsQuery = query(
+      collection(db, "user_activity"), 
+      where("timestamp", ">=", start.getTime()),
+      where("timestamp", "<=", end.getTime()),
+      orderBy("timestamp", "desc")
+    );
+    
+    const snap = await getDocs(metricsQuery);
     const data = [];
     snap.forEach(doc => data.push(doc.data()));
 
     if (data.length === 0) {
-      if (log) log.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);"><p style="font-size: 2rem;">🏜️</p><p>Sin actividad registrada todavía.</p><p style="font-size:0.7rem; margin-top:10px;">Los datos aparecerán cuando los usuarios empiecen a usar la app.</p></div>';
+      if (log) log.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);"><p>Sin actividad registrada en este periodo.</p></div>';
+      [totalVisits, totalPlays, totalUniqueEl, growthEl, peakEl].forEach(el => { if(el) el.innerText = '0'; });
       return;
     }
 
-    // 👥 Conteo de Visitantes UNICOS (por visitorId)
+    // 👥 Stats Base
     const uniqueVisitors = new Set(data.filter(d => d.visitorId).map(d => d.visitorId));
-    const totalUniqueEl = document.getElementById('stat-unique-visitors');
-    if (totalUniqueEl) totalUniqueEl.innerText = uniqueVisitors.size;
-
-    // 📊 Stats generales
     const plays = data.filter(d => d.action === 'play_start' || d.action === 'watch_attempt').length;
+    
     if (totalVisits) totalVisits.innerText = data.length;
     if (totalPlays) totalPlays.innerText = plays;
+    if (totalUniqueEl) totalUniqueEl.innerText = uniqueVisitors.size;
 
-    // 📅 Actividad por Dia (Agrupado)
-    const byDay = {};
+    // 🚀 CRECIMIENTO (Comparativa vs periodo anterior similar)
+    try {
+        const rangeDuration = end.getTime() - start.getTime();
+        const prevStart = new Date(start.getTime() - rangeDuration - 1);
+        const prevEnd = new Date(start.getTime() - 1);
+        
+        const prevQuery = query(
+            collection(db, "user_activity"),
+            where("timestamp", ">=", prevStart.getTime()),
+            where("timestamp", "<=", prevEnd.getTime())
+        );
+        const prevSnap = await getDocs(prevQuery);
+        const prevCount = prevSnap.size;
+        
+        if (growthEl) {
+            if (prevCount === 0) {
+                growthEl.innerText = 'New';
+                growthEl.style.color = '#2ECC71';
+            } else {
+                const diff = ((data.length - prevCount) / prevCount) * 100;
+                growthEl.innerText = `${diff > 0 ? '+' : ''}${Math.round(diff)}%`;
+                growthEl.style.color = diff >= 0 ? '#2ECC71' : '#E74C3C';
+            }
+        }
+    } catch (e) { console.error("Error calculando crecimiento:", e); }
+
+    // ⚡ PICO MÁXIMO (Hora con más tráfico)
+    const hours = {};
     data.forEach(d => {
-      const day = d.date || new Date(d.timestamp).toISOString().split('T')[0];
-      if (!byDay[day]) byDay[day] = { total: 0, plays: 0, uniqueIds: new Set() };
-      byDay[day].total++;
-      if (d.action === 'play_start' || d.action === 'watch_attempt') byDay[day].plays++;
-      if (d.visitorId) byDay[day].uniqueIds.add(d.visitorId);
+        const hour = new Date(d.timestamp).getHours();
+        hours[hour] = (hours[hour] || 0) + 1;
     });
+    const peakHour = Object.entries(hours).sort((a,b) => b[1] - a[1])[0];
+    if (peakEl && peakHour) {
+        peakEl.innerText = `${peakHour[0]}:00 hs`;
+    }
+
+    // 📅 Actividad por Día (Garantizar rango completo)
     const dayChart = document.getElementById('metrics-day-chart');
     if (dayChart) {
-      const sortedDays = Object.entries(byDay).sort((a, b) => b[0].localeCompare(a[0])).slice(0, 14);
-      dayChart.innerHTML = sortedDays.length === 0 ? '<p style="color:var(--text-muted); font-size:0.7rem;">Sin datos por día</p>' :
-        sortedDays.map(([day, info]) => `
-          <div style="display:flex; align-items:center; gap:8px; font-size:0.7rem; margin-bottom:5px;">
-            <span style="color:var(--text-muted); min-width:80px; flex-shrink:0;">${day}</span>
-            <div style="flex:1; background:rgba(255,255,255,0.05); border-radius:3px; height:16px; position:relative; overflow:hidden;">
-              <div style="position:absolute; height:100%; width:${Math.min((info.total/10)*100, 100)}%; background:#3498DB; opacity:0.7;"></div>
-              <div style="position:absolute; height:100%; width:${Math.min((info.plays/10)*100, 100)}%; background:#F1C40F;"></div>
+      const byDay = {};
+      data.forEach(d => {
+        const day = d.date || new Date(d.timestamp).toISOString().split('T')[0];
+        if (!byDay[day]) byDay[day] = { total: 0, plays: 0 };
+        byDay[day].total++;
+        if (d.action === 'play_start' || d.action === 'watch_attempt') byDay[day].plays++;
+      });
+
+      // Generar lista de días en el rango
+      const allDays = [];
+      let current = new Date(start);
+      while(current <= end) {
+        allDays.push(current.toISOString().split('T')[0]);
+        current.setDate(current.getDate() + 1);
+      }
+
+      const maxEvents = Math.max(...Object.values(byDay).map(v => v.total), 1);
+      dayChart.innerHTML = allDays.map(day => {
+        const info = byDay[day] || { total: 0, plays: 0 };
+        const h1 = (info.total / maxEvents) * 100;
+        const h2 = (info.plays / maxEvents) * 100;
+        const shortDate = day.split('-')[2]; // Solo el número del día
+        return `
+          <div style="flex:1; min-width:18px; display:flex; flex-direction:column; align-items:center; gap:4px; height:100%;">
+            <div style="flex:1; width:100%; display:flex; align-items:flex-end; gap:1px; position:relative; background:rgba(255,255,255,0.01); border-radius:1px;">
+              <div style="width:50%; height:${h1}%; background:#3498DB; opacity:0.8;"></div>
+              <div style="width:50%; height:${h2}%; background:#F1C40F; opacity:0.8;"></div>
             </div>
-            <span style="color:#aaa; min-width:50px; text-align:right;">${info.uniqueIds.size} 👤 / ${info.total} ev.</span>
+            <span style="font-size:0.45rem; color:#444;">${shortDate}</span>
           </div>
-        `).join('');
+        `;
+      }).join('');
+    }
+
+    // 🕒 Actividad por Hora (Peak Map)
+    const hourChart = document.getElementById('metrics-hour-chart');
+    if (hourChart) {
+      const byHour = new Array(24).fill(0).map(() => ({ total: 0 }));
+      data.forEach(d => {
+        const h = new Date(d.timestamp).getHours();
+        byHour[h].total++;
+      });
+      const maxH = Math.max(...byHour.map(v => v.total), 1);
+
+      hourChart.innerHTML = byHour.map((info, h) => {
+        const height = (info.total / maxH) * 100;
+        const label = h.toString().padStart(2, '0');
+        return `
+          <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; height:100%;">
+            <div style="flex:1; width:100%; display:flex; align-items:flex-end; background:rgba(255,255,255,0.01);">
+              <div style="width:100%; height:${height}%; background:#E67E22; opacity:0.8; border-radius:1px 1px 0 0;"></div>
+            </div>
+            <span style="font-size:0.45rem; color:#444;">${label}</span>
+          </div>
+        `;
+      }).join('');
     }
 
     // Log Reciente
@@ -847,12 +1002,10 @@ window.loadMetrics = async () => {
     const sortedPopular = Object.entries(counts).sort((a, b) => b[1].count - a[1].count).slice(0, 10);
     popularList.innerHTML = sortedPopular.map(([title, info]) => `
             <tr>
-                <td>${title}</td>
-                <td style="color: #F1C40F;">Reproducido</td>
-                <td style="font-weight: bold; color:white;">${info.count}</td>
-                <td style="font-size: 0.7rem; color: var(--text-muted);">${new Date(info.last).toLocaleDateString()}</td>
+                <td style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">${title}</td>
+                <td style="font-weight: bold; color:white; text-align:right;">${info.count}</td>
             </tr>
-        `).join('') || '<tr><td colspan="4" style="text-align:center; padding: 20px;">No hay reproducciones recientes.</td></tr>';
+        `).join('') || '<tr><td colspan="2" style="text-align:center; padding: 20px;">No hay datos.</td></tr>';
 
     // FCM Tokens counter
     try {

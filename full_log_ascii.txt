@@ -1,0 +1,190 @@
+c03d9da Revert: Restaurar reproductor a versi??n ultra-estable (5f567e8)
+5ab98e5 Revert: Restaurar reproductor a version estable por solicitud del usuario (b64bf47)
+8686c53 Fix: iOS format scoring - penalize MKV/HEVC/AC3 heavily to prevent playback failure
+be6fbae Fix: onerror handler en nativePlayer - muestra menu VIP al fallar fuente
+107d963 Revert: autoplay manual tap safer for Safari/iOS
+d762045 Fix: Timeout en callMasterWorker + auto-fallback a siguiente fuente + autoplay
+b64bf47 Fix: Series episode selection redundant UI reset and improved cleanup
+321ecfd feat(admin): proteccion con contrase??a al panel de administracion
+eebe061 ui: removido boton de limpieza rapida del selector de perfiles
+5f567e8 fix(core): corregidos todos los bugs criticos y technical debt identificados en diagnostico
+4d84c0c chore: guardando estado actual antes de correcciones
+636b45a ???? Seguridad: Mover Firebase config y vapidKey a variables de entorno (VITE_FB_*)
+2c6302b fix: restore SelvaStream object structure and stabilize app loading
+7a94e9c fix: navigation 'double back' bug, iOS notch overlap, and auto-landscape orientation
+e588091 feat: unified navigation, floating back arrow, iOS safe-area support and desktop fixes
+497556e Fase 2: Optimizaci??n e Historial de Series (v2.42)
+41d7d6b feat(profiles): Implementar bloqueo de edicion/eliminacion con el PIN de perfil (v2.43)
+835fc3d feat(profiles): fix avatares, reubicacion admin y borrado de perfil (v2.43)
+9e1955a v2.41: Splash screen fixes, PWA maskable icons, and initial profile management stabilization
+dad2443 v2.39: Mobile UI Overhaul - Responsive filter-bars, fixed avatar grid, and network diagnostics
+66fd2d1 v2.38: Hotfix 3 - Full iOS PWA Stability (Removed auto-reload and old cache buster script)
+456b900 v2.37: Hotfix 2 - Remove self.skipWaiting from SW to fix iOS infinite controllerchange reload loop
+b2d135a v2.36: Hotfix - Remove nuclear refresh script causing infinite loop on iOS
+2711e8f v2.35: Nuclear Refresh - Force PWA cache cleanup on mobile
+ba8d789 v2.34: Force position:fixed on filter-bar via inline style (bypasses Vite CSS cache)
+b27e516 v2.33: Filter bar fixed (position:fixed definitive solution)
+0905c94 v2.32: Fix sticky filter bar - HTML restructured, main-content restored
+2195171 v2.31: Smooth Scroll on Category Change, Admin Logic Fix & Layout Stability
+5a01fcc v2.30: Fix Admin Crash, Filter Jump and Layout Stability
+9d49b24 Fase 3 completada: Mi Selva, Continuar Viendo (VIP) y mejoras en perfiles ??????????
+d8b082b Fix: Navbar overlap in mobile - collapsible search + hide username ????
+830d1b5 Feat: Immersive Netflix-style Hero Carousel + Transparent Navbar ????
+9150e38 Feat: Interactive Avatar Picker & Profile Management Mode ??????????
+b7a35a1 Feat: Continue Watching (Sync & Resume) & Profile Settings Refinement
+e8152c1 Feat: Integrated Profile Settings, Logout & Admin Infrastructure
+c2c95d9 Fix: Firebase API Key casing (ULmj -> UlMj) to fix Google Auth
+02dca71 Update: Refined Auth UI & Profiles Walkthrough
+a32a61b Feat: Implement Firebase Auth & Multi-Profile System (Phase 6)
+9d93c95 Feat: Push Notifications Cleanup & Deep Linking Support (#play/ID)
+7108626 feat(pwa): Add Firebase Cloud Messaging service worker and push token registration v2.21
+49ce407 refactor(admin): removed link reports from metrics tab, handled in inventory v2.20
+2aecc78 feat(player): Dedo de Dios allows multiple crowns and toggles v2.19
+ab88b37 feat(player): Added 'REPRODUCIENDO' badge and confirmed index[0] priority v2.18
+c3b7b56 fix(player): Deep refactor of crown button - Left side and name isolation v2.17
+b34474d fix(player): Robust crown button with logging and URL admin mode v2.16
+21ef70d fix(player): Added crown icon and scoring safety shield v2.14
+c858ed7 fix(player): Shield null access to currentPlayerMovie and fix tag rendering v2.13
+c53d3c6 feat(player): Implementation of Finger of God (Crown system) for VIP sources
+e29e15d fix(player): Critical fixes for VIP loading - Null safety for titles, series ID formatting, and TMDB prefixing
+d18d7cd fix(player): Resolved hanging 'Invoking Debrid' by adding ID/type fallbacks in loadDebridAuto
+2a7b4c4 feat(player): Implement 'God Finger' VIP promotion system - Admin can now pin top sources via Firestore
+7dd1d20 fix(player): Restored stable algorithm base and adjusted weights for Spanish dominance (+500)
+f5aab4b fix(player): Give absolute +500 priority to Latino/Dual and penalize explicit english with -500 to guarantee spanish dominance
+d84df34 feat(player): Advanced VIP scoring - H264/AAC bonuses, AC3 penalties for PWA, and visual codec badges
+aae9d84 feat(player): Redesigned VIP Score math - absolute priority to Latino/MP4, severe penalty to heavy MKVs
+68570e8 chore(player): Final VIP UI sorting and logic adjustments
+28f1a12 chore(player): remove dead dynamic sources rendering logic to prevent ghost UI
+485d952 fix(player): Increase penalty for unknown formats to prioritize safe video/audio
+371ac48 feat(player): Implement intelligent VIP sorting algorithm (format, weight, language scoring)
+64a62e4 fix(player): Split renderControls/renderVipMenuList - prevent duplicate DOM re-rendering on menu open
+5b51d8a fix(player): Robust metadata extraction and ribbon visibility fixes
+b9ec7ea feat(player): Add rich metadata tags (flags, format, weight, best badge) to VIP source cards
+19a6f85 fix(player): Fix corrupted VLC button block and add fallback error buttons for failed VIP streams
+2641332 feat(player): Animated loading frases, no autoplay, clear tap-to-play and error instructions
+9470863 fix(player): Simplify VIP playback - assign src and call play(), user taps video if autoplay blocked
+29862f7 fix(player): Rewrite VIP stream playback to use canplay event for anti-autoplay-block strategy
+b4db623 feat(player): Implement iOS/mobile autoplay unlock trick and dynamic loader text for VIP streams
+55fa463 fix(player): Show loading overlay during stream resolution and establish poster for native video to prevent flat black screens
+aea9d5d fix(player): Prevent start screen reverting when autoplay is prevented on mobile
+2c593d6 fix(styles): Prevent main close button overlap with video container on mobile
+37f97af fix(styles): Adjust mobile video container aspect ratio to prevent start screen truncation
+9e2d6e4 fix(player): Prevent overlap of side VIP menu close button with main player close button
+d5fdfa8 feat/fix: Clean premium player start screen & responsive sidebar VIP menu
+c35ad69 feat/fix: Premium player start screen adjustments, manual play button, and sidebar VIP menu integration
+4e3b0cd feat: player start screen with movie poster and metadata, updated VIP filter priority
+f2901d4 feat: collapsible VIP sources list below player with auto-expand
+5b3a20b feat: clean premium UI, direct VIP list, and mobile optimizations
+eea818b feat: 100% Pure VIP Engine - All ad-iframes and classic servers removed. Manual source selection enabled.
+741d983 feat: complete premium UI overhaul, fix mobile auto-fullscreen, and disable auto-play for manual control
+322fa10 fix: additional null check for external player button
+848bd1f security: remove hardcoded auth token and use environment variables
+5d6b758 fix: restore external player button and update default auth token
+12dc57f fix: auto-fallback to servidor 1 when VIP debrid fails, increase timeout to 9s
+caeefaf fix: player mobile dimensions and missing external streams list
+e378d81 feat: move link reports to inventory, redesign player sidebar and sources button positioning
+ee57bcf Use env variables for Firebase/TMDB and ignore .env
+def3f82 feat: tendencias globales TMDB, metricas auto-cargan al entrar admin, sin audio eliminado
+521f8a6 feat: algoritmo recomendaciones, mobile UI mejorado, filtro reportados en inventario
+23ca445 feat: UUID visitantes unicos, metricas por dia, buscador activado
+27645b5 feat: buscador global activado, sistema de reportes de links, metricas mejoradas
+a873627 feat: cola de revision segura, metricas corregidas, boton admin oculto
+17593e8 feat: Cola de revision y flujos de test para administrador
+a0e858b feat: optimizacion movil, limpieza de home y parche PWA update
+3b953d6 feat: Filtro Anti-MKV en Worker
+913050d feat: Mejoras debrid P2P y prepare anti-mkv
+b0fad7e feat(infra): Preparado para despliegue en Vercel (Sin contrase??as) + Worker v1.6 B??nker
+53ecdd2 feat(infra): Worker v1.3 con soporte de Alta Disponibilidad + Variables Seguras
+ab0f9c2 Refactor Player UI: Added Floating VIP Menu, prioritized manual Admin links, and compacted sidebar.
+c4c9ad7 Fase 4: Redise??o Premium Player (Play Button), Resurrecci??n TV en Vivo con HLS.js, y Panel VIP Refinado
+b1adf89 Bot??n manual VIP para bypass de auto-fetch CORS
+6eacf65 Revert Auto-Debrid en S1 por bloqueo de navegadores y regreso a Vidsrc cl??sico
+a51f440 Solucion del Error CORS: formData a UrlEncoded
+a3a2132 Prioridad estricta para Audios Latinos no-AC3 (Full Nativos)
+cbf0e44 Filtros de portugues y alertas VLC integradas
+d52ce94 Fix debrid API y a??adido boton VLC codec AC3
+386abba Fase 3: Implementaci??n exitosa de API nativa Real-Debrid para P2P directo
+0ef3182 Revert Torrentio URL RD injection temporarily due to 403 CORS
+8da6a19 Fase 3: Motor VIP Real-Debrid arreglado, validaci??n Torrentio 403 corregida, IMDB l??gico restaurado para S1
+d7c6915 Operaci??n Localizaci??n y Ultra-Compatibilidad (v4.5.6): Memoria de idioma, sincronizaci??n de cach?? post-borrado y liberaci??n de restricciones en el reproductor (DRM/Autoplay).
+dbec5d8 Operaci??n Poda (v4.4.2): Limpieza de c??digo duplicado, consolidaci??n de brokenIds y optimizaci??n de herramientas administrativas
+7e5c48b fix: Soluci??n al bloqueo de Skeletons - Globalizaci??n de heroTimer y ajuste de orden en initApp
+18196e2 feat: Operaci??n Renderizado Progresivo (v4.4) - Skeletons, Chunking y Prioridad Hero
+3d1c9ad fix: Sincronizaci??n del ??ndice del carrusel y chequeos de seguridad robustos
+235f1d6 fix: Operaci??n Rehidrataci??n - Cach?? Espejo del objeto completo y Vig??a Inteligente
+d9cd448 fix: Corregido el orden de inicializaci??n de heroPool y sincronizaci??n de carga de datos
+91b2c8a fix: Operaci??n Limpieza - Matar Sandbox en Compatible, remover listeners nulos y frenar fallback
+8ecf278 perf: Data Loading System con Cach?? de 15 Minutos para curar sangrado de Base de Datos
+33495dd chore: Backup de seguridad local antes de refactorizar Firebase
+37bb5c6 style: Ajustes finales t??cticos - Sticky close, Scroll safety y sidebar responsiva
+c4100f3 style: Cirug??a est??tica del reproductor, centrado absoluto, scroll bloqueado y CSS reconstruido
+f2c74f1 feat: SelvaStream Motor v4.0 - L??gica Inversa y UI Animada Glassmorphism
+4b5239d feat: Integraci??n del Centro de Protecci??n Selva v3.1 con recomendaciones din??micas por dispositivo
+f6fea1f feat: SelvaStream Engine v1.0 encapsulado con Shield Toggle interactivo y detecci??n heur??stica
+e41d350 Refactor: Sw.js v2.1 (Anti-TypeError & Fallback Images) and Firebase loop fix
+2bdf67f ??????? Backup Guardado v1.6
+c19cf1f Docs: Creacion de la Bitacora de Desarrollo (CHANGELOG.md)
+0316e18 Checkpoint v1.3: PWA Inteligente - Boton instalacion y Guia iOS
+96e15f5 Checkpoint v1.2: Fix manifest icons locales, CSS responsive mobile, meta-tags iOS, firebase centralizado
+b4da069 PWA Final: Verified Asymmetric Pattern & Premium UI Glow. Ready for Pucallpa/Satipo deployment.
+476622e Fix: Resolved PWA manifest icon error and forced banner visibility. Restored 'Always Open' install button policy.
+ce91104 PWA: Implemented Strategic Asymmetric Installation Pattern & Network-First Fresh Data Architecture.
+e6b467e Fix: Restored mobile genre bar and switched to highly reliable Vidsrc/Embed providers for guaranteed playback.
+7da1588 UI: Restored and improved Bottom Navigation. Fixed player skip logic and server URLs.
+fdb51bf Admin: Integrated PelisPlus-style premium servers (Vidhide, Streamwish, Voe, Netu) for better Latino coverage.
+4dba969 Admin: Enhanced Link Bot and prioritized Latino audio servers.
+6bfc6c6 Admin: Enabled immediate overlay skip for admins. Added 6th Latino server and Link Checker Bot.
+c33754b Player: Expanded to 6 Spanish servers and 2 English servers for better coverage.
+1f46287 Admin: Unified language selection for Search and Discovery. Forced Spanish audio in player.
+4cf3613 Admin: Fixed magnifying glass (lupa) visibility and styling.
+d2cae26 Player: Added Latino/ES audio server as priority default for Hollywood movies.
+d4109dc Admin: Added M3U Latam discovery from GitHub and Auto-Logo suggestion for Live TV.
+4fb820b Admin discovery enhancements and Hollywood focus
+c04ab15 Admin: Selection improvements, delete progress bar, and genre filters for inventory.
+c758ba3 Genre sub-filters, select-all admin, remove mobile nav, save genres on seed
+7c569e0 Add original language filter to TMDB discovery
+15b8bc3 Fix TMDB selection in admin panel
+d9d2406 Admin panel enhancements, filter bar and download button
+00800c2 Admin Refinements, Mobile UI Fixes, New Warning Modal. ????????????????????
+821a8a9 HOTFIX: Admin bulk delete, Ad blocker removed, Dynamic URL views ????????
+c13ec89 HOTFIX: Removed Iframe Sandbox, Row Scrolling Fixed, Discovery Year Dropdown Added, Content Organized properly ????????????????????
+2fe52de HOTFIX: Video Playback for Anime and Series ????????????
+b904c90 SelvaFlix v2.2 TRACTOR ???? PRO - Real Series Metadata, Desktop Row Arrows, Smart Discovery Filters, and Advanced Admin Controls. ????????????????????????
+2515910 SelvaFlix v2.1 TRACTOR - Hero Carousel (3 items), Series Dropdowns, Bulk Selection Delete, and Mobile Stability Fixed. ????????????????????????
+03c9470 SelvaFlix v2.0 GOLD - Smart Content Ordering, Season/Episode Selectors, Bulk Admin Cleanup, and Pool Hero Slider. ????????????????????
+a11b424 Admin: v1.9 Mega-Update - 200+ New Movies Seeding, Rows expanded to 50 items, and Detailed Upload Debugging. ????????????????
+03b62ae Admin: MEGA UPDATE v1.8 - Mega-Cosecha (100 pelis) & Series Player Fix (Full Navigation). ????????????????
+4651c0d Admin: ADDED CLIPBOARD PASTE ????. Ahora puedes pegar im??genes directamente (Ctrl+V) en el campo de URL. ??????????????
+224f3a8 Admin: ADDED IMAGE UPLOAD ????. Ahora puedes subir fotos directamente desde tu celular o PC. ????????????
+e770794 Admin: Logo Search, Category Icons, and Expanded TV Discovery. ????????????????
+546824e ULTRA UPDATE: Netflix Layout, Multi-Discovery (Movies, TV, Anime), and Tagged Admin Inventory. ????????????????????
+74bf325 Admin: Popular Series Discovery & Quick Seeding tool (2-column layout)
+20a7f42 Admin: Auto-suggest images from TMDB when editing content for quick fixing
+c99ff8a Admin: Smart filters for broken images and missing data + UI polish
+9f45801 FIXED: Removed duplicate renderChannels causing build error + v1.2 cache buster
+468eff5 FORCING VERCEL UPDATE: v1.1 cache buster + finalized edit mode UI
+211c237 Fix video playback sandbox, add Admin inventory images and Edit functionality
+4ede429 Max sandbox compatibility, TMDB Multi-search (Series/Movies), and Admin Image Preview
+f790271 Fixing vidsrc playback by adjusting iframe sandbox
+32facae Full routing (Pelis/Series/Live), admin search, type selector, broken image handling
+d38fa29 Fix Firebase routing, correct TMDB poster URLs, real Peru live channels
+4efb592 Fix posters, add Series section, and dynamic Live channels from Firebase
+69d0c40 Secci??n En Vivo, limpieza de logo y Hero din??mico optimizado
+218e479 Automatizaci??n de Hero, categor??as y 25 pel??culas de estreno
+5e73a76 Fixing mobile ad overlay clipping and layout redundancy
+7754638 A??adiendo Gu??a de Supervivencia permanente lateral y banners de monetizaci??n
+adeaf40 Restaurando reproducci??n inmediata y eliminando bloqueador de anuncios propio
+0f0fbdd Banners laterales, tutorial de supervivencia y anuncios por cambio de servidor
+a211c79 Implementando Sistema de Anuncios Propios y Recolecci??n de Datos de Usuario
+2fa905e Estandarizando vista m??vil y forzando idioma a espa??ol en embeds
+f87f483 A??adiendo opciones de servidores: Smashy y AutoEmbed
+f0c6aef Eliminando Sandbox tras prueba de fuego fallida con los 3 servidores
+7790001 Probando l??mites del sandbox y recomendaci??n din??mica de Brave
+7f84c9b A??adiendo advertencia de Adblock / Brave en reproductor
+9683599 Ocultando engranaje de admin
+8328f4f Liberando restricciones del Iframe para servidores Embed
+02e0955 Reparando conexi??n TMDB (B??squeda por ID y Nombre)
+bfc7851 ?????? Conexi??n maestra a Firebase Firestore (Real-Time Sync)
+16a0e0e ???? Nivel Dios: Buscador Inteligente TMDB y Multi-Servidor (Vidsrc, SuperEmbed, 2Embed)
+5da942c ??Cuartel General Admin & Bot Centinela activados! ???????????????
+a5adb30 ??SelvaFlix nace! Estructura inicial, escudo y niebla tropical ????????

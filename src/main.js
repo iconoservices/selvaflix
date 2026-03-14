@@ -992,6 +992,8 @@ window.saveAdsCampaigns = async () => {
         campaigns: adCampaigns
     };
 
+    console.log("🌴 Intentando guardar configuración de anuncios:", config);
+
     try {
         await setDoc(doc(db, "configs", "monetization"), config);
         if(window.showToast) window.showToast("✅ Campañas actualizadas en la selva.", "success");

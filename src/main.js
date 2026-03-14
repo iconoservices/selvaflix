@@ -3087,14 +3087,6 @@ window.showAdVideoPreroll = (camp, movie) => {
         localStorage.setItem(storageKey, JSON.stringify(history));
         startPlayer(m);
     };
-
-    window.recordAdView = (campId) => {
-        const storageKey = `selva_ad_${campId}`;
-        let history = JSON.parse(localStorage.getItem(storageKey) || '{}');
-        if (!history.clicks) history.clicks = [];
-        history.clicks.push(Date.now());
-        localStorage.setItem(storageKey, JSON.stringify(history));
-    };
 };
 
 // --- Trigger Landing Popup (Al cargar la web) ---

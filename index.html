@@ -310,17 +310,26 @@
         <div class="admin-grid">
           <!-- Add/Edit Form -->
           <div class="admin-card">
-            <h2 class="admin-title">🔍 Buscador Inteligente (TMDB)</h2>
-            <div class="form-group" style="display: flex; gap: 10px;">
-              <input type="text" id="tmdb-search-input" class="form-control"
-                placeholder="Escribe el nombre de la peli o serie...">
-              <button class="btn btn-secondary" id="btn-tmdb-search">Buscar</button>
+            <h2 class="admin-title">🚀 Explorador Maestro</h2>
+            
+            <!-- Buscador y Switch Global -->
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
+              <div class="form-group" style="display: flex; gap: 10px; margin-bottom:0;">
+                <input type="text" id="tmdb-search-input" class="form-control"
+                  placeholder="Buscador inteligente...">
+                <button class="btn btn-secondary" id="btn-tmdb-search">Buscar</button>
+              </div>
+              <label style="font-size: 0.75rem; color: #fff; display: flex; align-items: center; gap: 8px; background: rgba(52, 152, 219, 0.15); padding: 8px 12px; border-radius: 8px; cursor: pointer; border: 1px solid rgba(52, 152, 219, 0.3);">
+                <input type="checkbox" id="discover-send-to-review" checked> 
+                <span style="font-weight: bold; color: #3498DB;">🧪 Enviar a Revisión (Filtro Maestro)</span>
+              </label>
             </div>
+
             <div id="tmdb-results" style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 15px;">
               <!-- TMDB Results injected here -->
             </div>
 
-            <div style="margin-bottom: 25px;">
+            <div style="margin-bottom: 20px;">
               <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px;">
                 <button class="btn" id="btn-discover-movies"
                   style="background: rgba(231, 76, 60, 0.85); color: white; border: none; font-size: 0.7rem; padding: 10px; font-weight:bold;">
@@ -332,76 +341,69 @@
                 </button>
                 <button class="btn" id="btn-discover-m3u"
                   style="background: #2ECC71; color: white; border: none; font-size: 0.7rem; padding: 10px; font-weight:bold;">
-                  🌐 M3U Latam
+                  🌐 M3U
                 </button>
               </div>
+
+              <!-- Botón Toggle Filtros Avanzados -->
+              <button class="btn" onclick="const f = document.getElementById('discovery-advanced-filters'); f.style.display = f.style.display === 'none' ? 'grid' : 'none';"
+                style="width: 100%; background: #34495E; color: #BDC3C7; border: none; font-size: 0.7rem; padding: 6px; margin-bottom: 10px; border-radius: 6px;">
+                ⚙️ Filtros de Exploración Avanzados
+              </button>
+
               <button class="btn" id="btn-discover-live"
                 style="width: 100%; background: #27ae60; color: white; border: none; font-size: 0.7rem; padding: 8px; margin-bottom: 10px; font-weight:bold; display:none;">
                 🔴 Canales Sugeridos
               </button>
 
-              <!-- Discovery Filters (Nuevos Poderes) -->
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
-                <select id="discover-sort" class="form-control"
-                  style="font-size: 0.75rem; background: rgba(255,122,0,0.1); border-color: var(--primary); color: white;">
-                  <option value="popularity.desc">🔥 Lo más Popular (Trending)</option>
-                  <option value="vote_count.desc">🏆 Los más Taquilleros (Top)</option>
-                  <option value="revenue.desc">💰 Mayores Recaudaciones</option>
+              <!-- Discovery Filters (Toggleable) -->
+              <div id="discovery-advanced-filters" style="display: none; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+                <select id="discover-sort" class="form-control" style="font-size: 0.7rem;">
+                  <option value="popularity.desc">🔥 Popularidad</option>
+                  <option value="vote_count.desc">🏆 Los más Taquilleros</option>
+                  <option value="revenue.desc">💰 Recaudación</option>
                   <option value="primary_release_date.desc">✨ Recién Salidas</option>
                 </select>
 
-                <select id="discover-year" class="form-control" style="font-size: 0.75rem;">
+                <select id="discover-year" class="form-control" style="font-size: 0.7rem;">
                   <option value="">📅 Cualquier Año</option>
-                  <!-- Opciones añadidas por JS -->
                 </select>
 
-                <select id="discover-genre" class="form-control" style="font-size: 0.75rem;">
+                <select id="discover-genre" class="form-control" style="font-size: 0.7rem;">
                   <option value="">🎭 Todos los géneros</option>
                   <option value="28">🔹 Acción</option>
-                  <option value="16">🔹 Animación / Anime</option>
+                  <option value="16">🔹 Animación</option>
                   <option value="35">🔹 Comedia</option>
-                  <option value="27">🔹 Terror / Suspenso</option>
-                  <option value="10751">🔹 Familia / Infantil</option>
+                  <option value="27">🔹 Terror</option>
+                  <option value="10751">🔹 Familia</option>
                   <option value="18">🔹 Drama</option>
-                  <option value="878">🔹 Ciencia Ficción</option>
-                  <option value="9648">🔹 Misterio</option>
+                  <option value="878">🔹 Sci-Fi</option>
                 </select>
 
-                <select id="discover-lang" class="form-control" style="font-size: 0.75rem;">
-                  <option value="es-MX" selected>🇲🇽 Español Latino</option>
-                  <option value="es-ES">🇪🇸 Español España</option>
-                  <option value="en-US">🇺🇸 Títulos en Inglés</option>
+                <select id="discover-lang" class="form-control" style="font-size: 0.7rem;">
+                  <option value="es-MX" selected>🇲🇽 Latino</option>
+                  <option value="es-ES">🇪🇸 España</option>
+                  <option value="en-US">🇺🇸 Inglés</option>
                 </select>
 
-                <!-- Filtro de Idioma Original -->
-                <select id="discover-orig-lang" class="form-control"
-                  style="font-size: 0.75rem; grid-column: span 2; background: rgba(255,122,0,0.08); border-color: rgba(255,122,0,0.4);">
-                  <option value="">🌎 Cualquier Origen (Hollywood + Mundo)</option>
-                  <option value="en" selected>🇺🇸 Solo Hollywood (Original Inglés)</option>
-                  <option value="es">🇲🇽 Solo Producciones en Español</option>
-                  <option value="ja">🇯🇵 Solo Producciones Japonesas (Anime)</option>
-                  <option value="ko">🇰🇷 Solo Producciones Coreanas</option>
+                <select id="discover-orig-lang" class="form-control" style="font-size: 0.7rem; grid-column: span 2;">
+                  <option value="">🌎 Cualquier Origen</option>
+                  <option value="en" selected>🇺🇸 Solo Hollywood</option>
+                  <option value="es">🇲🇽 Solo en Español</option>
+                  <option value="ja">🇯🇵 Solo Anime</option>
                 </select>
 
                 <select id="mass-seed-amount" class="form-control" style="font-size: 0.7rem; grid-column: span 2;">
-                  <option value="1">Cosechar 20 tesoros</option>
-                  <option value="3">Cosechar 60 tesoros</option>
-                  <option value="5">Cosechar 100 tesoros</option>
+                  <option value="1">Cosechar 20 títulos</option>
+                  <option value="3">Cosechar 60 títulos</option>
+                  <option value="5">Cosechar 100 títulos</option>
                 </select>
               </div>
-
-              <p
-                style="font-size: 0.65rem; color: #aaa; margin-top: -5px; margin-bottom: 10px; line-height: 1.2; text-align:center;">
-                💡 <b>Tip TV:</b> Elige "Señales Sugeridas" o pega un link .m3u8 abajo (no se usa TMDB).
-              </p>
 
               <div id="discover-container"
                 style="display: none; background: rgba(0,0,0,0.4); border-radius: 12px; padding: 15px; border: 1px solid var(--glass-border);">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                   <p id="discover-status" style="font-size: 0.8rem; color: var(--primary); font-weight: bold; margin: 0;">🥥 Buscando...</p>
-                  <label style="font-size: 0.7rem; color: #fff; display: flex; align-items: center; gap: 5px; background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 6px; cursor: pointer;">
-                    <input type="checkbox" id="discover-send-to-review" checked> 🧪 Enviar a Cola de Revisión
-                  </label>
                 </div>
                 <div id="discover-list"
                   style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-height: 400px; overflow-y: auto;">
@@ -415,86 +417,83 @@
             </div>
 
 
-            <h2 class="admin-title">💾 Guardar / Editar Títulos</h2>
+            <h2 class="admin-title" style="margin-top: 30px;">✍️ Detalles del Tesoro</h2>
             <form id="movie-form">
-              <input type="hidden" id="m-db-id"> <!-- Para edición interna Firebase -->
-              <input type="hidden" id="m-imdb-id"> <!-- Operación IMDB-Latino -->
+              <input type="hidden" id="m-db-id">
+              <input type="hidden" id="m-imdb-id">
+
+              <!-- Grupo 1: Título e ID -->
               <div class="form-group">
-                <label>Tipo de Contenido</label>
-                <select id="m-type" class="form-control">
-                  <option value="movie">🎬 Película</option>
-                  <option value="series">🏆 Serie</option>
-                  <option value="anime">⛩️ Anime</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Título / ID de TMDB</label>
-                <div style="display: flex; gap: 10px;">
-                  <input type="text" id="m-title" class="form-control" placeholder="Ej: Selva de Cristal" required>
-                  <input type="text" id="m-tmdb-id" class="form-control" placeholder="ID TMDB" style="width: 100px;">
+                <label>Título / ID TMDB</label>
+                <div style="display: flex; gap: 8px;">
+                  <input type="text" id="m-title" class="form-control" placeholder="Título..." required>
+                  <input type="text" id="m-tmdb-id" class="form-control" placeholder="ID TMDB" style="width: 80px;">
                 </div>
               </div>
-              <div class="form-group" style="display: flex; gap: 15px; align-items: start;">
-                <div style="flex: 1;">
-                  <label>URL de la Imagen (Póster)</label>
-                  <div style="display: flex; gap: 5px;">
-                    <input type="url" id="m-img" class="form-control" placeholder="https://...">
-                    <button type="button" class="btn lupa-btn"
-                      style="background: #3498DB; padding: 5px 12px; font-size: 0.9rem; color: white; border: none; font-weight: bold; min-width: 40px;"
-                      onclick="window.autoSuggestLogo()" title="🔍 Sugerir Logo de Internet">🔍</button>
-                    <button type="button" class="btn"
-                      style="background: #27AE60; padding: 5px 12px; font-size: 0.75rem; color: white; border: none;"
-                      onclick="document.getElementById('m-file').click()">📤 Subir</button>
-                    <input type="file" id="m-file" accept="image/*" style="display: none;"
-                      onchange="window.handleImageUpload(this.files[0])">
+
+              <!-- Grupo 2: Imagen y Preview -->
+              <div class="form-group" style="display: grid; grid-template-columns: 1fr auto; gap: 10px;">
+                <div>
+                  <label>Imagen (Póster)</label>
+                  <div style="display: flex; gap: 4px;">
+                    <input type="url" id="m-img" class="form-control" placeholder="URL..." style="font-size: 0.8rem;">
+                    <button type="button" class="btn" style="background:#3498DB; padding: 5px 8px;" onclick="window.autoSuggestLogo()">🔍</button>
+                    <button type="button" class="btn" style="background:#27AE60; padding: 5px 8px;" onclick="document.getElementById('m-file').click()">📤</button>
+                    <input type="file" id="m-file" accept="image/*" style="display: none;" onchange="window.handleImageUpload(this.files[0])">
                   </div>
                 </div>
-                <img id="m-img-preview" src="https://via.placeholder.com/100x150?text=Prev"
-                  style="width: 70px; border-radius: 8px; border: 1px solid var(--glass-border);">
+                <img id="m-img-preview" src="https://via.placeholder.com/60x90?text=Prev"
+                  style="width: 60px; height: 90px; border-radius: 6px; border: 1px solid #444; margin-top: 5px;">
               </div>
-              <div class="form-group" style="display: flex; gap: 15px; align-items: start;">
-                <div style="flex: 1;">
-                  <label>URL de Backdrop (Imagen Horizontal Hero)</label>
-                  <input type="url" id="m-backdrop" class="form-control" placeholder="https://... (TMDB la pondrá sola)">
-                </div>
-                <div style="text-align: center;">
-                  <label>📍 Fijar Hero</label>
-                  <label class="switch" style="margin-top: 5px;">
+
+              <!-- Grupo 3: Video y Backdrop -->
+              <div class="form-group">
+                <label>Backdrop / Hero</label>
+                <div style="display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center;">
+                  <input type="url" id="m-backdrop" class="form-control" placeholder="Imagen horizontal...">
+                  <label class="switch" style="transform: scale(0.8);" title="Fijar en Home">
                     <input type="checkbox" id="m-pinned">
                     <span class="slider round"></span>
                   </label>
                 </div>
               </div>
-              <div class="form-group" style="display: flex; gap: 10px;">
-                <div style="flex: 2;">
-                  <label>URL del Video (Embed / M3U8)</label>
-                  <input type="url" id="m-embed" class="form-control" placeholder="Deja vacio para usar Multi-Servidor">
+
+              <div class="form-group">
+                <label>URL Video (Opcional)</label>
+                <input type="url" id="m-embed" class="form-control" placeholder="Link m3u8 o embed...">
+              </div>
+
+              <!-- Grupo 4: Dos Columnas Clave -->
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
+                <div>
+                  <label style="font-size: 0.75rem; color:#aaa;">Tipo</label>
+                  <select id="m-type" class="form-control">
+                    <option value="movie"> Película</option>
+                    <option value="series"> Serie</option>
+                    <option value="anime"> Anime</option>
+                  </select>
                 </div>
-                <div style="flex: 1;">
-                  <label>Estado 🏥</label>
-                  <select id="m-status" class="form-control" style="background:#222; color:white; border:1px solid #444;">
+                <div>
+                  <label style="font-size: 0.75rem; color:#aaa;">Estado</label>
+                  <select id="m-status" class="form-control">
                     <option value="healthy">✅ Healthy</option>
-                    <option value="review">⚠️ Review</option>
+                    <option value="review" selected>⚠️ Review</option>
+                    <option value="waiting">⏳ Waiting</option>
                     <option value="broken">❌ Broken</option>
                   </select>
                 </div>
-              </div>
-              <div class="form-group" style="display: flex; gap: 10px;">
-                <div style="flex: 1;">
-                  <label>Año</label>
-                  <select id="m-year" class="form-control">
-                    <!-- Llenado por script -->
-                  </select>
+                <div>
+                  <label style="font-size: 0.75rem; color:#aaa;">Año</label>
+                  <select id="m-year" class="form-control"></select>
                 </div>
-                <div style="flex: 1;">
-                  <label>Calificación</label>
-                  <input type="text" id="m-rating" class="form-control" placeholder="Ej: 4.8">
+                <div>
+                  <label style="font-size: 0.75rem; color:#aaa;">Calific.</label>
+                  <input type="text" id="m-rating" class="form-control" placeholder="0.0">
                 </div>
               </div>
-              <button type="submit" id="submit-btn" class="btn btn-primary" style="width: 100%;">¡Guardar Cambios!
-                🍿</button>
-              <button type="button" id="cancel-edit" class="btn btn-secondary"
-                style="width: 100%; margin-top: 10px; display: none;">Cancelar Edición</button>
+
+              <button type="submit" id="submit-btn" class="btn btn-primary" style="width: 100%; font-weight: bold; padding: 12px;">¡Guardar Cambio! 🌴</button>
+              <button type="button" id="cancel-edit" class="btn btn-secondary" style="width: 100%; margin-top: 10px; display: none;">Cancelar</button>
             </form>
           </div>
 
@@ -504,17 +503,21 @@
               style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">
               <h2 class="admin-title" style="margin:0;">📦 Inventario de Títulos</h2>
               <div style="display: flex; gap: 8px; flex-wrap:wrap;">
-                <button class="btn" onclick="window.selectAllVisible(true)"
+                <button id="btn-toggle-select" class="btn" onclick="window.toggleSelectAllVisible()"
                   style="background: #2C3E50; color: white; border: none; font-size: 0.75rem; padding: 7px 13px; border-radius: 8px; font-weight: bold;">
                   ☑️ Sel. Todo
-                </button>
-                <button class="btn" onclick="window.selectAllVisible(false)"
-                  style="background: #34495E; color: white; border: none; font-size: 0.75rem; padding: 7px 13px; border-radius: 8px; font-weight: bold;">
-                  ⬜ Deselec.
                 </button>
                 <button class="btn" onclick="window.runBotHealthCheck()"
                   style="background: #2980B9; color: white; border: none; font-size: 0.75rem; padding: 7px 13px; border-radius: 8px; font-weight: bold;">
                   🤖 Bot: Revisar Enlaces
+                </button>
+                <button id="btn-approve-selected" class="btn" onclick="window.approveSelectedCoconas()"
+                  style="background: #27AE60; color: white; border: none; font-size: 0.75rem; padding: 7px 13px; border-radius: 8px; font-weight: bold; display: none;">
+                  ✅ Aprobar
+                </button>
+                <button id="btn-wait-selected" class="btn" onclick="window.waitSelectedCoconas()"
+                  style="background: #F1C40F; color: black; border: none; font-size: 0.75rem; padding: 7px 13px; border-radius: 8px; font-weight: bold; display: none;">
+                  ⏳ En Espera
                 </button>
                 <button id="btn-delete-selected" class="btn" onclick="window.deleteSelectedCoconas()"
                   style="background: #E67E22; color: white; border: none; font-size: 0.75rem; padding: 7px 13px; border-radius: 8px; font-weight: bold; display: none;">
@@ -537,7 +540,8 @@
               <div style="color: var(--primary);">🎬 <strong id="count-movies">0</strong> Pelis</div>
               <div style="color: #9B59B2;">🏆 <strong id="count-series">0</strong> Series</div>
               <div style="color: #F1C40F;">⏳ <strong id="count-waiting">0</strong> En Espera</div>
-              <div style="color: #F39C12; margin-left:15px;">🚨 <strong id="count-reported">0</strong> Reportadas</div>
+              <div style="color: #3498DB;">🧪 <strong id="count-review">0</strong> En Revisión</div>
+              <div style="color: #F39C12;">🚨 <strong id="count-reported">0</strong> Reportadas</div>
               <div style="color: #E74C3C; margin-left: auto;">⚠️ <strong id="count-broken">0</strong> Rotas</div>
             </div>
 

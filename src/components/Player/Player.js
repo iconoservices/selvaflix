@@ -49,9 +49,8 @@ export const SelvaStream = {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
             </div>
 
-            <div id="admin-player-toolbar" class="admin-player-toolbar" style="display:none;">
-                <button id="admin-delete-player-btn" style="background:#e74c3c; color:white; border:none; padding:8px 15px; border-radius:8px; cursor:pointer; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.5); font-size: 11px;">🗑️ Borrar</button>
-                <button id="admin-approve-player-btn" style="display:none; background:#2ecc71; color:black; border:none; padding:8px 15px; border-radius:8px; cursor:pointer; font-weight:bold; box-shadow:0 4px 10px rgba(0,0,0,0.5); font-size: 11px;">✅ Aprobar</button>
+            <div id="admin-player-toolbar" class="admin-player-toolbar" style="display:none; position: absolute; top: 10px; left: 60px; z-index: 1000;">
+                <!-- Botones flotantes opcionales o vacíos, ahora se integrarán en sidebar -->
             </div>
 
             <div class="video-layout">
@@ -122,6 +121,12 @@ export const SelvaStream = {
                         </div>
                         <div class="sidebar-card actions-card">
                             <h3>🛠️ ACCIONES</h3>
+                            <div id="admin-reviewer-actions" style="display:none; flex-direction:column; gap:8px; margin-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:12px;">
+                                <button id="admin-approve-player-btn" style="width:100%; background:#2ecc71; color:black; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:900; font-size: 0.65rem; box-shadow:0 4px 10px rgba(46,204,113,0.3);">✅ APROBAR</button>
+                                <button id="admin-wait-player-btn" style="width:100%; background:#f1c40f; color:black; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:900; font-size: 0.65rem; box-shadow:0 4px 10px rgba(241,196,15,0.3);">⏳ EN ESPERA</button>
+                                <button id="admin-delete-player-btn" style="width:100%; background:#e74c3c; color:white; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:900; font-size: 0.65rem; box-shadow:0 4px 10px rgba(231,76,60,0.3);">🗑️ BORRAR</button>
+                            </div>
+
                             <button id="report-broken-btn" style="width:100%; height: auto; background: rgba(231,76,60,0.15); border: 1px solid rgba(231,76,60,0.3); color: #E74C3C; padding: 10px; border-radius: 8px; font-size: 0.65rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;">🚨 REPORTE</button>
                             
                             <a id="external-player-btn" href="#" target="_blank" style="display:none; align-items:center; justify-content:center; gap:8px; background: linear-gradient(135deg, #e67e22, #d35400); color:white; padding:10px; border-radius: 8px; text-decoration:none; font-weight:bold; margin-top:10px; font-size:0.65rem; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
@@ -155,6 +160,15 @@ export const SelvaStream = {
                 const id = this.currentPlayerMovie.id;
                 let hasNext = window.playNextReview ? window.playNextReview(id) : false;
                 window.approveMovie(id);
+                if (!hasNext) history.back();
+            }
+        });
+        
+        document.getElementById('admin-wait-player-btn')?.addEventListener('click', () => {
+            if (window.moveToWaiting && this.currentPlayerMovie) {
+                const id = this.currentPlayerMovie.id;
+                let hasNext = window.playNextReview ? window.playNextReview(id) : false;
+                window.moveToWaiting(id);
                 if (!hasNext) history.back();
             }
         });
@@ -335,11 +349,23 @@ export const SelvaStream = {
 
         // Check if Admin
         const isAdmin = sessionStorage.getItem('selva_admin_active');
-        const adminToolbar = document.getElementById('admin-player-toolbar');
+        const adminReviewer = document.getElementById('admin-reviewer-actions');
         const adminAppBtn = document.getElementById('admin-approve-player-btn');
+        const adminWaitBtn = document.getElementById('admin-wait-player-btn');
         
-        if (adminToolbar) adminToolbar.style.display = isAdmin ? 'flex' : 'none';
-        if (adminAppBtn) adminAppBtn.style.display = (isAdmin && movie.status === 'review') ? 'block' : 'none';
+        if (adminReviewer) {
+            adminReviewer.style.display = isAdmin ? 'flex' : 'none';
+        }
+
+        if (adminAppBtn) {
+            // Solo mostrar Aprobar si está en review o waiting
+            adminAppBtn.style.display = (isAdmin && (movie.status === 'review' || movie.status === 'waiting')) ? 'block' : 'none';
+        }
+        
+        if (adminWaitBtn) {
+            // Solo mostrar "En Espera" si NO está ya en espera
+            adminWaitBtn.style.display = (isAdmin && movie.status !== 'waiting') ? 'block' : 'none';
+        }
 
         // Reset elements
         const iframe = document.getElementById('player-iframe');

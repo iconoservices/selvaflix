@@ -628,8 +628,14 @@ function renderInventory() {
   // Cargar reportes primero para que el contador y filtro funcionen
   window.loadReports().then(() => {
     _updateDetailedStats(_allInventoryItems);
-    // Por defecto ocultamos los de 'review' en la vista general (filtro all)
-    _renderInventoryRows(_allInventoryItems.filter(m => m.status !== 'review'));
+    
+    // ✅ FIX NAVEGACIÓN: En lugar de renderizar el default 'all', usamos lo que esté en los selectores
+    // para que al volver del player se mantengan los filtros aplicados.
+    if (window.filterInventoryByCategory) {
+        window.filterInventoryByCategory();
+    } else {
+        _renderInventoryRows(_allInventoryItems.filter(m => m.status !== 'review' && m.status !== 'waiting'));
+    }
   });
 }
 
@@ -639,6 +645,7 @@ function _updateDetailedStats(items) {
   const b = items.filter(i => window._brokenIds.has(i.id)).length;
   const r = window._reportedIds ? window._reportedIds.size : 0;
   const w = items.filter(i => i.status === 'waiting').length;
+  const rev = items.filter(i => i.status === 'review').length;
 
   document.getElementById('count-movies').innerText = m;
   document.getElementById('count-series').innerText = s;
@@ -646,9 +653,11 @@ function _updateDetailedStats(items) {
   const rEl = document.getElementById('count-reported');
   if (rEl) rEl.innerText = r;
   
-  // Mostrar conteo de espera si existe el elemento (v2.40)
   const waitEl = document.getElementById('count-waiting');
   if (waitEl) waitEl.innerText = w;
+
+  const revEl = document.getElementById('count-review');
+  if (revEl) revEl.innerText = rev;
 }
 
 window.loadMoreInventory = () => {
@@ -710,7 +719,7 @@ function _renderInventoryRows(items) {
                 <span style="font-size: 0.6rem; color: var(--text-muted);">${isBroken ? 'Error' : (m.status === 'healthy' ? 'Sano' : (m.status === 'waiting' ? 'Espera' : 'Mant.'))}</span>
             </div>
             <div style="display: flex; gap: 6px;">
-                <button onclick="window.openPlayer('${m.id}')" title="Probar/Play" style="background: rgba(46,204,113,0.1); border: 1px solid rgba(46,204,113,0.2); color: #2ecc71; width:22px; height:22px; display:flex; align-items:center; justify-content:center; border-radius: 5px; cursor: pointer; font-size: 0.65rem;">▶</button>
+                <button onclick="window.handleCardClick('${m.id}')" title="Probar/Play" style="background: rgba(46,204,113,0.1); border: 1px solid rgba(46,204,113,0.2); color: #2ecc71; width:22px; height:22px; display:flex; align-items:center; justify-content:center; border-radius: 5px; cursor: pointer; font-size: 0.65rem;">▶</button>
                 <button onclick="window.editMovie('${m.id}')" title="Editar" style="background: rgba(255,255,255,0.08); border: none; color: white; width:22px; height:22px; display:flex; align-items:center; justify-content:center; border-radius: 5px; cursor: pointer; font-size: 0.65rem; border:1px solid rgba(255,255,255,0.1);">✏️</button>
                 <button onclick="window.deleteMovie('${m.id}')" title="Borrar" style="background: rgba(231,76,60,0.1); border: 1px solid rgba(231,76,60,0.2); color: #E74C3C; width:22px; height:22px; display:flex; align-items:center; justify-content:center; border-radius: 5px; cursor: pointer; font-size: 0.65rem;">🗑️</button>
             </div>
@@ -721,13 +730,28 @@ function _renderInventoryRows(items) {
 }
 
 window.updateSelectedCount = () => {
-  const selected = document.querySelectorAll('.selva-check:checked').length;
-  const btn = document.getElementById('btn-delete-selected');
+  const allChecks = Array.from(document.querySelectorAll('#inventory-grid .selva-check'));
+  const selected = allChecks.filter(c => c.checked).length;
+  
+  const btnDelete = document.getElementById('btn-delete-selected');
+  const btnApprove = document.getElementById('btn-approve-selected');
+  const btnWait = document.getElementById('btn-wait-selected');
   const countSpan = document.getElementById('selected-count');
-  if (btn && countSpan) {
-    countSpan.innerText = selected;
-    btn.style.display = selected > 0 ? 'inline-block' : 'none';
-    btn.style.boxShadow = '0 0 15px rgba(230, 126, 34, 0.4)';
+  const btnToggle = document.getElementById('btn-toggle-select');
+
+  if (countSpan) countSpan.innerText = selected;
+  if (btnDelete) btnDelete.style.display = selected > 0 ? 'inline-block' : 'none';
+  if (btnApprove) btnApprove.style.display = selected > 0 ? 'inline-block' : 'none';
+  if (btnWait) btnWait.style.display = selected > 0 ? 'inline-block' : 'none';
+
+  if (btnToggle) {
+    if (allChecks.length > 0 && selected === allChecks.length) {
+      btnToggle.innerHTML = '⬜ Deselec.';
+      btnToggle.style.background = '#34495E';
+    } else {
+      btnToggle.innerHTML = '☑️ Sel. Todo';
+      btnToggle.style.background = '#2C3E50';
+    }
   }
 };
 
@@ -1128,9 +1152,10 @@ window.filterInventoryByCategory = () => {
     if (category === 'broken') matchHealth = window._brokenIds.has(m.id) || !m.img || (m.img && m.img.includes('placeholder'));
     if (category === 'missing') matchHealth = !m.tmdbId || m.tmdbId === "";
     if (category === 'review') matchHealth = m.status === 'review';
+    if (category === 'waiting') matchHealth = m.status === 'waiting';
     if (category === 'reported') matchHealth = window._reportedIds && window._reportedIds.has(m.id);
-    // En vista 'all', excluir lo que esta en revision
-    if (category === 'all') matchHealth = m.status !== 'review';
+    // En vista 'all', excluir lo que está en revisión o espera
+    if (category === 'all') matchHealth = m.status !== 'review' && m.status !== 'waiting';
 
     return matchSearch && matchType && matchLang && matchGenre && matchHealth;
   });
@@ -1201,7 +1226,7 @@ window.nukeDatabase = async () => {
 };
 
 window.deleteSelectedCoconas = async () => {
-  const selected = Array.from(document.querySelectorAll('.selva-check:checked')).map(cb => cb.dataset.id);
+  const selected = Array.from(document.querySelectorAll('#inventory-grid .selva-check:checked')).map(cb => cb.dataset.id);
   if (selected.length === 0) { alert("¡No has seleccionado ninguna joya para pelar! 🐒"); return; }
 
   const confirmed = confirm(`¿Estás seguro de que quieres eliminar ${selected.length} elementos para siempre? 🔥`);
@@ -1210,7 +1235,9 @@ window.deleteSelectedCoconas = async () => {
   const overlay = document.getElementById('delete-progress-overlay');
   const bar = document.getElementById('progress-bar-fill');
   const text = document.getElementById('progress-percent');
+  const statusText = document.getElementById('progress-text');
 
+  if (statusText) statusText.innerText = "Eliminando de la selva... 🧹🌴";
   if (overlay) overlay.style.display = 'flex';
 
   let count = 0;
@@ -1227,12 +1254,93 @@ window.deleteSelectedCoconas = async () => {
   }
 
   if (overlay) overlay.style.display = 'none';
+  sessionStorage.removeItem('selvaflix_full_database');
+  sessionStorage.removeItem('selvaflix_cache_timestamp');
+  await loadSelvaFlixData();
+  if (window.filterInventoryByCategory) window.filterInventoryByCategory();
   alert(`¡Limpieza completada! ${count} elementos eliminados. 🧹🌴`);
   if (bar) bar.style.width = "0%";
 };
 
-window.selectAllVisible = (checked) => {
-  document.querySelectorAll('.selva-check').forEach(c => c.checked = checked);
+window.approveSelectedCoconas = async () => {
+    const selected = Array.from(document.querySelectorAll('#inventory-grid .selva-check:checked')).map(cb => cb.dataset.id);
+    if (selected.length === 0) return;
+
+    if (!confirm(`¿Aprobar y publicar las ${selected.length} seleccionadas? ✅🌴`)) return;
+
+    const overlay = document.getElementById('delete-progress-overlay');
+    const bar = document.getElementById('progress-bar-fill');
+    const text = document.getElementById('progress-percent');
+    const statusText = document.getElementById('progress-text');
+
+    if (statusText) statusText.innerText = "Publicando en la selva... 🚀🌴";
+    if (overlay) overlay.style.display = 'flex';
+
+    let count = 0;
+    for (const id of selected) {
+        try {
+            await updateDoc(doc(db, "movies", id), { status: 'healthy', updatedAt: Date.now() });
+            count++;
+            const percent = Math.round((count / selected.length) * 100);
+            if (bar) bar.style.width = `${percent}%`;
+            if (text) text.innerText = `${percent}% (${count}/${selected.length})`;
+        } catch (e) {
+            console.error("Error aprobando:", id, e);
+        }
+    }
+
+    if (overlay) overlay.style.display = 'none';
+    sessionStorage.removeItem('selvaflix_full_database');
+    sessionStorage.removeItem('selvaflix_cache_timestamp');
+    await loadSelvaFlixData();
+    if (window.filterInventoryByCategory) window.filterInventoryByCategory();
+    alert(`¡Éxito! ${count} títulos aprobados. 🥥🍹`);
+    if (bar) bar.style.width = "0%";
+};
+
+window.waitSelectedCoconas = async () => {
+    const selected = Array.from(document.querySelectorAll('#inventory-grid .selva-check:checked')).map(cb => cb.dataset.id);
+    if (selected.length === 0) return;
+
+    if (!confirm(`¿Mover las ${selected.length} seleccionadas a la lista de espera? ⏳🌴`)) return;
+
+    const overlay = document.getElementById('delete-progress-overlay');
+    const bar = document.getElementById('progress-bar-fill');
+    const text = document.getElementById('progress-percent');
+    const statusText = document.getElementById('progress-text');
+
+    if (statusText) statusText.innerText = "Moviendo a espera... 🐒⏳";
+    if (overlay) overlay.style.display = 'flex';
+
+    let count = 0;
+    for (const id of selected) {
+        try {
+            await updateDoc(doc(db, "movies", id), { status: 'waiting', updatedAt: Date.now() });
+            count++;
+            const percent = Math.round((count / selected.length) * 100);
+            if (bar) bar.style.width = `${percent}%`;
+            if (text) text.innerText = `${percent}% (${count}/${selected.length})`;
+        } catch (e) {
+            console.error("Error pausando:", id, e);
+        }
+    }
+
+    if (overlay) overlay.style.display = 'none';
+    sessionStorage.removeItem('selvaflix_full_database');
+    sessionStorage.removeItem('selvaflix_cache_timestamp');
+    await loadSelvaFlixData();
+    if (window.filterInventoryByCategory) window.filterInventoryByCategory();
+    alert(`¡Completado! ${count} títulos en espera. 🪵🌴`);
+    if (bar) bar.style.width = "0%";
+};
+
+window.toggleSelectAllVisible = () => {
+  const checks = Array.from(document.querySelectorAll('#inventory-grid .selva-check'));
+  const allChecked = checks.length > 0 && checks.every(c => c.checked);
+  
+  // Si están todos marcados, desmarcamos todos. Si no, marcamos todos.
+  const newState = !allChecked;
+  checks.forEach(c => c.checked = newState);
   window.updateSelectedCount();
 };
 
@@ -1590,17 +1698,44 @@ window.approveMovie = async (id) => {
     const movie = movieDatabase.trending.find(m => m.id === id);
     if (movie) movie.status = 'healthy';
     if (window.showToast) window.showToast("¡Aprobada y movida a la selva principal! ✅🌴", "success");
-    if (document.getElementById('admin-view')?.style.display === 'block') renderInventory();
+    if (document.getElementById('admin-view')?.style.display === 'block') {
+        if (window.filterInventoryByCategory) window.filterInventoryByCategory();
+        else renderInventory();
+    }
   } catch (e) {
     console.error("Error aprobando pelicula: ", e);
   }
 };
 
+window.moveToWaiting = async (id) => {
+  try {
+    await updateDoc(doc(db, "movies", id), { status: 'waiting', updatedAt: Date.now() });
+    sessionStorage.removeItem('selvaflix_full_database');
+    sessionStorage.removeItem('selvaflix_cache_timestamp');
+    const movie = movieDatabase.trending.find(m => m.id === id);
+    if (movie) movie.status = 'waiting';
+    if (window.showToast) window.showToast("Movida a 'En Espera' correctamente. ⏳🌴", "success");
+    if (document.getElementById('admin-view')?.style.display === 'block') {
+        if (window.filterInventoryByCategory) window.filterInventoryByCategory();
+        else renderInventory();
+    }
+  } catch (e) {
+    console.error("Error moviendo a espera: ", e);
+  }
+};
+
 window.playNextReview = (currentId) => {
-  const reviewQueue = movieDatabase.trending.filter(m => m.status === 'review');
-  const currentIndex = reviewQueue.findIndex(m => m.id === currentId);
-  if (currentIndex !== -1 && currentIndex + 1 < reviewQueue.length) {
-      window.openPlayer(reviewQueue[currentIndex + 1].id);
+  const currentMovie = movieDatabase.trending.find(m => m.id === currentId);
+  if (!currentMovie) return false;
+
+  const reviewQueue = movieDatabase.trending.filter(m => m.status === currentMovie.status && m.id !== currentId);
+  // Simplemente tomamos la siguiente disponible en revisión si estábamos revisando, o en espera si estábamos allí
+  const statusToSearch = currentMovie.status === 'review' ? 'review' : 'waiting';
+  const filteredQueue = movieDatabase.trending.filter(m => m.status === statusToSearch);
+  
+  const currentIndex = filteredQueue.findIndex(m => m.id === currentId);
+  if (currentIndex !== -1 && currentIndex + 1 < filteredQueue.length) {
+      window.handleCardClick(filteredQueue[currentIndex + 1].id);
       return true;
   }
   return false;
@@ -2008,7 +2143,7 @@ function updateHeroCarousel() {
     const heroImg = item.backdrop || item.img;
     
     return `
-      <div class="hero-card" onclick="window.openPlayer('${item.id}')" style="flex: 1; min-width: ${window.innerWidth <= 768 ? '260px' : '380px'}; height: ${window.innerWidth <= 768 ? '160px' : '280px'}; background-image: linear-gradient(to top, rgba(0,0,0,0.95), rgba(0,0,0,0.1)), url('${heroImg}'); background-size: cover; background-position: center 20%; border-radius: 20px; position: relative; cursor: pointer; border: 1px solid var(--glass-border); transition: transform 0.3s ease; box-shadow: 0 10px 30px rgba(0,0,0,0.6);">
+      <div class="hero-card" onclick="window.handleCardClick('${item.id}')" style="flex: 1; min-width: ${window.innerWidth <= 768 ? '260px' : '380px'}; height: ${window.innerWidth <= 768 ? '160px' : '280px'}; background-image: linear-gradient(to top, rgba(0,0,0,0.95), rgba(0,0,0,0.1)), url('${heroImg}'); background-size: cover; background-position: center 20%; border-radius: 20px; position: relative; cursor: pointer; border: 1px solid var(--glass-border); transition: transform 0.3s ease; box-shadow: 0 10px 30px rgba(0,0,0,0.6);">
         <div style="position: absolute; bottom: 15px; left: 15px; right: 15px;">
           ${item.pinned ? '<span style="position: absolute; top: -140px; right: 0; background: var(--primary); color:black; font-size: 0.6rem; padding: 2px 8px; border-radius: 10px; font-weight: 800; text-transform: uppercase; box-shadow: 0 0 10px var(--primary-glow);">📍 Destacado</span>' : ''}
           <h2 style="color: white; font-size: ${window.innerWidth <= 768 ? '1.1rem' : '1.4rem'}; margin-bottom: 4px; text-shadow: 0 2px 5px rgba(0,0,0,0.9); font-family: 'Outfit', sans-serif; font-weight: 800; line-height: 1.2;">${item.title}</h2>
@@ -2479,7 +2614,7 @@ document.addEventListener('DOMContentLoaded', () => {
       year: document.getElementById('m-year').value || new Date().getFullYear().toString(),
       rating: document.getElementById('m-rating').value || '7.0',
       type: document.getElementById('m-type').value || 'movie',
-      status: document.getElementById('m-status').value || 'healthy',
+      status: dbId ? document.getElementById('m-status').value : (document.getElementById('discover-send-to-review')?.checked ? 'review' : 'healthy'),
       updatedAt: Date.now()
     };
 
@@ -2501,9 +2636,15 @@ document.addEventListener('DOMContentLoaded', () => {
       e.target.reset();
       document.getElementById('m-db-id').value = "";
       document.getElementById('m-imdb-id').value = ""; // Operación IMDB-Latino
-      document.getElementById('m-img-preview').src = 'https://via.placeholder.com/150x220?text=Previsualización';
+      document.getElementById('m-img-preview').src = 'https://via.placeholder.com/60x90?text=Pre';
       document.getElementById('cancel-edit').style.display = "none";
       document.getElementById('tmdb-results').innerHTML = '';
+
+      // --- Sincronización Silenciosa ---
+      sessionStorage.removeItem('selvaflix_full_database');
+      sessionStorage.removeItem('selvaflix_cache_timestamp');
+      await loadSelvaFlixData();
+      if (window.filterInventoryByCategory) window.filterInventoryByCategory();
 
     } catch (error) {
       console.error("Error guardando en Firebase:", error);
@@ -2518,7 +2659,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('movie-form').reset();
     document.getElementById('m-db-id').value = "";
     document.getElementById('m-imdb-id').value = ""; // Operación IMDB-Latino
-    document.getElementById('m-img-preview').src = 'https://via.placeholder.com/150x220?text=Previsualización';
+    document.getElementById('m-img-preview').src = 'https://via.placeholder.com/60x90?text=Pre';
     document.getElementById('submit-btn').innerText = "¡Guardar en la Selva! 🌴✨";
     document.getElementById('cancel-edit').style.display = "none";
   });

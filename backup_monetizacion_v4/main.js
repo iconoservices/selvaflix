@@ -2299,12 +2299,8 @@ async function startWarningOverlay(movie) {
     if (config.campaigns) {
         // 1. Filtrar candidatos por horario y día
         const timeMatchCandidates = config.campaigns.filter(c => {
-            const basicMatch = c.active && c.placement !== 'global_script';
-            if (!basicMatch) return false;
-            
-            if (forceAds) return true; // ⚡ MODO DIOS: Bypassear horario y días
-            
-            return c.days.includes(currentDay) && 
+            return c.active && 
+                   c.days.includes(currentDay) && 
                    currentHour >= c.startHour && 
                    currentHour < c.endHour;
         });
@@ -2325,17 +2321,15 @@ async function startWarningOverlay(movie) {
                     return recentViews.length < maxTimes;
                 } 
                 else if (mode === 'per_movie_daily') {
-                    const movieHistory = h.movies || {};
-                    const lastMovieView = movieHistory[movieKey] || 0;
-                    const isToday = new Date(lastMovieView).toDateString() === new Date().toDateString();
+                    const movieHistory = h.movies_history || {};
+                    const movieViews = movieHistory[movieKey] || [];
+                    const today = new Date().toDateString();
+                    const viewsToday = movieViews.filter(ts => new Date(ts).toDateString() === today);
                     const maxTimes = c.freqTimes || 1;
-                    
-                    // Si nunca se ha visto esta peli hoy, o si permitimos múltiples veces (aún no implementado el contador por peli diario pero esto lo corrige)
-                    return !isToday || (h.views || []).filter(ts => new Date(ts).toDateString() === new Date().toDateString()).length < maxTimes;
+                    return viewsToday.length < maxTimes;
                 } 
                 else if (mode === 'per_movie_once') {
-                    const movieHistory = h.movies || {};
-                    return !movieHistory[movieKey];
+                    return !(h.movies && h.movies[movieKey]);
                 }
                 return true;
             });
@@ -2411,26 +2405,24 @@ async function startWarningOverlay(movie) {
         </style>
         
         <!-- Media Elements / Direct Link Support -->
-        ${(hasMedia && !activeCampaign.media.trim().startsWith('<script')) ? (isFullscreen ? 
-            (activeCampaign.media.toLowerCase().endsWith('.mp4') ? 
+        ${hasMedia ? (isFullscreen ? 
+            (activeCampaign.media.endsWith('.mp4') ? 
                 `<video src="${activeCampaign.media}" autoplay muted loop class="ad-fullscreen-media"></video>` : 
                 `<img src="${activeCampaign.media}" class="ad-fullscreen-media">`) :
             (isHybrid ? 
-                (activeCampaign.media.toLowerCase().endsWith('.mp4') ? 
+                (activeCampaign.media.endsWith('.mp4') ? 
                     `<video src="${activeCampaign.media}" autoplay muted loop class="ad-hybrid-media"></video>` : 
                     `<img src="${activeCampaign.media}" class="ad-hybrid-media">`) :
-                (activeCampaign.media.toLowerCase().endsWith('.mp4') ? 
+                (activeCampaign.media.endsWith('.mp4') ? 
                     `<video src="${activeCampaign.media}" autoplay muted loop style="max-height: 300px; border-radius: 10px; margin-bottom: 20px;"></video>` : 
                     `<img src="${activeCampaign.media}" style="max-height: 300px; border-radius: 10px; margin-bottom: 20px;">`
                 )
             )
-        ) : (activeCampaign.link || activeCampaign.media.trim().startsWith('<script') ? `
-            <a href="${activeCampaign.link || '#'}" target="_blank" onclick="window.recordAdView('${activeCampaign.id}')" style="text-decoration: none; display: block; width: 100%;">
+        ) : (activeCampaign.link ? `
+            <a href="${activeCampaign.link}" target="_blank" onclick="window.recordAdView('${activeCampaign.id}')" style="text-decoration: none; display: block; width: 100%;">
                 <div style="background: rgba(255,122,0,0.1); padding: 40px; border-radius: 25px; border: 2px dashed var(--primary); margin: 20px 0; transition: 0.3s; transform: scale(1.02); cursor: pointer;" onmouseover="this.style.background='rgba(255,122,0,0.2)'" onmouseout="this.style.background='rgba(255,122,0,0.1)'">
-                    <p style="font-size: 3rem; margin: 0;">${activeCampaign.media.trim().startsWith('<script') ? '⚡' : '🔗'}</p>
-                    <p style="color: white; font-weight: 900; margin-top: 15px; text-transform: uppercase; letter-spacing: 1px;">
-                        ${activeCampaign.media.trim().startsWith('<script') ? 'Script de Red Activo' : 'Enlace de Patrocinador'}
-                    </p>
+                    <p style="font-size: 3rem; margin: 0;">🔗</p>
+                    <p style="color: white; font-weight: 900; margin-top: 15px; text-transform: uppercase; letter-spacing: 1px;">Enlace Directo / Sponsor</p>
                     <p style="color: var(--primary); font-size: 0.8rem; font-weight: bold;">[ CLIC AQUÍ PARA DESBLOQUEAR ]</p>
                 </div>
             </a>
@@ -2738,49 +2730,6 @@ window.showAdVideoPreroll = (camp, movie) => {
         localStorage.setItem(storageKey, JSON.stringify(history));
         startPlayer(m);
     };
-
-    window.recordAdView = (campId) => {
-        const storageKey = `selva_ad_${campId}`;
-        let history = JSON.parse(localStorage.getItem(storageKey) || '{}');
-        if (!history.clicks) history.clicks = [];
-        history.clicks.push(Date.now());
-        localStorage.setItem(storageKey, JSON.stringify(history));
-    };
-};
-
-window.injectGlobalAdScripts = (scripts) => {
-    if (!scripts) return;
-    console.log("💉 Inyectando scripts globales en la selva...");
-    
-    // Eliminar contenedor previo si existe
-    const oldContainer = document.getElementById('ad-global-container');
-    if (oldContainer) oldContainer.remove();
-
-    const container = document.createElement('div');
-    container.id = 'ad-global-container';
-    container.style.display = 'none';
-    document.body.appendChild(container);
-
-    // Separar scripts por bloques si es necesario o inyectar como HTML crudo de forma segura
-    const scriptLines = scripts.split('</script>');
-    scriptLines.forEach(line => {
-        if (!line.trim()) return;
-        const clean = line.replace('<script', '').trim();
-        const scriptTag = document.createElement('script');
-        
-        // Detectar si es un src o código interno
-        if (clean.includes('src=')) {
-            const match = clean.match(/src=["'](.*?)["']/);
-            if (match && match[1]) {
-                scriptTag.src = match[1];
-                scriptTag.async = true;
-            }
-        } else {
-            scriptTag.textContent = clean.replace('>', '');
-        }
-        
-        container.appendChild(scriptTag);
-    });
 };
 
 window.injectCampaignScripts = () => {

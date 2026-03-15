@@ -30,6 +30,22 @@ const messaging = getMessaging(app); // Inicializamos el cartero 📬
 const auth = getAuth(app); // 🚪 El guardián de la selva
 const moviesCol = collection(db, "movies");
 
+// --- iOS PWA / Notch Fallback Detection ---
+/*
+   Apple WebViews (Home Screen Web Apps) a menudo tienen bugs con env(safe-area-inset-top)
+   y las media queries CSS de display-mode. Usamos JS nativo para forzar un parche perfecto.
+*/
+function applyIOSNotchFix() {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isStandalone = window.navigator.standalone === true;
+    
+    if (isIOS && isStandalone) {
+        console.log("🍎 Selva PWA: Detectado iPhone Instalado. Activando blindaje de Notch (45px) por JS.");
+        document.body.classList.add('ios-pwa-standalone');
+    }
+}
+applyIOSNotchFix();
+
 // --- Service Worker Registration ---
 /* 
    🧹 El "Conserje Invisible": Este pequeño script corre en segundo plano. 

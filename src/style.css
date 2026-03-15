@@ -16,14 +16,10 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* iOS PWA fallback: Safari standalone mode sometimes fails to calculate env() properly. 
-   We force a hardcoded 45px offset to guarantee the notch is cleared. */
-@supports (-webkit-touch-callout: none) {
-  @media (display-mode: standalone) {
-    :root {
-      --safe-top: 45px !important;
-    }
-  }
+/* iOS PWA fallback: JS detecta si la app está instalada y añade esta clase.
+   Usamos !important a lo bruto para sobreescribir cualquier cálculo de env() que falle. */
+body.ios-pwa-standalone {
+  --safe-top: 45px !important;
 }
 
 /* 💎 VIP & Premium Styles */

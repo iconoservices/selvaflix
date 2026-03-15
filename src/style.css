@@ -181,11 +181,12 @@ h3,
   align-items: center;
   justify-content: space-between;
   padding: var(--safe-top) 5% 0;
-  /* Armored background: solid black in safe zone, then glassmorphism */
-  background: linear-gradient(to bottom, #050505 var(--safe-top), rgba(5, 5, 5, 0.9) var(--safe-top), transparent);
+  /* Solid background to prevent transparency issues on mobile/notch */
+  background: #050505;
   backdrop-filter: blur(10px);
   z-index: 1000;
   border-bottom: 1px solid var(--glass-border);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
 }
 
 .logo {
@@ -257,8 +258,8 @@ h3,
 .navbar {
   height: calc(60px + var(--safe-top)); /* más compacto en móvil */
   padding: var(--safe-top) 4% 0;
-  /* Solid notch protection for mobile */
-  background: linear-gradient(to bottom, #050505 var(--safe-top), rgba(5, 5, 5, 0.95) var(--safe-top), transparent);
+  /* Opaque background for notch protection */
+  background: #050505 !important;
 }
 
 /* Search wrapper: en desktop muestra el input, en móvil oculta con ícono */
@@ -349,7 +350,7 @@ h3,
 
   .filter-bar {
     padding: 8px 12px;
-    background: rgba(5, 5, 5, 0.92);
+    background: #050505;
     border-bottom: 1px solid var(--glass-border);
     margin-top: 0;
     position: fixed;
@@ -357,6 +358,7 @@ h3,
     z-index: 500;
     left: 0;
     right: 0;
+    opacity: 1 !important;
   }
 
   #genre-bar.filter-bar {
@@ -364,7 +366,7 @@ h3,
   }
 
   #home-view {
-    padding-top: calc(90px + var(--safe-top)); /* Armored padding to avoid overlap */
+    padding-top: calc(160px + var(--safe-top)); /* Increased padding to clear multiple bars */
   }
 
   .filter-btn {
@@ -595,7 +597,7 @@ h3,
   top: calc(80px + var(--safe-top));
   left: 0;
   right: 0;
-  background: rgba(5, 5, 5, 0.92);
+  background: #050505;
   backdrop-filter: blur(12px);
   z-index: 500;
   border-bottom: 1px solid var(--glass-border);
@@ -603,7 +605,7 @@ h3,
 
 /* Compensar la barra fija en el contenido de abajo */
 #home-view {
-  padding-top: calc(120px + var(--safe-top));
+  padding-top: calc(160px + var(--safe-top));
 }
 
 #genre-bar.filter-bar {

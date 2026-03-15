@@ -27,9 +27,7 @@
 /* Floating Back Arrow */
 .player-back-arrow {
     position: fixed;
-    top: 20px;
-    left: 20px;
-    top: calc(40px + env(safe-area-inset-top, 0px));
+    top: calc(20px + env(safe-area-inset-top, 0px));
     left: calc(20px + env(safe-area-inset-left, 0px));
     width: 45px;
     height: 45px;

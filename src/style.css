@@ -12,6 +12,8 @@
   --card-radius: 16px;
   --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   --pwa-bg: rgba(15, 15, 15, 0.95);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* 💎 VIP & Premium Styles */
@@ -173,11 +175,11 @@ h3,
   top: 0;
   left: 0;
   right: 0;
-  height: 80px;
+  height: calc(80px + var(--safe-top));
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 5%;
+  padding: var(--safe-top) 5% 0;
   background: linear-gradient(to bottom, rgba(5, 5, 5, 0.8), transparent);
   backdrop-filter: blur(10px);
   z-index: 1000;
@@ -251,8 +253,8 @@ h3,
 
 /* ---- NAVBAR MOBILE FIX ---- */
 .navbar {
-  height: 60px; /* más compacto en móvil */
-  padding: 0 4%;
+  height: calc(60px + var(--safe-top)); /* más compacto en móvil */
+  padding: var(--safe-top) 4% 0;
 }
 
 /* Search wrapper: en desktop muestra el input, en móvil oculta con ícono */
@@ -286,8 +288,8 @@ h3,
 
 @media (max-width: 768px) {
   .navbar {
-    height: 56px;
-    padding: 0 4%;
+    height: calc(56px + var(--safe-top));
+    padding: var(--safe-top) 4% 0;
   }
 
   /* Ocultar el nombre de usuario en móvil, solo mostrar el avatar */
@@ -347,14 +349,14 @@ h3,
     border-bottom: 1px solid var(--glass-border);
     margin-top: 0;
     position: fixed;
-    top: 56px;
+    top: calc(56px + var(--safe-top));
     z-index: 500;
     left: 0;
     right: 0;
   }
 
   #genre-bar.filter-bar {
-    top: 98px;
+    top: calc(98px + var(--safe-top));
   }
 
   #home-view {
@@ -369,7 +371,7 @@ h3,
   }
   
   .hero-banners {
-    padding-top: 80px;
+    padding-top: calc(80px + var(--safe-top));
   }
 }
 
@@ -586,7 +588,7 @@ h3,
   scrollbar-width: none;
   /* position:fixed = siempre visible sin importar el overflow del DOM */
   position: fixed;
-  top: 80px;
+  top: calc(80px + var(--safe-top));
   left: 0;
   right: 0;
   background: rgba(5, 5, 5, 0.92);
@@ -601,7 +603,7 @@ h3,
 }
 
 #genre-bar.filter-bar {
-  top: 139px; /* Debajo del filter-bar principal (80px + ~59px height) */
+  top: calc(139px + var(--safe-top)); /* Debajo del filter-bar principal (80px + ~59px height) */
   padding-top: 4px;
   padding-bottom: 4px;
   border-top: 1px solid rgba(255,255,255,0.06);

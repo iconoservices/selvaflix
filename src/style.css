@@ -181,12 +181,18 @@ h3,
   align-items: center;
   justify-content: space-between;
   padding: var(--safe-top) 5% 0;
-  /* Solid background to prevent transparency issues on mobile/notch */
-  background: #050505;
+  background: linear-gradient(to bottom, rgba(5, 5, 5, 0.92), transparent);
   backdrop-filter: blur(10px);
   z-index: 1000;
   border-bottom: 1px solid var(--glass-border);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+
+/* Solo para iPhone: Fondo sólido para proteger el notch */
+@supports (-webkit-touch-callout: none) {
+  .navbar {
+    background: #050505 !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  }
 }
 
 .logo {
@@ -258,8 +264,12 @@ h3,
 .navbar {
   height: calc(60px + var(--safe-top)); /* más compacto en móvil */
   padding: var(--safe-top) 4% 0;
-  /* Opaque background for notch protection */
-  background: #050505 !important;
+}
+
+@supports (-webkit-touch-callout: none) {
+  .navbar {
+    background: #050505 !important;
+  }
 }
 
 /* Search wrapper: en desktop muestra el input, en móvil oculta con ícono */
@@ -366,7 +376,14 @@ h3,
   }
 
   #home-view {
-    padding-top: calc(160px + var(--safe-top)); /* Increased padding to clear multiple bars */
+    padding-top: calc(100px + var(--safe-top)); 
+  }
+
+  /* Más espacio solo en iPhone para evitar el notch */
+  @supports (-webkit-touch-callout: none) {
+    #home-view {
+      padding-top: calc(160px + var(--safe-top));
+    }
   }
 
   .filter-btn {
@@ -605,7 +622,13 @@ h3,
 
 /* Compensar la barra fija en el contenido de abajo */
 #home-view {
-  padding-top: calc(160px + var(--safe-top));
+  padding-top: calc(120px + var(--safe-top));
+}
+
+@supports (-webkit-touch-callout: none) {
+  #home-view {
+    padding-top: calc(160px + var(--safe-top));
+  }
 }
 
 #genre-bar.filter-bar {

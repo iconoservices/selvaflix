@@ -16,10 +16,12 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* iOS WebView/Chrome fallback: when env() fails, force 45px minimum */
+/* iOS PWA fallback: when installed (standalone) and env() fails, force 45px minimum */
 @supports (-webkit-touch-callout: none) {
-  :root {
-    --safe-top: max(env(safe-area-inset-top), 45px);
+  @media (display-mode: standalone) {
+    :root {
+      --safe-top: max(env(safe-area-inset-top), 45px);
+    }
   }
 }
 

@@ -3435,9 +3435,6 @@ window.openPlayer = async (movieId) => {
   }
 
   currentPlayerMovie = movie;
-
-  // Iniciar la secuencia de seguridad y comerciales antes del Play
-  startWarningOverlay(movie);
 }
 
 // --- REPRODUCTOR INTEGRATION ---

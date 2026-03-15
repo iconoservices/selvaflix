@@ -22,6 +22,8 @@
     padding-top: env(safe-area-inset-top, 0px);
     padding-bottom: env(safe-area-inset-bottom, 0px);
     box-sizing: border-box;
+    /* Armored notch protection for player */
+    background: linear-gradient(to bottom, #000 env(safe-area-inset-top, 0px), rgba(5, 5, 5, 0.98) env(safe-area-inset-top, 0px));
 }
 
 /* Floating Back Arrow */

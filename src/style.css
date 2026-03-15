@@ -12,6 +12,7 @@
   --card-radius: 16px;
   --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   --pwa-bg: rgba(15, 15, 15, 0.95);
+  --safe-top: constant(safe-area-inset-top); /* Legacy iOS support */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -180,7 +181,8 @@ h3,
   align-items: center;
   justify-content: space-between;
   padding: var(--safe-top) 5% 0;
-  background: linear-gradient(to bottom, rgba(5, 5, 5, 0.8), transparent);
+  /* Armored background: solid black in safe zone, then glassmorphism */
+  background: linear-gradient(to bottom, #050505 var(--safe-top), rgba(5, 5, 5, 0.9) var(--safe-top), transparent);
   backdrop-filter: blur(10px);
   z-index: 1000;
   border-bottom: 1px solid var(--glass-border);
@@ -255,6 +257,8 @@ h3,
 .navbar {
   height: calc(60px + var(--safe-top)); /* más compacto en móvil */
   padding: var(--safe-top) 4% 0;
+  /* Solid notch protection for mobile */
+  background: linear-gradient(to bottom, #050505 var(--safe-top), rgba(5, 5, 5, 0.95) var(--safe-top), transparent);
 }
 
 /* Search wrapper: en desktop muestra el input, en móvil oculta con ícono */
@@ -360,7 +364,7 @@ h3,
   }
 
   #home-view {
-    padding-top: 48px;
+    padding-top: calc(90px + var(--safe-top)); /* Armored padding to avoid overlap */
   }
 
   .filter-btn {
@@ -599,7 +603,7 @@ h3,
 
 /* Compensar la barra fija en el contenido de abajo */
 #home-view {
-  padding-top: 70px;
+  padding-top: calc(120px + var(--safe-top));
 }
 
 #genre-bar.filter-bar {

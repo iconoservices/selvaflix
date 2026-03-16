@@ -27,14 +27,14 @@
 /* 📲 PWA Instalada (Detección Nativa) */
 @media (display-mode: standalone) {
   :root {
-    /* ¡Super Seguro! 100px de margen superior para iPhone 13 y Dynamic Island */
-    --safe-top: max(100px, env(safe-area-inset-top, 80px)) !important;
+    /* Balanceado: 50px es el punto dulce para iPhone 13 y Dynamic Island */
+    --safe-top: max(50px, env(safe-area-inset-top, 47px)) !important;
   }
 }
 
-/* Respaldo JS - colocado DESPUÉS para ganar cascade */
+/* Respaldo JS */
 body.ios-pwa-standalone {
-  --safe-top: 100px !important;
+  --safe-top: 50px !important;
 }
 
 /* 💎 VIP & Premium Styles */
@@ -323,13 +323,13 @@ h3,
 
 @media (max-width: 768px) {
   .navbar {
-    /* Ahora la franja negra es masiva (110px base) para garantizar separación total */
-    height: calc(110px + var(--safe-top));
+    /* Altura equilibrada: 60px de contenido + safe-top */
+    height: calc(60px + var(--safe-top));
     padding-top: var(--safe-top) !important;
     padding-left: 4%;
     padding-right: 4%;
-    padding-bottom: 15px;
-    align-items: flex-end; /* Reposan abajo en el fondo negro */
+    padding-bottom: 10px;
+    align-items: flex-end; /* Los elementos reposan abajo, lejos de la señal/batería */
   }
 
   /* Ocultar el nombre de usuario en móvil, solo mostrar el avatar */
@@ -389,8 +389,8 @@ h3,
     border-bottom: 1px solid var(--glass-border);
     margin-top: 0;
     position: fixed;
-    /* Bajando los filtros para que sigan la nueva barra negra */
-    top: calc(115px + var(--safe-top));
+    /* Justo debajo del navbar revisado */
+    top: calc(60px + var(--safe-top));
     z-index: 500;
     left: 0;
     right: 0;
@@ -398,18 +398,19 @@ h3,
   }
 
   #genre-bar.filter-bar {
-    top: calc(160px + var(--safe-top)); 
+    /* La barra de categorías mide ~45px, así que la de géneros va a 105px */
+    top: calc(105px + var(--safe-top)); 
   }
 
   #home-view {
-    /* Las películas bajan drásticamente para compensar la barra masiva */
-    padding-top: calc(210px + var(--safe-top)); 
+    /* Las películas bajan lo justo para no dejar huecos gigantes */
+    padding-top: calc(150px + var(--safe-top)); 
   }
 
-  /* Más espacio solo en iPhone */
+  /* Más espacio solo en iPhone para compensar barras fijas */
   @supports (-webkit-touch-callout: none) {
     #home-view {
-      padding-top: calc(260px + var(--safe-top));
+      padding-top: calc(200px + var(--safe-top));
     }
   }
 

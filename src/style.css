@@ -389,8 +389,8 @@ h3,
     border-bottom: 1px solid var(--glass-border);
     margin-top: 0;
     position: fixed;
-    /* Bajando los filtros para que no queden pegados al navbar de 56px */
-    top: calc(58px + var(--safe-top));
+    /* Bajando los filtros 15px más (58px -> 73px) */
+    top: calc(73px + var(--safe-top));
     z-index: 500;
     left: 0;
     right: 0;
@@ -398,11 +398,13 @@ h3,
   }
 
   #genre-bar.filter-bar {
-    top: calc(105px + var(--safe-top)); 
+    /* Bajando géneros 15px más (105px -> 120px) */
+    top: calc(120px + var(--safe-top)); 
   }
 
   #home-view {
-    padding-top: calc(150px + var(--safe-top)); 
+    /* Compensando el descenso de las barras (+15px al padding-top) */
+    padding-top: calc(165px + var(--safe-top)); 
   }
 
   /* Más espacio solo en iPhone */

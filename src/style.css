@@ -19,15 +19,14 @@
 /* 📱 Mobile Top Spacing (Notch/Status Bar Support) */
 @media (max-width: 768px) {
   :root {
-    /* Si el dispositivo no reporta safe-area (o es 0), forzamos 45px para que no pegue arriba */
-    --safe-top: max(45px, env(safe-area-inset-top, 0px));
+    /* Aumentado a 60px por petición del usuario para mejor aire arriba */
+    --safe-top: max(60px, env(safe-area-inset-top, 0px));
   }
 }
 
-/* iOS PWA fallback: JS detecta si la app está instalada y añade esta clase.
-   Usamos !important a lo bruto para sobreescribir cualquier cálculo de env() que falle. */
+/* iOS PWA fallback: JS detecta si la app está instalada y añade esta clase. */
 body.ios-pwa-standalone {
-  --safe-top: 45px !important;
+  --safe-top: 60px !important;
 }
 
 /* 💎 VIP & Premium Styles */
@@ -654,7 +653,7 @@ h3,
 
 /* Compensar cuando genre-bar está visible */
 #home-view.genre-visible {
-  padding-top: 120px;
+  padding-top: calc(160px + var(--safe-top));
 }
 
 
@@ -1049,7 +1048,7 @@ h3,
 
 /* Admin Panel */
 .admin-section {
-  padding: 120px 5% 40px;
+  padding: calc(120px + var(--safe-top)) 5% 40px;
   display: none;
   /* Hidden by default */
   animation: fadeIn 0.5s ease;

@@ -389,8 +389,8 @@ h3,
     border-bottom: 1px solid var(--glass-border);
     margin-top: 0;
     position: fixed;
-    /* Bajando otros 25px (100px -> 125px) */
-    top: calc(125px + var(--safe-top));
+    /* Bajando otros 30px (125px -> 155px) */
+    top: calc(155px + var(--safe-top));
     z-index: 500;
     left: 0;
     right: 0;
@@ -398,19 +398,19 @@ h3,
   }
 
   #genre-bar.filter-bar {
-    /* Bajando otros 25px (150px -> 175px) */
-    top: calc(175px + var(--safe-top)); 
+    /* Bajando otros 30px (175px -> 205px) */
+    top: calc(205px + var(--safe-top)); 
   }
 
   #home-view {
-    /* Bajando otros 25px (200px -> 225px) */
-    padding-top: calc(225px + var(--safe-top)); 
+    /* Bajando otros 30px (225px -> 255px) */
+    padding-top: calc(255px + var(--safe-top)); 
   }
 
-  /* Más espacio solo en iPhone (240px -> 265px) */
+  /* Más espacio solo en iPhone (265px -> 295px) */
   @supports (-webkit-touch-callout: none) {
     #home-view {
-      padding-top: calc(265px + var(--safe-top));
+      padding-top: calc(295px + var(--safe-top));
     }
   }
 

@@ -30,19 +30,6 @@
     /* Fuerza un aire seguro brutal en iPhone para que la batería NUNCA solape */
     --safe-top: max(65px, env(safe-area-inset-top, 60px)) !important;
   }
-  
-  /* OVERRIDES ESPECÍFICOS SOLO PARA PWA EN TELÉFONO */
-  @media (max-width: 768px) {
-    .filter-bar {
-      top: calc(105px + var(--safe-top)) !important;
-    }
-    #genre-bar.filter-bar {
-      top: calc(150px + var(--safe-top)) !important;
-    }
-    #home-view {
-      padding-top: calc(250px + var(--safe-top)) !important;
-    }
-  }
 }
 
 /* iOS PWA fallback: JS detecta si la app está instalada y añade esta clase. */
@@ -336,11 +323,13 @@ h3,
 
 @media (max-width: 768px) {
   .navbar {
-    height: calc(56px + var(--safe-top));
+    /* Altura incrementada para extender el fondo negro (56 + 14 = 70) */
+    height: calc(70px + var(--safe-top));
     padding-top: var(--safe-top) !important;
     padding-left: 4%;
     padding-right: 4%;
-    padding-bottom: 0px;
+    /* El padding extra absorbe el aumento de altura para no desplazar los items */
+    padding-bottom: 14px;
     align-items: center;
   }
 
@@ -401,8 +390,8 @@ h3,
     border-bottom: 1px solid var(--glass-border);
     margin-top: 0;
     position: fixed;
-    /* Valores originales para navegador web (NO PWA) */
-    top: calc(56px + var(--safe-top));
+    /* Bajando las categorías mucho más para que no toquen el perfil */
+    top: calc(85px + var(--safe-top));
     z-index: 500;
     left: 0;
     right: 0;
@@ -410,18 +399,18 @@ h3,
   }
 
   #genre-bar.filter-bar {
-    top: calc(98px + var(--safe-top));
+    top: calc(130px + var(--safe-top)); /* Debajo del nuevo filter-bar */
   }
 
   #home-view {
-    /* Valor original */
-    padding-top: calc(140px + var(--safe-top)); 
+    /* Las películas bajan aún más */
+    padding-top: calc(180px + var(--safe-top)); 
   }
 
   /* Más espacio solo en iPhone para evitar el notch */
   @supports (-webkit-touch-callout: none) {
     #home-view {
-      padding-top: calc(200px + var(--safe-top));
+      padding-top: calc(230px + var(--safe-top));
     }
   }
 

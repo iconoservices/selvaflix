@@ -16,6 +16,14 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* 📱 Mobile Top Spacing (Notch/Status Bar Support) */
+@media (max-width: 768px) {
+  :root {
+    /* Si el dispositivo no reporta safe-area (o es 0), forzamos 45px para que no pegue arriba */
+    --safe-top: max(45px, env(safe-area-inset-top, 0px));
+  }
+}
+
 /* iOS PWA fallback: JS detecta si la app está instalada y añade esta clase.
    Usamos !important a lo bruto para sobreescribir cualquier cálculo de env() que falle. */
 body.ios-pwa-standalone {

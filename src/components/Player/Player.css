@@ -29,7 +29,8 @@
 /* Floating Back Arrow */
 .player-back-arrow {
     position: fixed;
-    top: calc(20px + env(safe-area-inset-top, 0px));
+    /* Usando var(--safe-top) para bajar la flecha del notch */
+    top: calc(15px + var(--safe-top));
     left: calc(20px + env(safe-area-inset-left, 0px));
     width: 45px;
     height: 45px;
@@ -61,9 +62,7 @@
 
 .admin-player-toolbar {
     position: fixed;
-    top: 20px;
-    left: 80px; /* Separado de la flecha back */
-    top: calc(20px + env(safe-area-inset-top, 0px));
+    top: calc(15px + var(--safe-top));
     left: calc(85px + env(safe-area-inset-left, 0px));
     z-index: 10002;
     display: flex;
@@ -79,7 +78,8 @@
     .video-layout {
         padding: 0;
         width: 100%;
-        margin-top: 55px; /* Espacio para que respire debajo de la flecha y el notch */
+        /* Bajando el reproductor para que no toque el notch (65px de aire extra) */
+        margin-top: calc(65px + var(--safe-top)); 
     }
 
     .video-container {

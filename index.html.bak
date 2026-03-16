@@ -158,13 +158,6 @@
                 <span id="user-name" class="nav-username">Login</span>
             </div>
             
-            <div id="user-menu" style="display: none; position: absolute; top: 40px; right: 0; background: #111; border: 1px solid var(--glass-border); border-radius: 12px; padding: 10px; z-index: 10001; min-width: 150px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-                <!-- 🚩 Slot de Publicidad Lateral (Sidebar) -->
-                <div id="ad-slot-sidebar" class="ad-slot-container" style="display: none; margin-bottom: 15px; background: rgba(0,0,0,0.2); border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05);"></div>
-                <button onclick="window.switchView('admin')" class="btn" style="width: 100%; border: none; background: rgba(255,255,255,0.05); color: white; padding: 8px; font-size: 0.75rem; text-align: left; border-radius: 8px; margin-bottom: 5px;">⚙️ Admin Panel</button>
-                <button onclick="window.handleLogout()" class="btn" style="width: 100%; border: none; background: rgba(231,76,60,0.1); color: #E74C3C; padding: 8px; font-size: 0.75rem; text-align: left; border-radius: 8px;">🚪 Cerrar Sesión</button>
-            </div>
-            
             <!-- Perfil Dropdown -->
             <div id="user-dropdown" style="display: none; position: absolute; top: 45px; right: 0; background: #111; border: 1px solid var(--glass-border); border-radius: 12px; width: 180px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 1001; overflow: hidden;">
                 <div style="padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center;">
@@ -190,9 +183,6 @@
         </button>
       </div>
     </nav>
-    
-    <!-- 🚩 Slot de Publicidad Superior (Top) -->
-    <div id="ad-slot-top" class="ad-slot-container" style="display: none; width: 100%; text-align: center; padding: 10px 0; background: rgba(0,0,0,0.3); border-bottom: 1px solid rgba(255,255,255,0.05); min-height: 50px; position: relative; z-index: 100;"></div>
 
 
 
@@ -251,7 +241,7 @@
         </div>
       </div>
       <!-- iOS Installation Guide -->
-      <div id="ios-install-guide" class="ios-guide" style="display: none;">
+      <div id="ios-install-guide" class="ios-guide">
         <div class="ios-guide-content">
           <div class="ios-guide-header">
             <h3>Instalar en tu iPhone/iPad 📱</h3>
@@ -265,9 +255,6 @@
           </ol>
         </div>
       </div>
-      
-      <!-- 🚩 Slot de Publicidad Inferior (Footer) -->
-      <div id="ad-slot-footer" class="ad-slot-container" style="display: none; width: 100%; text-align: center; padding: 20px 0; background: rgba(0,0,0,0.4); border-top: 1px solid rgba(255,255,255,0.05); min-height: 90px; margin-top: 50px;"></div>
     </main>
 
     <!-- 🔥 SISTEMA DE USUARIOS (Login & Perfiles) -->
@@ -455,9 +442,6 @@
             <form id="movie-form">
               <input type="hidden" id="m-db-id">
               <input type="hidden" id="m-imdb-id">
-              <input type="hidden" id="m-original-title">
-              <input type="hidden" id="m-alternative-titles">
-              <input type="hidden" id="m-director">
 
               <!-- Grupo 1: Título e ID -->
               <div class="form-group">
@@ -609,7 +593,6 @@
               <div style="color: #9B59B2;">🏆 <strong id="count-series">0</strong> Series</div>
               <div style="color: #F1C40F;">⏳ <strong id="count-waiting">0</strong> En Espera</div>
               <div style="color: #3498DB;">🧪 <strong id="count-review">0</strong> En Revisión</div>
-              <div style="color: #00f2ff;">🧐 <strong id="count-verify">0</strong> Por Verificar</div>
               <div style="color: #F39C12;">🚨 <strong id="count-reported">0</strong> Reportadas</div>
               <div style="color: #E74C3C; margin-left: auto;">⚠️ <strong id="count-broken">0</strong> Rotas</div>
             </div>
@@ -628,7 +611,6 @@
               <select id="inventory-filter" class="form-control" onchange="window.filterInventoryByCategory()">
                 <option value="all">Salud: Todas</option>
                 <option value="review">🧪 En Revisión (Cola)</option>
-                <option value="verify">🧐 Por Verificar (Exportados)</option>
                 <option value="waiting">⏳ En Espera (Descargas)</option>
                 <option value="reported">🚨 Reportados por Usuarios</option>
                 <option value="broken">🔴 Con Errores</option>
@@ -910,29 +892,20 @@
       </div>
 
       <!-- Ads Tab (Campaign Engine v3.0 🎬📅) -->
-      <div id="admin-ads-tab" data-test="ok" style="display: none;">
+      <div id="admin-ads-tab" style="display: none;">
           <!-- Barra de Control Superior -->
           <div class="admin-card" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 15px 20px; background: rgba(255,122,0,0.05); border: 1px solid rgba(255,122,0,0.1); border-left: 4px solid var(--primary);">
               <div style="display: flex; align-items: center; gap: 15px;">
-                  <h2 class="admin-title" style="margin:0; font-size: 1rem;">🚀 Ads Manager</h2>
+                  <h2 class="admin-title" style="margin:0; font-size: 1rem;">🚀 Motor de Campañas</h2>
                   <button onclick="window.createNewAdCampaign()" class="btn" style="background: var(--primary); color: black; font-size: 0.7rem; padding: 6px 15px; font-weight: bold;">+ NUEVA CAMPAÑA</button>
               </div>
               <div style="display: flex; align-items: center; gap: 15px;">
                   <div style="display: flex; align-items: center; gap: 8px;">
-                      
-                      
-                          
-                          
-                      
-                  </div>
-                  <!-- ⚡ Modo de Coexistencia Global -->
-                  <div style="display: flex; align-items: center; gap: 8px; margin-left: 10px; border-left: 1px solid rgba(255,255,255,0.1); padding-left: 15px;">
-                      <span style="font-size: 0.65rem; color: #aaa;">Modo Global:</span>
-                      <select id="ad-global-coexistence-mode" class="form-control" style="font-size: 0.65rem; padding: 2px 5px; height: 25px; background: rgba(255,122,0,0.03); width: 120px; border: 1px solid rgba(255,122,0,0.2); color: var(--primary);">
-                          <option value="mixed">🎭 Mixto (Todos)</option>
-                          <option value="external_only">🚀 Solo Redes</option>
-                          <option value="internal_only">🏠 Solo Internos</option>
-                      </select>
+                      <span style="font-size: 0.65rem; color: #aaa;">Estado Global:</span>
+                      <label class="switch" style="transform: scale(0.75);">
+                          <input type="checkbox" id="ad-active-global" checked>
+                          <span class="slider round"></span>
+                      </label>
                   </div>
               </div>
           </div>
@@ -948,51 +921,12 @@
 
               <!-- Editor de Campaña -->
               <div id="ad-campaign-editor" class="admin-card" style="padding: 20px; display: none;">
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px; gap: 20px;">
-                      <!-- Identificación -->
-                      <div style="flex: 1; display: flex; flex-direction: column; gap: 5px;">
-                          <input type="text" id="ad-edit-name" style="background: transparent; border: none; color: white; font-size: 1.2rem; font-weight: bold; outline: none; width: 100%;" placeholder="Nombre de la campaña...">
-                          <p style="font-size: 0.7rem; color: var(--text-muted); margin: 0;">ID: <span id="ad-edit-id">---</span></p>
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px;">
+                      <div>
+                          <input type="text" id="ad-edit-name" style="background: transparent; border: none; color: white; font-size: 1.2rem; font-weight: bold; outline: none; width: 300px;" placeholder="Nombre de la campaña...">
+                          <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 5px;">ID: <span id="ad-edit-id">---</span></p>
                       </div>
-                      
-                      <!-- Acciones -->
-                      <div style="display: flex; align-items: center; gap: 10px;">
-                          <button onclick="window.previewCurrentAd()" class="btn" style="background: rgba(0,242,255,0.05); border: 1px solid rgba(0,242,255,0.2); color: #00f2ff; width: 45px; height: 45px; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; border-radius: 12px; transition: 0.3s;" title="Vista Previa">👁️</button>
-                          
-                          <button onclick="window.saveAdsCampaigns()" id="btn-save-ads" class="btn btn-primary" style="height: 45px; padding: 0 20px; font-weight: 800; font-size: 0.8rem; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1;">
-                              <span style="font-size: 0.9rem;">💾</span>
-                              <span>GUARDAR CAMPAÑA</span>
-                          </button>
-
-                          <div style="display: flex; flex-direction: column; gap: 4px; align-items: center;">
-                              <label class="switch" style="transform: scale(0.8); width: 44px; height: 22px;">
-                                  <input type="checkbox" id="ad-edit-active" style="display:none;">
-                                  <span class="slider round"></span>
-                              </label>
-                              <div id="campaign-status-toggle" style="font-size: 0.5rem; font-weight: bold; color: #555; text-align: center; width: 60px;">CAMPAÑA OFF</div>
-                          </div>
-
-                          <!-- ⚡ Herramientas Pro x Campaña -->
-                           <div style="display: flex; gap: 5px; background: rgba(0,0,0,0.2); padding: 5px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
-                               <div style="display: flex; flex-direction: column; gap: 2px; align-items: center; padding: 0 5px;">
-                                   <input type="checkbox" id="ad-edit-force-campaign" style="width: 14px; height: 14px; cursor: pointer;">
-                                   <span style="font-size: 0.5rem; color: var(--primary); font-weight: 900;">⚡ FORZAR</span>
-                               </div>
-                               <button onclick="window.clearAdHistorySingle()" class="btn" style="background: rgba(255,255,255,0.05); color: #777; border: 1px solid rgba(255,255,255,0.1); width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 0.8rem;" title="Limpiar Vistas de esta Campaña">🧹</button>
-                               <button onclick="window.deleteCurrentCampaign()" class="btn" style="background: rgba(231,76,60,0.1); color: #E74C3C; border: 1px solid rgba(231,76,60,0.2); width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 0.8rem;" title="Eliminar">🗑️</button>
-                           </div>
-                                           <div class="form-group" style="margin-top: 15px;">
-                              <label style="font-size: 0.65rem; color: var(--primary); text-transform: uppercase;">🔗 Comportamiento del Clic (Smart Link)</label>
-                              <div style="display: flex; gap: 5px; margin-top: 5px;">
-                                  <button id="link-type-network" class="btn link-type-btn" onclick="window.setAdLinkType('network')" style="flex: 1; font-size: 0.55rem; padding: 6px 2px; border-radius: 6px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #777; transition: 0.3s;" title="La red publicitaria maneja el clic">🚀 RED LIBRE</button>
-                                  <button id="link-type-manual" class="btn link-type-btn active" onclick="window.setAdLinkType('manual')" style="flex: 1; font-size: 0.55rem; padding: 6px 2px; border-radius: 6px; background: rgba(255,122,0,0.1); border: 1px solid var(--primary); color: var(--primary); transition: 0.3s;" title="Tú pones el link manualmente">🔗 MANUAL</button>
-                                  <button id="link-type-auto" class="btn link-type-btn" onclick="window.setAdLinkType('auto')" style="flex: 1; font-size: 0.55rem; padding: 6px 2px; border-radius: 6px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #777; transition: 0.3s;" title="Selva busca el link de la peli solo">🌳 SELVA AUTO</button>
-                              </div>
-                              <div id="ad-edit-link-container" style="display: block; margin-top: 10px;">
-                                  <input type="url" id="ad-edit-link" class="form-control" style="font-size: 0.75rem;" placeholder="https://mi-link-externo.com/...">
-                              </div>
-                          </div>
-                      </div>
+                      <button onclick="window.deleteCurrentCampaign()" class="btn" style="background: rgba(231,76,60,0.1); color: #E74C3C; border: 1px solid rgba(231,76,60,0.2); font-size: 0.65rem; padding: 4px 10px;">🗑️ Eliminar</button>
                   </div>
 
                   <div class="admin-grid" style="grid-template-columns: 1fr 1fr; gap: 20px;">
@@ -1030,37 +964,12 @@
 
                           <h4 style="font-size: 0.75rem; color: var(--primary); margin-bottom: 15px; text-transform: uppercase; margin-top: 25px;">🎯 Ubicación y Tipo</h4>
                           <div class="form-group">
-                              <label style="font-size: 0.65rem;">Lugares de Aparición (Selección Múltiple)</label>
-                              <div id="ad-edit-placements" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 5px;">
-                                  <button class="placement-btn" data-placement="top_banner">Arriba</button>
-                                  <button class="placement-btn" data-placement="sidebar_banner">Lateral</button>
-                                  <button class="placement-btn" data-placement="footer_banner">Abajo</button>
-                                  <button class="placement-btn" data-placement="landing_popup">🎁 BIENVENIDA (Estreno)</button>
-                                  <button class="placement-btn" data-placement="card_overlay">Flotante (Play)</button>
-                                  <button class="placement-btn" data-placement="video_preroll">Antes de Video</button>
-                                  <button class="placement-btn" data-placement="in_player">En Jugador</button>
-                                  <button class="placement-btn" data-placement="global_script">Red Global</button>
-                              </div>
-                              <div id="placement-direction-container"></div>
-                              <style>
-                                  .placement-btn { width: 100%; height: 28px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: #777; font-size: 0.55rem; cursor: pointer; transition: 0.3s; font-weight: bold; }
-                                  .placement-btn.active { background: var(--primary); color: black; border-color: var(--primary); box-shadow: 0 0 10px var(--primary-glow); }
-                              </style>
-                              <div id="placement-mode-selector" style="margin-top: 10px; display: none;">
-                                  <label style="font-size: 0.6rem; color: #666; display: block; margin-bottom: 5px;">📍 MODO DE UBICACIÓN</label>
-                                  <div style="display: flex; gap: 4px;">
-                                      <button id="placement-mode-manual" onclick="window.setPlacementMode('manual')" class="btn" style="flex:1; font-size: 0.5rem; padding: 4px; background: rgba(255,122,0,0.1); border: 1px solid var(--primary); color: var(--primary);">📍 FIJA (ELEGIR SLOTS)</button>
-                                      <button id="placement-mode-auto" onclick="window.setPlacementMode('auto')" class="btn" style="flex:1; font-size: 0.5rem; padding: 4px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #777;">🌐 RED ELIGE (AUTO)</button>
-                                  </div>
-                              </div>
-                          </div>
-
-                          <div class="form-group" style="margin-top: 15px;">
-                              <label style="font-size: 0.65rem;">Estrategia de Coexistencia</label>
-                              <select id="ad-edit-coexistence" class="form-control" style="font-size: 0.75rem;">
-                                  <option value="respect_global">🌐 Respetar Global</option>
-                                  <option value="force_always">⚡ Forzar Siempre</option>
-                                  <option value="only_fallback">🛡️ Solo Respaldo</option>
+                              <label style="font-size: 0.65rem;">Lugar de Aparición</label>
+                              <select id="ad-edit-placement" class="form-control" onchange="window.updateAdPlacementFields()">
+                                  <option value="card_overlay">🃏 Tarjeta Interactiva (Capa 1)</option>
+                                  <option value="video_preroll">🎬 Video Pre-roll (VAST / Directo)</option>
+                                  <option value="in_player">🕹️ Dentro del Reproductor (Banner)</option>
+                                  <option value="global_script">⚡ Script de Red (Social Bar / Popunder)</option>
                               </select>
                           </div>
 
@@ -1073,16 +982,6 @@
                               </select>
                           </div>
 
-                          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
-                               <div class="form-group">
-                                   <label style="font-size: 0.65rem; color: var(--primary);">📅 Fecha Inicio</label>
-                                   <input type="date" id="ad-edit-start-date" class="form-control" style="font-size: 0.75rem; background: rgba(0,0,0,0.3); border-color: rgba(255,255,255,0.1); color: white;">
-                               </div>
-                               <div class="form-group">
-                                   <label style="font-size: 0.65rem; color: var(--primary);">📅 Fecha Fin</label>
-                                   <input type="date" id="ad-edit-end-date" class="form-control" style="font-size: 0.75rem; background: rgba(0,0,0,0.3); border-color: rgba(255,255,255,0.1); color: white;">
-                               </div>
-                           </div>
                           <div class="form-group" style="margin-top: 15px; display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.03); padding: 5px 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
                               <input type="checkbox" id="ad-edit-can-skip" style="width: 16px; height: 16px; cursor: pointer;">
                               <label style="font-size: 0.65rem; color: #aaa; margin: 0; cursor: pointer;" for="ad-edit-can-skip">⚡ Permitir SALTO INMEDIATO (Omitir espera)</label>
@@ -1091,15 +990,6 @@
 
                       <!-- Contenido -->
                       <div>
-                          <!-- Nuevo Selector de Tipo -->
-                          <div class="form-group" style="margin-bottom: 15px;">
-                              <label style="font-size: 0.65rem; color: var(--primary); text-transform: uppercase;">🚀 Tipo de Contenido</label>
-                              <div style="display: flex; gap: 5px; margin-top: 5px;">
-                                  <button id="ad-content-type-script" class="btn" onclick="window.setAdContentType('script')" style="flex: 1; font-size: 0.55rem; padding: 6px; border-radius: 6px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #777; transition: 0.3s;">🚀 SCRIPT / CÓDIGO</button>
-                                  <button id="ad-content-type-media" class="btn" onclick="window.setAdContentType('media')" style="flex: 1; font-size: 0.55rem; padding: 6px; border-radius: 6px; background: rgba(255,122,0,0.1); border: 1px solid var(--primary); color: var(--primary); transition: 0.3s;">🖼️ MEDIA (IMAGEN/VIDEO)</button>
-                              </div>
-                          </div>
-
                           <h4 style="font-size: 0.75rem; color: var(--primary); margin-bottom: 15px; text-transform: uppercase;">🎨 Contenido Visual</h4>
                           
                           <div id="placement-card-fields">
@@ -1123,7 +1013,6 @@
                                   <label style="font-size: 0.65rem;">Esperas (seg)</label>
                                   <input type="number" id="ad-edit-timer" class="form-control" min="0">
                               </div>
-                              <div id="placement-direction-container"></div>
                               <div class="form-group">
                                   <label style="font-size: 0.65rem;">Prioridad del Anuncio</label>
                                   <select id="ad-edit-priority" class="form-control" style="font-size: 0.75rem;">
@@ -1138,7 +1027,6 @@
                                       <option value="interval">⏳ Cada X Horas (Intervalo Fijo)</option>
                                       <option value="per_movie_daily">🌅 Una vez al día por Película</option>
                                       <option value="per_movie_once">🎬 Una vez por Película (Siempre)</option>
-                                      <option value="unlimited">🚀 SIEMPRE / Sin Límites (Red Decide)</option>
                                   </select>
                               </div>
                               <div id="freq-value-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
@@ -1162,6 +1050,14 @@
                       </div>
                   </div>
 
+                  <div style="margin-top: 30px; display: flex; gap: 15px;">
+                      <button onclick="window.saveAdsCampaigns()" class="btn btn-primary" style="flex: 1; height: 50px; font-weight: 800;">💾 GUARDAR TODAS LAS CAMPAÑAS</button>
+                      <button onclick="window.previewCurrentAd()" class="btn" style="background: rgba(0,242,255,0.1); border: 1px solid rgba(0,242,255,0.3); color: #00f2ff; width: 60px; height: 50px; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; border-radius: 12px;" title="Vista Previa de Tarjeta">👁️</button>
+                      <label class="switch" style="height: 50px; width: 100px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border-radius: 12px; cursor: pointer; gap: 10px; border: 1px solid rgba(255,255,255,0.1);">
+                          <input type="checkbox" id="ad-edit-active" style="display:none;">
+                          <div id="campaign-status-toggle" style="font-size: 0.7rem; font-weight: bold; color: #555;">CAMPAÑA OFF</div>
+                      </label>
+                  </div>
               </div>
               
               <!-- Empty State -->
@@ -1175,21 +1071,36 @@
 
           <!-- 🌍 Panel de Analíticas Geográficas ✨ -->
           <div id="ad-analytics-panel" class="admin-card" style="margin-top: 30px; padding: 25px; border: 1px solid rgba(255,255,255,0.05); background: linear-gradient(145deg, rgba(20,20,20,0.8), rgba(10,10,10,0.9));">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
                   <div>
-                      <h3 style="color: var(--primary); font-size: 0.9rem; font-weight: 900; text-transform: uppercase; border-left: 3px solid var(--primary); padding-left: 10px;">📉 Rendimiento por Países</h3>
-                      <p style="font-size: 0.6rem; color: #555;">Basado en clics detectados y visitas geolocalizadas.</p>
+                      <h3 style="color: var(--primary); font-size: 1rem; font-weight: 900; text-transform: uppercase;">📊 Métricas de la Selva Pro</h3>
+                      <p style="font-size: 0.65rem; color: #666;">Top Ubicaciones y Rendimiento de Anuncios</p>
                   </div>
-                  <button onclick="window.refreshAdAnalytics()" class="btn" style="background: rgba(255,122,0,0.1); color: var(--primary); font-size: 0.6rem; font-weight: 900; padding: 5px 12px; border: 1px solid rgba(255,122,0,0.2); border-radius: 6px;">🔄 REFRESCAR</button>
+                  <button onclick="window.refreshAdAnalytics()" class="btn" style="background: var(--primary); color: black; font-size: 0.65rem; font-weight: 900; padding: 8px 15px; border-radius: 8px;">🔄 ACTUALIZAR DATOS</button>
               </div>
 
-              <div style="overflow-x: auto;">
-                  <table class="admin-table" style="font-size: 0.7rem;">
-                      <thead>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                  <!-- Gráfica de Países -->
+                  <div style="background: rgba(255,255,255,0.02); padding: 20px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.05);">
+                      <p style="font-size: 0.75rem; font-weight: bold; margin-bottom: 15px; color: white;">🌍 Top Países (Visitas)</p>
+                      <canvas id="chart-countries" height="200"></canvas>
+                  </div>
+                  <!-- Gráfica de Ciudades -->
+                  <div style="background: rgba(255,255,255,0.02); padding: 20px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.05);">
+                      <p style="font-size: 0.75rem; font-weight: bold; margin-bottom: 15px; color: white;">🏙️ Top Ciudades (Audiencia)</p>
+                      <canvas id="chart-cities" height="200"></canvas>
+                  </div>
+              </div>
+
+              <!-- Tabla de Desglose -->
+              <div style="margin-top: 25px; background: rgba(0,0,0,0.2); border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05);">
+                  <table style="width: 100%; font-size: 0.7rem; color: #ccc; border-collapse: collapse;">
+                      <thead style="background: rgba(255,255,255,0.05);">
                           <tr>
-                              <th style="padding: 12px; text-align: left;">País</th>
+                              <th style="padding: 12px; text-align: left;">Ubicación</th>
                               <th style="padding: 12px; text-align: center;">Visitas</th>
-                              <th style="padding: 12px; text-align: center;">CTR Proyectado</th>
+                              <th style="padding: 12px; text-align: center;">Clics en Anuncios</th>
+                              <th style="padding: 12px; text-align: center;">CTR %</th>
                           </tr>
                       </thead>
                       <tbody id="ad-analytics-table-body">
@@ -1199,6 +1110,18 @@
               </div>
           </div>
 
+          <!-- 🛡️ Herramientas de Maestro de la Selva 🦁 -->
+          <div id="ad-debug-panel" class="admin-card" style="margin-top: 25px; padding: 20px; background: rgba(231,76,60,0.03); border: 1px solid rgba(231,76,60,0.1); border-left: 4px solid #E74C3C;">
+              <h3 style="color: #E74C3C; font-size: 0.9rem; font-weight: 900; text-transform: uppercase; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">⚠️ Lógica Maestra (Depuración Global)</h3>
+              <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap;">
+                  <div style="display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.03); padding: 10px 18px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                      <label style="font-size: 0.75rem; color: #eee; font-weight: bold; margin: 0; cursor: pointer;" for="ad-debug-force">⚡ FORZAR PUBLICIDAD (SIEMPRE):</label>
+                      <input type="checkbox" id="ad-debug-force" onchange="window.toggleForceAds(this.checked)" style="width: 22px; height: 22px; cursor: pointer;">
+                  </div>
+                  <button onclick="window.clearAdHistory()" class="btn" style="background: rgba(231,76,60,0.1); border: 1px solid rgba(231,76,60,0.2); color: #E74C3C; font-size: 0.7rem; font-weight: bold; padding: 10px 20px; border-radius: 10px;">🧹 LIMPIAR HISTORIAL DE VISTAS</button>
+                  <p style="font-size: 0.65rem; color: #666; margin: 0; flex: 1;">* Estas opciones afectan a toda la selva. El forzado ignora horarios y frecuencias para facilitar pruebas.</p>
+              </div>
+          </div>
       </div>
     </section>
 
@@ -1240,6 +1163,8 @@
         </div>
       </div>
     </div>
+    </div>
+  </div>
 
 
   <!-- Modal PIN entry 🔐 -->

@@ -24,9 +24,17 @@
   }
 }
 
+/* 📲 PWA Instalada (Detección Nativa sin depender de JS) */
+@media (display-mode: standalone) {
+  :root {
+    /* Fuerza un aire seguro brutal en iPhone para que la batería NUNCA solape */
+    --safe-top: max(65px, env(safe-area-inset-top, 60px)) !important;
+  }
+}
+
 /* iOS PWA fallback: JS detecta si la app está instalada y añade esta clase. */
 body.ios-pwa-standalone {
-  --safe-top: 60px !important;
+  --safe-top: 65px !important;
 }
 
 /* 💎 VIP & Premium Styles */
@@ -316,7 +324,10 @@ h3,
 @media (max-width: 768px) {
   .navbar {
     height: calc(56px + var(--safe-top));
-    padding: var(--safe-top) 4% 0;
+    padding-top: var(--safe-top) !important;
+    padding-left: 4%;
+    padding-right: 4%;
+    padding-bottom: 0px;
   }
 
   /* Ocultar el nombre de usuario en móvil, solo mostrar el avatar */
@@ -388,13 +399,13 @@ h3,
   }
 
   #home-view {
-    padding-top: calc(100px + var(--safe-top)); 
+    padding-top: calc(150px + var(--safe-top)); 
   }
 
   /* Más espacio solo en iPhone para evitar el notch */
   @supports (-webkit-touch-callout: none) {
     #home-view {
-      padding-top: calc(160px + var(--safe-top));
+      padding-top: calc(200px + var(--safe-top));
     }
   }
 
@@ -634,12 +645,12 @@ h3,
 
 /* Compensar la barra fija en el contenido de abajo */
 #home-view {
-  padding-top: calc(120px + var(--safe-top));
+  padding-top: calc(160px + var(--safe-top));
 }
 
 @supports (-webkit-touch-callout: none) {
   #home-view {
-    padding-top: calc(160px + var(--safe-top));
+    padding-top: calc(200px + var(--safe-top));
   }
 }
 
@@ -653,7 +664,7 @@ h3,
 
 /* Compensar cuando genre-bar está visible */
 #home-view.genre-visible {
-  padding-top: calc(160px + var(--safe-top));
+  padding-top: calc(200px + var(--safe-top));
 }
 
 

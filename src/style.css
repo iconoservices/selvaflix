@@ -27,14 +27,14 @@
 /* 📲 PWA Instalada (Detección Nativa) */
 @media (display-mode: standalone) {
   :root {
-    /* Término medio: 75px para iPhone 13. Ni tan corto (50px) ni tan brutal (100px) */
-    --safe-top: max(75px, env(safe-area-inset-top, 47px)) !important;
+    /* Ajustado a 85px. Paso a paso hacia el punto perfecto. */
+    --safe-top: max(85px, env(safe-area-inset-top, 47px)) !important;
   }
 }
 
 /* Respaldo JS */
 body.ios-pwa-standalone {
-  --safe-top: 75px !important;
+  --safe-top: 85px !important;
 }
 
 /* 💎 VIP & Premium Styles */

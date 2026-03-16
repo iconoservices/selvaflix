@@ -389,8 +389,8 @@ h3,
     border-bottom: 1px solid var(--glass-border);
     margin-top: 0;
     position: fixed;
-    /* Bajando los filtros más para que el navbar no los tape (100px base) */
-    top: calc(100px + var(--safe-top));
+    /* Bajando otros 25px (100px -> 125px) */
+    top: calc(125px + var(--safe-top));
     z-index: 500;
     left: 0;
     right: 0;
@@ -398,19 +398,19 @@ h3,
   }
 
   #genre-bar.filter-bar {
-    /* Ajustando géneros para bajar correspondientemente (150px base) */
-    top: calc(150px + var(--safe-top)); 
+    /* Bajando otros 25px (150px -> 175px) */
+    top: calc(175px + var(--safe-top)); 
   }
 
   #home-view {
-    /* Ajustando el padding para compensar el descenso de los botones */
-    padding-top: calc(200px + var(--safe-top)); 
+    /* Bajando otros 25px (200px -> 225px) */
+    padding-top: calc(225px + var(--safe-top)); 
   }
 
-  /* Más espacio solo en iPhone */
+  /* Más espacio solo en iPhone (240px -> 265px) */
   @supports (-webkit-touch-callout: none) {
     #home-view {
-      padding-top: calc(240px + var(--safe-top));
+      padding-top: calc(265px + var(--safe-top));
     }
   }
 

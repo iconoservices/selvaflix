@@ -340,7 +340,7 @@ export const SelvaStream = {
             style.id = 'selva-player-css';
             style.innerHTML = `
                 .player-start-screen {
-                    position: absolute; top:0; left:0; width:100%; height:100%;
+                    position: absolute; top: var(--safe-top); left:0; width:100%; height: calc(100% - var(--safe-top));
                     z-index: 200; display: flex; align-items: center; justify-content: center;
                     background: #000; overflow: hidden;
                 }

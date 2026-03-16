@@ -24,17 +24,17 @@
   }
 }
 
-/* 📲 PWA Instalada (Detección Nativa sin depender de JS) */
+/* 📲 PWA Instalada (Detección Nativa) */
 @media (display-mode: standalone) {
   :root {
-    /* Fuerza un aire seguro brutal en iPhone para que la batería NUNCA solape */
-    --safe-top: max(65px, env(safe-area-inset-top, 60px)) !important;
+    /* ¡Super Seguro! 100px de margen superior para iPhone 13 y Dynamic Island */
+    --safe-top: max(100px, env(safe-area-inset-top, 80px)) !important;
   }
 }
 
-/* iOS PWA fallback: JS detecta si la app está instalada y añade esta clase. */
+/* Respaldo JS - colocado DESPUÉS para ganar cascade */
 body.ios-pwa-standalone {
-  --safe-top: 65px !important;
+  --safe-top: 100px !important;
 }
 
 /* 💎 VIP & Premium Styles */
@@ -323,14 +323,13 @@ h3,
 
 @media (max-width: 768px) {
   .navbar {
-    /* Altura total de la barra negra. 85px es mucho más grande de lo normal para aislar completamente el layout del notch */
-    height: calc(85px + var(--safe-top));
+    /* Ahora la franja negra es masiva (110px base) para garantizar separación total */
+    height: calc(110px + var(--safe-top));
     padding-top: var(--safe-top) !important;
     padding-left: 4%;
     padding-right: 4%;
-    padding-bottom: 12px;
-    /* Empuja TODOS los elementos (logo, perfl, lupa) hacia el fondo de la barra, distanciándolos de arriba */
-    align-items: flex-end;
+    padding-bottom: 15px;
+    align-items: flex-end; /* Reposan abajo en el fondo negro */
   }
 
   /* Ocultar el nombre de usuario en móvil, solo mostrar el avatar */
@@ -390,8 +389,8 @@ h3,
     border-bottom: 1px solid var(--glass-border);
     margin-top: 0;
     position: fixed;
-    /* La barra negra bajó hasta 85px, así que los filtros empiezan en 90px (5px margen) */
-    top: calc(90px + var(--safe-top));
+    /* Bajando los filtros para que sigan la nueva barra negra */
+    top: calc(115px + var(--safe-top));
     z-index: 500;
     left: 0;
     right: 0;
@@ -399,19 +398,18 @@ h3,
   }
 
   #genre-bar.filter-bar {
-    /* Los filtros de la fila 2 bajan correspondientemente a 135px */
-    top: calc(135px + var(--safe-top)); 
+    top: calc(160px + var(--safe-top)); 
   }
 
   #home-view {
-    /* Las portadas bajan a 190px para hacer espacio al inmenso navbar */
-    padding-top: calc(190px + var(--safe-top)); 
+    /* Las películas bajan drásticamente para compensar la barra masiva */
+    padding-top: calc(210px + var(--safe-top)); 
   }
 
-  /* Más espacio solo en iPhone para evitar el notch */
+  /* Más espacio solo en iPhone */
   @supports (-webkit-touch-callout: none) {
     #home-view {
-      padding-top: calc(230px + var(--safe-top));
+      padding-top: calc(260px + var(--safe-top));
     }
   }
 

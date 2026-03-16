@@ -27,14 +27,14 @@
 /* 📲 PWA Instalada (Detección Nativa) */
 @media (display-mode: standalone) {
   :root {
-    /* Ajustado a 85px. Paso a paso hacia el punto perfecto. */
-    --safe-top: max(85px, env(safe-area-inset-top, 47px)) !important;
+    /* 110px para asegurar limpieza total de señal/batería en PWA */
+    --safe-top: max(110px, env(safe-area-inset-top, 47px)) !important;
   }
 }
 
 /* Respaldo JS */
 body.ios-pwa-standalone {
-  --safe-top: 85px !important;
+  --safe-top: 110px !important;
 }
 
 /* 💎 VIP & Premium Styles */

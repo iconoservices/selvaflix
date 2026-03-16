@@ -30,6 +30,19 @@
     /* Fuerza un aire seguro brutal en iPhone para que la batería NUNCA solape */
     --safe-top: max(65px, env(safe-area-inset-top, 60px)) !important;
   }
+  
+  /* OVERRIDES ESPECÍFICOS SOLO PARA PWA EN TELÉFONO */
+  @media (max-width: 768px) {
+    .filter-bar {
+      top: calc(105px + var(--safe-top)) !important;
+    }
+    #genre-bar.filter-bar {
+      top: calc(150px + var(--safe-top)) !important;
+    }
+    #home-view {
+      padding-top: calc(250px + var(--safe-top)) !important;
+    }
+  }
 }
 
 /* iOS PWA fallback: JS detecta si la app está instalada y añade esta clase. */
@@ -388,8 +401,8 @@ h3,
     border-bottom: 1px solid var(--glass-border);
     margin-top: 0;
     position: fixed;
-    /* Bajando agresivamente las categorías para que liberen el perfil */
-    top: calc(105px + var(--safe-top));
+    /* Valores originales para navegador web (NO PWA) */
+    top: calc(56px + var(--safe-top));
     z-index: 500;
     left: 0;
     right: 0;
@@ -397,18 +410,18 @@ h3,
   }
 
   #genre-bar.filter-bar {
-    top: calc(150px + var(--safe-top)); /* Empujado acordemente */
+    top: calc(98px + var(--safe-top));
   }
 
   #home-view {
-    /* Las películas bajan aún más */
-    padding-top: calc(200px + var(--safe-top)); 
+    /* Valor original */
+    padding-top: calc(140px + var(--safe-top)); 
   }
 
   /* Más espacio solo en iPhone para evitar el notch */
   @supports (-webkit-touch-callout: none) {
     #home-view {
-      padding-top: calc(250px + var(--safe-top));
+      padding-top: calc(200px + var(--safe-top));
     }
   }
 

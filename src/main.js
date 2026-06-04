@@ -406,36 +406,11 @@ function showView(active) {
 }
 
 function handleRouting() {
-  const hash = window.location.hash.replace('#', '');
-  const playerModal = document.getElementById('player-modal');
+  const hash = window.location.hash.substring(1) || '';
   
-  // 1. Detección de Enlaces Profundos y Apertura de Player
-  if (hash.startsWith('play/')) {
-    const movieId = hash.split('play/')[1];
-    if (movieId) {
-      // Solo cambiamos a home-view si NO estamos en el admin
-      const adminView = document.getElementById('admin-view');
-      const isAdminActive = adminView && adminView.style.display === 'block';
-
-      if (!isAdminActive) {
-          showView('home-view');
-      }
-
-      // Si la base de datos está vacía (carga inicial directa), initApp se encargará.
-      // Si ya hay datos, buscamos y abrimos.
-      const movie = movieDatabase.trending.find(m => String(m.id) === String(movieId));
-      if (movie) {
-          window.openPlayer(movieId);
-      } else if (movieDatabase.trending.length === 0) {
-          // Si estamos cargando, esperamos a que loadSelvaFlixData llame a handleRouting de nuevo
-          initApp('', ''); 
-      }
-      return; // 🛑 CRÍTICO: Prevenir que pase al else y cambie a home-view
-    }
-  }
-
   // 2. Cierre Automático del Player si el hash cambió a algo que no sea 'play/'
-  if (playerModal && playerModal.style.display !== 'none') {
+  const playerModal = document.getElementById('player-modal');
+  if (playerModal && playerModal.style.display !== 'none' && !hash.startsWith('play/')) {
       if (typeof SelvaStream !== 'undefined' && SelvaStream.close) {
           SelvaStream.close();
       } else {
@@ -446,25 +421,30 @@ function handleRouting() {
       }
   }
 
-  if (hash === 'admin') {
+  const genreBar = document.getElementById('genre-bar');
+  if (genreBar) genreBar.style.display = 'flex'; // Siempre visible
+
+  if (hash.startsWith('play/')) {
+    showView('player-view');
+    const movieId = hash.split('play/')[1];
+    if (movieId) window.openPlayer(movieId);
+  } else if (hash === 'admin') {
     const isAdminAuthenticated = localStorage.getItem('selva_admin_auth') === 'true';
     if (!isAdminAuthenticated) {
         const password = prompt("🔒 Área Restringida. Introduce la contraseña de administrador:");
         if (password === "selva2025") { 
             localStorage.setItem('selva_admin_auth', 'true');
-            window.updateAdminUI(); // Sync dot
+            window.updateAdminUI();
             alert("✅ Acceso Concedido.");
         } else {
             alert("❌ Contraseña incorrecta. Volviendo a la selva.");
-            window.location.hash = ''; // Redirigir al inicio
+            window.location.hash = '';
             return;
         }
     }
-    
     sessionStorage.setItem('selva_admin_active', '1');
     showView('admin-view');
     renderInventory();
-    // Auto-cargar métricas al entrar al admin
     window.loadMetrics();
   } else {
     showView('home-view');
@@ -480,8 +460,6 @@ function handleRouting() {
     ['btn-nav-home', 'btn-nav-movies', 'btn-nav-series'].forEach(id => document.getElementById(id)?.classList.remove('active'));
     document.getElementById(btmMap[hashVal])?.classList.add('active');
 
-    const genreBar = document.getElementById('genre-bar');
-    if (genreBar) genreBar.style.display = (hashVal === 'movies' || hashVal === 'series') ? 'flex' : 'none';
     initApp(hashVal, '');
   }
 }
@@ -688,7 +666,7 @@ function handleGlobalSearch(query) {
 }
 
 // Render Movie Rows in Chunks (v4.4)
-function _renderCardsInto(container, data) {
+function _renderCardsInto(container, data, isTrending = false) {
   if (!data || data.length === 0) {
     container.innerHTML = '<p style="color:var(--text-muted);padding:30px;">La selva está vacía aquí... 🌿</p>';
     return;
@@ -700,12 +678,13 @@ function _renderCardsInto(container, data) {
 
   function renderNextChunk() {
     const chunk = data.slice(currentIndex, currentIndex + CHUNK_SIZE);
-    const html = chunk.map(item => {
+    const html = chunk.map((item, idx) => {
         const isFavorite = window._myListIds && window._myListIds.has(item.id);
         const favClass = isFavorite ? 'active' : '';
         const favIcon = isFavorite ? '❤️' : '🤍';
+        const rank = currentIndex + idx + 1;
         
-        return `
+        const cardHtml = `
             <div class="movie-card" data-id="${item.id}" onclick="window.handleCardClick('${item.id}')">
               <div class="btn-add-list ${favClass}" onclick="event.stopPropagation(); window.toggleMyList('${item.id}', this)" title="Añadir a mi selva">
                 ${favIcon}
@@ -731,6 +710,16 @@ function _renderCardsInto(container, data) {
               </div>
             </div>
         `;
+
+        if (isTrending) {
+          return `
+            <div class="trending-card-wrapper">
+              <div class="trending-rank-number">${rank}</div>
+              ${cardHtml}
+            </div>
+          `;
+        }
+        return cardHtml;
     }).join('');
 
     container.insertAdjacentHTML('beforeend', html);
@@ -763,7 +752,11 @@ function renderRow(title, data, seeAllHash = '') {
   container.appendChild(section);
 
   const list = section.querySelector('.movie-list');
-  _renderCardsInto(list, data);
+  const isTrending = title.toLowerCase().includes('tendencias');
+  if (isTrending) {
+    list.classList.add('trending-list');
+  }
+  _renderCardsInto(list, data, isTrending);
 
   const leftBtn = section.querySelector('.row-arrow-left');
   const rightBtn = section.querySelector('.row-arrow-right');
@@ -1096,7 +1089,7 @@ window.renderAdCampaignList = () => {
             
             <!-- Toggle Rápido Robusto -->
             <div onclick="window.toggleAdCampaignQuick('${c.id}')" style="flex-shrink: 0; padding: 4px;">
-                <div style="width: 36px; height: 18px; background: ${c.active ? 'var(--primary)' : '#444'}; border-radius: 20px; position: relative; cursor: pointer; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); border: 1px solid rgba(255,255,255,0.05);">
+                <div style="width: 36px; height: 18px; background: ${c.active ? 'var(--primary)' : '#444'}; border-radius: 4px; position: relative; cursor: pointer; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); border: 1px solid rgba(255,255,255,0.05);">
                     <div style="width: 14px; height: 14px; background: white; border-radius: 50%; position: absolute; top: 1px; ${c.active ? 'right: 2px' : 'left: 2px'}; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>
                 </div>
             </div>
@@ -2735,7 +2728,7 @@ window.renderGeoChart = (canvasId, label, dataObj, chartKey) => {
             labels: keys,
             datasets: [{
                 data: values,
-                backgroundColor: ['#FF7A00', '#3498DB', '#2ecc71', '#9B59B6', '#E74C3C'],
+                backgroundColor: ['#FF6600', '#3498DB', '#2ecc71', '#9B59B6', '#E74C3C'],
                 borderWidth: 1,
                 borderColor: 'rgba(0,0,0,0.5)'
             }]
@@ -2960,7 +2953,7 @@ window.showWarningOverlayCard = (activeCampaign, movie, isPreview = false) => {
                 )
             )
         ) : (activeCampaign.media.trim().startsWith('<script') ? `
-            <div id="ad-overlay-script-container" style="width: 100%; min-height: 250px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.2); border-radius: 20px; border: 1px solid rgba(255,255,255,0.05); margin: 20px 0; overflow: hidden;">
+            <div id="ad-overlay-script-container" style="width: 100%; min-height: 250px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.2); border-radius: 4px; border: 1px solid rgba(255,255,255,0.05); margin: 20px 0; overflow: hidden;">
                 <!-- Script se inyectará aquí después de pintar el DOM -->
             </div>
         ` : (activeCampaign.link ? `
@@ -4130,36 +4123,40 @@ function updateHeroCarousel() {
   const section = document.getElementById('hero-section');
   if (!section) return;
 
-  section.style.display = 'flex';
-  section.style.gap = '15px';
-  section.style.overflowX = 'auto';
-  section.style.padding = '10px 5%';
-  section.style.marginTop = window.innerWidth <= 768 ? '70px' : '90px';
-  section.style.marginBottom = '10px';
-  section.style.scrollbarWidth = 'none';
+  section.style.display = 'block';
+  section.style.width = '100vw';
+  section.style.height = '40vh';
+  section.style.padding = '0';
+  section.style.marginTop = '0';
+  section.style.overflow = 'hidden';
+  section.style.position = 'relative';
 
-  // Mostrar 3 tarjetas a partir del indice actual (circular)
-  const itemsToShow = [];
-  for (let i = 0; i < 3; i++) {
-    const item = heroPool[(currentHeroIndex + i) % heroPool.length];
-    if (item) itemsToShow.push(item);
-  }
+  // Mostrar solo el primer item a pantalla completa
+  const item = heroPool[currentHeroIndex % heroPool.length];
+  if (!item) return;
 
-  section.innerHTML = itemsToShow.map(item => {
-    // 🔥 Motor Hero Pro: Prioridad al Backdrop horizontal, si no hay, usa el Poster
-    const heroImg = item.backdrop || item.img;
-    
-    return `
-      <div class="hero-card" onclick="window.handleCardClick('${item.id}')" style="flex: 1; min-width: ${window.innerWidth <= 768 ? '260px' : '380px'}; height: ${window.innerWidth <= 768 ? '160px' : '280px'}; background-image: linear-gradient(to top, rgba(0,0,0,0.95), rgba(0,0,0,0.1)), url('${heroImg}'); background-size: cover; background-position: center 20%; border-radius: 20px; position: relative; cursor: pointer; border: 1px solid var(--glass-border); transition: transform 0.3s ease; box-shadow: 0 10px 30px rgba(0,0,0,0.6);">
-        <div style="position: absolute; bottom: 15px; left: 15px; right: 15px;">
-          ${item.pinned ? '<span style="position: absolute; top: -140px; right: 0; background: var(--primary); color:black; font-size: 0.6rem; padding: 2px 8px; border-radius: 10px; font-weight: 800; text-transform: uppercase; box-shadow: 0 0 10px var(--primary-glow);">📍 Destacado</span>' : ''}
-          <h2 style="color: white; font-size: ${window.innerWidth <= 768 ? '1.1rem' : '1.4rem'}; margin-bottom: 4px; text-shadow: 0 2px 5px rgba(0,0,0,0.9); font-family: 'Outfit', sans-serif; font-weight: 800; line-height: 1.2;">${item.title}</h2>
-          <p style="color: var(--primary); font-size: 0.75rem; font-weight: bold; text-shadow: 0 1px 3px rgba(0,0,0,0.8);">⭐ ${item.rating || '4.8'} • ${item.year || '2024'}</p>
-          <button class="btn btn-primary" style="margin-top: 8px; padding: 6px 15px; font-size: 0.7rem;">▶ Reproducir</button>
+  const heroImg = item.backdrop || item.img;
+  const isFavorite = window._myListIds && window._myListIds.has(item.id);
+  const favText = isFavorite ? '<span>✓</span> Agregado' : '<span>+</span> Mi Lista';
+  const favClass = isFavorite ? 'active' : '';
+  
+  section.innerHTML = `
+      <div class="hero-card-premium-fullscreen" onclick="window.handleCardClick('${item.id}')" style="width: 100%; height: 100%; background-image: linear-gradient(to top, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.2)), url('${heroImg}'); background-size: cover; background-position: center;">
+        <div class="hero-info-overlay-fullscreen" style="position: absolute; bottom: 10%; left: 5%; width: 90%; display: flex; flex-direction: column; gap: 10px;">
+          ${item.pinned ? '<span style="display: inline-block; width: fit-content; background: var(--primary); color:black; font-size: 0.7rem; padding: 4px 10px; border-radius: 12px; font-weight: 800; text-transform: uppercase; box-shadow: 0 0 10px var(--primary-glow);">📍 Destacado</span>' : ''}
+          <h2 class="hero-title-premium" style="font-size: 2.5rem;">${item.title}</h2>
+          <div class="hero-meta-premium" style="font-size: 1rem;">★ ${item.rating || '4.8'} • ${item.year || '2024'}</div>
+          <div class="hero-btn-container">
+            <button class="hero-btn-play" onclick="event.stopPropagation(); window.handleCardClick('${item.id}')" style="padding: 10px 25px; font-size: 0.9rem;">
+              <span>▶</span> Reproducir
+            </button>
+            <button class="hero-btn-add ${favClass}" onclick="event.stopPropagation(); window.toggleMyList('${item.id}', this)" style="padding: 10px 25px; font-size: 0.9rem;">
+              ${favText}
+            </button>
+          </div>
         </div>
       </div>
     `;
-  }).join('');
 }
 
 function startHeroAutoRotation() {
@@ -4348,6 +4345,7 @@ function initApp(filterType = '', genreId = '') {
     return;
   } else {
     if (container) container.innerHTML = ''; // Los skeletons cumplieron su misión
+
     // --- NUEVO ORDEN DE PORTADA (v2.42) ---
     // 🍿 1. Recomendadas (La Vieja Confiable: Mix Rating + Popularidad)
     const recommended = [...allContent]
@@ -4964,7 +4962,7 @@ window.applyProfile = async (p) => {
     }
     
     window.loadContinueWatching(); // 🍿 Cargar historial al cambiar perfil
-    window.loadMyList(); // Cargar favoritos
+    await window.loadMyList(); // Cargar favoritos
     initApp(); // Re-renderizar el contenido principal
 };
 
@@ -4999,9 +4997,9 @@ window.toggleManageProfiles = () => {
     
     if (_isManagingProfiles) {
         btn.innerText = "LISTO";
-        btn.style.background = "#FF7A00";
+        btn.style.background = "#FF6600";
         btn.style.color = "black";
-        btn.style.borderColor = "#FF7A00";
+        btn.style.borderColor = "#FF6600";
         title.innerText = "ADMINISTRAR PERFILES";
     } else {
         btn.innerText = "ADMINISTRAR PERFILES";
@@ -5409,16 +5407,16 @@ window.loadContinueWatching = async () => {
         grid.innerHTML = history.map(h => {
             const progress = (h.lastTime / h.duration) * 100;
             const poster = (h.poster && h.poster.startsWith('http')) ? h.poster : 'https://image.tmdb.org/t/p/w300' + (h.poster || h.poster_path);
-            const extraLabel = h.episodeLabel ? ` <span style="color:var(--primary); font-size:0.75rem; margin-left: 5px; font-weight: normal;">${h.episodeLabel}</span>` : '';
             return `
-                <div class="card-horizontal" onclick="window.handleCardClick('${h.movieId}')">
-                    <img src="${poster}" alt="${h.title}" loading="lazy" onerror="this.src='/icon_192.png'">
-                    <div class="card-h-info">
-                        <div class="card-h-title" style="display:flex; align-items:center; flex-wrap:wrap;">${h.title}${extraLabel}</div>
+                <div class="card-horizontal-container" onclick="window.handleCardClick('${h.movieId}')">
+                    <div class="card-horizontal-media">
+                        <img src="${poster}" alt="${h.title}" loading="lazy" onerror="this.src='/icon_192.png'">
                         <div class="progress-bar-h">
                             <div class="progress-fill-h" style="width: ${progress}%;"></div>
                         </div>
                     </div>
+                    <div class="card-horizontal-title">${h.title}</div>
+                    <div class="card-horizontal-subtitle">${h.episodeLabel || ''}</div>
                 </div>
             `;
         }).join('');
@@ -5447,7 +5445,11 @@ window.toggleMyList = async (movieId, btn) => {
         await deleteDoc(listRef);
         window._myListIds.delete(movieId);
         btn.classList.remove('active');
-        btn.innerHTML = '🤍';
+        if (btn.classList.contains('hero-btn-add')) {
+            btn.innerHTML = '<span>+</span> Mi Lista';
+        } else {
+            btn.innerHTML = '🤍';
+        }
     } else {
         // Añadir
         await setDoc(listRef, {
@@ -5459,7 +5461,11 @@ window.toggleMyList = async (movieId, btn) => {
         });
         window._myListIds.add(movieId);
         btn.classList.add('active', 'heart-animation');
-        btn.innerHTML = '❤️';
+        if (btn.classList.contains('hero-btn-add')) {
+            btn.innerHTML = '<span>✓</span> Agregado';
+        } else {
+            btn.innerHTML = '❤️';
+        }
         setTimeout(() => btn.classList.remove('heart-animation'), 400);
     }
     console.log("✅ Mi Lista actualizada:", Array.from(window._myListIds));
@@ -5475,7 +5481,8 @@ window.toggleMyList = async (movieId, btn) => {
         }
     }
 
-    window.loadMyList(); // Refrescar modal/datos
+    await window.loadMyList(); // Refrescar modal/datos
+    initApp(_currentFilter); // Refrescar filas del home/portadas
 };
 
 window.toggleMyListModal = () => {

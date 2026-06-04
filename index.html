@@ -15,8 +15,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="SelvaFlix">
   <link rel="apple-touch-icon" href="/icon_192.png">
-  <meta name="theme-color" content="#050505">
-  <meta name="msapplication-TileColor" content="#050505">
+  <meta name="theme-color" content="#000000">
+  <meta name="msapplication-TileColor" content="#000000">
 
   <!-- Motor Selva P2P (WebTorrent) -->
   <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
@@ -25,9 +25,9 @@
 
   <style>
     :root {
-      --bg-deep: #050505;
-      --primary: #FF7A00;
-      --primary-glow: rgba(255, 122, 0, 0.4);
+      --bg-deep: #000000;
+      --primary: #FF6600;
+      --primary-glow: rgba(255, 102, 0, 0.4);
     }
     
     #splash-screen {
@@ -113,7 +113,7 @@
     <nav class="navbar">
       <!-- Logo -->
       <div class="logo">
-        <span>SELVA</span><span>FLIX</span>
+        <span>Selva</span><span>flix</span>
       </div>
 
       <!-- Nav Actions (right side) -->
@@ -192,34 +192,50 @@
       </div>
     </nav>
     
+    <!-- Mobile Bottom Navigation -->
+    <nav class="mobile-nav">
+      <button onclick="window.location.hash = ''" class="nav-item">
+        <span class="nav-icon">🏠</span>
+        <span>Inicio</span>
+      </button>
+      <button onclick="window.location.hash = '#movies'" class="nav-item">
+        <span class="nav-icon">🎬</span>
+        <span>Películas</span>
+      </button>
+      <button onclick="document.getElementById('global-search').focus()" class="nav-item">
+        <span class="nav-icon">🔍</span>
+        <span>Buscar</span>
+      </button>
+      <button onclick="window.toggleMyListModal()" class="nav-item">
+        <span class="nav-icon">❤️</span>
+        <span>Favoritos</span>
+      </button>
+    </nav>
+    
     <!-- 🚩 Slot de Publicidad Superior (Top) -->
     <div id="ad-slot-top" class="ad-slot-container" style="display: none; width: 100%; text-align: center; padding: 10px 0; background: rgba(0,0,0,0.3); border-bottom: 1px solid rgba(255,255,255,0.05); min-height: 50px; position: relative; z-index: 100;"></div>
 
 
 
     <main id="home-view">
-      <div class="filter-bar" id="filter-bar">
-        <button class="filter-btn active" id="filter-all" onclick="window.setFilter('')">🏠 Inicio</button>
-        <button class="filter-btn" id="filter-movies" onclick="window.setFilter('movies')">🎬 Películas</button>
-        <button class="filter-btn" id="filter-series" onclick="window.setFilter('series')">🏆 Series</button>
-      </div>
+      
+      <!-- Hero Banner -->
+      <section class="hero-banners" id="hero-section" style="display: none;"></section>
 
       <!-- Genre Sub-filters (shown in movies/series view) -->
-      <div class="filter-bar" id="genre-bar" style="display:none;">
-        <button class="filter-btn active" id="genre-all" onclick="window.setGenre('')">🎞️ Todas</button>
-        <button class="filter-btn" onclick="window.setGenre('28')">💥 Acción</button>
-        <button class="filter-btn" onclick="window.setGenre('35')">😂 Comedia</button>
-        <button class="filter-btn" onclick="window.setGenre('18')">🎭 Drama</button>
-        <button class="filter-btn" onclick="window.setGenre('16')">🎨 Animación</button>
-        <button class="filter-btn" onclick="window.setGenre('27')">👻 Terror</button>
-        <button class="filter-btn" onclick="window.setGenre('10749')">💕 Romance</button>
-        <button class="filter-btn" onclick="window.setGenre('878')">🚀 Sci-Fi</button>
-        <button class="filter-btn" onclick="window.setGenre('9648')">🔍 Misterio</button>
-        <button class="filter-btn" onclick="window.setGenre('10402')">🎵 Musical</button>
-        <button class="filter-btn" onclick="window.setGenre('10770')">📺 Telenovela</button>
+      <div class="filter-bar" id="genre-bar">
+        <button class="filter-btn active" id="genre-all" onclick="window.setGenre('')">Todas</button>
+        <button class="filter-btn" onclick="window.setGenre('28')">Acción</button>
+        <button class="filter-btn" onclick="window.setGenre('35')">Comedia</button>
+        <button class="filter-btn" onclick="window.setGenre('18')">Drama</button>
+        <button class="filter-btn" onclick="window.setGenre('16')">Animación</button>
+        <button class="filter-btn" onclick="window.setGenre('27')">Terror</button>
+        <button class="filter-btn" onclick="window.setGenre('10749')">Romance</button>
+        <button class="filter-btn" onclick="window.setGenre('878')">Ciencia Ficción</button>
+        <button class="filter-btn" onclick="window.setGenre('9648')">Misterio</button>
+        <button class="filter-btn" onclick="window.setGenre('10402')">Musical</button>
+        <button class="filter-btn" onclick="window.setGenre('10770')">Telenovela</button>
       </div>
-
-      <section class="hero-banners" id="hero-section" style="display: none;"></section>
 
       <!-- FASE 2: Continuar Viendo Row -->
       <section id="continue-watching-row" style="display: none; padding: 20px; margin-bottom: 20px;">

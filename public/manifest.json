@@ -4,8 +4,8 @@
     "description": "Tu cine favorito en medio de la naturaleza.",
     "start_url": "/",
     "display": "standalone",
-    "background_color": "#050505",
-    "theme_color": "#050505",
+    "background_color": "#000000",
+    "theme_color": "#FF6600",
     "icons": [
         {
             "src": "/icon_192.png",

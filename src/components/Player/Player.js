@@ -361,13 +361,13 @@ export const SelvaStream = {
                     padding: 15px 40px; border-radius: 60px; font-size: 1.1rem;
                     font-weight: 900; cursor: pointer; display: flex; align-items: center; gap: 10px;
                     transition: all 0.3s;
-                    box-shadow: 0 10px 30px rgba(255,122,0,0.4);
+                    box-shadow: 0 10px 30px rgba(255,102,0,0.4);
                 }
                 @media (max-width: 600px) {
                     .start-content h2 { font-size: 1.3rem; }
                     .start-play-btn { padding: 12px 30px; font-size: 1rem; }
                 }
-                .start-play-btn:hover { transform: scale(1.05); box-shadow: 0 0 50px rgba(255,122,0,0.8); }
+                .start-play-btn:hover { transform: scale(1.05); box-shadow: 0 0 50px rgba(255,102,0,0.8); }
                 .play-icon { font-size: 1.3rem; }
                 .start-subtitle { margin-top: 12px; font-size: 0.75rem; opacity: 0.7; letter-spacing: 1.5px; }
 
@@ -381,7 +381,7 @@ export const SelvaStream = {
                 .floating-sources-btn {
                     position: absolute; bottom: 80px; right: 20px; z-index: 250;
                     background: rgba(0,0,0,0.8); color: var(--primary); border: 1px solid var(--primary);
-                    padding: 8px 15px; border-radius: 20px; font-weight: 800; font-size: 11px;
+                    padding: 8px 15px; border-radius: 4px; font-weight: 800; font-size: 11px;
                     cursor: pointer; transition: all 0.3s;
                 }
                 .floating-sources-btn:hover { background: var(--primary); color: black; }
@@ -397,7 +397,7 @@ export const SelvaStream = {
                 .vip-menu-header button { background: none; border: none; color: white; font-size: 24px; cursor: pointer; }
 
                 .compact-sidebar { width: 180px !important; font-size: 11px; }
-                .sidebar-ad-space { margin-top: auto; background: rgba(255,122,0,0.1); border: 1px dashed var(--primary); padding: 10px; text-align: center; border-radius: 8px; font-weight: bold; font-size: 10px; color: var(--primary); }
+                .sidebar-ad-space { margin-top: auto; background: rgba(255,102,0,0.1); border: 1px dashed var(--primary); padding: 10px; text-align: center; border-radius: 8px; font-weight: bold; font-size: 10px; color: var(--primary); }
 
                 @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -445,7 +445,7 @@ export const SelvaStream = {
                 }
                 .selva-custom-select:hover {
                     border-color: var(--primary);
-                    box-shadow: 0 0 15px rgba(255,122,0,0.2);
+                    box-shadow: 0 0 15px rgba(255,102,0,0.2);
                     transform: translateY(-2px);
                 }
                 .selva-custom-select:focus {
@@ -837,7 +837,7 @@ export const SelvaStream = {
                         <div style="position:absolute; bottom:12px; left:12px; display:flex; gap:8px; z-index:9999;">
                             <button class="crown-btn" 
                                     onclick="event.stopPropagation(); window.selvaExecuteCrownPromotion('${movieRef.id}', '${s.infoHash || s.url}')" 
-                                    style="background:rgba(0,0,0,0.6); border:1.5px solid ${isSuggested ? '#E74C3C' : '#FF7A00'}; color:#FF7A00; border-radius:50%; width:38px; height:38px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:1.2rem; box-shadow:0 0 15px ${isSuggested ? 'rgba(231,76,60,0.4)' : 'rgba(255,122,0,0.4)'}; transition: all 0.2s;" 
+                                    style="background:rgba(0,0,0,0.6); border:1.5px solid ${isSuggested ? '#E74C3C' : '#FF6600'}; color:#FF6600; border-radius:50%; width:38px; height:38px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:1.2rem; box-shadow:0 0 15px ${isSuggested ? 'rgba(231,76,60,0.4)' : 'rgba(255,102,0,0.4)'}; transition: all 0.2s;" 
                                     onmouseover="this.style.transform='scale(1.2)';" onmouseout="this.style.transform='scale(1)';"
                                     title="${isSuggested ? 'Quitar Corona' : 'Coronar esta fuente'}">
                                 ${isSuggested ? '🚫' : '👑'}
@@ -862,23 +862,23 @@ export const SelvaStream = {
                     // Badge dinámico según rol
                     let badgeHtml = '';
                     if (isAdmin) {
-                        if (isSuggested) badgeHtml = `<div style="position:absolute; top:-10px; right:-25px; background:#FF7A00; color:white; padding:15px 30px; transform:rotate(45deg); font-size:0.55rem; font-weight:900; letter-spacing:1px; z-index:10; pointer-events:none;">👑 SUGERIDA</div>`;
+                        if (isSuggested) badgeHtml = `<div style="position:absolute; top:-10px; right:-25px; background:#FF6600; color:white; padding:15px 30px; transform:rotate(45deg); font-size:0.55rem; font-weight:900; letter-spacing:1px; z-index:10; pointer-events:none;">👑 SUGERIDA</div>`;
                         else if (isPublicLink) badgeHtml = `<div style="position:absolute; top:-10px; right:-25px; background:#00f2ff; color:black; padding:15px 30px; transform:rotate(45deg); font-size:0.55rem; font-weight:900; letter-spacing:1px; z-index:10; pointer-events:none;">🌐 PÚBLICO</div>`;
-                        else if (index === 0) badgeHtml = `<div style="position:absolute; top:-10px; right:-25px; background:#FF7A00; color:white; padding:15px 30px; transform:rotate(45deg); font-size:0.5rem; font-weight:900; letter-spacing:1px; z-index:10; pointer-events:none;">EL MEJOR</div>`;
+                        else if (index === 0) badgeHtml = `<div style="position:absolute; top:-10px; right:-25px; background:#FF6600; color:white; padding:15px 30px; transform:rotate(45deg); font-size:0.5rem; font-weight:900; letter-spacing:1px; z-index:10; pointer-events:none;">EL MEJOR</div>`;
                     } else {
                         // Usuario normal: Ve sugeridas y también fuentes públicas/oficiales
-                        if (isSuggested) badgeHtml = `<div style="position:absolute; top:-10px; right:-25px; background:#FF7A00; color:white; padding:15px 30px; transform:rotate(45deg); font-size:0.55rem; font-weight:900; letter-spacing:1px; z-index:10; pointer-events:none;">👑 PREMIUM</div>`;
+                        if (isSuggested) badgeHtml = `<div style="position:absolute; top:-10px; right:-25px; background:#FF6600; color:white; padding:15px 30px; transform:rotate(45deg); font-size:0.55rem; font-weight:900; letter-spacing:1px; z-index:10; pointer-events:none;">👑 PREMIUM</div>`;
                         else badgeHtml = `<div style="position:absolute; top:-10px; right:-25px; background:#00f2ff; color:black; padding:15px 30px; transform:rotate(45deg); font-size:0.55rem; font-weight:900; letter-spacing:1px; z-index:10; pointer-events:none;">🌐 DISPONIBLE</div>`;
                     }
 
                     return `
                         <div class="stream-card-vip" onclick='if(event.target.closest("button")) return; SelvaStream.toggleVipMenu(); SelvaStream.handleExternalStream(${realIndex === -1 ? JSON.stringify(s).replace(/'/g, "&apos;") : `SelvaStream.lastScrapedStreams[${realIndex}]`})'  
-                                style="background: ${isSuggested ? 'rgba(255,122,0,0.1)' : 'rgba(255,122,0,0.05)'}; border: 1px solid ${isSuggested ? '#FF7A00' : (isPublicLink ? '#00f2ff' : 'rgba(255,122,0,0.15)')}; border-radius: 12px; padding: 15px; cursor: pointer; transition: all 0.2s ease; border-left: 4px solid ${isSuggested ? '#FF7A00' : (isPublicLink ? '#00f2ff' : (isDebrid ? '#FF7A00' : '#2ECC71'))}; position: relative; overflow: hidden; text-align:left; margin-bottom:10px;">
+                                style="background: ${isSuggested ? 'rgba(255,102,0,0.1)' : 'rgba(255,102,0,0.05)'}; border: 1px solid ${isSuggested ? '#FF6600' : (isPublicLink ? '#00f2ff' : 'rgba(255,102,0,0.15)')}; border-radius: 12px; padding: 15px; cursor: pointer; transition: all 0.2s ease; border-left: 4px solid ${isSuggested ? '#FF6600' : (isPublicLink ? '#00f2ff' : (isDebrid ? '#FF6600' : '#2ECC71'))}; position: relative; overflow: hidden; text-align:left; margin-bottom:10px;">
                             ${badgeHtml}
                             ${isPlaying ? `<div style="position:absolute; top:12px; right:12px; background:#2ECC71; color:white; padding:4px 8px; border-radius:6px; font-size:0.55rem; font-weight:900; letter-spacing:1px; z-index:5; box-shadow:0 0 10px rgba(46,204,113,0.4);">● REPRODUCIENDO</div>` : ''}
                             ${crownBtn}
                             <div style="display:flex; flex-direction:column; gap:4px;">
-                                <div style="font-size:0.65rem; font-weight:900; color:${isDebrid ? '#FF7A00' : '#2ECC71'}; text-transform:uppercase; letter-spacing:1px; display:flex; align-items:center; gap:5px; margin-bottom:2px;">
+                                <div style="font-size:0.65rem; font-weight:900; color:${isDebrid ? '#FF6600' : '#2ECC71'}; text-transform:uppercase; letter-spacing:1px; display:flex; align-items:center; gap:5px; margin-bottom:2px;">
                                     ${s.providerName || 'PREMIUM'} • ${langLabel}
                                 </div>
                                 <div style="color:white; font-size:0.82rem; font-weight:700; line-height:1.3; margin:2px 0; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;">
@@ -890,7 +890,7 @@ export const SelvaStream = {
                                     ${s.detectedVideoCodec ? `<span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-size:0.55rem; color:#fff; font-weight:700;">${s.detectedVideoCodec}</span>` : ''}
                                     ${s.detectedAudioCodec ? `<span style="background:rgba(52,152,219,0.1); padding:2px 6px; border-radius:4px; font-size:0.55rem; color:#3498db; font-weight:700;">🎵 ${s.detectedAudioCodec}</span>` : ''}
                                     ${weight ? `<span style="font-size:0.6rem; color:#bbb; font-weight:500;">⚖️ ${weight}</span>` : ''}
-                                    ${isDebrid ? '<span style="color:#FF7A00; font-size:0.55rem; font-weight:900; border:1px solid #FF7A00; padding:1px 4px; border-radius:3px;">REAL-DEBRID</span>' : ''}
+                                    ${isDebrid ? '<span style="color:#FF6600; font-size:0.55rem; font-weight:900; border:1px solid #FF6600; padding:1px 4px; border-radius:3px;">REAL-DEBRID</span>' : ''}
                                 </div>
                             </div>
                         </div>

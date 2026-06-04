@@ -1,0 +1,21 @@
+rules_version = '2';
+
+/**
+ * 🌴 REGLAS DE SEGURIDAD DE SELVAFLIX
+ * ----------------------------------
+ * Este archivo NO contiene secretos ni llaves privadas.
+ * Define quién tiene permiso para entrar a la selva de datos.
+ */
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      // Todos pueden ver el catálogo de SelvaFlix (Público)
+      allow read: if true;
+      
+      // Solo usuarios identificados (o mediante el Master Key) pueden escribir
+      // Mantenemos la fecha límite como doble capa de seguridad
+      allow write: if request.auth != null && request.time < timestamp.date(2027, 12, 31);
+    }
+  }
+}

@@ -713,6 +713,10 @@ function _renderCardsInto(container, data) {
               ${item.status === 'maintenance' ? '<div class="badge-maintenance">Mantenimiento</div>' : ''}
               <img src="${item.img}" alt="${item.title}" class="card-img" loading="lazy"
                 onerror="this.parentElement.style.border='2px solid #E74C3C'; this.src='https://via.placeholder.com/500x750/1a1a1a/E74C3C?text=Sin+Imagen';">
+              <div class="card-img-overlay"></div>
+              <div class="play-btn-circle">
+                <span>▶</span>
+              </div>
               <div class="card-info">
                 <h3 class="card-title">${item.title}</h3>
                 <div style="display:flex; align-items:center; gap:5px; margin-top:4px;">
@@ -813,6 +817,10 @@ function renderGallery(title, groups) {
             ${item.status === 'maintenance' ? '<div class="badge-maintenance">Mantenimiento</div>' : ''}
             <img src="${item.img}" alt="${item.title}" class="card-img" loading="lazy"
               onerror="this.parentElement.style.border='2px solid #E74C3C'; this.src='https://via.placeholder.com/500x750/1a1a1a/E74C3C?text=Sin+Imagen';">
+            <div class="card-img-overlay"></div>
+            <div class="play-btn-circle">
+              <span>▶</span>
+            </div>
             <div class="card-info">
               <h3 class="card-title">${item.title}</h3>
               <p class="card-meta">${item.year || 'Estreno'} • ★ ${item.rating || '4.8'}</p>
@@ -5518,9 +5526,13 @@ window.loadMyList = async () => {
     grid.innerHTML = myList.map(m => {
         return `
             <div class="movie-card" onclick='window.handleCardClick("${m.movieId}")' style="position: relative;">
-                <img src="${m.poster.startsWith('http') ? m.poster : 'https://image.tmdb.org/t/p/w300' + m.poster}" style="width: 100%; border-radius: 8px;">
+                <img src="${m.poster.startsWith('http') ? m.poster : 'https://image.tmdb.org/t/p/w300' + m.poster}" class="card-img" alt="${m.title}">
+                <div class="card-img-overlay"></div>
+                <div class="play-btn-circle"><span>▶</span></div>
                 <div class="btn-add-list active" onclick="event.stopPropagation(); window.toggleMyList('${m.movieId}', this)">❤️</div>
-                <div style="font-size: 0.75rem; margin-top: 5px; color: #eee; text-align: center;">${m.title}</div>
+                <div class="card-info" style="opacity:1;transform:none;">
+                    <h3 class="card-title">${m.title}</h3>
+                </div>
             </div>
         `;
     }).join('');

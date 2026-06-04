@@ -604,10 +604,11 @@ export const SelvaStream = {
             await this.loadSeriesMetadata(movie.tmdbId);
         }
 
-        // ✅ AUTO-SCAN: Al abrir, buscar fuentes VIP inmediatamente sin click extra
+        // ✅ AUTO-SCAN: Solo el Admin invoca los scrapers para "cosechar" links
+        const isAdminForScan = localStorage.getItem('selva_admin_auth') === 'true';
         const id = movie.imdbId || movie.tmdbId;
         const type = movie.type === 'series' ? 'series' : 'movie';
-        if (id) this.loadDebridAuto(id, type);
+        if (id && isAdminForScan) this.loadDebridAuto(id, type);
     },
 
     async loadSeriesMetadata(tmdbId) {
@@ -750,8 +751,8 @@ export const SelvaStream = {
                     const isSuggested = favHashes.includes(s.infoHash) || favHashes.includes(s.url);
                     const isPublicLink = movieRef.embed && (movieRef.embed === s.url || movieRef.embed === s.infoHash);
                     
-                    if (isAdmin) return true; // Admin ve TODO
-                    return isSuggested || isPublicLink; // Usuario solo ve lo marcado
+                    if (isAdmin) return true; // Admin ve TODO (Cosecha libre de links)
+                    return isSuggested || isPublicLink; // Usuario normal NO ve las públicas (Sin anuncios)
                 });
 
                 // 🔥 FUENTE OFICIAL (BASE DE DATOS):
@@ -1032,7 +1033,7 @@ export const SelvaStream = {
         }
 
         const loaderText = document.querySelector('.loader-text');
-        if (loaderText) loaderText.innerText = '🚀 Invocando Auto-VIP Debrid...';
+        if (loaderText) loaderText.innerText = '🚀 Escaneando Selva Global...';
 
         try {
             const providers = "cinecalidad,mejortorrent,wolfmax4k,yts,1337x,torrent9,limetorrents,eztv,rarbg";
@@ -1044,6 +1045,35 @@ export const SelvaStream = {
                 { url: `https://knightcrawler.elfhosted.com/stream/${queryType}/${queryId}.json`, name: "KNIGHT" },
                 { url: `https://mediafusion.elfhosted.com/stream/${queryType}/${queryId}.json`, name: "M-FUSION" }
             ];
+
+            // 🌐 FUENTES ABIERTAS (No necesitan Real-Debrid)
+            const tmdbId = movie?.tmdbId;
+            const imdbId = movie?.imdbId;
+            const publicStreams = [];
+
+            if (tmdbId || imdbId) {
+                const id = tmdbId || imdbId;
+                const isTv = queryType === 'series';
+                const s = isTv ? (document.getElementById('selva-season')?.value || 1) : null;
+                const e = isTv ? (document.getElementById('selva-episode')?.value || 1) : null;
+
+                const movieTitle = movie ?.title || "Película";
+                // Vidsrc.me (Muy estable)
+                const vidsrcMe = isTv ? `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&sub_lang=es&s=${s}&e=${e}` : `https://vidsrc.me/embed/movie?tmdb=${tmdbId}&sub_lang=es`;
+                publicStreams.push({ title: `[GRATIS] 🌐 ${movieTitle} - Fuente Pública 1`, name: "🌐 GLOBAL", url: vidsrcMe, providerName: "Free-1", isPublic: true });
+
+                // Vidsrc.to (Directo)
+                const vidsrcTo = isTv ? `https://vidsrc.to/embed/tv/${tmdbId}/${s}/${e}` : `https://vidsrc.to/embed/movie/${tmdbId}`;
+                publicStreams.push({ title: `[GRATIS] 🌐 ${movieTitle} - Fuente Pública 2`, name: "🌐 GLOBAL", url: vidsrcTo, providerName: "Free-2", isPublic: true });
+
+                // SuperEmbed
+                const superEmbed = `https://multiembed.mov/?video_id=${id}&tmdb=1${isTv ? `&s=${s}&e=${e}` : ''}`;
+                publicStreams.push({ title: `[GRATIS] 🌐 ${movieTitle} - Multi-Servidor 3`, name: "🌐 MULTI", url: superEmbed, providerName: "Free-3", isPublic: true });
+
+                // 2Embed.cc (Respaldo)
+                const twoEmbed = isTv ? `https://www.2embed.cc/embedtv/${tmdbId}&s=${s}&e=${e}` : `https://www.2embed.cc/embed/${tmdbId}`;
+                publicStreams.push({ title: `[GRATIS] 🌐 ${movieTitle} - Fuente 4 (2Embed)`, name: "🌐 BACKUP", url: twoEmbed, providerName: "Free-4", isPublic: true });
+            }
 
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 9500); // Un pelín más para los nuevos motores
@@ -1061,6 +1091,9 @@ export const SelvaStream = {
                 }
             });
 
+            // Añadir las fuentes públicas al inicio o final
+            allStreams = [...publicStreams, ...allStreams];
+
             // --- 🕵️‍♂️ PRE-PROCESAMIENTO Y SCORING INTELIGENTE ---
             let streams = [];
             allStreams.forEach(s => {
@@ -1071,7 +1104,7 @@ export const SelvaStream = {
                 if (qRaw.includes('dublado') || qRaw.includes('legendado') || qRaw.includes('português') || qRaw.includes('pt-br') || qRaw.includes('hindi') || qRaw.includes('tamil')) return;
                 
                 const isDirect = url.includes('.m3u8') || url.includes('.mp4') || url.includes('.mkv') || url.includes('.webm') || qRaw.includes('[rd+]');
-                if (!s.infoHash && !isDirect) return; // Filtro de seguridad VIP
+                if (!s.infoHash && !isDirect && !s.isPublic) return; // Filtro de seguridad VIP (Aceptamos Públicas)
 
                 // 1. Detección Profunda de Formato
                 let extMatch = qRaw.match(/\.(mkv|mp4|m3u8|avi|ts|webm)/i);
@@ -1159,6 +1192,7 @@ export const SelvaStream = {
                     score += 20000; 
                 }
 
+                if (s.isPublic) score += 1000000; // Prioridad Máxima SelvaFlix (Gratis)
                 s.selvaScore = score;
                 streams.push(s);
             });
@@ -1178,7 +1212,7 @@ export const SelvaStream = {
             if (ss2) ss2.style.display = 'flex';
 
             const msgEl = document.getElementById('vip-status-msg');
-            if (msgEl) msgEl.textContent = `✅ ${streams.length} fuentes VIP encontradas. Revisa otras opciones:`;
+            if (msgEl) msgEl.textContent = `✅ ${streams.length} fuentes encontradas. Elige una opción:`;
 
             // Habilitar el botón de Play en la Start Screen
             const startActions = document.getElementById('start-actions');
@@ -1200,258 +1234,80 @@ export const SelvaStream = {
     },
 
     handleExternalStream(stream) {
-        console.log("Cargando fuente externa:", stream);
+        console.log("💎 Cargando fuente externa:", stream);
         this.currentPlayingHash = stream.infoHash || stream.url;
 
-        // Mapeo Heurístico (Analytics Local): Recordamos qué proveedor usamos
-        localStorage.setItem(`last_source_${this.currentPlayerMovie.id}`, stream.providerName || 'Unknown');
-
-        const iframe = document.getElementById('player-iframe');
-        const nativePlayer = document.getElementById('native-video-player');
-        nativePlayer.pause();
-        
-        // Asignación unificada de progreso
-        nativePlayer.ontimeupdate = () => {
-            const now = Math.floor(nativePlayer.currentTime);
-            const duration = Math.floor(nativePlayer.duration);
-            
-            // 🔥 Gatillo de Anuncio In-Player (Solo una vez por sesión de playback)
-            if (now === 10 && !this.inPlayerAdShown) {
-                this.injectInPlayerBanner();
-            }
-
-            if (now > 0 && (now % 10 === 0 || now === duration)) {
-                if (window.syncPlaybackProgress) {
-                    window.syncPlaybackProgress(this.currentPlayerMovie, now, duration, this.currentEpisodeId, this.currentEpisodeLabel);
-                }
-            }
-        };
-        
-        const statusDiv = document.getElementById('webtorrent-status');
         const loader = document.getElementById('player-loader');
-
-        // Ponemos el póster al reproductor nativo por si el Autoplay es bloqueado, no se vea todo negro
-        const posterImg = document.getElementById('start-poster-img');
-        if (posterImg && posterImg.src) {
-            nativePlayer.setAttribute('poster', posterImg.src);
-        }
-
-        // OCULTAR INTERFAZ DE CARGA/INICIO PARA DAR PASO AL VIDEO
         const startScreen = document.getElementById('player-start-screen');
-        if (startScreen) startScreen.style.display = 'none';
+        const nativePlayer = document.getElementById('native-video-player');
+        const iframe = document.getElementById('player-iframe');
+        const statusDiv = document.getElementById('webtorrent-status');
 
-        if (this.hls) {
-            this.hls.destroy();
-            this.hls = null;
+        if (startScreen) startScreen.style.display = 'none';
+        
+        // 1. MOTOR P2P (Torrents)
+        if (stream.infoHash) {
+            if (loader) loader.style.display = 'flex';
+            this.handleP2PStream(stream);
+            return;
         }
 
-        if (stream.url && !stream.infoHash) {
-            // Limpieza de iframes (por si el link guardado es un tag completo)
+        // 2. MOTOR DIRECTO / EMBED (URLs)
+        if (stream.url) {
+            if (loader) loader.style.display = 'none';
             let finalUrl = stream.url;
+
+            // Limpieza de iframes si vienen crudos
             if (finalUrl.includes('<iframe')) {
                 const srcMatch = finalUrl.match(/src="([^"]+)"/);
                 if (srcMatch) finalUrl = srcMatch[1];
             }
 
-            // Es un link directo. Puede ser un Iframe o un Video MP4 / M3U8
             const isHls = finalUrl.includes('.m3u8');
             const isDirectVideo = isHls || finalUrl.endsWith('.mp4') || finalUrl.endsWith('.mkv') || stream.name?.includes('[RD+]') || stream.title?.includes('[RD+]');
 
             if (isDirectVideo) {
-                // Motor VIP de Real Debrid (Reproductor Nativo con URL directa)
+                // Modo Video Nativo
                 iframe.style.display = 'none';
-                window.setIframeSource('player-iframe', '');
-                statusDiv.style.display = 'none';
-                loader.style.display = 'none';
-
-                nativePlayer.style.display = 'block';
+                if (statusDiv) statusDiv.style.display = 'none';
+                
                 const nativeContainer = document.getElementById('native-player-container');
                 if (nativeContainer) nativeContainer.style.display = 'block';
+                nativePlayer.style.display = 'block';
 
                 if (isHls && typeof Hls !== 'undefined') {
+                    if (this.hls) this.hls.destroy();
                     if (Hls.isSupported()) {
                         this.hls = new Hls();
                         this.hls.loadSource(finalUrl);
                         this.hls.attachMedia(nativePlayer);
-                        this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                            nativePlayer.play().catch(e => console.warn("Auto-play prevented", e));
-                        });
-                    } else if (nativePlayer.canPlayType('application/vnd.apple.mpegurl')) {
+                    } else {
                         nativePlayer.src = finalUrl;
-                        nativePlayer.play().catch(e => console.warn("Auto-play prevented", e));
                     }
                 } else {
                     nativePlayer.src = finalUrl;
-                    if (this.currentPlayerMovie.resumeTime > 0) {
-                        nativePlayer.currentTime = this.currentPlayerMovie.resumeTime;
-                    }
-                    nativePlayer.play().catch(e => console.warn("Auto-play prevented", e));
                 }
-
-                // 🚨 Si el video falla (URL expirada, formato no soportado, etc.)
-                nativePlayer.onerror = () => {
-                    console.error('❌ nativePlayer error en URL directa:', nativePlayer.error);
-                    const nativeContainer2 = document.getElementById('native-player-container');
-                    if (nativeContainer2) nativeContainer2.style.display = 'none';
-                    nativePlayer.removeAttribute('src');
-                    const startScreen2 = document.getElementById('player-start-screen');
-                    if (startScreen2) startScreen2.style.display = 'flex';
-                    const msgEl3 = document.getElementById('vip-status-msg');
-                    if (msgEl3) msgEl3.innerHTML = `<span style="color:#e74c3c;">❌ Esta fuente no pudo reproducirse. Elige otra desde el menú VIP.</span>`;
-                    this.toggleVipMenu();
-                };
-
-                // Si es un source directo, le pasamos la URL al botón externo
-                const extBtn = document.getElementById('external-player-btn');
-                if (extBtn) extBtn.onclick = () => window.open(finalUrl, '_blank');
+                
+                nativePlayer.load();
+                if (this.currentPlayerMovie.resumeTime > 0) {
+                    nativePlayer.currentTime = this.currentPlayerMovie.resumeTime;
+                }
+                nativePlayer.play().catch(e => console.warn("Auto-play prevented", e));
             } else {
-                // 🌴 LIBERTAD DE FUENTES: Si no es video directo, cargamos como Iframe (¡Adelante monetización!)
-                console.log("💎 Cargando Fuente Externa de Terceros...");
+                // Modo Iframe
                 nativePlayer.style.display = 'none';
                 const nativeContainer = document.getElementById('native-player-container');
                 if (nativeContainer) nativeContainer.style.display = 'none';
-                
+
                 if (finalUrl.includes('streamtape.com/v/')) {
                     finalUrl = finalUrl.replace('/v/', '/e/');
                 }
-                
+
                 iframe.style.display = 'block';
                 window.setIframeSource('player-iframe', finalUrl);
-                statusDiv.style.display = 'none';
-                loader.style.display = 'none';
+                if (statusDiv) statusDiv.style.display = 'none';
             }
-        } else if (stream.infoHash) {
-            // FASE 3: Motor VIP 🚀 
-            iframe.style.display = 'none';
-            window.setIframeSource('player-iframe', '');
-
-            const nativeContainer = document.getElementById('native-player-container');
-            const extBtn2 = document.getElementById('external-player-btn');
-            nativeContainer.style.display = 'none';
-            statusDiv.style.display = 'none';
-            if (extBtn2) extBtn2.style.display = 'none';
-
-            // Limpiar player
-            nativePlayer.pause();
-            nativePlayer.removeAttribute('src');
-            nativePlayer.load();
-
-            // 🌴 ANIMACION DE CARGA CON FRASES ROTATIVAS
-            loader.style.display = 'flex';
-            const loaderLogo = loader.querySelector('.loader-logo');
-            const loaderTextEl = loader.querySelector('.loader-text');
-            if (loaderLogo) loaderLogo.innerText = '🌴';
-            
-            const frases = [
-                'Buscando en la selva profunda...',
-                'Negociando con el caiman VIP...',
-                'Decodificando señal satelital...',
-                'Convenciendo al piraña...',
-                'Abriendo la bóveda de Cloudflare...',
-                'Casi listo, preparando la pantalla...',
-            ];
-            let fraseIdx = 0;
-            if (loaderTextEl) loaderTextEl.innerText = frases[0];
-            const fraseInterval = setInterval(() => {
-                fraseIdx = (fraseIdx + 1) % frases.length;
-                if (loaderTextEl) loaderTextEl.innerText = frases[fraseIdx];
-            }, 2000);
-
-            this.callMasterWorker(stream.infoHash).then(result => {
-                clearInterval(fraseInterval); // Detener animación
-                if (loaderLogo) loaderLogo.innerText = 'SELVAFLIX';
-
-                if (result && result.url) {
-                    console.log("🚀 URL Liberada:", result.url);
-                    
-                    if (startScreen) startScreen.style.display = 'none';
-                    if (loader) loader.style.display = 'none';
-
-                    nativePlayer.src = result.url;
-                    nativePlayer.load(); // 🍎 TRUCO VITAL iOS: Forzar a Safari a asimilar la nueva URL
-
-                    if (this.currentPlayerMovie.resumeTime > 0) {
-                        nativePlayer.currentTime = this.currentPlayerMovie.resumeTime;
-                    }
-                    nativePlayer.style.display = 'block';
-                    if (nativeContainer) nativeContainer.style.display = 'block';
-
-                    // 🚨 Manejo de advertencias nativas (Safari Mudo/Codec parcial)
-                    nativePlayer.onerror = () => {
-                        const err = nativePlayer.error;
-                        console.error('⚠️ nativePlayer advertencia en URL de Worker:', err);
-                        
-                        // En lugar de bloquear el player, notificamos al usuario.
-                        // Muchos dispositivos logran reproducir video pero no audio en MKV.
-                        if (err && (err.code === 3 || err.code === 4)) {
-                            const notif = document.getElementById('player-notifications');
-                            if (notif) {
-                                notif.innerHTML = `
-                                    <div style="background: rgba(231,76,60,0.15); border: 1px solid #e74c3c; border-radius: 10px; padding: 10px; font-size: 0.8rem; text-align:center;">
-                                        <p style="color:#e74c3c; font-weight:bold; margin:0 0 5px 0;">⚠️ Formato Pesado / Sin Audio</p>
-                                        <p style="color:#ccc; margin:0;">Es posible que tu móvil no soporte el sonido o video de esta fuente específica. Trata otra fuente en el panel VIP si no puedes verlo bien.</p>
-                                    </div>`;
-                            }
-                        }
-                    };
-
-                    const notif = document.getElementById('player-notifications');
-                    if (notif) notif.innerHTML = `
-                        <div style="background: rgba(46,204,113,0.15); border: 1px solid #2ecc71; border-radius: 10px; padding: 10px; text-align:center;">
-                            <div style="font-size: 1.5rem;">▶️</div>
-                            <p style="color:#2ecc71; font-weight:bold; margin:4px 0;">¡Listo! Toca el video para reproducir.</p>
-                            <p style="color:#ccc; font-size:0.75rem;">Película cargada y lista sin autoplay automático.</p>
-                        </div>`;
-
-                    const isAndroid = /Android/i.test(navigator.userAgent);
-                    const extBtnFinal = document.getElementById('external-player-btn');
-                    if (extBtnFinal) {
-                        extBtnFinal.href = isAndroid
-                            ? `intent://${result.url.replace(/^https?:\/\//, '')}#Intent;package=org.videolan.vlc;type=video/*;scheme=https;end`
-                            : `vlc://${result.url}`;
-                        extBtnFinal.style.display = 'flex';
-                    }
-                    
-                    // Nota: Usuario exigió específicamente NO añadir .play() aquí (No Autoplay).
-                } else {
-                    // ⚡ FALLBACK AUTOMÁTICO (Rápido)
-                    const currentIdx = this.lastScrapedStreams.findIndex(s => s.infoHash === stream.infoHash || s.url === stream.url);
-                    const nextStream = this.lastScrapedStreams[currentIdx + 1];
-
-                    if (nextStream) {
-                        console.warn(`⚠️ Fuente falló. Probando siguiente rápido...`);
-                        if (loader) loader.style.display = 'none';
-                        if (startScreen) startScreen.style.display = 'flex';
-                        const msgEl2 = document.getElementById('vip-status-msg');
-                        if (msgEl2) msgEl2.innerHTML = `🔄 Probando la siguiente fuente disponible...`;
-                        setTimeout(() => this.handleExternalStream(nextStream), 500);
-                    } else {
-                        if (loader) loader.style.display = 'none';
-                        if (startScreen) startScreen.style.display = 'flex';
-                        const msgEl = document.getElementById('vip-status-msg');
-                        if (msgEl) msgEl.innerHTML = `<span style="color:#e74c3c;">⚠️ Sin fuentes compatibles. Elige otra desde el menú VIP.</span>`;
-                    }
-                }
-            }).catch(() => {
-                clearInterval(fraseInterval);
-                loader.style.display = 'none';
-                if (startScreen) startScreen.style.display = 'flex';
-                const msgEl = document.getElementById('vip-status-msg');
-                if (msgEl) msgEl.innerHTML = `<span style="color:#e74c3c;">⚠️ Error de red. Revisa tu conexión.</span>`;
-                const startActions = document.getElementById('start-actions');
-                if (startActions) {
-                    startActions.style.display = 'block';
-                    startActions.innerHTML = `
-                        <button class="play-btn-premium" onclick="SelvaStream.playFirstAvailable()" style="margin-top:10px;">
-                            🔄 Reintentar
-                        </button>
-                        <button class="play-btn-premium" onclick="SelvaStream.toggleVipMenu()" style="background: linear-gradient(135deg,#8e44ad,#6c3483); margin-top:10px; margin-left:8px;">
-                            📡 Otras Fuentes VIP
-                        </button>`;
-                }
-            });
         }
-
     },
 
 
@@ -1511,7 +1367,7 @@ export const SelvaStream = {
     async callMasterWorker(infoHash, attempt = 1) {
         try {
             const magnet = `magnet:?xt=urn:btih:${infoHash}`;
-            const role = 'admin'; // Futuro: localStorage.getItem('user_role')
+            const role = 'admin';
 
             const url = `${this.MASTER_WORKER_URL}/flix/unrestrict?magnet=${encodeURIComponent(magnet)}&role=${role}`;
 
@@ -1522,24 +1378,84 @@ export const SelvaStream = {
             if (!res.ok) throw new Error(`HTTP_${res.status}`);
             const data = await res.json();
 
-            // 🚀 SYSTEMA AUTO-RETRY (Si Real-Debrid sigue descomprimiendo)
-            if (data.status === 'waiting' && attempt <= 4) {
-                console.log(`[Auto-Retry] Búnker procesando película... (Intento ${attempt}/4)`);
-                const progressDiv = document.getElementById('wt-progress');
-                const percentages = [30, 60, 85, 99];
-                const pct = percentages[attempt - 1] || 99;
-                
-                if (progressDiv) progressDiv.innerText = `🥥 Extrayendo de la selva profunda... ${pct}%`;
-
-                // Esperar 2.5 segundos de gracia y preguntar de nuevo al servidor
-                await new Promise(resolve => setTimeout(resolve, 2500));
-                return this.callMasterWorker(infoHash, attempt + 1);
+            // 🚀 SISTEMA P2P / PÚBLICO (Sin esperas de Debrid)
+            if (data.status === 'waiting') {
+                console.log(`[Búnker] Archivo en proceso o requiere intervención.`);
             }
-
             return data;
         } catch (error) {
             console.error('[Worker Connection Error]', error);
             return { error: error.message };
+        }
+    },
+
+    /**
+     * Motor P2P Nativo: Reproduce torrents directamente en el navegador.
+     */
+    handleP2PStream(stream) {
+        const infoHash = stream.infoHash;
+        // Magnet con trackers públicos para máxima visibilidad P2P
+        const magnet = `magnet:?xt=urn:btih:${infoHash}&dn=SelvaFlix_Stream&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Fzer0day.ch%3A1337&tr=udp%3A%2F%2Fopen.demonii.com%3A1337&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Fexodus.desync.com%3A6969&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com`;
+        
+        const loader = document.getElementById('player-loader');
+        const statusDiv = document.getElementById('webtorrent-status');
+        const progressEl = document.getElementById('wt-progress');
+        const nativePlayer = document.getElementById('native-video-player');
+        
+        if (statusDiv) statusDiv.style.display = 'block';
+        
+        try {
+            if (!this.torrentClient) this.torrentClient = new WebTorrent();
+            
+            // Limpiar descargas previas para no saturar memoria
+            this.torrentClient.torrents.forEach(t => t.destroy());
+
+            console.log("🕸️ Iniciando enjambre P2P para:", infoHash);
+
+            this.torrentClient.add(magnet, (torrent) => {
+                // Buscamos el archivo de video principal
+                const file = torrent.files.find(f => 
+                    f.name.endsWith('.mp4') || f.name.endsWith('.mkv') || 
+                    f.name.endsWith('.webm') || f.name.endsWith('.avi')
+                );
+                
+                torrent.on('download', () => {
+                    if (progressEl) {
+                        const speed = (torrent.downloadSpeed / 1024 / 1024).toFixed(2);
+                        progressEl.innerHTML = `<span style="color:var(--primary);">⬇️ ${speed} MB/s</span> | 👥 ${torrent.numPeers} peers | ${(torrent.progress * 100).toFixed(1)}%`;
+                    }
+                });
+
+                if (file) {
+                    console.log("🎥 Streaming P2P iniciado:", file.name);
+                    file.renderTo('#native-video-player', { 
+                        autoplay: false,
+                        controls: true 
+                    }, (err, elem) => {
+                        if (err) {
+                            console.error("Error renderizando P2P:", err);
+                        } else {
+                            if (loader) loader.style.display = 'none';
+                            const container = document.getElementById('native-player-container');
+                            if (container) container.style.display = 'block';
+                            nativePlayer.style.display = 'block';
+                            
+                            // Ajustar tiempo de reanudación si existe
+                            if (this.currentPlayerMovie.resumeTime > 0) {
+                                nativePlayer.currentTime = this.currentPlayerMovie.resumeTime;
+                            }
+                        }
+                    });
+                }
+            });
+
+            this.torrentClient.on('error', (err) => {
+                console.error("WebTorrent fatal error:", err);
+                if (progressEl) progressEl.innerText = "❌ Error en red P2P. Prueba otra fuente.";
+            });
+
+        } catch (e) {
+            console.error("Falla crítica en motor P2P:", e);
         }
     }
 };

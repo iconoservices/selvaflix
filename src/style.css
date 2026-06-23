@@ -84,7 +84,7 @@
   left: 0;
   right: 0;
   z-index: 1000;
-  background: rgba(19, 19, 19, 0.85) !important;
+  background: #131313 !important;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid rgba(255, 87, 26, 0.1);

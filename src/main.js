@@ -779,7 +779,7 @@ function renderRecommendedWide(data) {
   }).join('');
   
   section.innerHTML = `
-    <h2 class="cinepulse-section-title">🍿 Recomendado para ti</h2>
+    <h2 class="cinepulse-section-title">Recomendado para ti</h2>
     <div class="cinepulse-recommended-grid">${cardsHtml}</div>
   `;
   
@@ -4398,18 +4398,18 @@ function initApp(filterType = '', genreId = '') {
   if (filterType === 'movies') {
     const movies = allContent.filter(c => c.type === 'movie' || !c.type);
     if (movies.length > 0) {
-      renderGallery('🎬 Películas', [{ label: `🎬 Películas${genreId ? ' · filtradas' : ''}`, items: movies }]);
+      renderGallery('Películas', [{ label: `Películas${genreId ? ' · filtradas' : ''}`, items: movies }]);
     } else {
-      if (container) container.innerHTML = '<p style="padding:80px;text-align:center;color:var(--text-muted);">No hay películas con ese filtro 🌿</p>';
+      if (container) container.innerHTML = '<p style="padding:80px;text-align:center;color:var(--text-muted);">No hay películas con ese filtro</p>';
     }
 
   } else if (filterType === 'series') {
     const series = allContent.filter(c => c.type === 'series' || c.type === 'tv');
     const anime = allContent.filter(c => c.type === 'anime');
-    console.log(`🏆 Renderizando Series (${series.length}) y Anime (${anime.length})`);
-    renderGallery('🏆 Series & Anime', [
-      { label: `🏆 Series${genreId ? ' · filtradas' : ''}`, items: series },
-      { label: `⛩️ Anime`, items: anime }
+    console.log(`Renderizando Series (${series.length}) y Anime (${anime.length})`);
+    renderGallery('Series & Anime', [
+      { label: `Series${genreId ? ' · filtradas' : ''}`, items: series },
+      { label: `Anime`, items: anime }
     ]);
 
   } else if (filterType === 'live') {
@@ -4420,7 +4420,7 @@ function initApp(filterType = '', genreId = '') {
     if (container) container.innerHTML = ''; // Los skeletons cumplieron su misión
 
     // --- NUEVO ORDEN DE PORTADA (v2.42) ---
-    // 🍿 1. Recomendadas (La Vieja Confiable: Mix Rating + Popularidad)
+    // 1. Recomendadas (La Vieja Confiable: Mix Rating + Popularidad)
     const recommended = [...allContent]
       .map(c => ({ 
         ...c, 
@@ -4428,31 +4428,31 @@ function initApp(filterType = '', genreId = '') {
       }))
       .sort((a, b) => b.score - a.score)
       .slice(0, 12);
-    if (recommended.length > 0) renderRow('🍹 Recomendadas para ti', recommended);
+    if (recommended.length > 0) renderRow('Recomendadas para ti', recommended);
 
-    // 🎬 1b. Recommended Wide Cards (CinePulse Bento Style)
+    // 1b. Recommended Wide Cards (CinePulse Bento Style)
     const recWide = recommended.filter(c => c.backdrop).slice(0, 4);
     if (recWide.length >= 2) renderRecommendedWide(recWide);
 
-    // 🔥 2. Tendencias en la Selva (Local)
+    // 2. Tendencias en la Selva (Local)
     const popularity = [...allContent]
       .filter(c => c.type !== 'live')
       .map(c => ({ ...c, plays: playCounts[c.tmdbId] || playCounts[c.id] || 0 }))
       .filter(c => c.plays > 0)
       .sort((a, b) => b.plays - a.plays)
       .slice(0, 12);
-    if (popularity.length > 0) renderRow('🔥 Tendencias en la Selva', popularity);
+    if (popularity.length > 0) renderRow('Tendencias en la Selva', popularity);
 
-    // 🎬 3. Categorías Estándar
+    // 3. Categorías Estándar
     const movies = allContent.filter(c => c.type === 'movie' || !c.type).slice(0, 12);
     const series = allContent.filter(c => c.type === 'series' || c.type === 'tv').slice(0, 12);
     const anime = allContent.filter(c => c.type === 'anime').slice(0, 12);
 
-    if (movies.length > 0) renderRow('🎬 Películas', movies, 'movies');
-    if (series.length > 0) renderRow('🏆 Series', series, 'series');
-    if (anime.length > 0) renderRow('⛩️ Anime', anime, 'series');
+    if (movies.length > 0) renderRow('Películas', movies, 'movies');
+    if (series.length > 0) renderRow('Series', series, 'series');
+    if (anime.length > 0) renderRow('Anime', anime, 'series');
 
-    // 🌍 ALGORITMO 2: Tendencias Globales de TMDB (para usuarios nuevos sin historial)
+    // ALGORITMO 2: Tendencias Globales de TMDB (para usuarios nuevos sin historial)
     // Corre en paralelo sin bloquear la UI (async fire-and-forget)
     (async () => {
       try {
@@ -4469,7 +4469,7 @@ function initApp(filterType = '', genreId = '') {
           .slice(0, 12);
 
         if (globalTrends.length > 0 && container.isConnected) {
-          renderRow('🌍 Lo más visto en el Mundo', globalTrends);
+          renderRow('Lo más visto en el Mundo', globalTrends);
           const worldSection = container.lastElementChild;
           // Insertar después de Tendencias en la Selva (si existe) o al principio
           const selvaRow = container.querySelector('.category-row');

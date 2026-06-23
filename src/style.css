@@ -98,7 +98,7 @@
 @media (max-width: 768px) {
   .navbar-cinepulse {
     padding: 0 4%;
-    height: 45px;
+    height: 50px;
     box-shadow: 0 1px 0 rgba(255,87,26,0.15);
   }
 }
@@ -749,7 +749,7 @@ h3,
   }
 
   .hero-banners {
-    padding-top: 45px; /* Misma altura que el navbar */
+    padding-top: 50px; /* Misma altura que el navbar */
   }
 }
 
@@ -2162,12 +2162,12 @@ iframe {
   }
 
   #home-view.genre-visible {
-    padding-top: 45px;
+    padding-top: 50px;
   }
   
   /* Hero section justo debajo del navbar */
   .hero-banners {
-    padding-top: 45px; /* Misma altura que el navbar */
+    padding-top: 50px; /* Misma altura que el navbar */
     gap: 10px;
     margin-top: 0;
     min-height: 400px;

@@ -98,7 +98,8 @@
 @media (max-width: 768px) {
   .navbar-cinepulse {
     padding: 0 4%;
-    height: calc(48px + var(--safe-top));
+    height: calc(42px + var(--safe-top));
+    box-shadow: 0 1px 0 rgba(255,87,26,0.15);
   }
 }
 
@@ -740,7 +741,7 @@ h3,
 
   #home-view {
     /* Justo debajo del navbar fixed (48px + safe-top) */
-    padding-top: calc(48px + var(--safe-top));
+    padding-top: calc(42px + var(--safe-top));
   }
 
   .filter-btn {
@@ -2161,7 +2162,7 @@ iframe {
 
   /* Compensaciones Navbar Mobile */
   #home-view {
-    padding-top: calc(48px + var(--safe-top)); /* Justo debajo del navbar fixed */
+    padding-top: calc(42px + var(--safe-top)); /* Justo debajo del navbar fixed */
   }
 
   #home-view.genre-visible {

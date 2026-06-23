@@ -695,28 +695,32 @@ function _renderCardsInto(container, data, isTrending = false) {
         const favIcon = isFavorite ? '❤️' : '🤍';
         const rank = currentIndex + idx + 1;
         
+        // Obtener género
+        const genre = item.genres ? (Array.isArray(item.genres) ? item.genres[0] : item.genres) : 'Action';
+        
         const cardHtml = `
-            <div class="movie-card" data-id="${item.id}" onclick="window.handleCardClick('${item.id}')">
-              <div class="btn-add-list ${favClass}" onclick="event.stopPropagation(); window.toggleMyList('${item.id}', this)" title="Añadir a mi selva">
+            <div class="cinepulse-movie-card" data-id="${item.id}" onclick="window.handleCardClick('${item.id}')">
+              <img src="${item.img}" alt="${item.title}" loading="lazy"
+                onerror="this.src='https://via.placeholder.com/500x750/1a1a1a/E74C3C?text=Sin+Imagen';">
+              <div class="cinepulse-card-overlay"></div>
+              <div class="btn-add-list ${favClass}" onclick="event.stopPropagation(); window.toggleMyList('${item.id}', this)" title="Añadir a mi selva" style="position: absolute; top: 10px; right: 10px; z-index: 5; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.2);">
                 ${favIcon}
               </div>
               ${item.status === 'maintenance' ? '<div class="badge-maintenance">Mantenimiento</div>' : ''}
-              <img src="${item.img}" alt="${item.title}" class="card-img" loading="lazy"
-                onerror="this.parentElement.style.border='2px solid #E74C3C'; this.src='https://via.placeholder.com/500x750/1a1a1a/E74C3C?text=Sin+Imagen';">
-              <div class="card-img-overlay"></div>
-              <div class="play-btn-circle">
-                <span>▶</span>
-              </div>
-              <div class="card-info">
-                <h3 class="card-title">${item.title}</h3>
-                <div style="display:flex; align-items:center; gap:5px; margin-top:4px;">
-                  <p class="card-meta">${item.year || 'Estreno'} • ★ ${item.rating || '4.8'}</p>
-                  ${item.isVIP ? `
-                    <div class="vip-badge-sm" style="background: linear-gradient(45deg, #FFD700, #FFA500); color: black; font-size: 0.55rem; font-weight: 900; padding: 1px 5px; border-radius: 4px; display: flex; align-items: center; gap: 2px; box-shadow: 0 0 10px rgba(255,165,0,0.3);">
-                      <span>👑</span>
-                      <span>VIP</span>
-                    </div>
-                  ` : ''}
+              ${item.isVIP ? `
+                <div class="vip-badge-sm" style="position: absolute; top: 10px; left: 10px; z-index: 5; background: linear-gradient(45deg, #FFD700, #FFA500); color: black; font-size: 0.55rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; display: flex; align-items: center; gap: 2px; box-shadow: 0 0 10px rgba(255,165,0,0.3);">
+                  <span>👑</span>
+                  <span>VIP</span>
+                </div>
+              ` : ''}
+              <div class="cinepulse-card-content">
+                <h3 class="cinepulse-card-title">${item.title}</h3>
+                <div class="cinepulse-card-meta">
+                  <span class="cinepulse-card-genre">${genre}</span>
+                  <span class="cinepulse-card-rating">
+                    <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1; font-size: 12px;">star</span>
+                    ${item.rating || '8.9'}
+                  </span>
                 </div>
               </div>
             </div>
@@ -724,8 +728,8 @@ function _renderCardsInto(container, data, isTrending = false) {
 
         if (isTrending) {
           return `
-            <div class="trending-card-wrapper">
-              <div class="trending-rank-number">${rank}</div>
+            <div class="trending-card-wrapper" style="position: relative;">
+              <div class="trending-rank-number" style="position: absolute; top: -10px; left: -10px; background: var(--primary); color: black; font-size: 1.5rem; font-weight: 900; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 15px rgba(255,102,0,0.5); z-index: 10;">${rank}</div>
               ${cardHtml}
             </div>
           `;
@@ -744,45 +748,58 @@ function _renderCardsInto(container, data, isTrending = false) {
   renderNextChunk();
 }
 
+function renderRecommendedWide(data) {
+  const container = document.getElementById('main-content');
+  if (!container || !data || data.length < 2) return;
+  
+  const section = document.createElement('section');
+  section.className = 'cinepulse-section';
+  
+  const cardsHtml = data.slice(0, 4).map(item => {
+    const genre = item.genres ? (Array.isArray(item.genres) ? item.genres[0] : item.genres) : '';
+    const badge = item.isVIP ? '👑 Estreno VIP' : (item.pinned ? '🔥 Destacado' : '🍹 Favorito');
+    return `
+      <div class="cinepulse-recommended-card" onclick="window.handleCardClick('${item.id}')">
+        <img src="${item.backdrop || item.img}" alt="${item.title}" loading="lazy"
+          onerror="this.src='https://via.placeholder.com/800x400/1a1a1a/FF6600?text=SelvaFlix';">
+        <div class="rec-gradient"></div>
+        <div class="rec-content">
+          <span class="cinepulse-rec-badge">${badge}</span>
+          <h3 class="cinepulse-rec-title">${item.title}</h3>
+          <p class="cinepulse-rec-desc">${item.description || item.overview || ''}</p>
+          <div class="cinepulse-rec-buttons">
+            <button class="cinepulse-rec-btn-play" onclick="event.stopPropagation(); window.handleCardClick('${item.id}')">
+              <span class="material-symbols-outlined" style="font-size:1rem;font-variation-settings:'FILL' 1;">play_arrow</span> Ver Ahora
+            </button>
+            <button class="cinepulse-rec-btn-details" onclick="event.stopPropagation(); window.handleCardClick('${item.id}')">Detalles</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+  
+  section.innerHTML = `
+    <h2 class="cinepulse-section-title">🍿 Recomendado para ti</h2>
+    <div class="cinepulse-recommended-grid">${cardsHtml}</div>
+  `;
+  
+  container.appendChild(section);
+}
+
 function renderRow(title, data, seeAllHash = '') {
   const container = document.getElementById('main-content');
   if (!data) return;
   const section = document.createElement('section');
-  section.className = 'category-row';
+  section.className = 'cinepulse-section';
   section.innerHTML = `
-    <div class="row-header">
-      <h2 class="row-title">${title}</h2>
-      ${seeAllHash ? `<a href="#${seeAllHash}" class="see-all-btn">Ver todos →</a>` : ''}
-    </div>
-    <div class="row-container">
-      <button class="row-arrow row-arrow-left">◀</button>
-      <div class="movie-list"></div>
-      <button class="row-arrow row-arrow-right">▶</button>
-    </div>
+    <h2 class="cinepulse-section-title">${title}</h2>
+    <div class="cinepulse-movie-list"></div>
   `;
   container.appendChild(section);
 
-  const list = section.querySelector('.movie-list');
+  const list = section.querySelector('.cinepulse-movie-list');
   const isTrending = title.toLowerCase().includes('tendencias');
-  if (isTrending) {
-    list.classList.add('trending-list');
-  }
   _renderCardsInto(list, data, isTrending);
-
-  const leftBtn = section.querySelector('.row-arrow-left');
-  const rightBtn = section.querySelector('.row-arrow-right');
-
-  leftBtn.onclick = () => list.scrollBy({ left: -list.offsetWidth * 0.8, behavior: 'smooth' });
-  rightBtn.onclick = () => list.scrollBy({ left: list.offsetWidth * 0.8, behavior: 'smooth' });
-
-  // Wire see-all link
-  const seeAllLink = section.querySelector('.see-all-btn');
-  if (seeAllLink && seeAllHash) {
-    seeAllLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      window.location.hash = seeAllHash;
-    });
-  }
 }
 
 // Galería de página completa con Chunking (v4.4)
@@ -793,12 +810,10 @@ function renderGallery(title, groups) {
   groups.forEach(({ label, items }) => {
     if (!items || items.length === 0) return;
     const section = document.createElement('section');
-    section.className = 'category-row';
+    section.className = 'cinepulse-section';
     section.innerHTML = `
-      <div class="row-header" style="margin-bottom:20px;">
-        <h2 class="row-title">${label} <span style="font-size:0.85rem;color:var(--text-muted);font-weight:400;">(${items.length})</span></h2>
-      </div>
-      <div class="gallery-grid"></div>
+      <h2 class="cinepulse-section-title">${label} <span style="font-size:0.85rem;color:var(--on-surface-variant);font-weight:400;">(${items.length})</span></h2>
+      <div class="gallery-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 24px; padding: 0 0 30px;"></div>
     `;
     container.appendChild(section);
 
@@ -812,22 +827,32 @@ function renderGallery(title, groups) {
         const isFavorite = window._myListIds && window._myListIds.has(item.id);
         const favClass = isFavorite ? 'active' : '';
         const favIcon = isFavorite ? '❤️' : '🤍';
+        const genre = item.genres ? (Array.isArray(item.genres) ? item.genres[0] : item.genres) : 'Action';
 
         return `
-          <div class="movie-card gallery-card" data-id="${item.id}" onclick="window.handleCardClick('${item.id}')">
-            <div class="btn-add-list ${favClass}" onclick="event.stopPropagation(); window.toggleMyList('${item.id}', this)" title="Añadir a mi selva">
+          <div class="cinepulse-movie-card gallery-card" data-id="${item.id}" onclick="window.handleCardClick('${item.id}')">
+            <img src="${item.img}" alt="${item.title}" loading="lazy"
+              onerror="this.src='https://via.placeholder.com/500x750/1a1a1a/E74C3C?text=Sin+Imagen';">
+            <div class="cinepulse-card-overlay"></div>
+            <div class="btn-add-list ${favClass}" onclick="event.stopPropagation(); window.toggleMyList('${item.id}', this)" title="Añadir a mi selva" style="position: absolute; top: 10px; right: 10px; z-index: 5; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.2);">
                 ${favIcon}
             </div>
             ${item.status === 'maintenance' ? '<div class="badge-maintenance">Mantenimiento</div>' : ''}
-            <img src="${item.img}" alt="${item.title}" class="card-img" loading="lazy"
-              onerror="this.parentElement.style.border='2px solid #E74C3C'; this.src='https://via.placeholder.com/500x750/1a1a1a/E74C3C?text=Sin+Imagen';">
-            <div class="card-img-overlay"></div>
-            <div class="play-btn-circle">
-              <span>▶</span>
-            </div>
-            <div class="card-info">
-              <h3 class="card-title">${item.title}</h3>
-              <p class="card-meta">${item.year || 'Estreno'} • ★ ${item.rating || '4.8'}</p>
+            ${item.isVIP ? `
+              <div class="vip-badge-sm" style="position: absolute; top: 10px; left: 10px; z-index: 5; background: linear-gradient(45deg, #FFD700, #FFA500); color: black; font-size: 0.55rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; display: flex; align-items: center; gap: 2px; box-shadow: 0 0 10px rgba(255,165,0,0.3);">
+                <span>👑</span>
+                <span>VIP</span>
+              </div>
+            ` : ''}
+            <div class="cinepulse-card-content">
+              <h3 class="cinepulse-card-title">${item.title}</h3>
+              <div class="cinepulse-card-meta">
+                <span class="cinepulse-card-genre">${genre}</span>
+                <span class="cinepulse-card-rating">
+                  <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1; font-size: 12px;">star</span>
+                  ${item.rating || '8.9'}
+                </span>
+              </div>
             </div>
           </div>
         `;
@@ -4129,45 +4154,79 @@ window.confirmBatchSeed = async () => {
 };
 
 
-function updateHeroCarousel() {
+async function updateHeroCarousel() {
   if (!heroPool || heroPool.length === 0) return;
   const section = document.getElementById('hero-section');
   if (!section) return;
 
-  section.style.display = 'block';
-  section.style.width = '100vw';
-  section.style.height = '40vh';
-  // section.style.padding = '0'; // Quitado para que CSS controle el padding
-  // section.style.marginTop = '0'; // Quitado para que CSS controle el margin
-  section.style.overflow = 'hidden';
-  section.style.position = 'relative';
-
-  // Mostrar solo el primer item a pantalla completa
   const item = heroPool[currentHeroIndex % heroPool.length];
   if (!item) return;
 
-  const heroImg = item.backdrop || item.img;
-  const isFavorite = window._myListIds && window._myListIds.has(item.id);
-  const favText = isFavorite ? '<span>✓</span> Agregado' : '<span>+</span> Mi Lista';
-  const favClass = isFavorite ? 'active' : '';
+  // Buscar backdrop: si no tiene, lo busca de TMDB al vuelo
+  let heroImg = item.backdrop || item.img;
   
-  section.innerHTML = `
-      <div class="hero-card-premium-fullscreen" onclick="window.handleCardClick('${item.id}')" style="width: 100%; height: 100%; background-image: linear-gradient(to top, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.2)), url('${heroImg}'); background-size: cover; background-position: center;">
-        <div class="hero-info-overlay-fullscreen" style="position: absolute; bottom: 10%; left: 5%; width: 90%; display: flex; flex-direction: column; gap: 10px;">
-          ${item.pinned ? '<span style="display: inline-block; width: fit-content; background: var(--primary); color:black; font-size: 0.7rem; padding: 4px 10px; border-radius: 12px; font-weight: 800; text-transform: uppercase; box-shadow: 0 0 10px var(--primary-glow);">📍 Destacado</span>' : ''}
-          <h2 class="hero-title-premium" style="font-size: 2.5rem;">${item.title}</h2>
-          <div class="hero-meta-premium" style="font-size: 1rem;">★ ${item.rating || '4.8'} • ${item.year || '2024'}</div>
-          <div class="hero-btn-container">
-            <button class="hero-btn-play" onclick="event.stopPropagation(); window.handleCardClick('${item.id}')" style="padding: 10px 25px; font-size: 0.9rem;">
-              <span>▶</span> Reproducir
-            </button>
-            <button class="hero-btn-add ${favClass}" onclick="event.stopPropagation(); window.toggleMyList('${item.id}', this)" style="padding: 10px 25px; font-size: 0.9rem;">
-              ${favText}
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
+  if (!item.backdrop && item.tmdbId) {
+    try {
+      // Determinar si es serie o película
+      const type = item.type === 'series' || item.type === 'tv' ? 'tv' : 'movie';
+      const res = await fetch(`${TMDB_URL}/${type}/${item.tmdbId}?api_key=${TMDB_API_KEY}&language=es-MX`);
+      const data = await res.json();
+      if (data.backdrop_path) {
+        heroImg = `https://image.tmdb.org/t/p/original${data.backdrop_path}`;
+        // Actualizamos el item en memoria para la próxima rotación
+        item.backdrop = heroImg;
+      }
+    } catch (e) {
+      console.warn('No se pudo cargar backdrop para', item.title, e.message);
+    }
+  }
+  
+  const isFavorite = window._myListIds && window._myListIds.has(item.id);
+  
+  section.style.display = 'flex';
+  section.classList.add('cinepulse-hero');
+  
+  const heroBg = document.getElementById('cinepulse-hero-img');
+  const heroTitle = document.getElementById('cinepulse-hero-title');
+  const heroDesc = document.getElementById('cinepulse-hero-desc');
+  const heroRating = document.getElementById('cinepulse-hero-rating-value');
+  const heroYear = document.getElementById('cinepulse-hero-year');
+  const heroBadge = document.getElementById('cinepulse-hero-badge');
+  const heroPlay = document.getElementById('cinepulse-hero-play');
+  const heroList = document.getElementById('cinepulse-hero-list');
+  
+  if (heroBg) heroBg.src = heroImg;
+  if (heroTitle) heroTitle.textContent = item.title;
+  if (heroDesc) heroDesc.textContent = item.description || item.overview || 'Descubre esta increíble película disponible solo en SelvaFlix.';
+  if (heroRating) heroRating.textContent = item.rating || '8.9';
+  if (heroYear) heroYear.textContent = item.year || '2024';
+  
+  if (heroBadge) {
+    if (item.pinned || (item.createdAt && Date.now() - item.createdAt < 7 * 24 * 60 * 60 * 1000)) {
+      heroBadge.style.display = 'inline-flex';
+    } else {
+      heroBadge.style.display = 'none';
+    }
+  }
+  
+  if (heroPlay) {
+    heroPlay.onclick = (e) => {
+      e.stopPropagation();
+      window.handleCardClick(item.id);
+    };
+  }
+  
+  if (heroList) {
+    heroList.onclick = (e) => {
+      e.stopPropagation();
+      window.toggleMyList(item.id, heroList);
+    };
+    
+    const isFav = window._myListIds && window._myListIds.has(item.id);
+    heroList.innerHTML = isFav 
+      ? '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 1;">check</span> En Mi Selva'
+      : '<span class="material-symbols-outlined">add</span> Mi Lista';
+  }
 }
 
 function startHeroAutoRotation() {
@@ -4178,8 +4237,8 @@ function startHeroAutoRotation() {
       const section = document.getElementById('hero-section');
       if (section) {
         section.style.opacity = '0.5';
+        updateHeroCarousel(); // Ya es async internamente
         setTimeout(() => {
-          updateHeroCarousel();
           section.style.opacity = '1';
         }, 500);
       }
@@ -4313,9 +4372,12 @@ function initApp(filterType = '', genreId = '') {
   if (heroPool.length > 0) {
     if (heroSection) {
         heroSection.style.display = 'flex';
-        heroSection.style.minHeight = window.innerWidth <= 768 ? '180px' : '300px';
+        heroSection.style.minHeight = window.innerWidth <= 768 ? '300px' : '550px';
     }
-    updateHeroCarousel();
+    // Cargar backdrop inicial antes de mostrar
+    (async () => {
+      await updateHeroCarousel();
+    })();
   } else {
     // Si no hay series en el hero, intentamos poner peliculas destacadas para no dejar el hueco
     if (filterType === 'series') {
@@ -4367,6 +4429,10 @@ function initApp(filterType = '', genreId = '') {
       .sort((a, b) => b.score - a.score)
       .slice(0, 12);
     if (recommended.length > 0) renderRow('🍹 Recomendadas para ti', recommended);
+
+    // 🎬 1b. Recommended Wide Cards (CinePulse Bento Style)
+    const recWide = recommended.filter(c => c.backdrop).slice(0, 4);
+    if (recWide.length >= 2) renderRecommendedWide(recWide);
 
     // 🔥 2. Tendencias en la Selva (Local)
     const popularity = [...allContent]

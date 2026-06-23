@@ -115,9 +115,17 @@
 
   <div id="app">
     <nav class="navbar-cinepulse">
-      <!-- Logo -->
-      <div class="logo logo-cinepulse">
-        <span>SELVA</span><span>FLIX</span>
+      <!-- Logo + Desktop Nav Links -->
+      <div style="display: flex; align-items: center; gap: 32px;">
+        <div class="logo logo-cinepulse">
+          <span>SELVA</span><span>FLIX</span>
+        </div>
+        <div class="nav-desktop-links">
+          <a class="nav-link-cinepulse active" href="#" onclick="window.location.hash = ''; return false;">Home</a>
+          <a class="nav-link-cinepulse" href="#movies" onclick="window.setFilter('movies'); return false;">Películas</a>
+          <a class="nav-link-cinepulse" href="#series" onclick="window.setFilter('series'); return false;">Series</a>
+          <a class="nav-link-cinepulse" href="#" onclick="window.toggleMyListModal(); return false;">Mi Selva</a>
+        </div>
       </div>
 
       <!-- Nav Actions (right side) -->
@@ -201,22 +209,54 @@
 
     <main id="home-view">
       
-      <!-- Hero Banner -->
-      <section class="hero-banners" id="hero-section" style="display: none;"></section>
+      <!-- Hero Banner CinePulse Desktop Style -->
+      <section class="cinepulse-hero" id="hero-section" style="display: none;">
+        <img id="cinepulse-hero-img" class="cinepulse-hero-bg" src="" alt="">
+        <div class="cinepulse-hero-gradient"></div>
+        <div class="cinepulse-hero-content">
+          <div id="cinepulse-hero-badge" class="cinepulse-hero-badge" style="display: none;">
+            <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1; font-size: 1rem;">new_releases</span>
+            ESTRENO
+          </div>
+          <h1 id="cinepulse-hero-title" class="cinepulse-hero-title"></h1>
+          <div class="cinepulse-hero-meta">
+            <div class="cinepulse-hero-rating">
+              <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">star</span>
+              <span id="cinepulse-hero-rating-value" class="cinepulse-hero-rating-value">8.9</span>
+            </div>
+            <span class="cinepulse-hero-dot">•</span>
+            <span id="cinepulse-hero-year" class="cinepulse-hero-year">2024</span>
+            <span class="cinepulse-hero-dot">•</span>
+            <span class="cinepulse-hero-quality">4K ULTRA HD</span>
+          </div>
+          <p id="cinepulse-hero-desc" class="cinepulse-hero-description"></p>
+          <div class="cinepulse-hero-buttons">
+            <button id="cinepulse-hero-play" class="cinepulse-btn-primary">
+              <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+              Reproducir
+            </button>
+            <button id="cinepulse-hero-list" class="cinepulse-btn-secondary">
+              <span class="material-symbols-outlined">add</span>
+              Mi Lista
+            </button>
+          </div>
+        </div>
+      </section>
 
-      <!-- Genre Sub-filters (shown in movies/series view) -->
-      <div class="filter-bar filter-bar-cinepulse" id="genre-bar">
-        <button class="filter-btn filter-btn-cinepulse active" id="genre-all" onclick="window.setGenre('')">All</button>
-        <button class="filter-btn filter-btn-cinepulse" onclick="window.setGenre('28')">Action</button>
-        <button class="filter-btn filter-btn-cinepulse" onclick="window.setGenre('35')">Comedy</button>
-        <button class="filter-btn filter-btn-cinepulse" onclick="window.setGenre('18')">Drama</button>
-        <button class="filter-btn filter-btn-cinepulse" onclick="window.setGenre('16')">Animation</button>
-        <button class="filter-btn filter-btn-cinepulse" onclick="window.setGenre('27')">Horror</button>
-        <button class="filter-btn filter-btn-cinepulse" onclick="window.setGenre('10749')">Romance</button>
-        <button class="filter-btn filter-btn-cinepulse" onclick="window.setGenre('878')">Sci-Fi</button>
-        <button class="filter-btn filter-btn-cinepulse" onclick="window.setGenre('9648')">Mystery</button>
-        <button class="filter-btn filter-btn-cinepulse" onclick="window.setGenre('10402')">Music</button>
-        <button class="filter-btn filter-btn-cinepulse" onclick="window.setGenre('10770')">TV Movie</button>
+      <!-- Genre Chips CinePulse Style -->
+      <div class="cinepulse-genre-section" id="genre-bar">
+        <div class="cinepulse-genre-chips">
+          <button class="cinepulse-genre-chip active" id="genre-all" onclick="window.setGenre('')">Todos</button>
+          <button class="cinepulse-genre-chip" onclick="window.setGenre('28')">Acción</button>
+          <button class="cinepulse-genre-chip" onclick="window.setGenre('35')">Comedia</button>
+          <button class="cinepulse-genre-chip" onclick="window.setGenre('18')">Drama</button>
+          <button class="cinepulse-genre-chip" onclick="window.setGenre('16')">Animación</button>
+          <button class="cinepulse-genre-chip" onclick="window.setGenre('27')">Terror</button>
+          <button class="cinepulse-genre-chip" onclick="window.setGenre('10749')">Romance</button>
+          <button class="cinepulse-genre-chip" onclick="window.setGenre('878')">Sci-Fi</button>
+          <button class="cinepulse-genre-chip" onclick="window.setGenre('9648')">Misterio</button>
+          <button class="cinepulse-genre-chip" onclick="window.setGenre('10402')">Música</button>
+        </div>
       </div>
 
       <!-- FASE 2: Continuar Viendo Row -->
@@ -267,6 +307,28 @@
       
       <!-- 🚩 Slot de Publicidad Inferior (Footer) -->
       <div id="ad-slot-footer" class="ad-slot-container" style="display: none; width: 100%; text-align: center; padding: 20px 0; background: rgba(0,0,0,0.4); border-top: 1px solid rgba(255,255,255,0.05); min-height: 90px; margin-top: 50px;"></div>
+
+      <!-- CinePulse Footer -->
+      <footer class="cinepulse-footer">
+        <div class="cinepulse-footer-content">
+          <div class="cinepulse-footer-brand">
+            <span class="logo logo-cinepulse" style="font-size: 1.4rem;">
+              <span>SELVA</span><span>FLIX</span>
+            </span>
+            <p class="cinepulse-footer-copyright">&copy; 2024 SelvaFlix. Tu Cine, Tu Naturaleza.</p>
+          </div>
+          <div class="cinepulse-footer-links">
+            <a class="cinepulse-footer-link" href="#">Política de Privacidad</a>
+            <a class="cinepulse-footer-link" href="#">Términos de Servicio</a>
+            <a class="cinepulse-footer-link" href="#">Centro de Ayuda</a>
+            <a class="cinepulse-footer-link" href="#">Contáctanos</a>
+          </div>
+          <div class="cinepulse-footer-social">
+            <button class="cinepulse-social-icon material-symbols-outlined">share</button>
+            <button class="cinepulse-social-icon material-symbols-outlined">rss_feed</button>
+          </div>
+        </div>
+      </footer>
     </main>
 
     <!-- 🔥 SISTEMA DE USUARIOS (Login & Perfiles) -->

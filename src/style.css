@@ -169,13 +169,11 @@
 
 /* Mobile Nav CINEPULSE */
 .mobile-nav-cinepulse {
-  background: rgba(32, 31, 31, 0.95) !important;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: #1f1f1f !important;
   border-top: 1px solid rgba(255, 87, 26, 0.15);
   box-shadow: 0 -4px 20px rgba(255, 87, 26, 0.1);
-  height: 80px;
   padding-bottom: max(env(safe-area-inset-bottom, 0px), 10px);
+  height: calc(70px + max(env(safe-area-inset-bottom, 0px), 10px));
 }
 
 .nav-item-cinepulse {
@@ -543,8 +541,7 @@ body {
 
 @media (max-width: 768px) {
   body {
-    /* No bottom nav anymore, minimal padding */
-    padding-bottom: 80px;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
   }
   .mobile-nav {
     display: flex;
@@ -2316,7 +2313,7 @@ iframe {
 
 /* Fix mobile nav padding */
 body {
-  padding-bottom: 70px;
+  padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px));
 }
 
 /* Season/Episode Navigator */

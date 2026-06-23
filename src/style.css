@@ -84,9 +84,7 @@
   left: 0;
   right: 0;
   z-index: 1000;
-  background: #131313 !important;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: #131313;
   border-bottom: 1px solid rgba(255, 87, 26, 0.1);
   height: auto;
   padding: var(--safe-top) 4% 0;

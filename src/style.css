@@ -97,8 +97,8 @@
 
 @media (max-width: 768px) {
   .navbar-cinepulse {
-    padding: 0 4%;
-    height: calc(42px + var(--safe-top));
+    padding: var(--safe-top) 4% 0;
+    height: 42px; /* Solo el contenido, safe-top va como padding */
     box-shadow: 0 1px 0 rgba(255,87,26,0.15);
   }
 }

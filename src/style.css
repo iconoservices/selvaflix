@@ -431,11 +431,11 @@
 /* iOS PWA fix: El banner debe comenzar debajo del navbar */
 @media (max-width: 768px) {
   .cinepulse-hero {
-    margin-top: 60px; /* Solo lo necesario para que el navbar no tape */
+    margin-top: 45px; /* Reducir espacio al mínimo necesario */
   }
   
   .ios-pwa-standalone .cinepulse-hero {
-    margin-top: 60px;
+    margin-top: 45px;
   }
 }
 

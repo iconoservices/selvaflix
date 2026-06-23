@@ -752,7 +752,7 @@ h3,
   }
 
   .hero-banners {
-    padding-top: calc(56px + var(--safe-top)); /* Misma altura que el navbar */
+    padding: calc(56px + var(--safe-top)) 0 20px; /* Misma altura que el navbar */
   }
 }
 
@@ -2122,7 +2122,7 @@ iframe {
   
   /* Hero section justo debajo del navbar */
   .hero-banners {
-    padding-top: calc(56px + var(--safe-top)); /* Misma altura que el navbar */
+    padding: calc(56px + var(--safe-top)) 0 20px;
     gap: 10px;
     margin-top: 0;
     min-height: 400px;

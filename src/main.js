@@ -27,7 +27,12 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const storage = getStorage(app);
-const messaging = getMessaging(app); // Inicializamos el cartero 📬
+let messaging = null;
+try {
+  messaging = getMessaging(app);
+} catch (e) {
+  console.log('🔕 FCM no soportado en este navegador:', e.message);
+}
 const auth = getAuth(app); // 🚪 El guardián de la selva
 const moviesCol = collection(db, "movies");
 
@@ -59,6 +64,10 @@ if ('serviceWorker' in navigator) {
         console.log('🌴 Selva PWA: Service Worker Activo');
 
         // 🔥 FCM: Solicitar permisos al usuario y obtener Token Push
+        if (!messaging) {
+          console.log('🔕 FCM no disponible, omitiendo push notifications.');
+          return;
+        }
         Notification.requestPermission().then((permission) => {
           if (permission === 'granted') {
             console.log('🔔 Permiso de notificaciones concedido.');
@@ -99,17 +108,19 @@ if ('serviceWorker' in navigator) {
         });
 
         // 📬 FCM: Escuchar mensajes en primer plano (Foreground)
-        onMessage(messaging, (payload) => {
-          console.log('[main.js] Mensaje recibido en Foreground ', payload);
-          // Mostramos un Toast premium en vez de bloquear la pantalla con alert()
-          const title = payload.notification?.title || "Nueva alerta";
-          const body = payload.notification?.body || "";
-          if (window.showToast) {
-            window.showToast(`🔔 ${title} - ${body}`, "success");
-          } else {
-            console.log(`🔔 Notificación recibida: ${title} - ${body}`);
-          }
-        });
+        if (messaging) {
+          onMessage(messaging, (payload) => {
+            console.log('[main.js] Mensaje recibido en Foreground ', payload);
+            // Mostramos un Toast premium en vez de bloquear la pantalla con alert()
+            const title = payload.notification?.title || "Nueva alerta";
+            const body = payload.notification?.body || "";
+            if (window.showToast) {
+              window.showToast(`🔔 ${title} - ${body}`, "success");
+            } else {
+              console.log(`🔔 Notificación recibida: ${title} - ${body}`);
+            }
+          });
+        }
 
         // Lógica de Actualización Manual (Botón) - AlDía Style
         reg.addEventListener('updatefound', () => {

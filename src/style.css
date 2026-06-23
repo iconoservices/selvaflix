@@ -1,3 +1,332 @@
+/* ─── CINEPULSE DESIGN SYSTEM ────────────────────────────── */
+/* Colores y tokens de diseño inspirados en CINEPULSE */
+:root {
+  /* CINEPULSE Color Palette */
+  --primary-fixed: #ffdbd0;
+  --surface: #131313;
+  --primary-fixed-dim: #ffb59e;
+  --on-secondary-fixed-variant: #474746;
+  --on-secondary-fixed: #1c1b1b;
+  --on-surface: #e5e2e1;
+  --primary: #ffb59e;
+  --secondary-container: #474746;
+  --on-primary: #5e1700;
+  --outline: #ad897e;
+  --on-primary-fixed: #3a0b00;
+  --surface-variant: #353534;
+  --on-secondary: #313030;
+  --on-tertiary-fixed: #1a1c1c;
+  --surface-container-lowest: #0e0e0e;
+  --inverse-surface: #e5e2e1;
+  --on-primary-fixed-variant: #852400;
+  --surface-container-highest: #353534;
+  --error-container: #93000a;
+  --surface-container-low: #1c1b1b;
+  --on-primary-container: #521300;
+  --tertiary-container: #909191;
+  --tertiary-fixed: #e2e2e2;
+  --on-tertiary-container: #282a2a;
+  --on-error: #690005;
+  --on-surface-variant: #e6beb2;
+  --secondary: #c8c6c5;
+  --on-background: #e5e2e1;
+  --surface-container-high: #2a2a2a;
+  --on-error-container: #ffdad6;
+  --tertiary: #c6c6c7;
+  --secondary-fixed-dim: #c8c6c5;
+  --primary-container: #ff571a;
+  --error: #ffb4ab;
+  --secondary-fixed: #e5e2e1;
+  --tertiary-fixed-dim: #c6c6c7;
+  --on-secondary-container: #b7b5b4;
+  --surface-tint: #ffb59e;
+  --outline-variant: #5c4037;
+  --surface-container: #201f1f;
+  --surface-bright: #3a3939;
+  --on-tertiary-fixed-variant: #454747;
+  --inverse-primary: #ae3200;
+  --inverse-on-surface: #313030;
+  --background: #131313;
+  --surface-dim: #131313;
+  --on-tertiary: #2f3131;
+  
+  /* Typography - CINEPULSE */
+  --font-display: 'Sora', sans-serif;
+  --font-body: 'Inter', sans-serif;
+}
+
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: calc(80px + var(--safe-top));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--safe-top) 5% 0;
+  background: rgba(5, 5, 5, 0.85);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  z-index: 1000;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+/* Navbar original - OCULTO (usamos solo navbar-cinepulse) */
+.navbar {
+  display: none !important;
+}
+
+/* Navbar CINEPULSE Style */
+.navbar-cinepulse {
+  background: rgba(19, 19, 19, 0.85) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 87, 26, 0.1);
+  height: calc(56px + var(--safe-top));
+  padding: var(--safe-top) 4% 6px; /* Más espacio abajo (6px) */
+  display: flex;
+  align-items: center; /* Centrar verticalmente */
+  justify-content: space-between; /* Distribuir horizontalmente */
+}
+
+.logo-cinepulse {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  font-style: italic;
+  background: linear-gradient(135deg, #fff 0%, var(--primary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: none;
+  margin: 0; /* Sin margen extra */
+}
+
+.logo-cinepulse span:first-child {
+  color: white;
+  -webkit-text-fill-color: white;
+}
+
+.logo-cinepulse span:last-child {
+  color: var(--primary-container);
+  -webkit-text-fill-color: var(--primary-container);
+}
+
+/* Search Icon CINEPULSE */
+.search-icon-cinepulse {
+  display: none;
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  background: rgba(255, 87, 26, 0.1);
+  border: 1px solid rgba(255, 87, 26, 0.3);
+  color: var(--primary);
+  transition: all 0.2s ease;
+}
+
+.search-icon-cinepulse:hover {
+  background: rgba(255, 87, 26, 0.2);
+  transform: scale(1.05);
+}
+
+.search-bar-cinepulse {
+  background: rgba(30, 30, 30, 0.95) !important;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 87, 26, 0.2) !important;
+  color: var(--on-surface) !important;
+  font-family: var(--font-body);
+}
+
+.search-bar-cinepulse:focus {
+  border-color: var(--primary-container) !important;
+  box-shadow: 0 0 15px rgba(255, 87, 26, 0.3);
+}
+
+/* Iconos de Material Symbols */
+.icon-cinepulse {
+  font-size: 1.3rem;
+  color: var(--on-surface-variant);
+  transition: all 0.2s ease;
+}
+
+.nav-fav-icon:hover .icon-cinepulse {
+  color: var(--primary-container);
+}
+
+/* Mobile Nav CINEPULSE */
+.mobile-nav-cinepulse {
+  background: rgba(32, 31, 31, 0.95) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(255, 87, 26, 0.15);
+  box-shadow: 0 -4px 20px rgba(255, 87, 26, 0.1);
+  height: 80px;
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 10px);
+}
+
+.nav-item-cinepulse {
+  color: var(--on-surface-variant);
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.7rem;
+  gap: 4px;
+  transition: all 0.2s ease;
+}
+
+.nav-item-cinepulse .material-symbols-outlined {
+  font-size: 1.5rem;
+  transition: all 0.2s ease;
+}
+
+.nav-item-cinepulse:hover,
+.nav-item-cinepulse.active {
+  color: var(--primary-fixed);
+  text-shadow: 0 0 8px rgba(255, 181, 158, 0.5);
+}
+
+.nav-item-cinepulse.active .material-symbols-outlined,
+.nav-item-cinepulse:hover .material-symbols-outlined {
+  font-variation-settings: 'FILL' 1;
+  transform: scale(1.1);
+}
+
+/* Filter Bar CINEPULSE */
+.filter-bar-cinepulse {
+  background: rgba(19, 19, 19, 0.95) !important;
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 87, 26, 0.1);
+}
+
+.filter-btn-cinepulse {
+  background: rgba(30, 30, 30, 0.8);
+  border: 1px solid rgba(173, 137, 126, 0.2);
+  color: var(--on-surface-variant);
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 10px 20px;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+  letter-spacing: 0.02em;
+}
+
+.filter-btn-cinepulse:hover {
+  border-color: var(--primary-container);
+  color: var(--primary);
+  background: rgba(255, 87, 26, 0.08);
+  transform: translateY(-1px);
+}
+
+.filter-btn-cinepulse.active {
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+  border-color: var(--primary-container);
+  box-shadow: 0 0 15px rgba(255, 87, 26, 0.4);
+  font-weight: 700;
+}
+
+/* Genre Chips CINEPULSE */
+.genre-chip-cinepulse {
+  background: rgba(30, 30, 30, 0.8);
+  border: 1px solid rgba(173, 137, 126, 0.2);
+  color: var(--on-surface-variant);
+  padding: 8px 16px;
+  border-radius: 12px;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.genre-chip-cinepulse:hover {
+  border-color: var(--primary-container);
+  color: var(--primary);
+  background: rgba(255, 87, 26, 0.1);
+}
+
+.genre-chip-cinepulse.active {
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+  border-color: var(--primary-container);
+  box-shadow: 0 0 15px rgba(255, 87, 26, 0.3);
+}
+
+/* Movie Card CINEPULSE Glow */
+.movie-card-cinepulse {
+  border-radius: 16px !important;
+  overflow: hidden;
+  border: 1px solid rgba(173, 137, 126, 0.1);
+  transition: all 0.3s ease;
+}
+
+.movie-card-cinepulse:hover {
+  box-shadow: 0 0 20px rgba(255, 87, 26, 0.4);
+  transform: scale(1.03);
+}
+
+/* Hero Section CINEPULSE */
+.hero-cinepulse {
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.hero-gradient-cinepulse {
+  background: linear-gradient(to top, #000 0%, rgba(0,0,0,0.4) 50%, transparent 100%);
+}
+
+/* Botones CINEPULSE */
+.btn-cinepulse-primary {
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+  border: none;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 12px 28px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 15px rgba(255, 87, 26, 0.3);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-cinepulse-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(255, 87, 26, 0.5);
+}
+
+.btn-cinepulse-secondary {
+  background: rgba(42, 42, 42, 0.6);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(173, 137, 126, 0.3);
+  color: var(--on-surface);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 12px 28px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-cinepulse-secondary:hover {
+  background: rgba(53, 53, 52, 0.8);
+  border-color: var(--outline);
+}
+
+/* ─── FIN CINEPULSE DESIGN SYSTEM ────────────────────────── */
+
+
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Montserrat:wght@600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
@@ -59,8 +388,8 @@
 /* 📱 Mobile Top Spacing (Notch/Status Bar Support) */
 @media (max-width: 768px) {
   :root {
-    /* Aumentado a 60px por petición del usuario para mejor aire arriba */
-    --safe-top: max(60px, env(safe-area-inset-top, 0px));
+    /* Mínimo espacio arriba */
+    --safe-top: max(20px, env(safe-area-inset-top, 0px));
   }
 }
 
@@ -258,11 +587,11 @@ h3,
   align-items: center;
   justify-content: space-between;
   padding: var(--safe-top) 5% 0;
-  background: rgba(5, 5, 5, 0.85);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
+  background: transparent !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   z-index: 1000;
-  border-bottom: 1px solid var(--glass-border);
+  border-bottom: none;
 }
 
 /* Solo para iPhone: Fondo sólido para proteger el notch */
@@ -316,8 +645,14 @@ h3,
     padding-top: var(--safe-top) !important;
     padding-left: 4%;
     padding-right: 4%;
-    padding-bottom: 5px;
-    align-items: flex-end;
+    padding-bottom: 0;
+    align-items: center; /* Centrado vertical perfecto */
+  }
+  
+  /* Centrar verticalmente los elementos del navbar */
+  .navbar > * {
+    margin-top: 0;
+    margin-bottom: 0;
   }
 
   /* Ocultar el nombre de usuario en móvil, solo mostrar el avatar */
@@ -418,6 +753,16 @@ h3,
 
 
 /* Install Button Animation */
+#pwa-install-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  margin-left: 12px;
+  font-weight: 700;
+  font-family: var(--font-display);
+}
+
 #pwa-install-btn.pulse {
   animation: pulse-primary 2s infinite;
 }
@@ -585,8 +930,9 @@ h3,
 
 .nav-actions {
   display: flex;
-  align-items: center;
-  gap: 20px;
+  align-items: center; /* Centrar verticalmente */
+  gap: 12px;
+  height: 40px; /* Altura fija para alineación perfecta */
 }
 
 .search-bar {
@@ -749,8 +1095,8 @@ h3,
 /* Hero Section */
 .hero {
   position: relative;
-  height: 55vh;
-  min-height: 400px;
+  height: 65vh;
+  min-height: 420px;
   background-position: center 20%;
   width: 100%;
   overflow: hidden;
@@ -1810,11 +2156,18 @@ iframe {
 
   /* Compensaciones Navbar Mobile */
   #home-view {
-    padding-top: 50px;
+    padding-top: 0; /* Sin padding, el navbar es fixed */
   }
 
   #home-view.genre-visible {
-    padding-top: 95px;
+    padding-top: calc(45px + var(--safe-top)); /* Solo cuando hay genre-bar visible */
+  }
+  
+  /* Hero section debe comenzar justo debajo del navbar */
+  .hero-banners {
+    padding-top: 5px; /* Pequeño espacio después del navbar */
+    gap: 10px;
+    margin-top: 0;
   }
 
   .filter-btn {
@@ -1886,10 +2239,11 @@ iframe {
     background: linear-gradient(to top, rgba(0, 0, 0, 0.95) 60%, transparent);
   }
 
-  /* ─── HERO: sin tanto margen ─── */
+  /* ─── HERO: que empiece justo debajo del navbar ─── */
   .hero-banners {
-    padding-top: 65px;
+    padding-top: 0;
     gap: 10px;
+    margin-top: 0; /* Sin margen */
   }
 
   /* ─── ADMIN mobile ─── */

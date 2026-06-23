@@ -18,6 +18,10 @@
   <meta name="theme-color" content="#000000">
   <meta name="msapplication-TileColor" content="#000000">
 
+  <!-- Material Symbols for CINEPULSE design -->
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+
   <!-- Motor Selva P2P (WebTorrent) -->
   <script src="https://cdn.jsdelivr.net/npm/webtorrent@latest/webtorrent.min.js"></script>
   <!-- 📊 Analytics Engine (Chart.js) -->
@@ -110,53 +114,31 @@
   </div>
 
   <div id="app">
-    <nav class="navbar">
+    <nav class="navbar-cinepulse">
       <!-- Logo -->
-      <div class="logo">
-        <span>Selva</span><span>flix</span>
+      <div class="logo logo-cinepulse">
+        <span>SELVA</span><span>FLIX</span>
       </div>
 
       <!-- Nav Actions (right side) -->
       <div class="nav-actions">
         <!-- Search: icon on mobile, expands on click -->
         <div class="search-wrapper">
-          <span class="search-icon" onclick="this.parentElement.classList.toggle('open')">🔍</span>
-          <input type="text" placeholder="Buscar en la selva..." class="search-bar" id="global-search">
-        </div>
-
-        <!-- Favorites Icon -->
-        <div class="nav-fav-icon" onclick="window.toggleMyListModal()" title="Mi Selva">
-          ❤️<span id="nav-fav-count" class="fav-badge" style="display: none;">0</span>
+          <span class="material-symbols-outlined search-icon-cinepulse" onclick="this.parentElement.classList.toggle('open')">search</span>
+          <input type="text" placeholder="Buscar..." class="search-bar search-bar-cinepulse" id="global-search">
         </div>
 
         <!-- Profile Button -->
         <div id="user-profile-container" style="position: relative;">
-            <div id="user-profile-btn" onclick="window.toggleUserMenu()" style="cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px; background: rgba(255,122,0,0.1); border: 1px solid rgba(255,122,0,0.3); position: relative;">
+            <div id="user-profile-btn" onclick="window.toggleUserMenu()" style="cursor: pointer; display: flex; align-items: center; gap: 0; padding: 0; border-radius: 50%; background: transparent; border: none; position: relative;">
                 <div style="position: relative; flex-shrink: 0;">
-                    <div id="user-avatar" style="width: 28px; height: 28px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 900; color: black; font-size: 0.65rem; overflow: hidden;">
+                    <div id="user-avatar" style="width: 40px; height: 40px; border-radius: 50%; overflow: hidden; border: 2px solid rgba(255, 87, 26, 0.5);">
                         <img id="user-avatar-img" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;">
-                        <span id="user-initials">G</span>
+                        <span id="user-initials" style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: var(--primary-container); color: var(--on-primary-container); font-weight: 900; font-size: 0.75rem;">G</span>
                     </div>
                     <!-- Admin Indicator Dot Pulsante (Anclado al avatar, más arriba) 💎 -->
                     <div id="admin-status-dot" style="display: none; position: absolute; bottom: 2px; right: 2px; width: 10px; height: 10px; background: #00f2ff; border-radius: 50%; border: 2px solid #000; box-shadow: 0 0 10px #00f2ff; z-index: 100; animation: admin-pulse 2s infinite;"></div>
                 </div>
-                <style>
-                    @keyframes admin-pulse {
-                        0% { box-shadow: 0 0 0 0 rgba(0, 242, 255, 0.7); transform: scale(0.9); }
-                        70% { box-shadow: 0 0 0 8px rgba(0, 242, 255, 0); transform: scale(1); }
-                        100% { box-shadow: 0 0 0 0 rgba(0, 242, 255, 0); transform: scale(0.9); }
-                    }
-                    /* --- Publicidad Toggles --- */
-                    .switch { position: relative; display: inline-block; width: 44px; height: 22px; }
-                    .switch input { opacity: 0; width: 0; height: 0; }
-                    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.05); transition: .4s; border-radius: 34px; border: 1px solid rgba(255,255,255,0.1); }
-                    .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.4); }
-                    input:checked + .slider { background-color: var(--primary); }
-                    input:checked + .slider:before { transform: translateX(22px); }
-                    .slider.round { border-radius: 34px; }
-                    .slider.round:before { border-radius: 50%; }
-                </style>
-                <span id="user-name" class="nav-username">Login</span>
             </div>
             
             <div id="user-menu" style="display: none; position: absolute; top: 40px; right: 0; background: #111; border: 1px solid var(--glass-border); border-radius: 12px; padding: 10px; z-index: 10001; min-width: 150px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
@@ -192,23 +174,23 @@
       </div>
     </nav>
     
-    <!-- Mobile Bottom Navigation -->
-    <nav class="mobile-nav">
-      <button onclick="window.location.hash = ''" class="nav-item">
-        <span class="nav-icon">🏠</span>
-        <span>Inicio</span>
+    <!-- Mobile Bottom Navigation CINEPULSE -->
+    <nav class="mobile-nav mobile-nav-cinepulse">
+      <button onclick="window.location.hash = ''" class="nav-item nav-item-cinepulse active">
+        <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">home</span>
+        <span>Home</span>
       </button>
-      <button onclick="window.location.hash = '#movies'" class="nav-item">
-        <span class="nav-icon">🎬</span>
-        <span>Películas</span>
+      <button onclick="window.location.hash = '#movies'" class="nav-item nav-item-cinepulse">
+        <span class="material-symbols-outlined">movie</span>
+        <span>Movies</span>
       </button>
-      <button onclick="document.getElementById('global-search').focus()" class="nav-item">
-        <span class="nav-icon">🔍</span>
-        <span>Buscar</span>
+      <button onclick="document.getElementById('global-search').focus()" class="nav-item nav-item-cinepulse">
+        <span class="material-symbols-outlined">search</span>
+        <span>Search</span>
       </button>
-      <button onclick="window.toggleMyListModal()" class="nav-item">
-        <span class="nav-icon">❤️</span>
-        <span>Favoritos</span>
+      <button onclick="window.toggleMyListModal()" class="nav-item nav-item-cinepulse">
+        <span class="material-symbols-outlined">bookmark</span>
+        <span>My List</span>
       </button>
     </nav>
     
@@ -223,18 +205,18 @@
       <section class="hero-banners" id="hero-section" style="display: none;"></section>
 
       <!-- Genre Sub-filters (shown in movies/series view) -->
-      <div class="filter-bar" id="genre-bar">
-        <button class="filter-btn active" id="genre-all" onclick="window.setGenre('')">Todas</button>
-        <button class="filter-btn" onclick="window.setGenre('28')">Acción</button>
-        <button class="filter-btn" onclick="window.setGenre('35')">Comedia</button>
-        <button class="filter-btn" onclick="window.setGenre('18')">Drama</button>
-        <button class="filter-btn" onclick="window.setGenre('16')">Animación</button>
-        <button class="filter-btn" onclick="window.setGenre('27')">Terror</button>
-        <button class="filter-btn" onclick="window.setGenre('10749')">Romance</button>
-        <button class="filter-btn" onclick="window.setGenre('878')">Ciencia Ficción</button>
-        <button class="filter-btn" onclick="window.setGenre('9648')">Misterio</button>
-        <button class="filter-btn" onclick="window.setGenre('10402')">Musical</button>
-        <button class="filter-btn" onclick="window.setGenre('10770')">Telenovela</button>
+      <div class="filter-bar filter-bar-cinepulse" id="genre-bar">
+        <button class="filter-btn filter-btn-cinepulse active" id="genre-all" onclick="window.setGenre('')">All</button>
+        <button class="filter-btn filter-btn-cinepulse" onclick="window.setGenre('28')">Action</button>
+        <button class="filter-btn filter-btn-cinepulse" onclick="window.setGenre('35')">Comedy</button>
+        <button class="filter-btn filter-btn-cinepulse" onclick="window.setGenre('18')">Drama</button>
+        <button class="filter-btn filter-btn-cinepulse" onclick="window.setGenre('16')">Animation</button>
+        <button class="filter-btn filter-btn-cinepulse" onclick="window.setGenre('27')">Horror</button>
+        <button class="filter-btn filter-btn-cinepulse" onclick="window.setGenre('10749')">Romance</button>
+        <button class="filter-btn filter-btn-cinepulse" onclick="window.setGenre('878')">Sci-Fi</button>
+        <button class="filter-btn filter-btn-cinepulse" onclick="window.setGenre('9648')">Mystery</button>
+        <button class="filter-btn filter-btn-cinepulse" onclick="window.setGenre('10402')">Music</button>
+        <button class="filter-btn filter-btn-cinepulse" onclick="window.setGenre('10770')">TV Movie</button>
       </div>
 
       <!-- FASE 2: Continuar Viendo Row -->

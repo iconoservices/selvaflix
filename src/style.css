@@ -83,11 +83,18 @@
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid rgba(255, 87, 26, 0.1);
-  height: calc(56px + var(--safe-top));
-  padding: var(--safe-top) 4% 6px; /* Más espacio abajo (6px) */
+  height: auto;
+  padding: var(--safe-top) 4% 0;
   display: flex;
-  align-items: center; /* Centrar verticalmente */
-  justify-content: space-between; /* Distribuir horizontalmente */
+  align-items: center;
+  justify-content: space-between;
+}
+
+@media (max-width: 768px) {
+  .navbar-cinepulse {
+    padding: 0 4%;
+    height: calc(48px + var(--safe-top));
+  }
 }
 
 .logo-cinepulse {
@@ -2165,7 +2172,7 @@ iframe {
   
   /* Hero section debe comenzar justo debajo del navbar */
   .hero-banners {
-    padding-top: 5px; /* Pequeño espacio después del navbar */
+    padding-top: 0; /* Sin espacio arriba */
     gap: 10px;
     margin-top: 0;
   }

@@ -103,11 +103,20 @@
   background: #131313;
   border-bottom: 1px solid rgba(255, 87, 26, 0.1);
   height: auto;
-  padding: var(--safe-top) 4% 0;
+  padding: max(var(--safe-top), 8px) 4% 8px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   transition: background 0.3s ease, box-shadow 0.3s ease;
+  box-sizing: border-box;
+}
+
+/* Mobile navbar - más compacto */
+@media (max-width: 768px) {
+  .navbar-cinepulse {
+    padding: max(var(--safe-top), 4px) 4% 4px;
+    min-height: calc(56px + var(--safe-top));
+  }
 }
 
 .navbar-cinepulse.scrolled {
@@ -417,6 +426,18 @@
   overflow: hidden;
   margin-top: 0;
   transition: opacity 0.5s ease;
+}
+
+/* iOS PWA fix: El banner debe comenzar debajo del navbar */
+@media (max-width: 768px) {
+  .cinepulse-hero {
+    margin-top: 56px; /* Altura del navbar mobile + safe-area */
+    height: calc(100vh - 120px); /* Ajustar altura para que no se salga */
+  }
+  
+  .ios-pwa-standalone .cinepulse-hero {
+    margin-top: calc(56px + var(--safe-top, 0px));
+  }
 }
 
 .cinepulse-hero-bg {
@@ -1043,6 +1064,18 @@
 /* ─── HOME VIEW SPACING ────────────────────────────── */
 #home-view {
   padding-top: 0;
+}
+
+/* iOS PWA fix: El navbar no debe tapar el banner */
+@media (max-width: 768px) {
+  .ios-pwa-standalone .navbar-cinepulse {
+    position: relative;
+    margin-bottom: 0;
+  }
+  
+  .ios-pwa-standalone #home-view {
+    padding-top: 0;
+  }
 }
 
 #home-view .cinepulse-hero + .cinepulse-genre-section {

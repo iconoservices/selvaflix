@@ -113,23 +113,23 @@
     <p style="color: var(--primary); font-size: 0.6rem; letter-spacing: 4px; margin-top: 25px; opacity: 0.6; text-transform: uppercase; font-weight: 400;">Explorando la Selva...</p>
   </div>
 
-  <!-- Navbar fuera del #app para que position: fixed funcione en iOS -->
-  <nav class="navbar-cinepulse">
-    <!-- Logo + Desktop Nav Links -->
-    <div style="display: flex; align-items: center; gap: 32px;">
-      <div class="logo logo-cinepulse">
-        <span>SELVA</span><span>FLIX</span>
+  <div id="app">
+    <nav class="navbar-cinepulse">
+      <!-- Logo + Desktop Nav Links -->
+      <div style="display: flex; align-items: center; gap: 32px;">
+        <div class="logo logo-cinepulse">
+          <span>SELVA</span><span>FLIX</span>
+        </div>
+        <div class="nav-desktop-links">
+          <a class="nav-link-cinepulse active" href="#" onclick="window.location.hash = ''; return false;">Home</a>
+          <a class="nav-link-cinepulse" href="#movies" onclick="window.setFilter('movies'); return false;">Películas</a>
+          <a class="nav-link-cinepulse" href="#series" onclick="window.setFilter('series'); return false;">Series</a>
+          <a class="nav-link-cinepulse" href="#" onclick="window.toggleMyListModal(); return false;">Mi Selva</a>
+        </div>
       </div>
-      <div class="nav-desktop-links">
-        <a class="nav-link-cinepulse active" href="#" onclick="window.location.hash = ''; return false;">Home</a>
-        <a class="nav-link-cinepulse" href="#movies" onclick="window.setFilter('movies'); return false;">Películas</a>
-        <a class="nav-link-cinepulse" href="#series" onclick="window.setFilter('series'); return false;">Series</a>
-        <a class="nav-link-cinepulse" href="#" onclick="window.toggleMyListModal(); return false;">Mi Selva</a>
-      </div>
-    </div>
 
-    <!-- Nav Actions (right side) -->
-    <div class="nav-actions">
+      <!-- Nav Actions (right side) -->
+      <div class="nav-actions">
         <!-- Search: icon on mobile, expands on click -->
         <div class="search-wrapper">
           <span class="material-symbols-outlined search-icon-cinepulse" onclick="this.parentElement.classList.toggle('open')">search</span>
@@ -202,8 +202,8 @@
       </button>
     </nav>
     
-    <!-- Contenedor principal de la app -->
-    <div id="app">
+    <!-- Main content area -->
+    <main id="home-view">
     
     <!-- 🚩 Slot de Publicidad Superior (Top) -->
     <div id="ad-slot-top" class="ad-slot-container" style="display: none; width: 100%; text-align: center; padding: 10px 0; background: rgba(0,0,0,0.3); border-bottom: 1px solid rgba(255,255,255,0.05); min-height: 50px; position: relative; z-index: 100;"></div>
@@ -1361,7 +1361,6 @@
         <button id="btn-do-cleanup" onclick="window.executeCleanup()" class="btn" style="flex: 1; background: #E74C3C; color: white; display: none;">Eliminar Todo 🗑️</button>
       </div>
     </div>
-  </div>
   </div>
 
   <script type="module" src="/src/main.js?v=2.40"></script>

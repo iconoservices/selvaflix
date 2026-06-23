@@ -739,15 +739,8 @@ h3,
   }
 
   #home-view {
-    /* Contenido más arriba: navbar(56) + filters(54) = ~110px */
-    padding-top: calc(110px + var(--safe-top));
-  }
-
-  /* Más espacio solo en iPhone (265px -> 295px) */
-  @supports (-webkit-touch-callout: none) {
-    #home-view {
-      padding-top: calc(130px + var(--safe-top));
-    }
+    /* Justo debajo del navbar fixed (48px + safe-top) */
+    padding-top: calc(48px + var(--safe-top));
   }
 
   .filter-btn {
@@ -758,8 +751,8 @@ h3,
   }
 
   .hero-banners {
-    /* Eliminado el padding redundante: ya lo maneja #home-view */
-    padding-top: 5px;
+    /* Sin padding, el home-view ya da el espacio */
+    padding-top: 0;
   }
 }
 
@@ -2168,16 +2161,16 @@ iframe {
 
   /* Compensaciones Navbar Mobile */
   #home-view {
-    padding-top: 0; /* Sin padding, el navbar es fixed */
+    padding-top: calc(48px + var(--safe-top)); /* Justo debajo del navbar fixed */
   }
 
   #home-view.genre-visible {
-    padding-top: calc(45px + var(--safe-top)); /* Solo cuando hay genre-bar visible */
+    padding-top: calc(48px + var(--safe-top) + 45px); /* navbar + genre-bar */
   }
   
-  /* Hero section debe comenzar justo debajo del navbar */
+  /* Hero section debajo del navbar */
   .hero-banners {
-    padding-top: 0; /* Sin espacio arriba */
+    padding-top: 0;
     gap: 10px;
     margin-top: 0;
   }

@@ -401,20 +401,20 @@
 /* 📱 Mobile Top Spacing (Notch/Status Bar Support) */
 @media (max-width: 768px) {
   :root {
-    --safe-top: max(20px, env(safe-area-inset-top, 0px));
+    --safe-top: max(44px, env(safe-area-inset-top, 0px));
   }
 }
 
 /* 📲 PWA Instalada - mismo safe-top que mobile browser */
 @media (display-mode: standalone) {
   :root {
-    --safe-top: max(20px, env(safe-area-inset-top, 0px));
+    --safe-top: max(44px, env(safe-area-inset-top, 0px));
   }
 }
 
 /* Respaldo JS */
 body.ios-pwa-standalone {
-  --safe-top: 20px !important;
+  --safe-top: 44px !important;
 }
 
 /* 💎 VIP & Premium Styles */

@@ -740,7 +740,6 @@ h3,
   }
 
   #home-view {
-    /* Justo debajo del navbar fixed (48px + safe-top) */
     padding-top: calc(42px + var(--safe-top));
   }
 
@@ -2162,18 +2161,19 @@ iframe {
 
   /* Compensaciones Navbar Mobile */
   #home-view {
-    padding-top: calc(42px + var(--safe-top)); /* Justo debajo del navbar fixed */
+    padding-top: 0; /* Sin padding, hero empieza desde arriba */
   }
 
   #home-view.genre-visible {
-    padding-top: calc(48px + var(--safe-top) + 45px); /* navbar + genre-bar */
+    padding-top: 45px; /* Solo cuando hay genre-bar visible */
   }
   
-  /* Hero section debajo del navbar */
+  /* Hero section empieza desde el tope, navbar se monta encima */
   .hero-banners {
     padding-top: 0;
     gap: 10px;
     margin-top: 0;
+    min-height: 400px;
   }
 
   .filter-btn {

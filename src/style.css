@@ -2161,16 +2161,16 @@ iframe {
 
   /* Compensaciones Navbar Mobile */
   #home-view {
-    padding-top: 0; /* Sin padding, hero empieza desde arriba */
+    padding-top: 0;
   }
 
   #home-view.genre-visible {
-    padding-top: 45px; /* Solo cuando hay genre-bar visible */
+    padding-top: 45px;
   }
   
-  /* Hero section empieza desde el tope, navbar se monta encima */
+  /* Hero section justo debajo del navbar */
   .hero-banners {
-    padding-top: 0;
+    padding-top: calc(42px + var(--safe-top)); /* Misma altura que el navbar */
     gap: 10px;
     margin-top: 0;
     min-height: 400px;
@@ -2243,13 +2243,6 @@ iframe {
   .card-info {
     padding: 6px;
     background: linear-gradient(to top, rgba(0, 0, 0, 0.95) 60%, transparent);
-  }
-
-  /* ─── HERO: que empiece justo debajo del navbar ─── */
-  .hero-banners {
-    padding-top: 0;
-    gap: 10px;
-    margin-top: 0; /* Sin margen */
   }
 
   /* ─── ADMIN mobile ─── */

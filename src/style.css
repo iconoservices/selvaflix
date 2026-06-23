@@ -79,6 +79,11 @@
 
 /* Navbar CINEPULSE Style */
 .navbar-cinepulse {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
   background: rgba(19, 19, 19, 0.85) !important;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);

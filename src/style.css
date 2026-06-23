@@ -170,10 +170,12 @@
 /* Mobile Nav CINEPULSE */
 .mobile-nav-cinepulse {
   background: #1f1f1f !important;
-  border-top: 1px solid rgba(255, 87, 26, 0.15);
-  box-shadow: 0 -4px 20px rgba(255, 87, 26, 0.1);
-  padding-bottom: max(env(safe-area-inset-bottom, 0px), 10px);
-  height: calc(70px + max(env(safe-area-inset-bottom, 0px), 10px));
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-top: 1px solid rgba(255, 87, 26, 0.15) !important;
+  box-shadow: 0 -4px 20px rgba(255, 87, 26, 0.1) !important;
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 10px) !important;
+  height: calc(70px + max(env(safe-area-inset-bottom, 0px), 10px)) !important;
 }
 
 .nav-item-cinepulse {

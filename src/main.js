@@ -4137,8 +4137,8 @@ function updateHeroCarousel() {
   section.style.display = 'block';
   section.style.width = '100vw';
   section.style.height = '40vh';
-  section.style.padding = '0';
-  section.style.marginTop = '0';
+  // section.style.padding = '0'; // Quitado para que CSS controle el padding
+  // section.style.marginTop = '0'; // Quitado para que CSS controle el margin
   section.style.overflow = 'hidden';
   section.style.position = 'relative';
 

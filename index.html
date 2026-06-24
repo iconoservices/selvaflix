@@ -97,6 +97,129 @@
       100% { transform: translateX(100%); }
     }
   </style>
+  <!-- Tailwind CSS for Detail View -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        corePlugins: {
+          preflight: false,
+        },
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary-fixed-dim": "#c8c6c5",
+                    "on-error": "#690005",
+                    "tertiary-fixed": "#e2e2e2",
+                    "on-error-container": "#ffdad6",
+                    "surface-container": "#201f1f",
+                    "primary-fixed-dim": "#ffb59e",
+                    "on-tertiary-fixed": "#1a1c1c",
+                    "background": "#131313",
+                    "on-tertiary-fixed-variant": "#454747",
+                    "on-surface-variant": "#e6beb2",
+                    "surface-variant": "#353534",
+                    "surface-tint": "#ffb59e",
+                    "on-tertiary-container": "#282a2a",
+                    "surface-container-lowest": "#0e0e0e",
+                    "outline-variant": "#5c4037",
+                    "inverse-primary": "#ae3200",
+                    "on-background": "#e5e2e1",
+                    "error-container": "#93000a",
+                    "inverse-surface": "#e5e2e1",
+                    "primary": "#ffb59e",
+                    "surface-dim": "#131313",
+                    "primary-container": "#ff571a",
+                    "on-secondary-container": "#b7b5b4",
+                    "secondary-fixed": "#e5e2e1",
+                    "inverse-on-surface": "#313030",
+                    "surface-container-highest": "#353534",
+                    "secondary-container": "#474746",
+                    "tertiary-container": "#909191",
+                    "on-secondary-fixed-variant": "#474746",
+                    "surface": "#131313",
+                    "secondary": "#c8c6c5",
+                    "tertiary": "#c6c6c7",
+                    "outline": "#ad897e",
+                    "surface-container-low": "#1c1b1b",
+                    "on-primary-container": "#521300",
+                    "on-secondary-fixed": "#1c1b1b",
+                    "on-primary": "#5e1700",
+                    "surface-container-high": "#2a2a2a",
+                    "surface-bright": "#3a3939",
+                    "on-secondary": "#313030",
+                    "on-primary-fixed-variant": "#852400",
+                    "on-tertiary": "#2f3131",
+                    "primary-fixed": "#ffdbd0",
+                    "on-surface": "#e5e2e1",
+                    "on-primary-fixed": "#3a0b00",
+                    "error": "#ffb4ab",
+                    "tertiary-fixed-dim": "#c6c6c7"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "lg": "24px",
+                    "3xl": "64px",
+                    "margin-mobile": "16px",
+                    "xs": "4px",
+                    "sm": "8px",
+                    "md": "16px",
+                    "gutter": "20px",
+                    "base": "8px",
+                    "margin-desktop": "40px",
+                    "2xl": "48px",
+                    "xl": "32px"
+            },
+            "fontFamily": {
+                    "label-md": ["Inter"],
+                    "headline-md": ["Sora"],
+                    "headline-lg-mobile": ["Sora"],
+                    "body-md": ["Inter"],
+                    "label-sm": ["Inter"],
+                    "headline-lg": ["Sora"],
+                    "display-lg-mobile": ["Sora"],
+                    "display-lg": ["Sora"],
+                    "body-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "label-md": ["14px", {"lineHeight": "1.2", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "1.2", "fontWeight": "700"}],
+                    "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                    "label-sm": ["12px", {"lineHeight": "1.2", "fontWeight": "500"}],
+                    "headline-lg": ["32px", {"lineHeight": "1.2", "fontWeight": "700"}],
+                    "display-lg-mobile": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.01em", "fontWeight": "800"}],
+                    "display-lg": ["48px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+  </script>
+  <style>
+        .hero-gradient {
+            background: linear-gradient(to top, #131313 0%, rgba(19, 19, 19, 0.8) 40%, rgba(19, 19, 19, 0) 100%);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .glass-overlay {
+            backdrop-filter: blur(8px);
+            background: rgba(32, 31, 31, 0.6);
+        }
+        .bloom-effect:active {
+            box-shadow: 0 0 20px rgba(255, 87, 26, 0.6);
+        }
+        .movie-card-hover:active {
+            transform: scale(0.95);
+            box-shadow: 0 0 15px rgba(255, 181, 158, 0.4);
+        }
+  </style>
 </head>
 
 <body>
@@ -387,6 +510,107 @@
     <div id="toast-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 99999; display: flex; flex-direction: column; gap: 10px; pointer-events: none;"></div>
 
     <!-- Se removieron los viejos containers de views, ahorra reusamos main-content 🍿 -->
+
+    <!-- Detail View (Tailwind Design) -->
+    <section id="detail-view" style="display: none; padding-bottom: 80px;" class="bg-background text-on-background font-body-md selection:bg-primary-container selection:text-on-primary-container custom-scrollbar overflow-x-hidden">
+      <header class="fixed top-0 left-0 right-0 z-50 flex justify-between items-center px-margin-mobile py-sm transition-all duration-300" id="detail-header" style="max-width: 100vw; box-sizing: border-box;">
+        <button onclick="history.back()" class="w-10 h-10 flex items-center justify-center rounded-full glass-overlay text-on-surface active:scale-90 transition-transform" style="background: rgba(32, 31, 31, 0.6); border: none; cursor: pointer; color: white;">
+          <span class="material-symbols-outlined">arrow_back</span>
+        </button>
+        <div class="flex gap-md">
+          <button class="w-10 h-10 flex items-center justify-center rounded-full glass-overlay text-on-surface active:scale-90 transition-transform" style="background: rgba(32, 31, 31, 0.6); border: none; cursor: pointer; color: white;">
+            <span class="material-symbols-outlined">share</span>
+          </button>
+        </div>
+      </header>
+      
+      <main class="pb-32">
+        <!-- Hero Section -->
+        <section class="relative h-[574px] w-full overflow-hidden">
+          <div id="detail-backdrop" class="absolute inset-0 w-full h-full bg-cover bg-center" style="background-image: url('');">
+          </div>
+          <div class="absolute inset-0 hero-gradient"></div>
+          <!-- Floating Content Info Overlay -->
+          <div class="absolute bottom-0 left-0 right-0 px-margin-mobile pb-lg">
+            <h1 id="detail-title" class="font-display-lg-mobile text-display-lg-mobile text-primary-container uppercase italic tracking-tighter mb-xs" style="color: #ff571a; font-family: Sora, sans-serif; font-size: 32px; font-weight: 800; line-height: 1.2;">
+              Cargando...
+            </h1>
+            <div class="flex items-center gap-md text-on-surface-variant font-label-md text-label-md" style="color: #e6beb2; font-family: Inter, sans-serif; font-size: 14px;">
+              <span id="detail-year">2024</span>
+              <span class="px-xs py-[2px] border border-outline-variant rounded-sm text-[10px]" style="border-color: #5c4037; padding: 2px 4px; border-radius: 2px;">16+</span>
+              <span>2h 45m</span>
+              <div class="flex items-center text-primary" style="color: #ffb59e;">
+                <span class="material-symbols-outlined !text-[16px] mr-1" style="font-variation-settings: 'FILL' 1; font-size: 16px; margin-right: 4px;">star</span>
+                <span id="detail-rating">0.0</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Actions -->
+        <section class="px-margin-mobile py-md flex flex-col gap-sm" style="padding: 16px;">
+          <button id="detail-btn-play" class="w-full h-12 bg-primary-container text-on-primary-container rounded-lg font-label-md text-label-md flex items-center justify-center gap-sm active:scale-95 transition-transform bloom-effect" style="background-color: #ff571a; color: #521300; border-radius: 8px; height: 48px; border: none; cursor: pointer; font-weight: 600; width: 100%;">
+            <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+            PLAY
+          </button>
+          <div style="display: flex; gap: 8px;">
+            <button id="detail-btn-list" class="flex-1 h-12 bg-surface-container-highest text-on-surface rounded-lg font-label-md text-label-md flex items-center justify-center gap-sm active:scale-95 transition-transform" style="background-color: #353534; color: #e5e2e1; border-radius: 8px; height: 48px; border: none; cursor: pointer; font-weight: 600;">
+              <span class="material-symbols-outlined">add</span>
+              MI LISTA
+            </button>
+            <button id="detail-btn-download" class="flex-1 h-12 text-on-surface rounded-lg font-label-md text-label-md flex items-center justify-center gap-sm active:scale-95 transition-transform" style="background-color: #2a2a2a; color: #e5e2e1; border-radius: 8px; height: 48px; border: 1px solid #5c4037; cursor: pointer; font-weight: 600;">
+              <span class="material-symbols-outlined" style="font-size:18px;">download</span>
+              DESCARGAR
+            </button>
+          </div>
+        </section>
+
+        <!-- Synopsis -->
+        <section class="px-margin-mobile py-md" style="padding: 16px;">
+          <p id="detail-synopsis" class="text-on-surface-variant font-body-md text-body-md leading-relaxed" style="color: #e6beb2; font-family: Inter, sans-serif; font-size: 16px; line-height: 1.5; margin: 0;">
+          </p>
+        </section>
+
+        <!-- Soporte -->
+        <section style="margin: 0 16px 16px; border-radius: 12px; background: #1c1b1b; border: 1px solid #2a2a2a; overflow: hidden;">
+          <div style="padding: 14px 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #2a2a2a;">
+            <span style="font-size: 16px;">🚨</span>
+            <span style="font-family: Inter, sans-serif; font-size: 13px; font-weight: 700; color: #ff571a; letter-spacing: 0.1em; text-transform: uppercase;">Soporte</span>
+          </div>
+          <div style="padding: 12px 16px; display: flex; gap: 10px;">
+            <button id="detail-btn-report" onclick="window.detailReportMovie && window.detailReportMovie()" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; border-radius: 8px; border: none; cursor: pointer; background: rgba(231,76,60,0.15); color: #ff6b6b; font-family: Inter, sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.05em; transition: transform 0.1s;">
+              <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1; font-size: 16px;">flag</span>
+              REPORTAR
+            </button>
+            <button id="detail-btn-share" onclick="window.detailShareMovie && window.detailShareMovie()" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; border-radius: 8px; border: none; cursor: pointer; background: rgba(39,174,96,0.15); color: #4ecb82; font-family: Inter, sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.05em; transition: transform 0.1s;">
+              <span class="material-symbols-outlined" style="font-size: 16px;">link</span>
+              COMPARTIR
+            </button>
+          </div>
+        </section>
+
+
+        <!-- Cast & Crew -->
+        <section class="py-md" id="detail-cast-section" style="padding-top: 16px; padding-bottom: 16px; display: none;">
+          <div class="px-margin-mobile mb-md" style="padding-left: 16px; padding-right: 16px; margin-bottom: 16px;">
+            <h2 class="font-headline-md text-headline-md-mobile text-on-surface" style="font-family: Sora, sans-serif; font-size: 24px; font-weight: 700; color: #e5e2e1; margin: 0;">Reparto</h2>
+          </div>
+          <div id="detail-cast-list" class="flex gap-md overflow-x-auto px-margin-mobile custom-scrollbar" style="display: flex; gap: 16px; overflow-x: auto; padding-left: 16px; padding-right: 16px;">
+            <!-- Dinámico -->
+          </div>
+        </section>
+
+        <!-- More Like This -->
+        <section class="py-md" style="padding-top: 16px; padding-bottom: 16px;">
+          <div class="px-margin-mobile mb-md" style="padding-left: 16px; padding-right: 16px; margin-bottom: 16px;">
+            <h2 class="font-headline-md text-headline-md-mobile text-on-surface" style="font-family: Sora, sans-serif; font-size: 24px; font-weight: 700; color: #e5e2e1; margin: 0;">Más como esto</h2>
+          </div>
+          <div id="detail-more-like-this" class="grid grid-cols-2 gap-md px-margin-mobile" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding-left: 16px; padding-right: 16px;">
+            <!-- Dinámico -->
+          </div>
+        </section>
+      </main>
+    </section>
 
     <!-- Admin View -->
     <section id="admin-view" class="admin-section">

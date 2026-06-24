@@ -407,12 +407,29 @@ window.setIframeSource = (id, url) => {
 function showView(active) {
   const adminEl = document.getElementById('admin-view');
   const homeEl = document.getElementById('home-view');
+  const detailEl = document.getElementById('detail-view');
+  const navbar = document.querySelector('.navbar');
+  const bottomNav = document.querySelector('.bottom-nav');
+
+  // Ocultar todo primero
+  if (adminEl) adminEl.style.display = 'none';
+  if (homeEl) homeEl.style.display = 'none';
+  if (detailEl) detailEl.style.display = 'none';
+
   if (active === 'admin-view') {
     if (adminEl) adminEl.style.display = 'block';
-    if (homeEl) homeEl.style.display = 'none';
+    if (navbar) navbar.style.display = '';
+    if (bottomNav) bottomNav.style.display = '';
+  } else if (active === 'detail-view') {
+    if (detailEl) detailEl.style.display = 'block';
+    // Ocultar navbar y bottomnav para que el header del detalle tome control
+    if (navbar) navbar.style.display = 'none';
+    if (bottomNav) bottomNav.style.display = 'none';
+    window.scrollTo(0, 0);
   } else {
-    if (adminEl) adminEl.style.display = 'none';
     if (homeEl) homeEl.style.display = 'block';
+    if (navbar) navbar.style.display = '';
+    if (bottomNav) bottomNav.style.display = '';
   }
 }
 
@@ -436,9 +453,13 @@ function handleRouting() {
   if (genreBar) genreBar.style.display = 'flex'; // Siempre visible
 
   if (hash.startsWith('play/')) {
-    showView('player-view');
+    showView('home-view');
     const movieId = hash.split('play/')[1];
     if (movieId) window.openPlayer(movieId);
+  } else if (hash.startsWith('detail/')) {
+    showView('detail-view');
+    const movieId = hash.split('detail/')[1];
+    if (movieId) window.openMovieDetail(movieId);
   } else if (hash === 'admin') {
     const isAdminAuthenticated = localStorage.getItem('selva_admin_auth') === 'true';
     if (!isAdminAuthenticated) {
@@ -3699,8 +3720,128 @@ window.closePlayer = () => {
 
 // Exported Actions
 window.handleCardClick = (id) => {
-    // Al cambiar el hash, se disparará automáticamente el listener de arriba y abrirá el player.
-    window.location.hash = `play/${id}`;
+    // Ir a la vista de detalle de la película
+    window.location.hash = `detail/${id}`;
+};
+
+// ======================================================
+// DETALLE DE PELÍCULA — Vista Premium (Tailwind Design)
+// ======================================================
+window.openMovieDetail = (movieId) => {
+    const movie = movieDatabase.trending.find(m => m.id === movieId);
+    if (!movie) {
+        console.warn('Movie not found:', movieId);
+        return;
+    }
+
+    // 1. Backdrop / Hero Image
+    const backdropEl = document.getElementById('detail-backdrop');
+    if (backdropEl) {
+        const imgUrl = movie.backdrop || movie.img || '';
+        backdropEl.style.backgroundImage = `url('${imgUrl}')`;
+        backdropEl.style.backgroundSize = 'cover';
+        backdropEl.style.backgroundPosition = 'center top';
+    }
+
+    // 2. Título
+    const titleEl = document.getElementById('detail-title');
+    if (titleEl) titleEl.textContent = movie.title || 'Sin Título';
+
+    // 3. Año
+    const yearEl = document.getElementById('detail-year');
+    if (yearEl) yearEl.textContent = movie.year || movie.release_year || '';
+
+    // 4. Rating
+    const ratingEl = document.getElementById('detail-rating');
+    if (ratingEl) ratingEl.textContent = movie.rating || '—';
+
+    // 5. Sinopsis
+    const synopsisEl = document.getElementById('detail-synopsis');
+    if (synopsisEl) synopsisEl.textContent = movie.description || movie.overview || 'Sin descripción disponible.';
+
+    // 6. Botón PLAY → lanza el player existente
+    const playBtn = document.getElementById('detail-btn-play');
+    if (playBtn) {
+        playBtn.onclick = () => {
+            window.location.hash = `play/${movieId}`;
+        };
+    }
+
+    // 7. Botón MI LISTA
+    const listBtn = document.getElementById('detail-btn-list');
+    if (listBtn) {
+        const isFav = window._myListIds && window._myListIds.has(movieId);
+        listBtn.innerHTML = isFav
+            ? '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 1">favorite</span> EN MI LISTA'
+            : '<span class="material-symbols-outlined">add</span> MI LISTA';
+        listBtn.style.backgroundColor = isFav ? '#474746' : '#353534';
+        listBtn.onclick = () => {
+            if (window.toggleMyList) window.toggleMyList(movieId, listBtn);
+        };
+    }
+
+    // 8. VIP badge en el header si aplica
+    const detailHeader = document.getElementById('detail-header');
+    if (detailHeader) {
+        const existingBadge = detailHeader.querySelector('.detail-vip-badge');
+        if (existingBadge) existingBadge.remove();
+        if (movie.isVIP) {
+            const vipBadge = document.createElement('div');
+            vipBadge.className = 'detail-vip-badge';
+            vipBadge.style.cssText = 'background: linear-gradient(45deg,#FFD700,#FFA500); color:#000; font-size:0.6rem; font-weight:900; padding:2px 8px; border-radius:12px; position:absolute; top:16px; left:50%; transform:translateX(-50%);';
+            vipBadge.textContent = '👑 VIP';
+            detailHeader.appendChild(vipBadge);
+        }
+    }
+
+    // 9. "More Like This" — mismas categorías/géneros
+    const moreLike = document.getElementById('detail-more-like-this');
+    if (moreLike) {
+        const genre = movie.genres ? (Array.isArray(movie.genres) ? movie.genres[0] : movie.genres) : '';
+        const similar = movieDatabase.trending
+            .filter(m => m.id !== movieId && m.status !== 'review' && (!genre || (m.genres && (Array.isArray(m.genres) ? m.genres.includes(genre) : m.genres === genre))))
+            .slice(0, 6);
+
+        moreLike.innerHTML = similar.length ? similar.map(m => `
+            <div onclick="window.handleCardClick('${m.id}')" style="cursor:pointer; border-radius:8px; overflow:hidden; background:#201f1f; position:relative; aspect-ratio:2/3;">
+                <img src="${m.img || ''}" alt="${m.title}" loading="lazy"
+                    onerror="this.src='https://via.placeholder.com/300x450/1a1a1a/ff571a?text=SF'"
+                    style="width:100%;height:100%;object-fit:cover;">
+                <div style="position:absolute;bottom:0;left:0;right:0;padding:8px;background:linear-gradient(transparent,rgba(0,0,0,0.85));">
+                    <p style="margin:0;font-size:12px;font-weight:600;color:#e5e2e1;font-family:Inter,sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${m.title}</p>
+                </div>
+            </div>
+        `).join('') : '<p style="color:#e6beb2;font-size:14px;grid-column:span 2;">No hay sugerencias disponibles.</p>';
+    }
+
+    console.log('🎬 Detail view opened for:', movie.title);
+};
+
+window.detailReportMovie = () => {
+    const hash = window.location.hash;
+    const movieId = hash.split('detail/')[1];
+    const movie = movieDatabase.trending.find(m => m.id === movieId);
+    if (!movie) return;
+    const msg = `🚨 Reporte de contenido:\nPelícula: ${movie.title}\nID: ${movieId}\nMotivo: (describe el problema)`;
+    window.showToast("¡Gracias por reportar! Revisaremos este contenido. 🛡️", "success");
+};
+
+window.detailShareMovie = async () => {
+    const hash = window.location.hash;
+    const movieId = hash.split('detail/')[1];
+    const movie = movieDatabase.trending.find(m => m.id === movieId);
+    if (!movie) return;
+    const shareUrl = `${window.location.origin}${window.location.pathname}#detail/${movieId}`;
+    if (navigator.share) {
+        try {
+            await navigator.share({ title: movie.title, text: `Mira ${movie.title} en SelvaFlix! 🌴🍿`, url: shareUrl });
+        } catch (e) {
+            if (e.name !== 'AbortError') console.warn('Share failed:', e);
+        }
+    } else {
+        await navigator.clipboard.writeText(shareUrl);
+        window.showToast("¡Enlace copiado al portapapeles! 📋", "success");
+    }
 };
 
 window.deleteMovie = async (id) => {

@@ -5063,7 +5063,36 @@ window.handleLogout = async () => {
     }
 };
 
+// ─── CUENTA PRINCIPAL EN CONFIGURACIÓN ───────────────────────────────────────
+window.updateSettingsAccountInfo = () => {
+    const container = document.getElementById('settings-account-info');
+    if (!container) return;
+    const user = auth.currentUser;
+    if (user) {
+        container.style.display = 'flex';
+        const img = document.getElementById('settings-account-avatar-img');
+        const initials = document.getElementById('settings-account-initials');
+        const nameEl = document.getElementById('settings-account-name');
+        const emailEl = document.getElementById('settings-account-email');
+        if (nameEl) nameEl.innerText = user.displayName || 'Usuario de SelvaFlix';
+        if (emailEl) emailEl.innerText = user.email || '';
+        if (user.photoURL) {
+            if (img) { img.src = user.photoURL; img.style.display = 'block'; }
+            if (initials) initials.style.display = 'none';
+        } else {
+            if (img) img.style.display = 'none';
+            if (initials) {
+                initials.innerText = (user.displayName || 'U').charAt(0).toUpperCase();
+                initials.style.display = 'inline';
+            }
+        }
+    } else {
+        container.style.display = 'none';
+    }
+};
+
 window.showSettings = () => {
+    window.updateSettingsAccountInfo();
     const input = document.getElementById('edit-profile-name-input');
     const modal = document.getElementById('profile-edit-name-modal');
     const saveBtn = document.getElementById('btn-save-profile-name');
@@ -5111,25 +5140,26 @@ onAuthStateChanged(auth, async (user) => {
         // En una implementación real verificaríamos un campo 'banned' en el documento del usuario.
         
         document.getElementById('user-initials').innerText = user.displayName.charAt(0);
-        // Nota: La foto de Google se ignora si hay un perfil activo con avatar propio
-        const saved = sessionStorage.getItem('selva_active_profile');
-        if (!saved && user.photoURL) {
-            const img = document.getElementById('user-avatar-img');
-            img.src = user.photoURL;
-            img.style.display = 'block';
-            document.getElementById('user-initials').style.display = 'none';
-        }
+        document.getElementById('user-initials').style.display = 'flex';
+        document.getElementById('user-avatar-img').style.display = 'none';
         
         // Cargar perfiles
         await window.loadProfiles(user.uid);
         
+        // Restaurar perfil activo si existe (aplica el animalito)
+        const saved = sessionStorage.getItem('selva_active_profile');
+        if (saved) {
+            await window.applyProfile(JSON.parse(saved));
+        }
+        
         // 🚀 Si ya cargamos perfiles pero no hay uno activo, esconder splash para dejar ver el selector
-        if (!sessionStorage.getItem('selva_active_profile')) {
+        if (!saved) {
             window.hideSplashScreen(true);
         }
     } else {
         console.log("👻 Modo Invitado");
-        document.getElementById('user-name').innerText = "Login";
+        const userNameEl = document.getElementById('user-name');
+        if (userNameEl) userNameEl.innerText = "Login";
         document.getElementById('user-initials').innerText = "G";
         document.getElementById('user-avatar-img').style.display = 'none';
         document.getElementById('user-initials').style.display = 'flex';
@@ -5141,7 +5171,8 @@ onAuthStateChanged(auth, async (user) => {
 
 window.applyProfile = async (p) => {
     if (!p) return;
-    document.getElementById('user-name').innerText = p.name; // Actualizar nombre en la navbar
+    const userNameElProfile = document.getElementById('user-name');
+    if (userNameElProfile) userNameElProfile.innerText = p.name; // Actualizar nombre en la navbar
     document.getElementById('dropdown-profile-name').innerText = p.name; // Actualizar nombre en el dropdown
     document.getElementById('dropdown-active-profile').innerText = p.avatar || '🐯'; // Actualizar avatar en el dropdown
     
@@ -5152,8 +5183,9 @@ window.applyProfile = async (p) => {
     if (p.avatar) {
         initials.innerText = p.avatar;
         initials.style.display = 'flex';
-        initials.style.background = 'none';
-        initials.style.fontSize = '1.2rem';
+        initials.style.background = 'var(--primary-container)';
+        initials.style.fontSize = '1.8rem';
+        initials.style.lineHeight = '1';
         avatarImg.style.display = 'none';
     } else {
         // Fallback a la foto de Google si no hay avatar de perfil
@@ -5407,6 +5439,7 @@ window.editSpecificProfile = (id, name, avatar, pin = '') => {
 };
 
 window.openEditModal = (id, name, avatar, pin) => {
+    window.updateSettingsAccountInfo();
     const input = document.getElementById('edit-profile-name-input');
     const pinInput = document.getElementById('edit-profile-pin-input');
     const modal = document.getElementById('profile-edit-name-modal');
@@ -5536,6 +5569,7 @@ window.finalizeProfileUpdate = async (avatar) => {
 };
 
 window.showAddProfile = async () => {
+    window.updateSettingsAccountInfo();
     const input = document.getElementById('edit-profile-name-input');
     const pinInput = document.getElementById('edit-profile-pin-input');
     const modal = document.getElementById('profile-edit-name-modal');

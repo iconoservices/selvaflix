@@ -1062,6 +1062,11 @@ body.ios-pwa-standalone .cinepulse-hero {
   margin-top: 100px !important; /* Navbar + safe-area + extra */
 }
 
+/* iOS PWA: El contenido necesita padding abajo para no ser tapado por el bottom nav */
+body.ios-pwa-standalone #home-view {
+  padding-bottom: 80px !important; /* Altura del bottom nav + safe-area */
+}
+
 #home-view .cinepulse-hero + .cinepulse-genre-section {
   margin-top: calc(-1 * var(--spacing-3xl));
   position: relative;

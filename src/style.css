@@ -734,7 +734,7 @@
 /* ─── CINEPULSE SECTION ────────────────────────────── */
 .cinepulse-section {
   padding: 0 var(--margin-desktop);
-  margin-bottom: var(--spacing-3xl);
+  margin-bottom: var(--spacing-xl); /* Reducido de 3xl a xl */
 }
 
 .cinepulse-section-title {
@@ -1055,6 +1055,17 @@
 /* ─── HOME VIEW SPACING ────────────────────────────── */
 #home-view {
   padding-top: 0;
+}
+
+/* Mobile: El banner y contenido necesitan espacio para los navbars */
+@media (max-width: 768px) {
+  .cinepulse-hero {
+    margin-top: 60px;
+  }
+  
+  #home-view {
+    padding-bottom: 80px;
+  }
 }
 
 /* iOS PWA instalado: El banner debe comenzar debajo del navbar fixed */

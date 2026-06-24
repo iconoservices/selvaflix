@@ -1057,6 +1057,15 @@
   padding-top: 0;
 }
 
+/* iOS PWA instalado: El banner debe comenzar debajo del navbar fixed */
+.ios-pwa-standalone #home-view {
+  padding-top: 0;
+}
+
+.ios-pwa-standalone .cinepulse-hero {
+  margin-top: 50px; /* Altura del navbar en mobile */
+}
+
 #home-view .cinepulse-hero + .cinepulse-genre-section {
   margin-top: calc(-1 * var(--spacing-3xl));
   position: relative;

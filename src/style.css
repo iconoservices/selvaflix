@@ -1059,7 +1059,7 @@
 
 /* iOS PWA instalado: El banner debe comenzar debajo del navbar fixed */
 body.ios-pwa-standalone .cinepulse-hero {
-  margin-top: 80px !important; /* Navbar + safe-area + extra */
+  margin-top: 100px !important; /* Navbar + safe-area + extra */
 }
 
 #home-view .cinepulse-hero + .cinepulse-genre-section {

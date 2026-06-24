@@ -1057,18 +1057,6 @@
   padding-top: 0;
 }
 
-/* iOS PWA fix: El navbar no debe tapar el banner */
-@media (max-width: 768px) {
-  .ios-pwa-standalone .navbar-cinepulse {
-    position: relative;
-    margin-bottom: 0;
-  }
-  
-  .ios-pwa-standalone #home-view {
-    padding-top: 0;
-  }
-}
-
 #home-view .cinepulse-hero + .cinepulse-genre-section {
   margin-top: calc(-1 * var(--spacing-3xl));
   position: relative;

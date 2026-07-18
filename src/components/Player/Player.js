@@ -485,42 +485,39 @@ export const SelvaStream = {
         this.renderVipMenuList();
     },
 
-    // Rellena el menú lateral VIP sin tocar el resto del DOM
     renderVipMenuList() {
         const vipMenuList = document.getElementById('vip-menu-list');
         const floatingBtn = document.getElementById('floating-sources-btn');
         
         if (this.lastScrapedStreams.length > 0) {
-            if (floatingBtn) {
-                floatingBtn.innerHTML = `✅ ${this.lastScrapedStreams.length} FUENTES VIP ▾`;
-            }
             if (vipMenuList) {
-                // 🕵️ FILTRADO DE FUENTES: 
-                // Admin ve TODO. Usuario normal solo ve Coronadas (👑) o Públicas (🌐).
                 const isAdmin = localStorage.getItem('selva_admin_auth') === 'true';
                 const movieRef = this.currentPlayerMovie || {};
                 const favHashes = movieRef.suggestedVipHashes || (movieRef.suggestedVipHash ? [movieRef.suggestedVipHash] : []);
                 
                 const filteredStreams = this.lastScrapedStreams.filter(s => {
+                    // Excluir Debrid porque ya no se usa
+                    const isDebrid = (s.name || '').toLowerCase().includes('[rd+]') || 
+                                     (s.name || '').toLowerCase().includes('debrid') || 
+                                     (s.title || '').toLowerCase().includes('[rd+]') ||
+                                     (s.providerName || '').toLowerCase().includes('debrid');
+                    if (isDebrid) return false;
+
                     const isSuggested = favHashes.includes(s.infoHash) || favHashes.includes(s.url);
                     const isPublicLink = movieRef.embed && (movieRef.embed === s.url || movieRef.embed === s.infoHash);
                     
-                    if (isAdmin) return true; // Admin ve TODO (Cosecha libre de links)
-                    return isSuggested || isPublicLink; // Usuario normal NO ve las públicas (Sin anuncios)
+                    if (isAdmin) return true; // Admin ve todo lo no-debrid
+                    return isSuggested || isPublicLink; 
                 });
 
                 // 🔥 FUENTE OFICIAL (BASE DE DATOS):
-                // Si la peli tiene un embed guardado pero no está en los resultados del scraper, lo inyectamos manualmente.
-                // Esto asegura que "Por Verificar" y las pelis exportadas siempre funcionen.
                 if (movieRef.embed) {
-                    // Limpieza de iframes (basado en feedback del usuario que recibe tags completos)
                     let cleanEmbed = movieRef.embed;
                     if (movieRef.embed.includes('<iframe')) {
                         const srcMatch = movieRef.embed.match(/src="([^"]+)"/);
                         if (srcMatch) cleanEmbed = srcMatch[1];
                     }
 
-                    // Asegurarnos de que el link sea para el reproductor (e) y no para la página web (v)
                     if (cleanEmbed.includes('streamtape.com/v/')) {
                         cleanEmbed = cleanEmbed.replace('/v/', '/e/');
                     }
@@ -528,65 +525,57 @@ export const SelvaStream = {
                     if (!filteredStreams.find(s => s.url === cleanEmbed || s.infoHash === cleanEmbed)) {
                         filteredStreams.unshift({
                             title: "[SERVIDOR OFICIAL] Reproductor Selva",
-                            name: "🌐 Source Directo (Cloud)",
+                            name: "🌐 Servidor Directo",
                             url: cleanEmbed,
                             infoHash: cleanEmbed,
                             isPublic: true
                         });
                     }
 
-                    // 🕵️ Sincronizar campo de texto del Admin con el link limpio
                     const manualInput = document.getElementById('admin-manual-link-input');
                     if (manualInput && isAdmin) {
                         manualInput.value = cleanEmbed;
                     }
                 }
 
+                if (floatingBtn) {
+                    floatingBtn.innerHTML = `✅ ${filteredStreams.length} FUENTES VIP ▾`;
+                }
+
                 if (filteredStreams.length === 0 && !isAdmin) {
-                    vipMenuList.innerHTML = '<div style="padding:20px; text-align:center; opacity:0.6;">⏳ Procesando señales VIP... Vuelve en un momento.</div>';
+                    vipMenuList.innerHTML = '<div style="padding:20px; text-align:center; opacity:0.6; font-size:13px; font-family:\'Sora\',sans-serif;">⏳ Buscando fuentes en español... Vuelve en un momento.</div>';
                     return;
                 }
 
                 vipMenuList.innerHTML = filteredStreams.map((s, index) => {
-                    // Re-calcular index real para el onclick si es Admin
                     const realIndex = this.lastScrapedStreams.indexOf(s);
-                    const qRaw = (s.title + ' ' + s.name).toLowerCase();
+                    const qRaw = ((s.title || '') + ' ' + (s.name || '')).toLowerCase();
                     
-                    // 📊 DETECCIóN DE CALIDAD
+                    // 📊 DETECCIÓN DE CALIDAD
                     const quality = qRaw.includes('4k') || qRaw.includes('uhd') ? '4K UHD' : (qRaw.includes('1080') ? '1080p FHD' : (qRaw.includes('720') ? '720p HD' : 'HD'));
-                    
-                    // 🛡️ STATUS VIP / DEBRID
-                    const isDebrid = s.name.toLowerCase().includes('[rd+]') || s.name.toLowerCase().includes('debrid') || s.title.toLowerCase().includes('[rd+]');
                     
                     // 🌍 IDIOMAS Y BANDERAS
                     const isLatino = qRaw.includes('latino') || qRaw.includes('latin') || qRaw.includes('cinecalidad') || qRaw.includes('dual');
                     const isCastellano = qRaw.includes('castellano') || qRaw.includes('espana') || qRaw.includes('españa') || qRaw.includes('spanish');
-                    const isEnglish = qRaw.includes('english') || qRaw.includes('subbed');
+                    const isEnglish = qRaw.includes('english') || qRaw.includes('subbed') || qRaw.includes('subtitulado') || qRaw.includes('subs');
                     
                     let langLabel = 'MULTI';
                     if (isLatino) langLabel = '🇲🇽 LATINO';
                     else if (isCastellano) langLabel = '🇪🇸 CASTELLANO';
-                    else if (isEnglish) langLabel = '🇺🇸 INGLES';
+                    else if (isEnglish) langLabel = '🇺🇸 INGLÉS';
 
-                    // 📦 FORMATO Y PESO (Refactorizado con Deep Scan)
+                    // 📦 FORMATO Y PESO
                     const formatMatch = qRaw.match(/\.(mkv|mp4|m3u8|avi|ts)/i);
                     const fileFormat = s.detectedFormat || (formatMatch ? formatMatch[1].toUpperCase() : 'VIDEO');
                     
                     const weightMatch = qRaw.match(/(\d+(\.\d+)?\s*(gb|mb))/i);
                     const weight = s.detectedWeight || (weightMatch ? weightMatch[0].toUpperCase() : '');
 
-                    // ⚙️ MODO ADMIN: Botón para coronar fuente
-                    const isAdmin = localStorage.getItem('selva_admin_auth') === 'true';
-                    const movieRef = this.currentPlayerMovie || {};
-                    const hashes = movieRef.suggestedVipHashes || (movieRef.suggestedVipHash ? [movieRef.suggestedVipHash] : []);
-                    const isSuggested = hashes.includes(s.infoHash) || hashes.includes(s.url);
+                    // ⚙️ MODO ADMIN: Botones para coronar o exportar
+                    const isSuggested = favHashes.includes(s.infoHash) || favHashes.includes(s.url);
                     const isPlaying = this.currentPlayingHash && (s.infoHash === this.currentPlayingHash || s.url === this.currentPlayingHash);
-                    
-                    // 🌐 Badge: ¿Es este el link que ven los usuarios?
                     const isPublicLink = movieRef.embed && (movieRef.embed === s.url || movieRef.embed === s.infoHash);
 
-                    // Escape de comillas para evitar romper el atributo onclick
-                    const safeTitle = (s.title || '').replace(/'/g, "").replace(/"/g, ""); // Limpieza total para el confirm
                     const crownBtn = isAdmin ? `
                         <div style="position:absolute; bottom:12px; left:12px; display:flex; gap:8px; z-index:9999;">
                             <button class="crown-btn" 
@@ -620,23 +609,26 @@ export const SelvaStream = {
                         else if (isPublicLink) badgeHtml = `<div style="position:absolute; top:-10px; right:-25px; background:#00f2ff; color:black; padding:15px 30px; transform:rotate(45deg); font-size:0.55rem; font-weight:900; letter-spacing:1px; z-index:10; pointer-events:none;">🌐 PÚBLICO</div>`;
                         else if (index === 0) badgeHtml = `<div style="position:absolute; top:-10px; right:-25px; background:#FF6600; color:white; padding:15px 30px; transform:rotate(45deg); font-size:0.5rem; font-weight:900; letter-spacing:1px; z-index:10; pointer-events:none;">EL MEJOR</div>`;
                     } else {
-                        // Usuario normal: Ve sugeridas y también fuentes públicas/oficiales
                         if (isSuggested) badgeHtml = `<div style="position:absolute; top:-10px; right:-25px; background:#FF6600; color:white; padding:15px 30px; transform:rotate(45deg); font-size:0.55rem; font-weight:900; letter-spacing:1px; z-index:10; pointer-events:none;">👑 PREMIUM</div>`;
                         else badgeHtml = `<div style="position:absolute; top:-10px; right:-25px; background:#00f2ff; color:black; padding:15px 30px; transform:rotate(45deg); font-size:0.55rem; font-weight:900; letter-spacing:1px; z-index:10; pointer-events:none;">🌐 DISPONIBLE</div>`;
                     }
 
+                    const cardBg = isSuggested ? 'rgba(255,102,0,0.1)' : 'rgba(255,102,0,0.05)';
+                    const cardBorder = isSuggested ? '#FF6600' : (isPublicLink ? '#00f2ff' : 'rgba(255,102,0,0.15)');
+                    const borderLeft = isSuggested ? '#FF6600' : (isPublicLink ? '#00f2ff' : '#2ECC71');
+
                     return `
                         <div class="stream-card-vip" onclick='if(event.target.closest("button")) return; SelvaStream.toggleVipMenu(); SelvaStream.handleExternalStream(${realIndex === -1 ? JSON.stringify(s).replace(/'/g, "&apos;") : `SelvaStream.lastScrapedStreams[${realIndex}]`})'  
-                                style="background: ${isSuggested ? 'rgba(255,102,0,0.1)' : 'rgba(255,102,0,0.05)'}; border: 1px solid ${isSuggested ? '#FF6600' : (isPublicLink ? '#00f2ff' : 'rgba(255,102,0,0.15)')}; border-radius: 12px; padding: 15px; cursor: pointer; transition: all 0.2s ease; border-left: 4px solid ${isSuggested ? '#FF6600' : (isPublicLink ? '#00f2ff' : (isDebrid ? '#FF6600' : '#2ECC71'))}; position: relative; overflow: hidden; text-align:left; margin-bottom:10px;">
+                                style="background: ${cardBg}; border: 1px solid ${cardBorder}; border-radius: 12px; padding: 15px; cursor: pointer; transition: all 0.2s ease; border-left: 4px solid ${borderLeft}; position: relative; overflow: hidden; text-align:left; margin-bottom:10px;">
                             ${badgeHtml}
                             ${isPlaying ? `<div style="position:absolute; top:12px; right:12px; background:#2ECC71; color:white; padding:4px 8px; border-radius:6px; font-size:0.55rem; font-weight:900; letter-spacing:1px; z-index:5; box-shadow:0 0 10px rgba(46,204,113,0.4);">● REPRODUCIENDO</div>` : ''}
                             ${crownBtn}
                             <div style="display:flex; flex-direction:column; gap:4px;">
-                                <div style="font-size:0.65rem; font-weight:900; color:${isDebrid ? '#FF6600' : '#2ECC71'}; text-transform:uppercase; letter-spacing:1px; display:flex; align-items:center; gap:5px; margin-bottom:2px;">
-                                    ${s.providerName || 'PREMIUM'} • ${langLabel}
+                                <div style="font-size:0.65rem; font-weight:900; color:#2ECC71; text-transform:uppercase; letter-spacing:1px; display:flex; align-items:center; gap:5px; margin-bottom:2px;">
+                                    ${s.providerName || 'SERVIDOR'} • ${langLabel}
                                 </div>
                                 <div style="color:white; font-size:0.82rem; font-weight:700; line-height:1.3; margin:2px 0; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;">
-                                    ${s.title.split('\n')[0]}
+                                    ${(s.title || '').split('\n')[0]}
                                 </div>
                                 <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:5px;">
                                     <span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-size:0.55rem; color:#fff; font-weight:900;">${quality}</span>
@@ -644,7 +636,6 @@ export const SelvaStream = {
                                     ${s.detectedVideoCodec ? `<span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-size:0.55rem; color:#fff; font-weight:700;">${s.detectedVideoCodec}</span>` : ''}
                                     ${s.detectedAudioCodec ? `<span style="background:rgba(52,152,219,0.1); padding:2px 6px; border-radius:4px; font-size:0.55rem; color:#3498db; font-weight:700;">🎵 ${s.detectedAudioCodec}</span>` : ''}
                                     ${weight ? `<span style="font-size:0.6rem; color:#bbb; font-weight:500;">⚖️ ${weight}</span>` : ''}
-                                    ${isDebrid ? '<span style="color:#FF6600; font-size:0.55rem; font-weight:900; border:1px solid #FF6600; padding:1px 4px; border-radius:3px;">REAL-DEBRID</span>' : ''}
                                 </div>
                             </div>
                         </div>
@@ -653,7 +644,7 @@ export const SelvaStream = {
             }
         } else {
             if (vipMenuList) {
-                vipMenuList.innerHTML = '<p style="text-align:center; opacity:0.5; font-size:12px; margin-top:20px;">Explorando la selva para encontrar fuentes...</p>';
+                vipMenuList.innerHTML = '<p style="text-align:center; opacity:0.5; font-size:12px; margin-top:20px; font-family:\'Sora\',sans-serif;">Buscando fuentes disponibles en la selva...</p>';
             }
         }
     },

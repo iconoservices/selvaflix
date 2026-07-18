@@ -309,21 +309,21 @@
   </nav>
   
   <nav class="mobile-nav-cinepulse">
-    <button onclick="window.goToHome()" class="nav-item nav-item-cinepulse active">
+    <button id="btn-nav-home" onclick="window.goToHome()" class="nav-item nav-item-cinepulse active">
       <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">home</span>
-      <span>Home</span>
+      <span>Inicio</span>
     </button>
     <button onclick="window.location.hash = '#movies'" class="nav-item nav-item-cinepulse">
       <span class="material-symbols-outlined">movie</span>
-      <span>Movies</span>
+      <span>Peliculas</span>
     </button>
     <button onclick="document.getElementById('global-search').focus()" class="nav-item nav-item-cinepulse">
       <span class="material-symbols-outlined">search</span>
-      <span>Search</span>
+      <span>Buscar</span>
     </button>
-    <button onclick="window.toggleMyListModal()" class="nav-item nav-item-cinepulse">
+    <button id="btn-nav-mylist" onclick="window.goToMyList()" class="nav-item nav-item-cinepulse">
       <span class="material-symbols-outlined">bookmark</span>
-      <span>My List</span>
+      <span>Mi Selva</span>
     </button>
   </nav>
 
@@ -432,6 +432,25 @@
         </div>
       </footer>
     </main>
+
+    <!-- PESTAÑA MI SELVA (Vista completa, no modal) -->
+    <section id="my-list-view" style="display: none; min-height: 100vh; background: #0e0e0e; padding: 80px 0 120px;">
+      <div style="max-width: 1200px; margin: 0 auto; padding: 0 16px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 24px 0 20px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <h2 style="font-family: 'Sora', sans-serif; font-size: 1.6rem; font-weight: 700; color: #fff; margin: 0;">Mi Selva</h2>
+            <span id="mylist-tab-count" style="font-family: 'Inter', sans-serif; font-size: 0.75rem; font-weight: 600; color: #ffb59e; background: #353534; border-radius: 9999px; padding: 4px 12px;">0 títulos</span>
+          </div>
+          <button onclick="window.goToHome()" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); border-radius: 8px; padding: 8px 14px; cursor: pointer; font-size: 0.8rem; display: flex; align-items: center; gap: 6px;">
+            <span class="material-symbols-outlined" style="font-size: 16px;">arrow_back</span>
+            Volver
+          </button>
+        </div>
+        <div id="my-list-page-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px;">
+          <!-- Cards se inyectan aquí -->
+        </div>
+      </div>
+    </section>
 
     <!-- 🔥 SISTEMA DE USUARIOS (Login & Perfiles) -->
     <!-- Modal de Login -->
@@ -1505,16 +1524,22 @@
 
     <!-- MODAL MI SELVA ❤️ -->
     <div id="my-list-modal" class="custom-modal" style="display: none;">
-      <div class="modal-content-premium">
-        <span class="close-modal" onclick="window.toggleMyListModal()">&times;</span>
-        <h2 style="margin-bottom: 25px; display: flex; align-items: center; gap: 15px;">
-          ❤️ Mi Selva <span id="modal-fav-count" style="font-size: 0.9rem; color: var(--text-muted); font-weight: 400;">(0 títulos)</span>
-        </h2>
-        <div id="modal-my-list-grid" class="premium-grid">
+      <div class="modal-content-premium" style="max-width: 1100px; background: #131313; border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 30px;">
+        <div class="flex items-center justify-between mb-6" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <h2 class="text-2xl font-bold text-on-background m-0" style="font-family: 'Sora', sans-serif; color: #fff; margin: 0;">Mi Selva</h2>
+            <span id="modal-fav-count" class="text-xs font-semibold px-3 py-1 rounded-full" style="font-size: 0.75rem; color: #ffb59e; background: #353534; border-radius: 9999px;">0 Títulos</span>
+          </div>
+          <button class="text-white hover:text-primary transition-colors cursor-pointer bg-transparent border-none p-0 flex items-center justify-center" onclick="window.toggleMyListModal()" title="Cerrar" style="background: none; border: none; color: #fff; cursor: pointer;">
+            <span class="material-symbols-outlined text-3xl" style="font-size: 28px;">close</span>
+          </button>
+        </div>
+        <div id="modal-my-list-grid" class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; padding-top: 10px;">
           <!-- Favoritos aquí -->
         </div>
       </div>
     </div>
+
 
 
   <!-- Modal PIN entry 🔐 -->

@@ -1,7 +1,8 @@
-import './style.css'
+﻿import './style.css'
 import { SelvaStream } from './components/Player/Player.js'
 import { ExportManager } from './utils/exportManager.js'
 import './components/Player/Player.css'
+import './ui/toasts.js' // 🍿 Notificaciones (define window.showToast)
 /* 
    🌴 Perla de Sabiduría: Firebase es nuestro "Puesto de Vigilancia". 
    Mantiene un ojo en los datos y nos avisa al instante cuando algo cambia en la selva.
@@ -193,45 +194,7 @@ window.hideSplashScreen = (force = false) => {
 setTimeout(() => window.hideSplashScreen(true), 5000);
 
 // --- Notificaciones UI Premium (Toasts) ---
-window.showToast = (message, type = 'info', duration = 4000) => {
-  const container = document.getElementById('toast-container');
-  if (!container) return; // Si no existe el HTML, silencioso
-
-  const toast = document.createElement('div');
-  const typeColors = {
-      'success': '#2ecc71',
-      'error': '#e74c3c',
-      'warning': '#f1c40f',
-      'info': '#3498db',
-      'primary': 'var(--primary)'
-  };
-  const color = typeColors[type] || typeColors['info'];
-
-  toast.innerHTML = `
-      <div style="background: rgba(15,15,15,0.95); border: 1px solid ${color}; border-left: 4px solid ${color}; 
-                  color: white; padding: 12px 18px; border-radius: 8px; font-size: 0.85rem; 
-                  box-shadow: 0 10px 25px rgba(0,0,0,0.5); font-family: 'Outfit', sans-serif;
-                  display: flex; align-items: center; gap: 10px; pointer-events: auto;
-                  transform: translateX(120%); transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
-          ${message}
-      </div>
-  `;
-  container.appendChild(toast);
-
-  // Animar Entrada
-  requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-          toast.firstElementChild.style.transform = 'translateX(0)';
-      });
-  });
-
-  // Salida Opcional Automática
-  setTimeout(() => {
-      toast.firstElementChild.style.transform = 'translateX(120%)';
-      toast.firstElementChild.style.opacity = '0';
-      setTimeout(() => toast.remove(), 400); // Dar tiempo a la animación css
-  }, duration);
-};
+// 🍿 Movido a ./ui/toasts.js (define window.showToast). Ver import arriba.
 
 // --- Data Loading System (15-Minute Cache) v4.2 ---
 /* 
@@ -408,6 +371,7 @@ function showView(active) {
   const adminEl = document.getElementById('admin-view');
   const homeEl = document.getElementById('home-view');
   const detailEl = document.getElementById('detail-view');
+  const myListEl = document.getElementById('my-list-view');
   const navbar = document.querySelector('.navbar');
   const bottomNav = document.querySelector('.bottom-nav');
 
@@ -415,6 +379,10 @@ function showView(active) {
   if (adminEl) adminEl.style.display = 'none';
   if (homeEl) homeEl.style.display = 'none';
   if (detailEl) detailEl.style.display = 'none';
+  if (myListEl) myListEl.style.display = 'none';
+
+  // Limpiar estado activo del nav mobile
+  document.querySelectorAll('.nav-item-cinepulse').forEach(b => b.classList.remove('active'));
 
   if (active === 'admin-view') {
     if (adminEl) adminEl.style.display = 'block';
@@ -422,14 +390,20 @@ function showView(active) {
     if (bottomNav) bottomNav.style.display = '';
   } else if (active === 'detail-view') {
     if (detailEl) detailEl.style.display = 'block';
-    // Ocultar navbar y bottomnav para que el header del detalle tome control
     if (navbar) navbar.style.display = 'none';
     if (bottomNav) bottomNav.style.display = 'none';
+    window.scrollTo(0, 0);
+  } else if (active === 'my-list-view') {
+    if (myListEl) myListEl.style.display = 'block';
+    if (navbar) navbar.style.display = '';
+    if (bottomNav) bottomNav.style.display = '';
+    document.getElementById('btn-nav-mylist')?.classList.add('active');
     window.scrollTo(0, 0);
   } else {
     if (homeEl) homeEl.style.display = 'block';
     if (navbar) navbar.style.display = '';
     if (bottomNav) bottomNav.style.display = '';
+    document.getElementById('btn-nav-home')?.classList.add('active');
   }
 }
 
@@ -460,6 +434,14 @@ window.goToHome = () => {
     history.pushState(null, '', window.location.pathname + window.location.search);
   }
   handleRouting();
+};
+
+// Navega a la pestaña Mi Selva
+window.goToMyList = async () => {
+  history.pushState(null, '', '#mylist');
+  showView('my-list-view');
+  window.scrollTo(0, 0);
+  await window.loadMyList();
 };
 
 function handleRouting() {
@@ -504,6 +486,10 @@ function handleRouting() {
     showView('admin-view');
     renderInventory();
     window.loadMetrics();
+  } else if (hash === 'mylist') {
+    showView('my-list-view');
+    window.scrollTo(0, 0);
+    window.loadMyList();
   } else {
     showView('home-view');
     const hashVal = hash || '';
@@ -4093,6 +4079,12 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
     }
 
     console.log('🎬 Detail view opened for:', movie.title);
+
+    // 🎬 Autoplay: si llegamos por la ruta /play (enlace compartido o recarga),
+    // abrir el reproductor automáticamente una vez montada la ficha.
+    if (opts.autoPlay) {
+        window.openPlayer(movie.id);
+    }
 };
 
 window.detailReportMovie = () => {
@@ -6128,6 +6120,7 @@ window.syncPlaybackProgress = async (movie, lastTime, duration, episodeId = null
     
     console.log(`🎬 Progreso guardado: ${movie.title} ${episodeLabel ? `(${episodeLabel})` : ''} (${lastTime}s)`);
 };
+
 window.loadContinueWatching = async () => {
     if (!auth.currentUser || !_currentProfile) return;
     try {
@@ -6140,23 +6133,16 @@ window.loadContinueWatching = async () => {
         console.log("📺 Historial recuperado:", history);
         
         const container = document.getElementById('continue-watching-row');
-        if (!container) {
-            console.error("❌ ERROR: No se encontró 'continue-watching-row'");
-            return;
-        }
+        if (!container) return;
 
         if (history.length === 0) {
-            console.log("ℹ️ Historial vacío para este perfil.");
             container.style.display = 'none';
             return;
         }
 
         container.style.display = 'block';
         const grid = document.getElementById('continue-watching-grid');
-        if (!grid) {
-            console.error("❌ ERROR: No se encontró 'continue-watching-grid'");
-            return;
-        }
+        if (!grid) return;
         
         grid.innerHTML = history.map(h => {
             const progress = (h.lastTime / h.duration) * 100;
@@ -6179,127 +6165,75 @@ window.loadContinueWatching = async () => {
     }
 };
 
-// --- FASE 3: MI SELVA (Favoritos) ---
 window._myListIds = new Set();
 
 window.toggleMyList = async (movieId, btn) => {
     if (!auth.currentUser || !_currentProfile) {
-        if (window.showToast) window.showToast("¡Únete a la selva para guardar tus favoritos! 🦁", "primary");
+        if (window.showToast) window.showToast("Inicia sesion para guardar tus favoritos", "primary");
         return;
     }
-
     const movie = movieDatabase.trending.find(m => String(m.id) === String(movieId));
-    
     if (!movie) return;
-
     const listRef = doc(db, "users", auth.currentUser.uid, "profiles", _currentProfile.id, "mylist", movieId);
-    
     if (window._myListIds.has(movieId)) {
-        // Quitar
         await deleteDoc(listRef);
         window._myListIds.delete(movieId);
-        btn.classList.remove('active');
-        if (btn.classList.contains('hero-btn-add')) {
-            btn.innerHTML = '<span>+</span> Mi Lista';
-        } else {
-            btn.innerHTML = '🤍';
-        }
+        btn.classList.remove("active");
+        if (btn.classList.contains("hero-btn-add")) { btn.innerHTML = "<span>+</span> Mi Lista"; } else { btn.innerHTML = String.fromCharCode(0x1F90D); }
     } else {
-        // Añadir
-        await setDoc(listRef, {
-            movieId: movie.id,
-            title: movie.title || movie.name,
-            poster: movie.img || movie.poster_path,
-            type: movie.type,
-            timestamp: Date.now()
-        });
+        await setDoc(listRef, { movieId: movie.id, title: movie.title || movie.name, poster: movie.img || movie.poster_path, type: movie.type, timestamp: Date.now() });
         window._myListIds.add(movieId);
-        btn.classList.add('active', 'heart-animation');
-        if (btn.classList.contains('hero-btn-add')) {
-            btn.innerHTML = '<span>✓</span> Agregado';
-        } else {
-            btn.innerHTML = '❤️';
-        }
-        setTimeout(() => btn.classList.remove('heart-animation'), 400);
+        btn.classList.add("active", "heart-animation");
+        if (btn.classList.contains("hero-btn-add")) { btn.innerHTML = "<span>checkmark</span> Agregado"; } else { btn.innerHTML = String.fromCharCode(0x2764, 0xFE0F); }
+        setTimeout(() => btn.classList.remove("heart-animation"), 400);
     }
-    console.log("✅ Mi Lista actualizada:", Array.from(window._myListIds));
-    
-    // Actualizar Badge en Navbar
-    const badge = document.getElementById('nav-fav-count');
+    const badge = document.getElementById("nav-fav-count");
     if (badge) {
-        if (window._myListIds.size === 0) {
-            badge.style.display = 'none';
-        } else {
-            badge.innerText = window._myListIds.size;
-            badge.style.display = 'block';
-        }
+        if (window._myListIds.size === 0) { badge.style.display = "none"; } else { badge.innerText = window._myListIds.size; badge.style.display = "block"; }
     }
-
-    await window.loadMyList(); // Refrescar modal/datos
-    initApp(_currentFilter); // Refrescar filas del home/portadas
+    await window.loadMyList();
+    initApp(_currentFilter);
 };
 
 window.toggleMyListModal = () => {
-    const modal = document.getElementById('my-list-modal');
+    const modal = document.getElementById("my-list-modal");
     if (!modal) return;
-    const isVisible = modal.style.display === 'flex';
-    modal.style.display = isVisible ? 'none' : 'flex';
-    document.body.style.overflow = isVisible ? '' : 'hidden';
-    
+    const isVisible = modal.style.display === "flex";
+    modal.style.display = isVisible ? "none" : "flex";
+    document.body.style.overflow = isVisible ? "" : "hidden";
     if (!isVisible) window.loadMyList();
 };
 
 window.loadMyList = async () => {
     if (!auth.currentUser || !_currentProfile) return;
-
     const listCol = collection(db, "users", auth.currentUser.uid, "profiles", _currentProfile.id, "mylist");
     const q = query(listCol, orderBy("timestamp", "desc"));
     const snap = await getDocs(q);
-    
     const myList = [];
     window._myListIds.clear();
-    snap.forEach(d => {
-        const data = d.data();
-        myList.push(data);
-        window._myListIds.add(data.movieId);
-    });
-    
-    const badge = document.getElementById('nav-fav-count');
-    const modalBadge = document.getElementById('modal-fav-count');
-    
+    snap.forEach(d => { const data = d.data(); myList.push(data); window._myListIds.add(data.movieId); });
+    const badge = document.getElementById("nav-fav-count");
+    const buildCard = (m) => {
+        const p = (m.poster || "").startsWith("http") ? m.poster : "https://image.tmdb.org/t/p/w300" + m.poster;
+        return `<div class="mylist-card" onclick='window.handleCardClick("${m.movieId}")'><div class="mylist-card-bg" style="background-image:url('${p}');"></div><div class="mylist-card-gradient"></div><div class="mylist-card-overlay"><button class="mylist-play-btn" onclick="event.stopPropagation();window.handleCardClick('${m.movieId}')"><span class="material-symbols-outlined">play_arrow</span></button><button class="mylist-remove-btn" onclick="event.stopPropagation();window.toggleMyList('${m.movieId}',this)"><span class="material-symbols-outlined">close</span></button></div><div class="mylist-card-title">${m.title}</div></div>`;
+    };
+    const empty = `<div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:rgba(255,255,255,0.3);"><span class="material-symbols-outlined" style="font-size:48px;display:block;margin-bottom:12px;">bookmarks</span><p style="font-family:'Sora',sans-serif;font-size:1rem;margin:0;">Tu selva esta vacia...</p></div>`;
+    const setGrids = (html) => {
+        const pg = document.getElementById("my-list-page-grid"); if (pg) pg.innerHTML = html;
+        const mg = document.getElementById("modal-my-list-grid"); if (mg) mg.innerHTML = html;
+    };
+    const setCount = (n) => {
+        const tc = document.getElementById("mylist-tab-count"); if (tc) tc.textContent = n + " titulos";
+        const mb = document.getElementById("modal-fav-count"); if (mb) mb.textContent = n + " Titulos";
+    };
     if (myList.length === 0) {
-        if (badge) badge.style.display = 'none';
-        if (modalBadge) modalBadge.innerText = '(0 títulos)';
-        const grid = document.getElementById('modal-my-list-grid');
-        if (grid) grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 50px; color: #555;">Tu selva está vacía... 🦁🌵</div>';
-        return;
+        if (badge) badge.style.display = "none";
+        setCount(0); setGrids(empty); return;
     }
-
-    if (badge) {
-        badge.innerText = myList.length;
-        badge.style.display = 'block';
-    }
-    if (modalBadge) modalBadge.innerText = `(${myList.length} títulos)`;
-
-    const grid = document.getElementById('modal-my-list-grid');
-    if (!grid) return;
-
-    grid.innerHTML = myList.map(m => {
-        return `
-            <div class="movie-card" onclick='window.handleCardClick("${m.movieId}")' style="position: relative;">
-                <img src="${m.poster.startsWith('http') ? m.poster : 'https://image.tmdb.org/t/p/w300' + m.poster}" class="card-img" alt="${m.title}">
-                <div class="card-img-overlay"></div>
-                <div class="play-btn-circle"><span>▶</span></div>
-                <div class="btn-add-list active" onclick="event.stopPropagation(); window.toggleMyList('${m.movieId}', this)">❤️</div>
-                <div class="card-info" style="opacity:1;transform:none;">
-                    <h3 class="card-title">${m.title}</h3>
-                </div>
-            </div>
-        `;
-    }).join('');
+    if (badge) { badge.innerText = myList.length; badge.style.display = "block"; }
+    setCount(myList.length);
+    setGrids(myList.map(buildCard).join(""));
 };
-
-
 // Cerrar dropdown al hacer clic fuera
 window.addEventListener('click', (e) => {
     const container = document.getElementById('user-profile-container');

@@ -454,6 +454,14 @@ function findMovieBySlugOrId(slugOrId) {
   return movieDatabase.trending.find(m => slugify(m.title, m.year) === slugOrId) || null;
 }
 
+// Limpia el '#' del Home y navega limpiamente
+window.goToHome = () => {
+  if (window.location.hash) {
+    history.pushState(null, '', window.location.pathname + window.location.search);
+  }
+  handleRouting();
+};
+
 function handleRouting() {
   const hash = window.location.hash.substring(1) || '';
   
@@ -488,7 +496,7 @@ function handleRouting() {
             alert("✅ Acceso Concedido.");
         } else {
             alert("❌ Contraseña incorrecta. Volviendo a la selva.");
-            window.location.hash = '';
+            window.goToHome();
             return;
         }
     }
@@ -4744,7 +4752,7 @@ function initApp(filterType = '', genreId = '') {
 
   } else if (filterType === 'live') {
     // Categoría eliminada
-    window.location.hash = '';
+    window.goToHome();
     return;
   } else {
     if (container) container.innerHTML = ''; // Los skeletons cumplieron su misión

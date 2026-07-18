@@ -240,11 +240,11 @@
   <nav class="navbar-cinepulse">
     <!-- Logo + Desktop Nav Links -->
     <div style="display: flex; align-items: center; gap: 32px;">
-      <div class="logo logo-cinepulse">
+      <div class="logo logo-cinepulse" onclick="window.goToHome()" style="cursor: pointer;">
         <span>SELVA</span><span>FLIX</span>
       </div>
       <div class="nav-desktop-links">
-        <a class="nav-link-cinepulse active" href="#" onclick="window.location.hash = ''; return false;">Home</a>
+        <a class="nav-link-cinepulse active" href="#" onclick="window.goToHome(); return false;">Home</a>
         <a class="nav-link-cinepulse" href="#movies" onclick="window.setFilter('movies'); return false;">Películas</a>
         <a class="nav-link-cinepulse" href="#series" onclick="window.setFilter('series'); return false;">Series</a>
         <a class="nav-link-cinepulse" href="#" onclick="window.toggleMyListModal(); return false;">Mi Selva</a>
@@ -308,9 +308,8 @@
     </div>
   </nav>
   
-  <!-- Mobile Bottom Navigation CINEPULSE (también FUERA del #app) -->
   <nav class="mobile-nav-cinepulse">
-    <button onclick="window.location.hash = ''" class="nav-item nav-item-cinepulse active">
+    <button onclick="window.goToHome()" class="nav-item nav-item-cinepulse active">
       <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">home</span>
       <span>Home</span>
     </button>
@@ -639,7 +638,7 @@
           <button class="btn btn-secondary" id="btn-admin-levels" onclick="window.switchAdminTab('levels')">👑 Niveles</button>
           <button class="btn btn-secondary" id="btn-admin-ads" onclick="window.switchAdminTab('ads')">💰 Publicidad</button>
         </div>
-        <button class="btn btn-secondary" onclick="window.location.hash = ''">Volver a la Selva</button>
+        <button class="btn btn-secondary" onclick="window.goToHome()">Volver a la Selva</button>
       </div>
 
       <!-- Inventory Tab -->

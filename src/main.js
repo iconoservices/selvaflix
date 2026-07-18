@@ -433,33 +433,51 @@ function showView(active) {
   }
 }
 
+// 🐍 Convierte un título en slug URL-friendly: "Spider-Man: No Way Home" → "spider-man-no-way-home"
+function slugify(title, year) {
+  const base = (title || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quitar tildes
+    .replace(/[^a-z0-9\s-]/g, '')                     // solo alfanumérico
+    .trim()
+    .replace(/\s+/g, '-');                             // espacios → guiones
+  return year ? `${base}-${year}` : base;
+}
+
+// Busca una película por slug o por id
+function findMovieBySlugOrId(slugOrId) {
+  if (!movieDatabase?.trending) return null;
+  // Primero intento por id exacto
+  const byId = movieDatabase.trending.find(m => m.id === slugOrId);
+  if (byId) return byId;
+  // Luego por slug generado del título
+  return movieDatabase.trending.find(m => slugify(m.title, m.year) === slugOrId) || null;
+}
+
 function handleRouting() {
   const hash = window.location.hash.substring(1) || '';
   
-  // 2. Cierre Automático del Player si el hash cambió a algo que no sea 'play/'
-  const playerModal = document.getElementById('player-modal');
-  if (playerModal && playerModal.style.display !== 'none' && !hash.startsWith('play/')) {
-      if (typeof SelvaStream !== 'undefined' && SelvaStream.close) {
-          SelvaStream.close();
-      } else {
-          playerModal.style.display = 'none';
-          const iframe = document.getElementById('player-iframe');
-          if (iframe) window.setIframeSource('player-iframe', '');
-          document.body.style.overflow = '';
-      }
-  }
+  // El player-modal es ahora un overlay independiente del hash — no se cierra por cambios de ruta
 
   const genreBar = document.getElementById('genre-bar');
   if (genreBar) genreBar.style.display = 'flex'; // Siempre visible
 
-  if (hash.startsWith('play/')) {
-    showView('home-view');
-    const movieId = hash.split('play/')[1];
-    if (movieId) window.openPlayer(movieId);
-  } else if (hash.startsWith('detail/')) {
-    showView('detail-view');
-    const movieId = hash.split('detail/')[1];
-    if (movieId) window.openMovieDetail(movieId);
+  if (hash.startsWith('detail/')) {
+    // Puede ser detail/slug, detail/id, o detail/slug/play
+    const parts = hash.replace('detail/', '').split('/');
+    const slugOrId = parts[0];
+    const isPlayRoute = parts[1] === 'play';
+
+    if (isPlayRoute) {
+      // Ruta /play → mostrar detail Y abrir player (si la peli ya está cargada)
+      showView('detail-view');
+      if (slugOrId) window.openMovieDetail(slugOrId, { autoPlay: true });
+    } else {
+      // Ruta normal de detalle — cerrar player si estaba abierto
+      if (typeof SelvaStream !== 'undefined') SelvaStream.close();
+      showView('detail-view');
+      if (slugOrId) window.openMovieDetail(slugOrId);
+    }
   } else if (hash === 'admin') {
     const isAdminAuthenticated = localStorage.getItem('selva_admin_auth') === 'true';
     if (!isAdminAuthenticated) {
@@ -738,6 +756,11 @@ function _renderCardsInto(container, data, isTrending = false) {
                 <h3 class="cinepulse-card-title">${item.title}</h3>
                 <div class="cinepulse-card-meta">
                   <span class="cinepulse-card-genre">${genre}</span>
+                  ${item.embed && item.embed.includes('streamtape') ? `
+                    <span style="color: #00C853; font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 2px;">▶ ST</span>
+                  ` : `
+                    <span style="color: #F44336; font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 2px;">⚠ SIN ST</span>
+                  `}
                   <span class="cinepulse-card-rating">
                     <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1; font-size: 12px;">star</span>
                     ${item.rating || '8.9'}
@@ -868,6 +891,18 @@ function renderGallery(title, groups) {
             <div class="cinepulse-card-content">
               <h3 class="cinepulse-card-title">${item.title}</h3>
               <div class="cinepulse-card-meta">
+                <span class="cinepulse-card-genre">${genre}</span>
+                ${item.embed && item.embed.includes('streamtape') ? `
+                  <span style="color: #00C853; font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 2px;">▶ ST</span>
+                ` : `
+                  <span style="color: #F44336; font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 2px;">⚠ SIN ST</span>
+                `}
+                <span class="cinepulse-card-rating">
+                  <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1; font-size: 12px;">star</span>
+                  ${item.rating || '8.9'}
+                </span>
+              </div>
+            </div>
                 <span class="cinepulse-card-genre">${genre}</span>
                 <span class="cinepulse-card-rating">
                   <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1; font-size: 12px;">star</span>
@@ -3708,30 +3743,49 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         const modal = document.getElementById('player-modal');
         if (modal && modal.style.display !== 'none') {
-            history.back();
+            window.closePlayer();
         }
     }
 });
 
-// Fallback preventivo por si algo llamaba a closePlayer explícitamente
+// Cierra el player correctamente y vuelve al detalle de la película
 window.closePlayer = () => {
-    history.back();
+    if (typeof SelvaStream !== 'undefined') SelvaStream.close();
+    // Volvemos al detalle — hash sin /play
+    const currentHash = window.location.hash.substring(1);
+    if (currentHash.includes('/play')) {
+        window.location.hash = currentHash.replace('/play', '');
+    } else if (!currentHash.startsWith('detail/')) {
+        history.back();
+    }
 };
 
 // Exported Actions
 window.handleCardClick = (id) => {
-    // Ir a la vista de detalle de la película
-    window.location.hash = `detail/${id}`;
+    // Buscar la película para hacer un slug URL limpio
+    const movie = movieDatabase?.trending?.find(m => m.id === id);
+    if (movie) {
+        const slug = slugify(movie.title, movie.year);
+        window.location.hash = `detail/${slug}`;
+    } else {
+        window.location.hash = `detail/${id}`;
+    }
 };
 
 // ======================================================
 // DETALLE DE PELÍCULA — Vista Premium (Tailwind Design)
 // ======================================================
-window.openMovieDetail = (movieId) => {
-    const movie = movieDatabase.trending.find(m => m.id === movieId);
+window.openMovieDetail = (slugOrId, opts = {}) => {
+    const movie = findMovieBySlugOrId(slugOrId);
     if (!movie) {
-        console.warn('Movie not found:', movieId);
+        console.warn('Movie not found for slug/id:', slugOrId);
         return;
+    }
+    // Sincronizar hash a slug limpio si llegamos por id antiguo
+    const cleanSlug = slugify(movie.title, movie.year);
+    const currentHash = window.location.hash.substring(1);
+    if (currentHash === `detail/${movie.id}`) {
+        history.replaceState(null, '', `#detail/${cleanSlug}`);
     }
 
     // 1. Backdrop / Hero Image
@@ -3759,11 +3813,11 @@ window.openMovieDetail = (movieId) => {
     const synopsisEl = document.getElementById('detail-synopsis');
     if (synopsisEl) synopsisEl.textContent = movie.description || movie.overview || 'Sin descripción disponible.';
 
-    // 6. Botón PLAY → lanza el player existente
+    // 6. Botón PLAY → lanza el player directamente como overlay sobre la detail-view
     const playBtn = document.getElementById('detail-btn-play');
     if (playBtn) {
         playBtn.onclick = () => {
-            window.location.hash = `play/${movieId}`;
+            window.openPlayer(movie.id);
         };
     }
 
@@ -3812,6 +3866,141 @@ window.openMovieDetail = (movieId) => {
                 </div>
             </div>
         `).join('') : '<p style="color:#e6beb2;font-size:14px;grid-column:span 2;">No hay sugerencias disponibles.</p>';
+    }
+
+    // 10. Gestión de Sección de Administración en Ficha
+    const isAdmin = localStorage.getItem('selva_admin_auth') === 'true';
+    const adminSection = document.getElementById('detail-admin-section');
+    if (adminSection) {
+        if (isAdmin) {
+            adminSection.style.display = 'block';
+            
+            // Llenar Link Maestro
+            const linkInput = document.getElementById('detail-admin-manual-link-input');
+            if (linkInput) linkInput.value = movie.embed || '';
+
+            // Mostrar/ocultar botones específicos de estado
+            const appBtn = document.getElementById('detail-admin-approve-btn');
+            const waitBtn = document.getElementById('detail-admin-wait-btn');
+            if (appBtn) appBtn.style.display = (movie.status === 'review' || movie.status === 'waiting') ? 'block' : 'none';
+            if (waitBtn) waitBtn.style.display = (movie.status !== 'waiting') ? 'block' : 'none';
+
+            // Configurar botones de acción
+            if (appBtn) {
+                appBtn.onclick = async () => {
+                    await window.approveMovie(movieId);
+                    window.openMovieDetail(movieId); // Refrescar vista
+                };
+            }
+            if (waitBtn) {
+                waitBtn.onclick = async () => {
+                    await window.moveToWaiting(movieId);
+                    window.openMovieDetail(movieId); // Refrescar vista
+                };
+            }
+            
+            const delBtn = document.getElementById('detail-admin-delete-btn');
+            if (delBtn) {
+                delBtn.onclick = async () => {
+                    if (confirm(`¿Seguro que quieres eliminar "${movie.title}" de la selva? 🥥?`)) {
+                        try {
+                            const { getFirestore, doc, deleteDoc } = await import("firebase/firestore");
+                            const db = getFirestore();
+                            await deleteDoc(doc(db, "movies", movieId));
+                            sessionStorage.removeItem('selvaflix_full_database');
+                            sessionStorage.removeItem('selvaflix_cache_timestamp');
+                            movieDatabase.trending = movieDatabase.trending.filter(m => m.id !== movieId);
+                            if (window.showToast) window.showToast("¡Película eliminada de la selva! 🗑️", "success");
+                            history.back(); // Volver atrás a la home
+                        } catch (e) {
+                            console.error("Error eliminando pelicula: ", e);
+                        }
+                    }
+                };
+            }
+
+            // Configurar VIP
+            const vipBtn = document.getElementById('detail-admin-vip-config-btn');
+            if (vipBtn) {
+                vipBtn.onclick = async () => {
+                    const isCurrentlyVip = movie.isVIP || false;
+                    const action = confirm(`Estado Actual: ${isCurrentlyVip ? "👑 VIP" : "🐾 LIBRE"}\n\n¿Quieres cambiar el estado VIP de "${movie.title}"?`);
+                    if (action) {
+                        const newVipStatus = !isCurrentlyVip;
+                        let releaseDate = movie.releaseDate || null;
+
+                        if (newVipStatus) {
+                            const dateStr = prompt("¿Deseas poner una fecha de estreno? (Formato: AAAA-MM-DD HH:MM)\nDejar vacío para VIP permanente.", "");
+                            if (dateStr) {
+                                const parsed = new Date(dateStr);
+                                if (!isNaN(parsed.getTime())) {
+                                    releaseDate = parsed.getTime();
+                                } else {
+                                    alert("Fecha no válida. No se guardará la fecha.");
+                                }
+                            } else {
+                                releaseDate = null;
+                            }
+                        }
+
+                        try {
+                            const { getFirestore, doc, updateDoc } = await import("firebase/firestore");
+                            const db = getFirestore();
+                            await updateDoc(doc(db, "movies", movie.id), { 
+                                isVIP: newVipStatus, 
+                                releaseDate: releaseDate,
+                                updatedAt: Date.now()
+                            });
+                            
+                            movie.isVIP = newVipStatus;
+                            movie.releaseDate = releaseDate;
+                            
+                            if (window.showToast) {
+                                window.showToast(`✅ VIP ${newVipStatus ? 'ACTIVADO' : 'DESACTIVADO'} para "${movie.title}"`, "success");
+                            }
+                            sessionStorage.removeItem('selvaflix_full_database');
+                            sessionStorage.removeItem('selvaflix_cache_timestamp');
+                            window.openMovieDetail(movieId); // Refrescar
+                        } catch (e) {
+                            console.error("Error actualizando VIP:", e);
+                            if (window.showToast) window.showToast("Error al guardar cambios VIP.", "error");
+                        }
+                    }
+                };
+            }
+
+            // Fijar Prioridad (Link Maestro)
+            const setPriorityBtn = document.getElementById('detail-admin-set-priority-btn');
+            if (setPriorityBtn) {
+                setPriorityBtn.onclick = async () => {
+                    let link = linkInput.value.trim();
+                    if (!link) return;
+
+                    if (link.includes('<iframe')) {
+                        const srcMatch = link.match(/src="([^"]+)"/);
+                        if (srcMatch) link = srcMatch[1];
+                    }
+
+                    if (link.includes('streamtape.com/v/')) {
+                        link = link.replace('/v/', '/e/');
+                    }
+                    
+                    try {
+                        const { getFirestore, doc, updateDoc } = await import("firebase/firestore");
+                        const db = getFirestore();
+                        await updateDoc(doc(db, "movies", movie.id), { embed: link });
+                        movie.embed = link; // Sync local
+                        if (window.showToast) window.showToast("👑 Link Maestro fijado con éxito.", "success");
+                    } catch (e) {
+                        console.error("Error fijando link:", e);
+                        if (window.showToast) window.showToast("Error al fijar prioridad.", "error");
+                    }
+                };
+            }
+
+        } else {
+            adminSection.style.display = 'none';
+        }
     }
 
     console.log('🎬 Detail view opened for:', movie.title);
@@ -4571,10 +4760,6 @@ function initApp(filterType = '', genreId = '') {
       .slice(0, 12);
     if (recommended.length > 0) renderRow('Recomendadas para ti', recommended);
 
-    // 1b. Recommended Wide Cards (CinePulse Bento Style)
-    const recWide = recommended.filter(c => c.backdrop).slice(0, 4);
-    if (recWide.length >= 2) renderRecommendedWide(recWide);
-
     // 2. Tendencias en la Selva (Local)
     const popularity = [...allContent]
       .filter(c => c.type !== 'live')
@@ -4930,54 +5115,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // --- PWA ASYMMETRIC LOGIC (ZERO SPAM) ---
+  // --- PWA INSTALLATION ICON FLOW ---
   const installBtn = document.getElementById('pwa-install-btn');
-  const smartBanner = document.getElementById('pwa-smart-banner');
-  const closeBanner = document.getElementById('pwa-banner-close');
-  const installBannerBtn = document.getElementById('pwa-banner-install-btn');
-  const iosGuide = document.getElementById('ios-install-guide');
-  const closeIosGuide = document.getElementById('ios-guide-close');
-
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
-  // 1. Detect device
-  const isIos = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
-
-  // 2. Courtship logic (Increment visits)
-  let visitCount = parseInt(localStorage.getItem('pwa_visit_count') || '0') + 1;
-  localStorage.setItem('pwa_visit_count', visitCount);
-  const lastVisit = parseInt(localStorage.getItem('pwa_last_visit') || '0');
-  const now = Date.now();
-  const timeSinceLastVisit = now - lastVisit;
-  localStorage.setItem('pwa_last_visit', now);
-
-  const shouldShowBanner = () => {
-    if (isStandalone) return false;
-    if (localStorage.getItem('pwa_installed')) return false;
-
-    // Visita 1: Despues de 5 segundos
-    if (visitCount === 1) return true;
-
-    // Visita 2: Scroll al 50% (handled via scroll listener)
-    if (visitCount === 2) return false;
-
-    // Visita 3: Tras 20 segundos (handled via timeout)
-    if (visitCount === 3) return false;
-
-    // Visita 4+: Una si, una no, o tras 48h
-    if (visitCount >= 4) {
-      const wait48h = timeSinceLastVisit > (48 * 60 * 60 * 1000);
-      return (visitCount % 2 === 0) || wait48h;
-    }
-    return false;
-  };
-
-  const showInstaller = () => {
+  const showInstaller = async () => {
     if (isStandalone) return;
-    if (isIos) {
-      if (iosGuide) iosGuide.style.display = 'flex';
-    } else if (deferredPrompt) {
-      if (smartBanner) smartBanner.style.display = 'block';
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        deferredPrompt = null;
+        if (installBtn) installBtn.style.display = 'none';
+        localStorage.setItem('pwa_installed', 'true');
+      }
     }
   };
 
@@ -4987,58 +5138,16 @@ document.addEventListener('DOMContentLoaded', () => {
     deferredPrompt = e;
     if (installBtn) {
       installBtn.style.display = 'flex';
-      installBtn.classList.add('pulse');
-    }
-
-    // Trigger courtship banners
-    if (shouldShowBanner()) {
-      setTimeout(showInstaller, 5000);
     }
   });
 
-  // Visita 2: Scroll 50% logic
-  window.addEventListener('scroll', () => {
-    if (visitCount === 2 && !localStorage.getItem('pwa_banner_seen_v2')) {
-      const scrollPercent = (window.scrollY + window.innerHeight) / document.documentElement.scrollHeight;
-      if (scrollPercent > 0.5) {
-        localStorage.setItem('pwa_banner_seen_v2', 'true');
-        showInstaller();
-      }
-    }
-  });
-
-  // Visita 3: Timeout 20s
-  if (visitCount === 3) {
-    setTimeout(showInstaller, 20000);
-  }
-
-  // Action: Install Button Click
   if (installBtn) {
     installBtn.addEventListener('click', showInstaller);
   }
 
-  if (installBannerBtn) {
-    installBannerBtn.addEventListener('click', async () => {
-      if (deferredPrompt) {
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        if (outcome === 'accepted') {
-          deferredPrompt = null;
-          if (smartBanner) smartBanner.style.display = 'none';
-          if (installBtn) installBtn.style.display = 'none';
-          localStorage.setItem('pwa_installed', 'true');
-        }
-      }
-    });
-  }
-
-  if (closeBanner) closeBanner.onclick = () => smartBanner.style.display = 'none';
-  if (closeIosGuide) closeIosGuide.onclick = () => iosGuide.style.display = 'none';
-
   window.addEventListener('appinstalled', () => {
     localStorage.setItem('pwa_installed', 'true');
     if (installBtn) installBtn.style.display = 'none';
-    if (smartBanner) smartBanner.style.display = 'none';
   });
 });
 
@@ -5223,11 +5332,20 @@ window.loadProfiles = async (uid) => {
     snap.forEach(d => profiles.push({ id: d.id, ...d.data() }));
 
     if (profiles.length === 0) {
-        const defaultProfile = { name: auth.currentUser.displayName.split(' ')[0], avatar: '🐯', isChild: false };
+        const defaultProfile = { name: auth.currentUser.displayName.split(' ')[0], avatar: '🐯', isChild: false, isPrimary: true };
         const docRef = await addDoc(profilesCol, defaultProfile);
         profiles.push({ id: docRef.id, ...defaultProfile });
+    } else {
+        // Retrocompatibilidad: Si ningún perfil es primario, establecer el primero
+        const hasPrimary = profiles.some(p => p.isPrimary);
+        if (!hasPrimary && profiles.length > 0) {
+            profiles[0].isPrimary = true;
+            const profileRef = doc(db, "users", uid, "profiles", profiles[0].id);
+            await updateDoc(profileRef, { isPrimary: true }).catch(e => console.warn("No se pudo marcar perfil principal:", e));
+        }
     }
 
+    window._allProfiles = profiles; // Guardar caché local
     window.renderProfiles(profiles);
     
     const saved = sessionStorage.getItem('selva_active_profile');
@@ -5330,12 +5448,15 @@ window.renderProfiles = (profiles) => {
 
     grid.innerHTML = profiles.map(p => {
         const action = _isManagingProfiles 
-            ? `window.editSpecificProfile('${p.id}', '${p.name}', '${p.avatar}', '${p.pin || ''}')`
+            ? `window.editSpecificProfile('${p.id}', '${p.name}', '${p.avatar}', '${p.pin || ''}', ${p.isPrimary || false})`
             : `window.selectProfile('${p.id}', '${p.name}', '${p.avatar}', '${p.pin || ''}')`;
             
+        const primaryBadge = p.isPrimary ? `<span style="position: absolute; top: -10px; left: -10px; font-size: 1.5rem; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.5)); z-index: 5;" title="Perfil Principal">👑</span>` : '';
+
         return `
             <div class="profile-item" style="width: 150px; position: relative;">
                 <div onclick="${action}" style="cursor:pointer; transition: transform 0.2s; width: 120px; height: 120px; background: #222; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 3.5rem; margin: 0 auto 10px; border: 3px solid transparent; box-shadow: 0 10px 20px rgba(0,0,0,0.3); position: relative;" onmouseover="this.style.borderColor='white';" onmouseout="this.style.borderColor='transparent';">
+                    ${primaryBadge}
                     ${p.avatar || '🐯'}
                     ${_isManagingProfiles ? `
                         <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
@@ -5343,8 +5464,8 @@ window.renderProfiles = (profiles) => {
                         </div>
                     ` : ''}
                 </div>
-                ${_isManagingProfiles ? `
-                    <div onclick="event.stopPropagation(); window.deleteProfile('${p.id}', '${p.name}', '${p.pin || ''}')" style="position: absolute; top: -5px; right: 5px; width: 30px; height: 30px; background: #E74C3C; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1rem; box-shadow: 0 5px 15px rgba(231,76,60,0.5); z-index: 10;">
+                ${_isManagingProfiles && !p.isPrimary ? `
+                    <div onclick="event.stopPropagation(); window.deleteProfile('${p.id}', '${p.name}', '${p.pin || ''}', ${p.isPrimary || false})" style="position: absolute; top: -5px; right: 5px; width: 30px; height: 30px; background: #E74C3C; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1rem; box-shadow: 0 5px 15px rgba(231,76,60,0.5); z-index: 10;">
                         ✖
                     </div>
                 ` : ''}
@@ -5403,13 +5524,43 @@ window.validatePinEntry = async (el) => {
     const pinEntered = Array.from(document.querySelectorAll('.pin-dot')).map(i => i.value).join('');
     if (pinEntered.length < 4) return;
 
+    if (pendingProfile.action === 'verify-main-pin') {
+        if (pinEntered === pendingProfile.mainPinToVerify) {
+            try {
+                const uid = auth.currentUser.uid;
+                const profileRef = doc(db, "users", uid, "profiles", pendingProfile.id);
+                await updateDoc(profileRef, { pin: "" });
+                if (window.showToast) window.showToast(`¡PIN restablecido con éxito! 🔓`, "success");
+                
+                const p = { ...pendingProfile };
+                delete p.pin;
+                delete p.action;
+                delete p.mainPinToVerify;
+                window.closePinModal();
+                sessionStorage.setItem('selva_active_profile', JSON.stringify(p));
+                window.applyProfile(p);
+                document.getElementById('profile-selector-modal').style.display = 'none';
+                window.hideSplashScreen();
+                
+                window.loadProfiles(uid);
+            } catch (e) {
+                console.error("Error al restablecer PIN por verificación principal:", e);
+            }
+        } else {
+            document.getElementById('pin-error-msg').style.display = 'block';
+            document.querySelectorAll('.pin-dot').forEach(i => i.value = '');
+            document.getElementById('pin-1').focus();
+        }
+        return;
+    }
+
     if (pinEntered === pendingProfile.pin) {
         window.closePinModal();
         
         if (pendingProfile.action === 'edit') {
-            window.openEditModal(pendingProfile.id, pendingProfile.name, pendingProfile.avatar, pendingProfile.pin);
+            window.openEditModal(pendingProfile.id, pendingProfile.name, pendingProfile.avatar, pendingProfile.pin, pendingProfile.isPrimary);
         } else if (pendingProfile.action === 'delete') {
-            window.executeProfileDeletion(pendingProfile.id, pendingProfile.name);
+            window.executeProfileDeletion(pendingProfile.id, pendingProfile.name, pendingProfile.isPrimary);
         } else {
             const p = { ...pendingProfile };
             delete p.pin; // Seguridad mínima
@@ -5426,19 +5577,89 @@ window.validatePinEntry = async (el) => {
     }
 };
 
-window.editSpecificProfile = (id, name, avatar, pin = '') => {
+window.forgotPin = async () => {
+    if (!pendingProfile) return;
+    
+    const mainProfile = window._allProfiles ? window._allProfiles.find(p => p.isPrimary) : null;
+    if (!mainProfile) {
+        if (window.showToast) window.showToast("No se encontró el perfil principal para recuperar el PIN.", "error");
+        return;
+    }
+    
+    const uid = auth.currentUser.uid;
+    
+    if (pendingProfile.id === mainProfile.id) {
+        if (confirm(`¿Restablecer el PIN del perfil principal "${pendingProfile.name}"? Como dueño de la cuenta de Google, puedes desbloquearlo de inmediato.`)) {
+            try {
+                const profileRef = doc(db, "users", uid, "profiles", mainProfile.id);
+                await updateDoc(profileRef, { pin: "" });
+                if (window.showToast) window.showToast("PIN del perfil principal restablecido. 🔓", "success");
+                
+                const p = { ...pendingProfile };
+                delete p.pin;
+                delete p.action;
+                window.closePinModal();
+                sessionStorage.setItem('selva_active_profile', JSON.stringify(p));
+                window.applyProfile(p);
+                document.getElementById('profile-selector-modal').style.display = 'none';
+                window.hideSplashScreen();
+                
+                window.loadProfiles(uid);
+            } catch (e) {
+                console.error("Error al restablecer PIN principal:", e);
+                if (window.showToast) window.showToast("Error al restablecer el PIN.", "error");
+            }
+        }
+        return;
+    }
+    
+    if (mainProfile.pin && mainProfile.pin.trim() !== "") {
+        pendingProfile.action = 'verify-main-pin';
+        pendingProfile.mainPinToVerify = mainProfile.pin;
+        
+        document.getElementById('pin-profile-name').innerText = `Ingresa PIN de ${mainProfile.name} (Principal)`;
+        document.getElementById('pin-error-msg').style.display = 'none';
+        document.querySelectorAll('.pin-dot').forEach(i => i.value = '');
+        document.getElementById('pin-1').focus();
+        if (window.showToast) window.showToast(`Por favor introduce el PIN de ${mainProfile.name} para desbloquear este perfil.`, "info");
+    } else {
+        if (confirm(`¿Restablecer el PIN del perfil "${pendingProfile.name}" usando el perfil principal "${mainProfile.name}"?`)) {
+            try {
+                const profileRef = doc(db, "users", uid, "profiles", pendingProfile.id);
+                await updateDoc(profileRef, { pin: "" });
+                if (window.showToast) window.showToast(`¡PIN de "${pendingProfile.name}" restablecido! 🔓`, "success");
+                
+                const p = { ...pendingProfile };
+                delete p.pin;
+                delete p.action;
+                window.closePinModal();
+                sessionStorage.setItem('selva_active_profile', JSON.stringify(p));
+                window.applyProfile(p);
+                document.getElementById('profile-selector-modal').style.display = 'none';
+                window.hideSplashScreen();
+                
+                window.loadProfiles(uid);
+            } catch (e) {
+                console.error("Error al restablecer PIN de perfil secundario:", e);
+                if (window.showToast) window.showToast("Error al restablecer el PIN.", "error");
+            }
+        }
+    }
+};
+
+window.editSpecificProfile = (id, name, avatar, pin = '', isPrimary = false) => {
     if (pin && pin.trim() !== "") {
-        pendingProfile = { id, name, avatar, pin, action: 'edit' };
+        pendingProfile = { id, name, avatar, pin, action: 'edit', isPrimary };
         document.getElementById('pin-profile-name').innerText = name + " (Editar)";
         document.getElementById('pin-modal').style.display = 'flex';
         document.querySelectorAll('.pin-dot').forEach(i => i.value = '');
         document.getElementById('pin-1').focus();
     } else {
-        window.openEditModal(id, name, avatar, pin);
+        window.openEditModal(id, name, avatar, pin, isPrimary);
     }
 };
 
-window.openEditModal = (id, name, avatar, pin) => {
+window.openEditModal = (id, name, avatar, pin, isPrimary = false) => {
     window.updateSettingsAccountInfo();
     const input = document.getElementById('edit-profile-name-input');
     const pinInput = document.getElementById('edit-profile-pin-input');
@@ -5450,10 +5671,13 @@ window.openEditModal = (id, name, avatar, pin) => {
     if (pinInput) pinInput.value = pin;
     if (modal) modal.style.display = 'flex';
     
-    // Mostrar botón de eliminar solo al editar un perfil existente
     if (deleteBtn) {
-        deleteBtn.style.display = 'block';
-        deleteBtn.onclick = () => window.deleteProfile(id, name, pin);
+        if (isPrimary) {
+            deleteBtn.style.display = 'none';
+        } else {
+            deleteBtn.style.display = 'block';
+            deleteBtn.onclick = () => window.deleteProfile(id, name, pin, isPrimary);
+        }
     }
     
     saveBtn.onclick = () => {
@@ -5462,15 +5686,19 @@ window.openEditModal = (id, name, avatar, pin) => {
         if (!newName) return;
         if (newPin && newPin.length !== 4) return alert("El PIN debe ser de 4 dígitos. 🔒");
         
-        window._tempProfileToUpdate = { id, name: newName, pin: newPin };
+        window._tempProfileToUpdate = { id, name: newName, pin: newPin, isPrimary };
         modal.style.display = 'none';
         window.openAvatarPicker();
     };
 };
 
-window.deleteProfile = async (id, name, pin = '') => {
+window.deleteProfile = async (id, name, pin = '', isPrimary = false) => {
+    if (isPrimary) {
+        if (window.showToast) window.showToast("El perfil principal no se puede eliminar. 👑", "warning");
+        return;
+    }
     if (pin && pin.trim() !== "") {
-        pendingProfile = { id, name, pin, action: 'delete' };
+        pendingProfile = { id, name, pin, action: 'delete', isPrimary };
         document.getElementById('pin-profile-name').innerText = name + " (Borrar)";
         document.getElementById('pin-modal').style.display = 'flex';
         document.querySelectorAll('.pin-dot').forEach(i => i.value = '');
@@ -5478,16 +5706,19 @@ window.deleteProfile = async (id, name, pin = '') => {
         return;
     }
     
-    window.executeProfileDeletion(id, name);
+    window.executeProfileDeletion(id, name, isPrimary);
 };
 
-window.executeProfileDeletion = async (id, name) => {
+window.executeProfileDeletion = async (id, name, isPrimary = false) => {
+    if (isPrimary) {
+        if (window.showToast) window.showToast("El perfil principal no se puede eliminar. 👑", "warning");
+        return;
+    }
     if (!confirm(`¿Estás seguro que deseas eliminar el perfil "${name}"? Esta acción no se puede deshacer. 🗑️`)) return;
 
     try {
         const uid = auth.currentUser.uid;
         
-        // Verificar cuántos perfiles quedan para no borrar el único que existe
         const profilesCol = collection(db, "users", uid, "profiles");
         const snap = await getDocs(profilesCol);
         if (snap.size <= 1) {
@@ -5495,7 +5726,6 @@ window.executeProfileDeletion = async (id, name) => {
             return;
         }
 
-        // Proceder con la eliminación
         const profileRef = doc(db, "users", uid, "profiles", id);
         await deleteDoc(profileRef);
         console.log(`✅ Perfil ${name} eliminado.`);
@@ -5503,7 +5733,6 @@ window.executeProfileDeletion = async (id, name) => {
         document.getElementById('profile-edit-name-modal').style.display = 'none';
         window.loadProfiles(uid);
 
-        // Si se borró el perfil que estaba activo, forzar selección
         if (_currentProfile && _currentProfile.id === id) {
             sessionStorage.removeItem('selva_active_profile');
             _currentProfile = null;

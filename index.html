@@ -298,9 +298,12 @@
           </div>
       </div>
 
-      <button id="pwa-install-btn" class="btn btn-secondary"
-        style="display: none; padding: 6px 12px; font-size: 0.8rem; border-color: var(--primary); color: var(--primary);">
-        📲 Instalar
+      <button id="pwa-install-btn" class="btn"
+        style="display: none; border: none; background: none; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; padding: 0;"
+        onmouseover="this.style.background='rgba(255,255,255,0.05)'"
+        onmouseout="this.style.background='none'"
+        title="Instalar App">
+        <span class="material-symbols-outlined" style="font-size: 24px;">install_mobile</span>
       </button>
     </div>
   </nav>
@@ -386,7 +389,7 @@
       </div>
 
       <!-- FASE 2: Continuar Viendo Row -->
-      <section id="continue-watching-row" style="display: none; padding: 20px; margin-bottom: 20px;">
+      <section id="continue-watching-row" style="display: none; padding: 0 20px; margin-bottom: 5px;">
         <h2 style="color: white; font-size: 1.2rem; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
           🍿 Continuar viendo
         </h2>
@@ -403,33 +406,7 @@
         <!-- Rows will be injected here -->
       </div>
 
-      <!-- PWA Smart Banner (Universal) -->
-      <div id="pwa-smart-banner" class="pwa-banner">
-        <div class="pwa-content">
-          <img src="/icon_192.png" alt="SelvaFlix Icon" class="pwa-icon-small">
-          <div class="pwa-text">
-            <h3>Instala SelvaFlix</h3>
-            <p>Acceso rápido y mejor experiencia cine en tu selva 🌴</p>
-          </div>
-          <button id="pwa-banner-install-btn" class="btn btn-primary">Instalar</button>
-          <button id="pwa-banner-close" class="pwa-close-btn">✕</button>
-        </div>
-      </div>
-      <!-- iOS Installation Guide -->
-      <div id="ios-install-guide" class="ios-guide" style="display: none;">
-        <div class="ios-guide-content">
-          <div class="ios-guide-header">
-            <h3>Instalar en tu iPhone/iPad 📱</h3>
-            <button id="ios-guide-close" class="pwa-close-btn">✕</button>
-          </div>
-          <p>Sigue estos pasos para llevar la selva a tu inicio:</p>
-          <ol>
-            <li>Toca el botón <strong>Compartir</strong> ( <span class="ios-icon">↑</span> ) en la barra inferior.</li>
-            <li>Desliza hacia arriba y elige <strong>"Agregar al inicio"</strong> ( <span class="ios-icon">+</span> ).</li>
-            <li>Toca <strong>"Agregar"</strong> y ¡listo! 🍿🌴</li>
-          </ol>
-        </div>
-      </div>
+
       
       <!-- 🚩 Slot de Publicidad Inferior (Footer) -->
       <div id="ad-slot-footer" class="ad-slot-container" style="display: none; width: 100%; text-align: center; padding: 20px 0; background: rgba(0,0,0,0.4); border-top: 1px solid rgba(255,255,255,0.05); min-height: 90px; margin-top: 50px;"></div>
@@ -599,6 +576,31 @@
               <span class="material-symbols-outlined" style="font-size: 16px;">link</span>
               COMPARTIR
             </button>
+          </div>
+        </section>
+
+        <!-- Administración (Solo visible para Admin) -->
+        <section id="detail-admin-section" style="display: none; margin: 0 16px 16px; border-radius: 12px; background: #1c1b1b; border: 1px solid #2a2a2a; overflow: hidden;">
+          <div style="padding: 14px 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #2a2a2a;">
+            <span style="font-size: 16px;">🛠️</span>
+            <span style="font-family: Inter, sans-serif; font-size: 13px; font-weight: 700; color: #00f2ff; letter-spacing: 0.1em; text-transform: uppercase;">Administración</span>
+          </div>
+          <div style="padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <button id="detail-admin-approve-btn" style="background:#2ecc71; color:black; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:900; font-size: 0.75rem;">✅ APROBAR</button>
+              <button id="detail-admin-wait-btn" style="background:#f1c40f; color:black; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:900; font-size: 0.75rem;">⏳ EN ESPERA</button>
+            </div>
+            <button id="detail-admin-delete-btn" style="width:100%; background:#e74c3c; color:white; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:900; font-size: 0.75rem;">🗑️ BORRAR TÍTULO</button>
+            
+            <button id="detail-admin-vip-config-btn" style="width:100%; background: linear-gradient(45deg, #FFD700, #FFA500); color: black; border:none; padding:12px; border-radius:10px; cursor:pointer; font-weight:900; font-size: 0.75rem; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 15px rgba(255,215,0,0.2);">
+                <span>👑 CONFIGURAR VIP</span>
+            </button>
+
+            <div style="background: rgba(0,242,255,0.05); border: 1px solid rgba(0,242,255,0.1); padding: 12px; border-radius: 8px; box-sizing: border-box;">
+                <label style="color: #00f2ff; font-size: 0.65rem; font-weight: 800; display: block; margin-bottom: 6px;">👑 LINK MAESTRO (PRIORIDAD)</label>
+                <input type="text" id="detail-admin-manual-link-input" placeholder="Pegar URL aquí..." style="width: 100%; background: #000; border: 1px solid #333; color: white; border-radius: 6px; padding: 8px; font-size: 0.75rem; outline: none; margin-bottom: 8px; box-sizing: border-box;">
+                <button id="detail-admin-set-priority-btn" style="width: 100%; background: #00f2ff; color: #000; border: none; padding: 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 900; cursor: pointer;">FIJAR PRIORIDAD</button>
+            </div>
           </div>
         </section>
 
@@ -1558,7 +1560,8 @@
         <input type="password" maxlength="1" class="pin-dot" id="pin-4" inputmode="numeric" style="width: 50px; height: 55px; text-align: center; font-size: 1.5rem; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 12px; color: white; outline: none; transition: border-color 0.3s;" onkeyup="window.validatePinEntry(this)" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--glass-border)'">
       </div>
       
-      <button onclick="window.closePinModal()" class="btn btn-secondary" style="width: 100%; font-size: 0.8rem; opacity: 0.6;">Cancelar</button>
+      <button onclick="window.closePinModal()" class="btn btn-secondary" style="width: 100%; font-size: 0.8rem; opacity: 0.6; margin-bottom: 12px;">Cancelar</button>
+      <button onclick="window.forgotPin()" style="background: none; border: none; color: var(--primary-container); font-size: 0.85rem; cursor: pointer; text-decoration: underline; opacity: 0.8; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">¿Olvidaste tu PIN?</button>
     </div>
   </div>
 

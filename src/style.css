@@ -67,9 +67,9 @@
   
   /* Border Radius */
   --radius-sm: 0.25rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1.5rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.5rem;
   --radius-full: 9999px;
 }
 
@@ -591,7 +591,8 @@
 /* ─── CINEPULSE GENRE CHIPS ────────────────────────────── */
 .cinepulse-genre-section {
   padding: 0 var(--margin-desktop);
-  margin-bottom: var(--spacing-3xl);
+  margin-bottom: 8px;
+  margin-top: -40px;
 }
 
 .cinepulse-genre-chips {
@@ -711,8 +712,9 @@
 .cinepulse-card-meta {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 6px;
   margin-top: var(--spacing-xs);
+  flex-wrap: wrap;
 }
 
 .cinepulse-card-genre {
@@ -1081,7 +1083,7 @@ body.ios-pwa-standalone #home-view {
 }
 
 #home-view .cinepulse-hero + .cinepulse-genre-section {
-  margin-top: calc(-1 * var(--spacing-3xl));
+  margin-top: -8px;
   position: relative;
   z-index: 20;
 }

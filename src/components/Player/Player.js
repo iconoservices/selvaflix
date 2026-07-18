@@ -47,15 +47,28 @@ export const SelvaStream = {
         }
 
         // Si ya tiene contenido (ya fue inyectado), no lo duplicamos
-        if (document.getElementById('admin-player-toolbar')) return;
+        if (document.getElementById('player-back-btn')) return;
 
         modal.innerHTML = `
             <div class="player-back-arrow" id="player-back-btn" title="Atrás (Esc)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
             </div>
 
-            <div id="admin-player-toolbar" class="admin-player-toolbar" style="display:none; position: absolute; top: 10px; left: 60px; z-index: 1000;">
-                <!-- Botones flotantes opcionales o vacíos, ahora se integrarán en sidebar -->
+            <!-- Floating Top Controls (Fuentes y Selectores de Serie) -->
+            <div id="player-top-controls" class="player-top-controls">
+                <div id="player-controls-root"></div>
+                <button id="floating-sources-btn" class="sources-btn-modern" onclick="SelvaStream.toggleVipMenu()">
+                     📡 FUENTES VIP
+                </button>
+            </div>
+
+            <!-- Sliding Fuentes Menu (Drawer) -->
+            <div id="side-vip-menu" class="side-vip-menu">
+                <div class="vip-menu-header">
+                    <span>🚀 FUENTES DISPONIBLES</span>
+                    <button onclick="SelvaStream.toggleVipMenu()" style="background:rgba(231,76,60,0.2); border:1px solid #e74c3c; color:white; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; cursor:pointer;">&times;</button>
+                </div>
+                <div id="vip-menu-list"></div>
             </div>
 
             <div class="video-layout">
@@ -65,10 +78,12 @@ export const SelvaStream = {
                         <div class="loader-text">Explorando la selva...</div>
                         <div class="spinner-tropical"></div>
                     </div>
+                    
                     <iframe id="player-iframe" src="" style="display:none;" 
                         allow="autoplay"
                         allowfullscreen>
                     </iframe>
+                    
                     <div id="native-player-container" style="display:none; width: 100%; height: 100%; position: relative;">
                         <video id="native-video-player" style="width: 100%; height: 100%; background: #000;" controls playsinline webkit-playsinline></video>
                     </div>
@@ -78,263 +93,25 @@ export const SelvaStream = {
                         <div id="wt-progress">Buscando semillas...</div>
                     </div>
 
-                    <!-- Panel de Información Inicial (Directo) -->
+                    <!-- Start screen is kept hidden and serves only as fallback on severe errors -->
                     <div id="player-start-screen" class="player-start-screen" style="display:none;">
                         <div class="start-bg" id="start-bg"></div>
                         <div class="start-content">
-                            <div class="start-poster-container">
-                                <img id="start-poster-img" src="" alt="Poster">
-                            </div>
                             <div class="start-info">
                                 <h2 id="start-title">CARGANDO...</h2>
-                                <div class="start-meta">
-                                    <span id="start-year" class="start-meta-badge" style="display:none;"></span>
-                                    <span id="start-rating" class="start-meta-badge" style="display:none;"></span>
-                                </div>
-                                <div id="start-overview" class="start-overview"></div>
                                 <div id="vip-status-msg" class="start-subtitle">🔍 Buscando señales VIP...</div>
-                                <div class="start-actions" style="margin-top:20px; display:none;" id="start-actions">
-                                    <button id="start-play-btn" class="play-btn-premium" onclick="SelvaStream.playFirstAvailable()">
-                                        <span class="play-icon">▶</span> REPRODUCIR AHORA
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                </div>
-                <div class="player-sidebar-column">
-                    <div class="sidebar-top-row" style="display: flex; gap: 10px; margin-bottom: 10px;">
-                        <button id="floating-sources-btn" class="sources-btn-modern" onclick="SelvaStream.toggleVipMenu()" style="flex: 1; min-height: 45px;">
-                             📡 OTRAS FUENTES VIP
-                        </button>
-                        <div id="side-vip-menu" class="side-vip-menu">
-                            <div class="vip-menu-header">
-                                <span>🚀 FUENTES VIP</span>
-                                <button onclick="SelvaStream.toggleVipMenu()" style="background:rgba(231,76,60,0.2); border:1px solid #e74c3c; color:white; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center; cursor:pointer;">&times;</button>
-                            </div>
-                            <div id="vip-menu-list"></div>
-                        </div>
-                    </div>
-
-                    <div class="guide-sidebar-grid">
-                        <div class="sidebar-card notifications-card">
-                            <h3>📌 NOTIFICACIONES</h3>
-                            <div id="player-notifications" class="player-notifications">
-                                <p>Disfruta de la mejor calidad VIP en SelvaFlix.</p>
-                            </div>
-                        </div>
-                        <div class="sidebar-card actions-card">
-                            <h3 style="color: var(--primary); font-size: 0.6rem; letter-spacing: 1px; margin-bottom: 10px; opacity: 0.8;">🚨 SOPORTE</h3>
-                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; margin-bottom: 15px;">
-                                <button id="report-broken-btn" style="background: rgba(231,76,60,0.1); border: 1px solid rgba(231,76,60,0.2); color: #E74C3C; padding: 10px; border-radius: 8px; font-size: 0.65rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;">🚩 REPORTAR</button>
-                                <button id="share-selva-btn" style="background: rgba(46,204,113,0.1); border: 1px solid rgba(46,204,113,0.2); color: #2ecc71; padding: 10px; border-radius: 8px; font-size: 0.65rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;">🔗 COMPARTIR</button>
-                            </div>
-                            
-                            <div id="admin-only-panel" style="display:none; flex-direction:column; gap:8px; border-top:1px solid rgba(255,255,255,0.08); padding-top:15px; margin-top: 5px;">
-                                <h3 style="color: #00f2ff; font-size: 0.6rem; letter-spacing: 1px; margin-bottom: 5px; opacity: 0.8;">🛠️ ADMINISTRACIÓN</h3>
-                                
-                                <div id="admin-reviewer-actions" style="display:flex; flex-direction:column; gap:6px; margin-bottom:10px;">
-                                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px;">
-                                        <button id="admin-approve-player-btn" style="background:#2ecc71; color:black; border:none; padding:8px; border-radius:6px; cursor:pointer; font-weight:900; font-size: 0.6rem;">✅ APROBAR</button>
-                                        <button id="admin-wait-player-btn" style="background:#f1c40f; color:black; border:none; padding:8px; border-radius:6px; cursor:pointer; font-weight:900; font-size: 0.6rem;">⏳ ESPERA</button>
-                                    </div>
-                                    <button id="admin-delete-player-btn" style="width:100%; background:#e74c3c; color:white; border:none; padding:8px; border-radius:6px; cursor:pointer; font-weight:900; font-size: 0.6rem;">🗑️ BORRAR</button>
-                                </div>
-
-                                <button id="admin-vip-config-btn" style="width:100%; background: linear-gradient(45deg, #FFD700, #FFA500); color: black; border:none; padding:10px; border-radius:10px; cursor:pointer; font-weight:900; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 15px rgba(255,215,0,0.3); margin-bottom: 5px;">
-                                    <span>👑 CONFIGURAR VIP</span>
-                                </button>
-
-                                <div class="admin-manual-link-box" style="background: rgba(0,242,255,0.05); border: 1px solid rgba(0,242,255,0.1); padding: 8px; border-radius: 8px; margin-bottom: 10px;">
-                                    <label style="color: #00f2ff; font-size: 0.55rem; font-weight: 800; display: block; margin-bottom: 5px;">👑 LINK MAESTRO (PRIORIDAD)</label>
-                                    <input type="text" id="admin-manual-link-input" placeholder="Pegar URL aquí..." style="width: 100%; background: #000; border: 1px solid #333; color: white; border-radius: 4px; padding: 6px; font-size: 0.65rem; outline: none; margin-bottom: 6px;">
-                                    <button id="admin-set-priority-btn" style="width: 100%; background: #00f2ff; color: #000; border: none; padding: 6px; border-radius: 4px; font-size: 0.6rem; font-weight: 900; cursor: pointer;">FIJAR PRIORIDAD</button>
-                                </div>
-
-                                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; margin-top:5px;">
-                                    <button id="admin-download-btn" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 10px; border-radius: 8px; font-size: 0.65rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;">⬇️ DESCARGA</button>
-                                    <button id="admin-copy-video-link-btn" style="background: rgba(0,242,255,0.05); border: 1px solid rgba(0,242,255,0.1); color: #00f2ff; padding: 10px; border-radius: 8px; font-size: 0.65rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;">📋 COPIAR VIDEO</button>
-                                </div>
-                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-            <!-- Controles y Servidores -->
-            <div id="player-controls-root"></div>
         `;
 
-        // Eventos básicos eliminados: La X ya no existe, popstate manda.
-
-        document.getElementById('admin-delete-player-btn')?.addEventListener('click', () => {
-            if (window.deleteMovie && SelvaStream.currentPlayerMovie) {
-                const id = SelvaStream.currentPlayerMovie.id;
-                let hasNext = window.playNextReview ? window.playNextReview(id) : false;
-                window.deleteMovie(id);
-                if (!hasNext) history.back();
-            }
-        });
-
-        document.getElementById('admin-approve-player-btn')?.addEventListener('click', () => {
-            if (window.approveMovie && SelvaStream.currentPlayerMovie) {
-                const id = SelvaStream.currentPlayerMovie.id;
-                let hasNext = window.playNextReview ? window.playNextReview(id) : false;
-                window.approveMovie(id);
-                if (!hasNext) history.back();
-            }
-        });
-        
-        document.getElementById('admin-wait-player-btn')?.addEventListener('click', () => {
-            if (window.moveToWaiting && SelvaStream.currentPlayerMovie) {
-                const id = SelvaStream.currentPlayerMovie.id;
-                let hasNext = window.playNextReview ? window.playNextReview(id) : false;
-                window.moveToWaiting(id);
-                if (!hasNext) history.back();
-            }
-        });
-
-        document.getElementById('admin-vip-config-btn')?.addEventListener('click', async () => {
-            if (!SelvaStream.currentPlayerMovie) return;
-            const movie = SelvaStream.currentPlayerMovie;
-            const isCurrentlyVip = movie.isVIP || false;
-            
-            const action = confirm(`Estado Actual: ${isCurrentlyVip ? "👑 VIP" : "🐾 LIBRE"}\n\n¿Quieres cambiar el estado VIP de "${movie.title}"?`);
-            
-            if (action) {
-                const newVipStatus = !isCurrentlyVip;
-                let releaseDate = movie.releaseDate || null;
-
-                if (newVipStatus) {
-                    const dateStr = prompt("¿Deseas poner una fecha de estreno? (Formato: AAAA-MM-DD HH:MM)\nDejar vacío para VIP permanente.", "");
-                    if (dateStr) {
-                        const parsed = new Date(dateStr);
-                        if (!isNaN(parsed.getTime())) {
-                            releaseDate = parsed.getTime();
-                        } else {
-                            alert("Fecha no válida. No se guardará la fecha.");
-                        }
-                    } else {
-                        releaseDate = null;
-                    }
-                }
-
-                try {
-                    const { getFirestore, doc, updateDoc } = await import("firebase/firestore");
-                    const db = getFirestore();
-                    const movieRef = doc(db, "movies", movie.id);
-                    
-                    const updateData = { 
-                        isVIP: newVipStatus, 
-                        releaseDate: releaseDate,
-                        updatedAt: Date.now()
-                    };
-                    
-                    await updateDoc(movieRef, updateData);
-                    
-                    // Sincronizar localmente
-                    movie.isVIP = newVipStatus;
-                    movie.releaseDate = releaseDate;
-                    
-                    if (window.showToast) {
-                        window.showToast(`✅ VIP ${newVipStatus ? 'ACTIVADO' : 'DESACTIVADO'} para "${movie.title}"`, "success");
-                    }
-                    
-                    // Opcional: Refrescar la UI de la home si es necesario
-                    sessionStorage.removeItem('selvaflix_full_database');
-                    sessionStorage.removeItem('selvaflix_cache_timestamp');
-
-                } catch (e) {
-                    console.error("Error actualizando VIP:", e);
-                    if (window.showToast) window.showToast("Error al guardar cambios VIP.", "error");
-                }
-            }
-        });
-
         document.getElementById('player-back-btn')?.addEventListener('click', () => {
-            history.back();
+            window.closePlayer ? window.closePlayer() : history.back();
         });
 
-        // --- Admin Functions for Sidebar ---
-        document.getElementById('admin-set-priority-btn')?.addEventListener('click', async () => {
-            const input = document.getElementById('admin-manual-link-input');
-            let link = input.value.trim();
-            if (!SelvaStream.currentPlayerMovie || !link) return;
 
-            // 🧹 LIMPIEZA ATÓMICA: Extraer URL si pegan el iframe completo
-            if (link.includes('<iframe')) {
-                const srcMatch = link.match(/src="([^"]+)"/);
-                if (srcMatch) link = srcMatch[1];
-            }
-
-            // 🎥 NORMALIZACIÓN: Forzar formato embed /e/ para Streamtape
-            if (link.includes('streamtape.com/v/')) {
-                link = link.replace('/v/', '/e/');
-            }
-            
-            try {
-                const { getFirestore, doc, updateDoc } = await import("firebase/firestore");
-                const db = getFirestore();
-                const movieRef = doc(db, "movies", SelvaStream.currentPlayerMovie.id);
-                await updateDoc(movieRef, { embed: link });
-                SelvaStream.currentPlayerMovie.embed = link; // Sync local
-                if (window.showToast) window.showToast("👑 Link Maestro fijado con éxito.", "success");
-                // Recargar el reproductor con la nueva fuente
-                SelvaStream.loadDebridAuto();
-            } catch (e) {
-                console.error("Error fijando link:", e);
-                if (window.showToast) window.showToast("Error al fijar prioridad.", "error");
-            }
-        });
-
-        document.getElementById('admin-download-btn')?.addEventListener('click', () => {
-            const iframe = document.getElementById('player-iframe');
-            const nativeVideo = document.getElementById('native-video-player');
-            let currentUrl = (iframe && iframe.style.display !== 'none') ? iframe.src : (nativeVideo?.src || '');
-            
-            if (currentUrl && currentUrl !== 'about:blank') {
-                window.open(currentUrl, '_blank');
-            } else {
-                if (window.showToast) window.showToast("No hay una fuente activa para descargar. 🕵️‍♂️", "warning");
-            }
-        });
-
-        const copyAppLink = () => {
-            const url = window.location.href;
-            navigator.clipboard.writeText(url).then(() => {
-                if (window.showToast) window.showToast("🚀 Link de SelvaFlix copiado al portapapeles.", "success");
-            }).catch(err => {
-                console.error('Error al copiar link:', err);
-                if (window.showToast) window.showToast("Error al copiar el link 🐒", "error");
-            });
-        };
-
-        const copyVideoLink = () => {
-            const iframe = document.getElementById('player-iframe');
-            const nativeVideo = document.getElementById('native-video-player');
-            let currentUrl = (iframe && iframe.style.display !== 'none') ? iframe.src : (nativeVideo?.src || '');
-            
-            if (currentUrl && currentUrl !== 'about:blank') {
-                navigator.clipboard.writeText(currentUrl).then(() => {
-                    if (window.showToast) window.showToast("📋 Enlace DIRECTO del video copiado.", "success");
-                }).catch(err => {
-                    console.error('Error al copiar video:', err);
-                    if (window.showToast) window.showToast("Error al copiar el video 🐒", "error");
-                });
-            } else {
-                if (window.showToast) window.showToast("No hay una fuente activa para copiar. 🕵️‍♂️", "warning");
-            }
-        };
-
-        document.getElementById('share-selva-btn')?.addEventListener('click', copyAppLink);
-        document.getElementById('admin-copy-video-link-btn')?.addEventListener('click', copyVideoLink);
-
-        document.getElementById('report-broken-btn')?.addEventListener('click', () => {
-            if (window.reportBrokenLink && SelvaStream.currentPlayerMovie) {
-                window.reportBrokenLink(SelvaStream.currentPlayerMovie.id, SelvaStream.currentPlayerMovie.title);
-            }
-        });
         if (!document.getElementById('selva-player-css')) {
             const style = document.createElement('style');
             style.id = 'selva-player-css';
@@ -500,6 +277,12 @@ export const SelvaStream = {
         modal.style.display = 'flex';
         document.body.style.overflow = 'hidden';
 
+        // Empujamos /play al historial para que "atrás" cierre el player sin salir del detalle
+        const currentHash = window.location.hash.substring(1);
+        if (currentHash.startsWith('detail/') && !currentHash.endsWith('/play')) {
+            history.pushState(null, '', `#${currentHash}/play`);
+        }
+
         // Check if Admin
         const isAdmin = localStorage.getItem('selva_admin_auth') === 'true';
         const adminPanel = document.getElementById('admin-only-panel');
@@ -511,12 +294,10 @@ export const SelvaStream = {
         if (manualInput) manualInput.value = movie.embed || '';
 
         if (adminAppBtn) {
-            // Solo mostrar Aprobar si está en review o waiting
             adminAppBtn.style.display = (isAdmin && (movie.status === 'review' || movie.status === 'waiting')) ? 'block' : 'none';
         }
         
         if (adminWaitBtn) {
-            // Solo mostrar "En Espera" si NO está ya en espera
             adminWaitBtn.style.display = (isAdmin && movie.status !== 'waiting') ? 'block' : 'none';
         }
 
@@ -524,77 +305,16 @@ export const SelvaStream = {
         const iframe = document.getElementById('player-iframe');
         const nativeContainer = document.getElementById('native-player-container');
         const nativePlayer = document.getElementById('native-video-player');
-        const statusDiv = document.getElementById('webtorrent-status');
         const loader = document.getElementById('player-loader');
         const startScreen = document.getElementById('player-start-screen');
 
-        if (iframe) iframe.style.display = 'none';
+        if (iframe) { iframe.src = 'about:blank'; iframe.style.display = 'none'; }
         if (nativeContainer) nativeContainer.style.display = 'none';
         if (nativePlayer) nativePlayer.pause();
-        if (loader) loader.style.display = 'none';
+        if (startScreen) startScreen.style.display = 'none';
 
         const dynamicSources = document.getElementById('vip-dynamic-container');
         if (dynamicSources) dynamicSources.style.display = 'none';
-
-        // Mostrar Start Screen
-        if (startScreen) {
-            startScreen.style.display = 'flex';
-            document.getElementById('start-title').innerText = movie.title || movie.name || 'Cargando...';
-            const bg = document.getElementById('start-bg');
-            
-            const poster = movie.img || movie.poster_path || '';
-            // TMDB URLs: use w500 for poster, original for blurred background
-            let finalImg = poster;
-            if (poster && !poster.startsWith('http')) {
-                finalImg = `https://image.tmdb.org/t/p/w500${poster}`;
-            }
-            const bgImg = poster && !poster.startsWith('http') ? `https://image.tmdb.org/t/p/original${poster}` : finalImg;
-            
-            if (bg) bg.style.backgroundImage = `url(${bgImg})`;
-            
-            const startPoster = document.getElementById('start-poster-img');
-            if (startPoster) {
-                startPoster.src = poster ? finalImg : 'https://via.placeholder.com/500x750?text=SelvaFlix';
-            }
-            
-            const startYear = document.getElementById('start-year');
-            const startRating = document.getElementById('start-rating');
-            const startOverview = document.getElementById('start-overview');
-            
-            if (startYear) {
-                const year = movie.year || (movie.release_date || movie.first_air_date || '').split('-')[0];
-                if (year) {
-                    startYear.innerText = year;
-                    startYear.style.display = 'inline-block';
-                } else {
-                    startYear.style.display = 'none';
-                }
-            }
-            
-            if (startRating) {
-                if (movie.vote_average) {
-                    startRating.innerText = `⭐ ${parseFloat(movie.vote_average).toFixed(1)}`;
-                    startRating.style.display = 'inline-block';
-                } else {
-                    startRating.style.display = 'none';
-                }
-            }
-            
-            if (startOverview) {
-                startOverview.innerText = movie.overview || '';
-            }
-            
-            const msgEl = document.getElementById('vip-status-msg');
-            if (msgEl) msgEl.innerHTML = '🔍 Buscando señales VIP...';
-
-            const startActions = document.getElementById('start-actions');
-            if (startActions) startActions.style.display = 'none';
-        }
-
-        // Si hay link manual de Admin, mostrar badge VIP
-        if (movie.embed) {
-            console.log("💎 Detectado Link de Admin (Prioridad Total)");
-        }
 
         this.renderControls();
 
@@ -604,13 +324,47 @@ export const SelvaStream = {
             await this.loadSeriesMetadata(movie.tmdbId);
         }
 
-        // ✅ AUTO-SCAN: Solo el Admin invoca los scrapers para "cosechar" links
+        // ⚡ RUTA RÁPIDA: Si la película tiene embed directo, reproducir YA
+        if (movie.embed) {
+            console.log("💎 Embed directo detectado — reproducción inmediata");
+            if (loader) loader.style.display = 'none';
+            this.lastScrapedStreams = [{
+                title: "Servidor Oficial",
+                name: "🌐 Source Directo (Cloud)",
+                url: movie.embed,
+                infoHash: null,
+                isPublic: true,
+                selvaScore: 1000000
+            }];
+            this.handleExternalStream(this.lastScrapedStreams[0]);
+            return; // ✅ Reproducción directa — no interrumpir con scraping
+        }
+
+        // 🔍 SIN EMBED: Mostrar loader y buscar fuentes
+        if (loader) {
+            loader.style.display = 'flex';
+            loader.innerHTML = `
+                <div class="loader-logo">SELVAFLIX</div>
+                <div class="loader-text">Buscando señales VIP...</div>
+                <div class="spinner-tropical"></div>
+            `;
+        }
+
         const isAdminForScan = localStorage.getItem('selva_admin_auth') === 'true';
         const id = movie.imdbId || movie.tmdbId;
         const type = movie.type === 'series' ? 'series' : 'movie';
-        if (id && isAdminForScan) this.loadDebridAuto(id, type);
+        if (id && isAdminForScan) {
+            this.loadDebridAuto(id, type);
+        } else {
+            // Sin embed y sin admin: mostrar start-screen con mensaje de no disponible
+            if (loader) loader.style.display = 'none';
+            if (startScreen) {
+                startScreen.style.display = 'flex';
+                const msgEl = document.getElementById('vip-status-msg');
+                if (msgEl) msgEl.innerHTML = '<span style="color:#e74c3c;">⚠️ Contenido no disponible en este momento.</span>';
+            }
+        }
     },
-
     async loadSeriesMetadata(tmdbId) {
         try {
             const TMDB_API_KEY = import.meta.env.VITE_TMDB_KEY || '15d2ea6d0dc1d476efbca3eba2b9bbfb';
@@ -908,24 +662,14 @@ export const SelvaStream = {
         const root = document.getElementById('player-controls-root');
         if (!root) return;
         
-        // 🚀 MEJORA: Solo renderizar el HTML si NO existe ya. 
-        // Esto evita borrar selectores ya poblados por TMDb.
         const isSeries = ['series', 'tv', 'anime'].includes(this.currentPlayerMovie?.type);
         const hasSelectors = !!document.getElementById('selva-season');
 
         if (isSeries && !hasSelectors) {
             root.innerHTML = `
-                <div class="player-controls" style="margin-top: 20px;">
-                    <div class="series-selectors">
-                        <div class="selva-select-wrapper">
-                            <label>Temporada</label>
-                            <select id="selva-season" class="selva-custom-select"></select>
-                        </div>
-                        <div class="selva-select-wrapper">
-                            <label>Episodio</label>
-                            <select id="selva-episode" class="selva-custom-select"></select>
-                        </div>
-                    </div>
+                <div class="series-selectors" style="display: flex; gap: 8px; margin: 0; padding: 0; background: none; border: none; backdrop-filter: none;">
+                    <select id="selva-season" class="selva-custom-select" style="padding: 8px 32px 8px 16px; font-size: 0.75rem; border-radius: 30px; height: 45px; background-color: rgba(15,15,15,0.6); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.15); box-sizing: border-box; margin: 0;"></select>
+                    <select id="selva-episode" class="selva-custom-select" style="padding: 8px 32px 8px 16px; font-size: 0.75rem; border-radius: 30px; height: 45px; background-color: rgba(15,15,15,0.6); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.15); box-sizing: border-box; margin: 0;"></select>
                 </div>
             `;
         } else if (!isSeries) {
@@ -1205,20 +949,19 @@ export const SelvaStream = {
             this.lastScrapedStreams = streams;
             this.renderControls();
 
-            // ✅ LISTA INMEDIATA: Mostrar fuentes directamente sin click
+            // ✅ AUTO-PLAY: Reproducir la mejor fuente directamente sin esperar click
             const loader3 = document.getElementById('player-loader');
             if (loader3) loader3.style.display = 'none';
-            const ss2 = document.getElementById('player-start-screen');
-            if (ss2) ss2.style.display = 'flex';
 
-            const msgEl = document.getElementById('vip-status-msg');
-            if (msgEl) msgEl.textContent = `✅ ${streams.length} fuentes encontradas. Elige una opción:`;
-
-            // Habilitar el botón de Play en la Start Screen
-            const startActions = document.getElementById('start-actions');
-            if (startActions) startActions.style.display = 'block';
+            // Ocultar el start-screen e ir directo al video
+            this.playFirstAvailable();
         } catch (e) {
             console.error("Motor VIP falló:", e);
+            // Mostrar start-screen con el error para que el usuario vea el mensaje y el botón de reintentar
+            const ss = document.getElementById('player-start-screen');
+            if (ss) ss.style.display = 'flex';
+            const loader3 = document.getElementById('player-loader');
+            if (loader3) loader3.style.display = 'none';
             const msgEl = document.getElementById('vip-status-msg');
             if (msgEl) msgEl.innerHTML = '<span style="color:#e74c3c;">⚠️ No se encontraron fuentes VIP. <button onclick="SelvaStream.loadDebridAuto()" style="background:var(--primary);color:black;border:none;padding:4px 10px;border-radius:6px;font-weight:bold;cursor:pointer;margin-left:6px;">Reintentar</button></span>';
         }

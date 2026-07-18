@@ -9,28 +9,23 @@
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: rgba(5, 5, 5, 0.98);
+    background: #000;
     z-index: 10000;
     display: none;
     flex-direction: column;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: center;
     backdrop-filter: blur(25px);
     animation: fadeIn 0.4s ease;
-    overflow-y: auto;
-    padding: 0; /* Eliminado para modo inmersivo */
-    padding-top: env(safe-area-inset-top, 0px);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    overflow: hidden; /* No scroll en el modal completo */
+    padding: 0;
     box-sizing: border-box;
-    /* Armored notch protection for player */
-    background: linear-gradient(to bottom, #000 env(safe-area-inset-top, 0px), rgba(5, 5, 5, 0.98) env(safe-area-inset-top, 0px));
 }
 
 /* Floating Back Arrow */
 .player-back-arrow {
     position: fixed;
-    /* Bajamos la flecha un poco más para que no se pegue al notch con el nuevo layout */
-    top: calc(10px + var(--safe-top));
+    top: calc(15px + var(--safe-top));
     left: calc(15px + env(safe-area-inset-left, 0px));
     width: 45px;
     height: 45px;
@@ -43,7 +38,7 @@
     justify-content: center;
     color: white;
     cursor: pointer;
-    z-index: 10001;
+    z-index: 10003;
     transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
 }
@@ -60,54 +55,64 @@
     height: 22px;
 }
 
-.admin-player-toolbar {
+/* Barra de controles flotantes superior derecha (Fuentes y Selectores) */
+.player-top-controls {
     position: fixed;
     top: calc(15px + var(--safe-top));
-    left: calc(85px + env(safe-area-inset-left, 0px));
-    z-index: 10002;
+    right: calc(15px + env(safe-area-inset-right, 0px));
+    z-index: 10003;
     display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
 }
 
-@media (max-width: 768px) {
-    .player-modal {
-        /* Restaurando el aire arriba para que el notch no tape la carga */
-        padding-top: var(--safe-top) !important;
-    }
-
-    .video-layout {
-        padding: 0;
-        width: 100%;
-        /* Bajando el reproductor para que no toque el notch (65px de aire extra) */
-        margin-top: calc(65px + var(--safe-top)); 
-    }
-
-    .video-container {
-        aspect-ratio: 4 / 3 !important; /* Más altura para el texto y poster en celular */
-        border-radius: 12px;
-    }
+.sources-btn-modern {
+    background: rgba(15, 15, 15, 0.6);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: var(--primary);
+    padding: 10px 20px;
+    border-radius: 30px;
+    font-weight: 800;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    letter-spacing: 0.05em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 45px;
 }
 
+.sources-btn-modern:hover {
+    background: var(--primary);
+    color: black;
+    border-color: var(--primary);
+    box-shadow: 0 0 20px var(--primary-glow);
+}
+
+/* Layout de video pantalla completa */
 .video-layout {
+    width: 100vw;
+    height: 100vh;
     display: flex;
-    gap: 20px;
-    width: 95%; /* Más amplio en escritorio */
-    margin: 0 auto;
-    max-width: 1400px;
     align-items: center;
     justify-content: center;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    background: #000;
 }
 
 .video-container {
-    flex: 1;
-    aspect-ratio: 16 / 9;
+    width: 100%;
+    height: 100%;
     background: #000;
-    border-radius: 16px;
     overflow: hidden;
     position: relative;
-    border: 1px solid var(--glass-border);
-    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8), 0 0 40px var(--primary-glow);
+    border: none;
+    box-shadow: none;
 }
 
 #player-iframe {

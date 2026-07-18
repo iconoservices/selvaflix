@@ -507,7 +507,7 @@ export const SelvaStream = {
                     const isPublicLink = movieRef.embed && (movieRef.embed === s.url || movieRef.embed === s.infoHash);
                     
                     if (isAdmin) return true; // Admin ve todo lo no-debrid
-                    return isSuggested || isPublicLink; 
+                    return isSuggested || isPublicLink || s.isPublic; 
                 });
 
                 // 🔥 FUENTE OFICIAL (BASE DE DATOS):
@@ -711,11 +711,9 @@ export const SelvaStream = {
     },
 
     async loadDebridAuto(id, type) {
-        // 🧹 LIMPIEZA DE ESTADO: Evitar fuentes de la película anterior
         this.lastScrapedStreams = [];
         this.renderVipMenuList();
 
-        // Detener reproductores actuales para forzar la carga Debrid
         const startScreen = document.getElementById('player-start-screen');
         const iframe = document.getElementById('player-iframe');
         const loader = document.getElementById('player-loader');
@@ -737,7 +735,6 @@ export const SelvaStream = {
         let queryId = id || movie?.imdbId || movie?.tmdbId;
         const queryType = type || (['series', 'tv', 'anime'].includes(movie?.type) ? 'series' : 'movie');
 
-        // Si es serie, recolectamos temporada y episodio actual
         let season = 1;
         let episode = 1;
         if (queryType === 'series') {
@@ -754,17 +751,85 @@ export const SelvaStream = {
             this.currentEpisodeLabel = null;
         }
 
+        // 1. Cargar las fuentes públicas disponibles (MoviesAPI Latino, Embed.su, etc.)
+        const tmdbId = movie?.tmdbId;
+        const imdbId = movie?.imdbId;
+        const publicStreams = [];
+
+        if (tmdbId || imdbId) {
+            const currentTid = tmdbId || imdbId;
+            const isTv = queryType === 'series';
+            const s = isTv ? (document.getElementById('selva-season')?.value || 1) : null;
+            const e = isTv ? (document.getElementById('selva-episode')?.value || 1) : null;
+            const movieTitle = movie?.title || "Película";
+
+            // 🇲🇽 MoviesAPI Latino (Especializado en Español Latino)
+            const moviesapiLat = isTv ? `https://moviesapi.club/tv/${currentTid}-${s}-${e}` : `https://moviesapi.club/movie/${currentTid}`;
+            publicStreams.push({ title: `[ESPAÑOL LATINO] 🌐 ${movieTitle} - Servidor Latino 1`, name: "🇲🇽 LATINO", url: moviesapiLat, providerName: "MoviesAPI", isPublic: true });
+
+            // 🌎 Embed.su (Excelente multi-idioma, auto-selecciona español)
+            const embedSu = isTv ? `https://embed.su/api/tv/${currentTid}/${s}/${e}` : `https://embed.su/api/movie/${currentTid}`;
+            publicStreams.push({ title: `[MULTI-IDIOMA] 🌐 ${movieTitle} - Servidor Multi 2`, name: "🌐 EMBED.SU", url: embedSu, providerName: "EmbedSu", isPublic: true });
+
+            // 🌐 Vidsrc.xyz (Estable, subtítulos y audios multi-lenguaje)
+            const vidsrcXyz = isTv ? `https://vidsrc.xyz/embed/tv/${currentTid}/${s}-${e}` : `https://vidsrc.xyz/embed/movie/${currentTid}`;
+            publicStreams.push({ title: `[MULTI-IDIOMA] 🌐 ${movieTitle} - Servidor Multi 3`, name: "🌐 VIDSRC.XYZ", url: vidsrcXyz, providerName: "VidsrcXyz", isPublic: true });
+
+            // 🌐 Vidsrc.me (Estable con opción de subtítulos)
+            const vidsrcMe = isTv ? `https://vidsrc.me/embed/tv?tmdb=${currentTid}&sub_lang=es&s=${s}&e=${e}` : `https://vidsrc.me/embed/movie?tmdb=${currentTid}&sub_lang=es`;
+            publicStreams.push({ title: `[SUBTITULADO/MULTI] 🌐 ${movieTitle} - Servidor 4`, name: "🌐 VIDSRC.ME", url: vidsrcMe, providerName: "VidsrcMe", isPublic: true });
+
+            // 🌐 Vidsrc.to
+            const vidsrcTo = isTv ? `https://vidsrc.to/embed/tv/${currentTid}/${s}/${e}` : `https://vidsrc.to/embed/movie/${currentTid}`;
+            publicStreams.push({ title: `[MULTI] 🌐 ${movieTitle} - Servidor 5`, name: "🌐 VIDSRC.TO", url: vidsrcTo, providerName: "VidsrcTo", isPublic: true });
+
+            // 🌐 SuperEmbed
+            const superEmbed = `https://multiembed.mov/?video_id=${currentTid}&tmdb=1${isTv ? `&s=${s}&e=${e}` : ''}`;
+            publicStreams.push({ title: `[MULTI] 🌐 ${movieTitle} - Servidor 6`, name: "🌐 MULTIEMBED", url: superEmbed, providerName: "SuperEmbed", isPublic: true });
+        }
+
         // PRIORIDAD 1: Link Manual de Administrador (Vía Panel Admin)
         if (movie && movie.embed && (movie.embed.startsWith('http') || movie.embed.includes('<iframe'))) {
-            const isDirect = movie.embed.endsWith('.mp4') || movie.embed.endsWith('.m3u8') || movie.embed.endsWith('.mkv');
-            console.log("💎 Usando Link Manual (Prioridad Admin)");
-            this.handleExternalStream({
-                url: movie.embed,
-                name: '[DIRECCIÓN VIP]',
-                title: movie.title || 'Carga Directa',
-                providerName: 'Admin'
-            });
+            let cleanEmbed = movie.embed;
+            if (movie.embed.includes('<iframe')) {
+                const srcMatch = movie.embed.match(/src="([^"]+)"/);
+                if (srcMatch) cleanEmbed = srcMatch[1];
+            }
+            if (cleanEmbed.includes('streamtape.com/v/')) {
+                cleanEmbed = cleanEmbed.replace('/v/', '/e/');
+            }
+            
+            console.log("💎 Usando Link Manual Oficial");
+            this.lastScrapedStreams = [{
+                url: cleanEmbed,
+                name: '🌐 SERVIDOR OFICIAL',
+                title: movie.title || 'Servidor Oficial',
+                providerName: 'Admin',
+                isPublic: true
+            }, ...publicStreams];
+
+            this.handleExternalStream(this.lastScrapedStreams[0]);
+            this.renderControls();
             return;
+        }
+
+        // Si es usuario normal y no hay embed, reproducimos la primera fuente pública directamente
+        const isAdminForScan = localStorage.getItem('selva_admin_auth') === 'true';
+        if (!isAdminForScan) {
+            if (publicStreams.length > 0) {
+                this.lastScrapedStreams = publicStreams;
+                this.handleExternalStream(this.lastScrapedStreams[0]);
+                this.renderControls();
+                return;
+            } else {
+                if (loader) loader.style.display = 'none';
+                if (startScreen) {
+                    startScreen.style.display = 'flex';
+                    const msgEl = document.getElementById('vip-status-msg');
+                    if (msgEl) msgEl.innerHTML = '<span style="color:#e74c3c;">⚠️ Contenido no disponible en este momento.</span>';
+                }
+                return;
+            }
         }
 
         const loaderText = document.querySelector('.loader-text');
@@ -792,22 +857,31 @@ export const SelvaStream = {
                 const s = isTv ? (document.getElementById('selva-season')?.value || 1) : null;
                 const e = isTv ? (document.getElementById('selva-episode')?.value || 1) : null;
 
-                const movieTitle = movie ?.title || "Película";
-                // Vidsrc.me (Muy estable)
+                const movieTitle = movie?.title || "Película";
+
+                // 🇲🇽 MoviesAPI Latino (Especializado en Español Latino)
+                const moviesapiLat = isTv ? `https://moviesapi.club/tv/${tmdbId}-${s}-${e}` : `https://moviesapi.club/movie/${tmdbId}`;
+                publicStreams.push({ title: `[ESPAÑOL LATINO] 🌐 ${movieTitle} - Servidor Latino 1`, name: "🇲🇽 LATINO", url: moviesapiLat, providerName: "MoviesAPI", isPublic: true });
+
+                // 🌎 Embed.su (Excelente multi-idioma, auto-selecciona español)
+                const embedSu = isTv ? `https://embed.su/api/tv/${tmdbId}/${s}/${e}` : `https://embed.su/api/movie/${tmdbId}`;
+                publicStreams.push({ title: `[MULTI-IDIOMA] 🌐 ${movieTitle} - Servidor Multi 2`, name: "🌐 EMBED.SU", url: embedSu, providerName: "EmbedSu", isPublic: true });
+
+                // 🌐 Vidsrc.xyz (Estable, subtítulos y audios multi-lenguaje)
+                const vidsrcXyz = isTv ? `https://vidsrc.xyz/embed/tv/${tmdbId}/${s}-${e}` : `https://vidsrc.xyz/embed/movie/${tmdbId}`;
+                publicStreams.push({ title: `[MULTI-IDIOMA] 🌐 ${movieTitle} - Servidor Multi 3`, name: "🌐 VIDSRC.XYZ", url: vidsrcXyz, providerName: "VidsrcXyz", isPublic: true });
+
+                // 🌐 Vidsrc.me (Estable con opción de subtítulos)
                 const vidsrcMe = isTv ? `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&sub_lang=es&s=${s}&e=${e}` : `https://vidsrc.me/embed/movie?tmdb=${tmdbId}&sub_lang=es`;
-                publicStreams.push({ title: `[GRATIS] 🌐 ${movieTitle} - Fuente Pública 1`, name: "🌐 GLOBAL", url: vidsrcMe, providerName: "Free-1", isPublic: true });
+                publicStreams.push({ title: `[SUBTITULADO/MULTI] 🌐 ${movieTitle} - Servidor 4`, name: "🌐 VIDSRC.ME", url: vidsrcMe, providerName: "VidsrcMe", isPublic: true });
 
-                // Vidsrc.to (Directo)
+                // 🌐 Vidsrc.to
                 const vidsrcTo = isTv ? `https://vidsrc.to/embed/tv/${tmdbId}/${s}/${e}` : `https://vidsrc.to/embed/movie/${tmdbId}`;
-                publicStreams.push({ title: `[GRATIS] 🌐 ${movieTitle} - Fuente Pública 2`, name: "🌐 GLOBAL", url: vidsrcTo, providerName: "Free-2", isPublic: true });
+                publicStreams.push({ title: `[MULTI] 🌐 ${movieTitle} - Servidor 5`, name: "🌐 VIDSRC.TO", url: vidsrcTo, providerName: "VidsrcTo", isPublic: true });
 
-                // SuperEmbed
+                // 🌐 SuperEmbed
                 const superEmbed = `https://multiembed.mov/?video_id=${id}&tmdb=1${isTv ? `&s=${s}&e=${e}` : ''}`;
-                publicStreams.push({ title: `[GRATIS] 🌐 ${movieTitle} - Multi-Servidor 3`, name: "🌐 MULTI", url: superEmbed, providerName: "Free-3", isPublic: true });
-
-                // 2Embed.cc (Respaldo)
-                const twoEmbed = isTv ? `https://www.2embed.cc/embedtv/${tmdbId}&s=${s}&e=${e}` : `https://www.2embed.cc/embed/${tmdbId}`;
-                publicStreams.push({ title: `[GRATIS] 🌐 ${movieTitle} - Fuente 4 (2Embed)`, name: "🌐 BACKUP", url: twoEmbed, providerName: "Free-4", isPublic: true });
+                publicStreams.push({ title: `[MULTI] 🌐 ${movieTitle} - Servidor 6`, name: "🌐 MULTIEMBED", url: superEmbed, providerName: "SuperEmbed", isPublic: true });
             }
 
             const controller = new AbortController();

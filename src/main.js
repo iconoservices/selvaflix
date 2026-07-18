@@ -970,22 +970,22 @@ function _updateDetailedStats(items) {
   const r = window._reportedIds ? window._reportedIds.size : 0;
   const w = items.filter(i => i.status === 'waiting').length;
   const rev = items.filter(i => i.status === 'review').length;
-  const ver = items.filter(i => (i.status === 'review' || i.status === 'waiting') && i.embed && i.embed.includes('streamtape')).length;
 
-  document.getElementById('count-movies').innerText = m;
-  document.getElementById('count-series').innerText = s;
-  document.getElementById('count-broken').innerText = b;
-  const rEl = document.getElementById('count-reported');
-  if (rEl) rEl.innerText = r;
-  
-  const waitEl = document.getElementById('count-waiting');
-  if (waitEl) waitEl.innerText = w;
+  // Actualizar estadísticas superiores (Mockeado del mock + Real)
+  const totalVal = m + s;
+  const liveVal = items.filter(i => i.status === 'healthy' && !window._brokenIds.has(i.id)).length;
+  const curationVal = rev + items.filter(i => i.status === 'verify').length;
+  const archivedVal = b + w;
 
-  const revEl = document.getElementById('count-review');
-  if (revEl) revEl.innerText = rev;
+  const countTotalEl = document.getElementById('count-total-titles');
+  const countLiveEl = document.getElementById('count-live-now');
+  const countCurationEl = document.getElementById('count-in-curation');
+  const countArchivedEl = document.getElementById('count-archived');
 
-  const verEl = document.getElementById('count-verify');
-  if (verEl) verEl.innerText = ver;
+  if (countTotalEl) countTotalEl.innerText = totalVal.toLocaleString();
+  if (countLiveEl) countLiveEl.innerText = liveVal.toLocaleString();
+  if (countCurationEl) countCurationEl.innerText = curationVal.toLocaleString();
+  if (countArchivedEl) countArchivedEl.innerText = archivedVal.toLocaleString();
 }
 
 window.loadMoreInventory = () => {
@@ -993,18 +993,29 @@ window.loadMoreInventory = () => {
   _renderInventoryRows(_allInventoryItems);
 };
 
+// Mapea IDs de género a nombres amigables
+const GENRE_MAP = {
+  "28": "Action", "12": "Adventure", "16": "Sci-Fi", "35": "Comedy", "80": "Thriller",
+  "99": "Doc", "18": "Drama", "10751": "Family", "14": "Fantasy", "36": "History",
+  "27": "Horror", "10402": "Music", "9648": "Mystery", "10749": "Romance", "878": "Sci-Fi",
+  "10770": "TV Movie", "53": "Thriller", "10752": "War", "37": "Western", "10759": "Action"
+};
+
 function _renderInventoryRows(items) {
-  const grid = document.getElementById('inventory-grid');
+  const tableBody = document.getElementById('admin-catalog-table-body');
   const status = document.getElementById('inventory-status');
   const loadMore = document.getElementById('load-more-container');
 
-  const typeIcons = { movie: '🎬', series: '🏆', live: '🔴', anime: '⛩️' };
-  const langIcons = { 'es-MX': '🇲🇽', 'es-PE': '🇵🇪', 'es-ES': '🇪🇸', 'en-US': '🇺🇸' };
-
-  if (!grid) return;
+  if (!tableBody) return;
 
   if (items.length === 0) {
-    grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:50px; color:var(--text-muted); background:rgba(255,255,255,0.02); border-radius:15px; border:1px dashed #333;">No se encontraron tesoros con ese filtro... 🍃🕵️‍♂️</div>';
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="7" style="text-align:center; padding:50px; color:var(--admin-text-muted);">
+          No se encontraron tesoros con ese filtro... 🍃🕵️‍♂️
+        </td>
+      </tr>
+    `;
     if (loadMore) loadMore.style.display = 'none';
     if (status) status.innerText = "0 títulos encontrados.";
     return;
@@ -1013,118 +1024,188 @@ function _renderInventoryRows(items) {
   const end = _inventoryPage * _inventoryPerPage;
   const visibleItems = items.slice(0, end);
 
-  if (status) status.innerText = `Mostrando ${visibleItems.length} de ${items.length} títulos totales.`;
+  if (status) status.innerText = `Showing 1-${visibleItems.length} of ${items.length} items`;
   if (loadMore) loadMore.style.display = end < items.length ? 'block' : 'none';
 
-    grid.innerHTML = visibleItems.map(m => {
-      const isBroken = window._brokenIds.has(m.id);
-      const isProcessing = m.exportStatus === 'processing';
-      const isVerifying = (m.status === 'review' || m.status === 'waiting') && m.embed && m.embed.includes('streamtape') && !isProcessing;
-      const icon = typeIcons[m.type] || '🎬';
-      const lang = langIcons[m.lang] || '🇲🇽';
+  tableBody.innerHTML = visibleItems.map(m => {
+    const isBroken = window._brokenIds.has(m.id);
+    const isWaiting = m.status === 'waiting';
+    const isReview = m.status === 'review';
+    
+    // Status Pill Class & Label
+    let statusClass = 'live';
+    let statusLabel = 'Live';
+    if (isBroken) {
+      statusClass = 'archived';
+      statusLabel = 'Broken';
+    } else if (isWaiting) {
+      statusClass = 'scheduled';
+      statusLabel = 'Waiting';
+    } else if (isReview) {
+      statusClass = 'scheduled';
+      statusLabel = 'Curation';
+    }
 
-      return `
-        <div class="admin-inv-card" data-id="${m.id}" style="background: rgba(255,255,255,0.03); border: 1px solid ${isBroken ? '#E74C3C' : (isProcessing ? '#E74C3C' : (isVerifying ? '#2ECC71' : 'var(--glass-border)'))}; border-radius: 12px; padding: 10px; position: relative; transition: transform 0.2s ease; box-shadow: ${isProcessing ? '0 0 10px rgba(231,76,60,0.3) inset' : (isVerifying ? '0 0 10px rgba(46,204,113,0.3) inset' : 'none')};">
-          <input type="checkbox" class="selva-check" data-id="${m.id}" onchange="window.updateSelectedCount()" style="position: absolute; top: 10px; right: 10px; z-index: 5; width: 16px; height: 16px; cursor:pointer; accent-color: var(--primary);">
-          
-          <div style="position: relative; aspect-ratio: 2/3; border-radius: 8px; overflow: hidden; margin-bottom: 8px; background: #111; box-shadow: 0 4px 10px ${isProcessing ? 'rgba(231,76,60,0.5)' : (isVerifying ? 'rgba(46,204,113,0.5)' : 'rgba(0,0,0,0.3)')};">
-              <img src="${m.img}" 
-                   style="width: 100%; height: 100%; object-fit: cover; opacity: ${isBroken || isProcessing ? '0.4' : '1'}; transition: opacity 0.3s;" 
-                   onerror="this.src='https://via.placeholder.com/150x225?text=ERROR'; window.markAsBroken('${m.id}')">
-              
-              <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,0.9)); padding: 6px; font-size: 0.65rem; display: flex; justify-content: space-between; align-items: center;">
-                  <span title="${m.type}">${icon}</span>
-                  <span title="${m.lang}">${lang}</span>
-              </div>
-              
-              ${isBroken ? '<div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); color:#E74C3C; font-weight:bold; font-size:0.6rem; text-shadow:0 0 5px black;">IMAGEN ROTA</div>' : ''}
-              
-              ${isProcessing ? '<div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); display:flex; flex-direction:column; align-items:center; gap:5px;"><div class="spinner" style="width:25px; height:25px; border:3px solid rgba(231,76,60,0.3); border-top-color:#E74C3C; border-radius:50%; animation:spin 1s linear infinite;"></div><div style="background:#E74C3C; color:white; padding:4px 8px; border-radius:4px; font-size:0.5rem; font-weight:900; box-shadow:0 0 10px rgba(231,76,60,0.5);">⏳ CONVIRTIENDO</div></div>' : ''}
-              
-              ${isVerifying ? '<div style="position:absolute; top:8px; left:8px; background:#2ECC71; color:black; padding:4px 8px; border-radius:4px; font-size:0.55rem; font-weight:900; box-shadow:0 0 10px rgba(46,204,113,0.5);">✅ LISTA (REVISAR)</div>' : ''}
+    // Genre badges mapping
+    const genres = (m.genreIds || []).slice(0, 2).map(id => {
+      const gName = GENRE_MAP[String(id)] || 'Movie';
+      return `<span class="genre-badge">${gName}</span>`;
+    }).join('') || `<span class="genre-badge">${m.type === 'series' ? 'Series' : 'Movie'}</span>`;
+
+    const cleanTitle = m.title || 'Untitled Movie';
+    const cleanId = m.imdbId || m.tmdbId || m.id;
+    const releaseDate = m.year ? `Dec 05, ${m.year}` : 'Unknown';
+
+    return `
+      <tr data-id="${m.id}">
+        <td style="text-align: center;">
+          <input type="checkbox" class="selva-check" data-id="${m.id}" onchange="window.updateSelectedCount()" style="cursor:pointer; accent-color: var(--admin-accent-orange); width: 15px; height: 15px;">
+        </td>
+        <td>
+          <div class="cell-poster">
+            <img src="${m.img}" onerror="this.src='https://via.placeholder.com/150x225?text=ERROR'; window.markAsBroken('${m.id}')" alt="poster">
           </div>
-
-        <p style="font-size: 0.7rem; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #eee; margin-bottom: 8px; padding: 0 2px;">${m.title}</p>
-        
-        <div style="display: flex; justify-content: space-between; align-items: center; gap: 5px;">
-            <div style="display:flex; align-items:center; gap:4px;">
-                ${window._reportedIds && window._reportedIds.has(m.id) ? 
-                  '<span style="font-size:0.55rem; background:rgba(231,76,60,0.3); color:#E74C3C; border:1px solid rgba(231,76,60,0.4); padding:1px 5px; border-radius:4px; font-weight:bold;">🚨</span>' :
-                  `<div style="width: 7px; height: 7px; border-radius: 50%; background: ${isBroken ? '#E74C3C' : (m.status === 'healthy' ? '#2ECC71' : (m.status === 'waiting' ? '#F1C40F' : '#3498DB'))}; box-shadow: 0 0 5px ${isBroken ? '#E74C3C' : (m.status === 'healthy' ? '#2ECC71' : (m.status === 'waiting' ? '#F1C40F' : '#3498DB'))};" ></div>`
-                }
-                <span style="font-size: 0.6rem; color: var(--text-muted);">${isBroken ? 'Error' : (m.status === 'healthy' ? 'Sano' : (m.status === 'waiting' ? 'Espera' : 'Mant.'))}</span>
-            </div>
-            <div style="display: flex; gap: 6px;">
-                <button onclick="window.handleCardClick('${m.id}')" title="Probar/Play" style="background: rgba(46,204,113,0.1); border: 1px solid rgba(46,204,113,0.2); color: #2ecc71; width:22px; height:22px; display:flex; align-items:center; justify-content:center; border-radius: 5px; cursor: pointer; font-size: 0.65rem;">▶</button>
-                <button onclick="window.editMovie('${m.id}')" title="Editar" style="background: rgba(255,255,255,0.08); border: none; color: white; width:22px; height:22px; display:flex; align-items:center; justify-content:center; border-radius: 5px; cursor: pointer; font-size: 0.65rem; border:1px solid rgba(255,255,255,0.1);">✏️</button>
-                <button onclick="window.deleteMovie('${m.id}')" title="Borrar" style="background: rgba(231,76,60,0.1); border: 1px solid rgba(231,76,60,0.2); color: #E74C3C; width:22px; height:22px; display:flex; align-items:center; justify-content:center; border-radius: 5px; cursor: pointer; font-size: 0.65rem;">🗑️</button>
-            </div>
-        </div>
-      </div>
+        </td>
+        <td>
+          <div class="cell-title-block">
+            <span class="cell-title-name">${cleanTitle}</span>
+            <span class="cell-title-id">ID: CP-${cleanId.toString().substring(0, 6)}</span>
+          </div>
+        </td>
+        <td>
+          <div style="display: flex; gap: 4px;">
+            ${genres}
+          </div>
+        </td>
+        <td>
+          <span style="font-size: 0.78rem; color: #a1a1aa;">${releaseDate}</span>
+        </td>
+        <td>
+          <span class="status-pill ${statusClass}">${statusLabel}</span>
+        </td>
+        <td>
+          <div class="table-actions-container">
+            <button class="table-action-btn" onclick="window.handleCardClick('${m.id}')" title="Probar / Reproducir">
+              <span class="material-symbols-outlined">play_arrow</span>
+            </button>
+            <button class="table-action-btn" onclick="window.editMovie('${m.id}')" title="Editar Metadatos">
+              <span class="material-symbols-outlined">edit</span>
+            </button>
+            <button class="table-action-btn delete-btn" onclick="window.deleteMovie('${m.id}')" title="Borrar">
+              <span class="material-symbols-outlined">delete</span>
+            </button>
+          </div>
+        </td>
+      </tr>
     `;
   }).join('');
 }
 
 window.updateSelectedCount = () => {
-  const allChecks = Array.from(document.querySelectorAll('#inventory-grid .selva-check'));
+  const allChecks = Array.from(document.querySelectorAll('#admin-catalog-table-body .selva-check'));
   const selected = allChecks.filter(c => c.checked).length;
   
-  const btnDelete = document.getElementById('btn-delete-selected');
-  const btnApprove = document.getElementById('btn-approve-selected');
-  const btnWait = document.getElementById('btn-wait-selected');
+  const bulkPanel = document.getElementById('bulk-actions-panel');
   const countSpan = document.getElementById('selected-count');
-  const btnToggle = document.getElementById('btn-toggle-select');
+  const checkAll = document.getElementById('check-all-inventory');
 
   if (countSpan) countSpan.innerText = selected;
-  if (btnDelete) btnDelete.style.display = selected > 0 ? 'inline-block' : 'none';
-  if (btnApprove) btnApprove.style.display = selected > 0 ? 'inline-block' : 'none';
-  if (btnWait) btnWait.style.display = selected > 0 ? 'inline-block' : 'none';
+  if (bulkPanel) bulkPanel.style.display = selected > 0 ? 'flex' : 'none';
 
-  if (btnToggle) {
-    if (allChecks.length > 0 && selected === allChecks.length) {
-      btnToggle.innerHTML = '⬜ Deselec.';
-      btnToggle.style.background = '#34495E';
-    } else {
-      btnToggle.innerHTML = '☑️ Sel. Todo';
-      btnToggle.style.background = '#2C3E50';
+  if (checkAll) {
+    checkAll.checked = allChecks.length > 0 && selected === allChecks.length;
+  }
+};
+
+// ─── Admin Tab Navigation (CinePulse Portal) ────────────────────────────────
+const ADMIN_TABS = ['dashboard', 'catalog', 'users', 'analytics', 'ads', 'actions'];
+
+window.switchAdminTab = (tab) => {
+  // Hide all tab panes
+  ADMIN_TABS.forEach(t => {
+    const pane = document.getElementById(`admin-${t}-tab`);
+    if (pane) pane.style.display = 'none';
+
+    // Also hide legacy IDs for backwards-compat
+    const legacyMap = {
+      catalog: 'admin-inventory-tab',
+      analytics: 'admin-metrics-tab',
+      actions: 'admin-actions-tab',
+      ads: 'admin-ads-tab',
+    };
+    if (legacyMap[t]) {
+      const legacy = document.getElementById(legacyMap[t]);
+      if (legacy && legacy !== pane) legacy.style.display = 'none';
+    }
+
+    // Remove active class from all sidebar buttons
+    const btn = document.getElementById(`btn-admin-${t}`);
+    if (btn) btn.classList.remove('active');
+  });
+
+  // Show the selected pane
+  const activePane = document.getElementById(`admin-${tab}-tab`);
+  if (activePane) activePane.style.display = 'block';
+
+  // Activate sidebar button
+  const activeBtn = document.getElementById(`btn-admin-${tab}`);
+  if (activeBtn) activeBtn.classList.add('active');
+
+  // Tab-specific logic
+  if (tab === 'catalog') {
+    renderInventory();
+  } else if (tab === 'analytics') {
+    if (typeof window.initMetricsSelectors === 'function') window.initMetricsSelectors();
+    if (typeof window.loadMetrics === 'function') window.loadMetrics();
+  } else if (tab === 'ads') {
+    if (typeof window.loadAdConfig === 'function') window.loadAdConfig();
+  } else if (tab === 'dashboard') {
+    // Refresh dashboard stats using already-loaded inventory
+    if (_allInventoryItems && _allInventoryItems.length > 0) {
+      _updateDetailedStats(_allInventoryItems);
     }
   }
 };
 
-window.switchAdminTab = (tab) => {
-  const invTab = document.getElementById('admin-inventory-tab');
-  const metTab = document.getElementById('admin-metrics-tab');
-  const actTab = document.getElementById('admin-actions-tab');
-  const adsTab = document.getElementById('admin-ads-tab');
-  const levTab = document.getElementById('admin-levels-tab'); // 👑
-  const btnInv = document.getElementById('btn-admin-inventory');
-  const btnMet = document.getElementById('btn-admin-metrics');
-  const btnLev = document.getElementById('btn-admin-levels'); // 👑
-  const btnAds = document.getElementById('btn-admin-ads');
+// ─── Upload / Edit Drawer ───────────────────────────────────────────────────
+window.openUploadDrawer = () => {
+  const drawer = document.getElementById('admin-form-drawer');
+  const overlay = document.getElementById('admin-drawer-overlay');
+  if (drawer) drawer.classList.add('open');
+  if (overlay) overlay.style.display = 'block';
 
-  // Reset all
-  [invTab, metTab, actTab, adsTab, levTab].forEach(t => { if(t) t.style.display = 'none'; });
-  [btnInv, btnMet, btnLev, btnAds].forEach(b => { if(b) b.classList.remove('active'); });
+  // Reset form to "Add New" mode
+  const formTitle = document.getElementById('drawer-form-title');
+  const editingId = document.getElementById('editing-movie-id');
+  const breadcrumb = document.getElementById('drawer-breadcrumb-action');
+  if (formTitle) formTitle.textContent = 'Agregar Nuevo Título';
+  if (breadcrumb) breadcrumb.textContent = 'Agregar Película';
+  if (editingId) editingId.value = '';
 
-  if (tab === 'inventory') {
-    if(invTab) invTab.style.display = 'block';
-    if(btnInv) btnInv.classList.add('active');
-    renderInventory();
-  } else if (tab === 'metrics') {
-    if(metTab) metTab.style.display = 'block';
-    if(btnMet) btnMet.classList.add('active');
-    window.initMetricsSelectors();
-    window.loadMetrics();
-  } else if (tab === 'actions' || tab === 'levels') { // Mapeamos ambos por compatibilidad
-    if(levTab) levTab.style.display = 'block';
-    if(btnLev) btnLev.classList.add('active');
-    // Aquí cargaríamos la matriz de beneficios desde Firestore en el futuro
-  } else if (tab === 'ads') {
-    if(adsTab) adsTab.style.display = 'block';
-    if(btnAds) btnAds.classList.add('active');
-    window.loadAdConfig();
-  }
+  // Reset media previews
+  const imgPrev = document.getElementById('m-img-preview');
+  const backdropPrev = document.getElementById('m-backdrop-preview');
+  if (imgPrev) imgPrev.src = 'https://via.placeholder.com/300x450/111/555?text=Sin+P%C3%B3ster';
+  if (backdropPrev) backdropPrev.src = 'https://via.placeholder.com/600x338/111/555?text=Sin+Banner';
+
+  // Detener y resetear mini reproductor
+  window.stopMiniPlayer();
 };
+
+window.closeUploadDrawer = () => {
+  const drawer = document.getElementById('admin-form-drawer');
+  const overlay = document.getElementById('admin-drawer-overlay');
+  if (drawer) drawer.classList.remove('open');
+  if (overlay) overlay.style.display = 'none';
+
+  // Detener mini reproductor al cerrar
+  window.stopMiniPlayer();
+};
+
+
+
+
+
 
 // --- Monetization Engine v3.0 (Campaigns & Calendar) 🎬📅 ---
 window.adCampaigns = [];
@@ -2182,11 +2263,12 @@ window.resolveReport = async (reportId) => {
 };
 
 window.filterInventoryByCategory = () => {
-  const type = document.getElementById('inventory-type-filter').value;
-  const category = document.getElementById('inventory-filter').value;
+  const type = document.getElementById('inventory-type-filter')?.value || 'all';
+  const category = document.getElementById('inventory-filter')?.value || 'all';
   const langFilter = document.getElementById('inventory-lang-filter')?.value || 'all';
   const genreFilter = document.getElementById('inventory-genre-filter')?.value || 'all';
-  const searchInput = document.getElementById('inventory-search');
+  // Admin usa el buscador de la cabecera; fallback al legacy
+  const searchInput = document.getElementById('admin-global-search') || document.getElementById('inventory-search');
   const query = searchInput ? searchInput.value.toLowerCase() : '';
 
   let filtered = _allInventoryItems.filter(m => {
@@ -2208,8 +2290,7 @@ window.filterInventoryByCategory = () => {
     if (category === 'waiting') matchHealth = m.status === 'waiting';
     if (category === 'verify') matchHealth = (m.status === 'review' || m.status === 'waiting') && m.embed && m.embed.includes('streamtape') && m.exportStatus !== 'processing';
     if (category === 'reported') matchHealth = window._reportedIds && window._reportedIds.has(m.id);
-    // En vista 'all', excluir lo que está en revisión o espera
-    if (category === 'all') matchHealth = m.status !== 'review' && m.status !== 'waiting';
+    // En el admin panel 'all' = TODOS (sin exclusiones por estado)
 
     return matchSearch && matchType && matchLang && matchGenre && matchHealth;
   });
@@ -3739,8 +3820,8 @@ window.openPlayer = async (movieId) => {
     } catch (e) { console.warn("Error recuperando historial:", e); }
   }
 
-  currentPlayerMovie = movie;
-}
+  // El reproductor se lanza via startWarningOverlay → startPlayer → SelvaStream.open()
+};
 
 // --- REPRODUCTOR INTEGRATION ---
 // Ruteo Unificado: handleRouting es ahora la única fuente de verdad
@@ -3832,13 +3913,13 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
     // 7. Botón MI LISTA
     const listBtn = document.getElementById('detail-btn-list');
     if (listBtn) {
-        const isFav = window._myListIds && window._myListIds.has(movieId);
+        const isFav = window._myListIds && window._myListIds.has(movie.id);
         listBtn.innerHTML = isFav
             ? '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 1">favorite</span> EN MI LISTA'
             : '<span class="material-symbols-outlined">add</span> MI LISTA';
         listBtn.style.backgroundColor = isFav ? '#474746' : '#353534';
         listBtn.onclick = () => {
-            if (window.toggleMyList) window.toggleMyList(movieId, listBtn);
+            if (window.toggleMyList) window.toggleMyList(movie.id, listBtn);
         };
     }
 
@@ -3861,7 +3942,7 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
     if (moreLike) {
         const genre = movie.genres ? (Array.isArray(movie.genres) ? movie.genres[0] : movie.genres) : '';
         const similar = movieDatabase.trending
-            .filter(m => m.id !== movieId && m.status !== 'review' && (!genre || (m.genres && (Array.isArray(m.genres) ? m.genres.includes(genre) : m.genres === genre))))
+            .filter(m => m.id !== movie.id && m.status !== 'review' && (!genre || (m.genres && (Array.isArray(m.genres) ? m.genres.includes(genre) : m.genres === genre))))
             .slice(0, 6);
 
         moreLike.innerHTML = similar.length ? similar.map(m => `
@@ -4132,19 +4213,33 @@ window.editMovie = (id) => {
   document.getElementById('m-release-date').value = movie.releaseDate ? new Date(movie.releaseDate).toISOString().slice(0, 16) : "";
   document.getElementById('m-show-countdown').checked = movie.showCountdown !== false;
 
-  // Actualizar preview
+  // Actualizar previsualizaciones
   document.getElementById('m-img-preview').src = movie.img;
+  document.getElementById('m-backdrop-preview').src = movie.backdrop || 'https://via.placeholder.com/600x338/111/555?text=Sin+Banner';
 
-  // Cambiar botones
-  document.getElementById('submit-btn').innerText = "¡Actualizar en la Selva! 🔄";
-  document.getElementById('cancel-edit').style.display = "block";
+  // Cambiar botones del form
+  const submitBtn = document.getElementById('submit-btn');
+  const cancelBtn = document.getElementById('cancel-edit');
+  if (submitBtn) submitBtn.innerText = "¡Actualizar en la Selva! 🔄";
+  if (cancelBtn) cancelBtn.style.display = "block";
 
   // Sugerir imágenes automáticamente al editar
   if (movie.title) searchTMDB(movie.title, true);
 
-  // Hacer scroll al formulario
-  document.getElementById('movie-form').scrollIntoView({ behavior: 'smooth' });
+  // Abrir el drawer deslizante con título en modo edición en español
+  const drawerTitle = document.getElementById('drawer-form-title');
+  const editingIdField = document.getElementById('editing-movie-id');
+  const breadcrumb = document.getElementById('drawer-breadcrumb-action');
+  if (drawerTitle) drawerTitle.textContent = `Editando: ${movie.title}`;
+  if (breadcrumb) breadcrumb.textContent = 'Editar Película';
+  if (editingIdField) editingIdField.value = movie.id;
+  
+  window.openUploadDrawer();
+
+  // Cargar previsualización del video al editar
+  window.updateMiniPlayer();
 };
+
 
 window.suggestImage = (url) => {
   document.getElementById('m-img').value = url;
@@ -5018,8 +5113,178 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Movie Form Submit (Add or Update)
-  document.getElementById('movie-form').addEventListener('submit', async (e) => {
+// ─── Drawer Helper Functions ─────────────────────────────────────────────────
+
+window.submitMovieForm = async () => {
+  const dbId = document.getElementById('m-db-id').value;
+  const title = document.getElementById('m-title').value.trim();
+  const img = document.getElementById('m-img').value.trim();
+
+  if (!title) { window.showToast('¡Falta el título! 🌴', 'error'); return; }
+  if (!img) { window.showToast('¡Falta la imagen del póster!', 'error'); return; }
+
+  const submitBtn = document.getElementById('submit-btn');
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '<span class="material-symbols-outlined">hourglass_empty</span> Saving...'; }
+
+  const movieData = {
+    title,
+    original_title: document.getElementById('m-original-title')?.value.trim() || '',
+    director: document.getElementById('m-director')?.value.trim() || '',
+    synopsis: document.getElementById('m-synopsis')?.value.trim() || '',
+    cast: document.getElementById('m-cast')?.value.trim() || '',
+    alternative_titles: document.getElementById('m-alternative-titles')?.value ? JSON.parse(document.getElementById('m-alternative-titles').value) : [],
+    img,
+    backdrop: document.getElementById('m-backdrop').value.trim(),
+    pinned: document.getElementById('m-pinned').checked,
+    tmdbId: document.getElementById('m-tmdb-id').value.trim(),
+    imdbId: document.getElementById('m-imdb-id').value.trim(),
+    embed: document.getElementById('m-embed').value.trim(),
+    year: document.getElementById('m-year').value || new Date().getFullYear().toString(),
+    rating: document.getElementById('m-rating').value || '7.0',
+    type: document.getElementById('m-type').value || 'movie',
+    lang: document.getElementById('m-lang')?.value || 'es-MX',
+    status: document.getElementById('m-status').value,
+    isVIP: document.getElementById('m-is-vip').checked,
+    releaseDate: document.getElementById('m-release-date')?.value ? new Date(document.getElementById('m-release-date').value).getTime() : null,
+    showCountdown: document.getElementById('m-show-countdown')?.checked ?? true,
+    updatedAt: Date.now()
+  };
+
+  try {
+    if (dbId) {
+      await updateDoc(doc(db, "movies", dbId), movieData);
+      window.showToast('¡Título actualizado! 🌴🔄', 'success');
+    } else {
+      movieData.createdAt = Date.now();
+      await addDoc(moviesCol, movieData);
+      window.showToast('¡Título añadido exitosamente! 🌴🍿', 'success');
+    }
+
+    window.closeUploadDrawer();
+    sessionStorage.removeItem('selvaflix_full_database');
+    sessionStorage.removeItem('selvaflix_cache_timestamp');
+    await loadSelvaFlixData();
+    if (window.filterInventoryByCategory) window.filterInventoryByCategory();
+  } catch (error) {
+    console.error("Error guardando:", error);
+    window.showToast(`Error al guardar: ${error.message}`, 'error');
+  } finally {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<span class="material-symbols-outlined">save</span> Save Changes'; }
+  }
+};
+
+window.cancelEditMode = () => {
+  document.getElementById('m-db-id').value = '';
+  document.getElementById('m-title').value = '';
+  document.getElementById('m-img').value = '';
+  document.getElementById('m-embed').value = '';
+  document.getElementById('drawer-form-title').textContent = 'Untitled Title';
+  const cancelBtn = document.getElementById('cancel-edit');
+  if (cancelBtn) cancelBtn.style.display = 'none';
+  window.closeUploadDrawer();
+};
+
+// Genre tag management
+const _currentGenreTags = new Set();
+
+window.addGenreTag = () => {
+  const tag = prompt('Enter genre tag (e.g. Action, Sci-Fi, Drama):');
+  if (!tag || !tag.trim()) return;
+  const cleaned = tag.trim();
+  if (_currentGenreTags.has(cleaned)) return;
+  _currentGenreTags.add(cleaned);
+  _renderGenreTags();
+};
+
+window.removeGenreTag = (tag) => {
+  _currentGenreTags.delete(tag);
+  _renderGenreTags();
+};
+
+function _renderGenreTags() {
+  const container = document.getElementById('genre-tags-container');
+  if (!container) return;
+  container.innerHTML = '';
+  _currentGenreTags.forEach(tag => {
+    const pill = document.createElement('span');
+    pill.className = 'genre-tag-pill';
+    pill.innerHTML = `${tag} <button type="button" onclick="window.removeGenreTag('${tag}')">×</button>`;
+    container.appendChild(pill);
+  });
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'add-tag-btn';
+  addBtn.textContent = '+ Add Tag';
+  addBtn.onclick = window.addGenreTag;
+  container.appendChild(addBtn);
+  const hidden = document.getElementById('m-genres');
+  if (hidden) hidden.value = JSON.stringify([..._currentGenreTags]);
+}
+
+// Test embed link by playing it
+window.testEmbedLink = () => {
+  const embedUrl = document.getElementById('m-embed').value.trim();
+  if (!embedUrl) { window.showToast('Paste a video URL first', 'error'); return; }
+  const preview = document.getElementById('admin-embed-preview');
+  const filename = document.getElementById('admin-embed-filename');
+  if (preview) preview.style.display = 'flex';
+  if (filename) filename.textContent = embedUrl.substring(0, 50) + (embedUrl.length > 50 ? '…' : '');
+  window.showToast('Link registered. Use Play to test.', 'info');
+};
+
+window.clearEmbedLink = () => {
+  document.getElementById('m-embed').value = '';
+  const preview = document.getElementById('admin-embed-preview');
+  if (preview) preview.style.display = 'none';
+};
+
+// Quick admin actions from drawer
+window.approveFromDrawer = async () => {
+  const id = document.getElementById('m-db-id').value;
+  if (!id) return;
+  try {
+    await updateDoc(doc(db, "movies", id), { status: 'healthy', updatedAt: Date.now() });
+    document.getElementById('m-status').value = 'healthy';
+    window.showToast('✅ Aprobado como Healthy', 'success');
+  } catch(e) { window.showToast('Error: ' + e.message, 'error'); }
+};
+
+window.waitFromDrawer = async () => {
+  const id = document.getElementById('m-db-id').value;
+  if (!id) return;
+  try {
+    await updateDoc(doc(db, "movies", id), { status: 'waiting', updatedAt: Date.now() });
+    document.getElementById('m-status').value = 'waiting';
+    window.showToast('⏳ Puesto en Waiting', 'success');
+  } catch(e) { window.showToast('Error: ' + e.message, 'error'); }
+};
+
+window.deleteFromDrawer = async () => {
+  const id = document.getElementById('m-db-id').value;
+  const title = document.getElementById('m-title').value;
+  if (!id) return;
+  if (!confirm(`¿Borrar "${title}"? Esto no se puede deshacer.`)) return;
+  try {
+    await window.deleteMovie(id);
+    window.closeUploadDrawer();
+  } catch(e) { window.showToast('Error: ' + e.message, 'error'); }
+};
+
+window.setAdminPriorityFromDrawer = async () => {
+  const id = document.getElementById('m-db-id').value;
+  const url = document.getElementById('detail-admin-manual-link-input').value.trim();
+  if (!id || !url) { window.showToast('Necesitas un ID de película y una URL', 'error'); return; }
+  try {
+    await updateDoc(doc(db, "movies", id), { embed: url, status: 'healthy', updatedAt: Date.now() });
+    document.getElementById('m-embed').value = url;
+    document.getElementById('m-status').value = 'healthy';
+    window.showToast('🔒 Priority link set!', 'success');
+  } catch(e) { window.showToast('Error: ' + e.message, 'error'); }
+};
+
+// Movie Form Submit (Add or Update) – legacy form submit listener
+  document.getElementById('movie-form')?.addEventListener('submit', async (e) => {
+
     e.preventDefault();
     const dbId = document.getElementById('m-db-id').value;
 
@@ -6043,3 +6308,187 @@ window.addEventListener('click', (e) => {
         if (dropdown) dropdown.style.display = 'none';
     }
 });
+
+// ─── Previsualización del Reproductor y Generador de Fuentes ──────────────────
+window.updateMiniPlayer = () => {
+  const embedUrl = document.getElementById('m-embed').value.trim();
+  const placeholder = document.getElementById('mini-player-placeholder');
+  const iframe = document.getElementById('mini-player-iframe');
+  
+  if (!embedUrl) {
+    if (placeholder) placeholder.style.display = 'flex';
+    if (iframe) {
+      iframe.style.display = 'none';
+      iframe.src = 'about:blank';
+    }
+    return;
+  }
+
+  if (placeholder) placeholder.style.display = 'none';
+  if (iframe) {
+    iframe.style.display = 'block';
+    iframe.src = embedUrl;
+  }
+};
+
+window.stopMiniPlayer = () => {
+  const placeholder = document.getElementById('mini-player-placeholder');
+  const iframe = document.getElementById('mini-player-iframe');
+  if (placeholder) placeholder.style.display = 'flex';
+  if (iframe) {
+    iframe.style.display = 'none';
+    iframe.src = 'about:blank';
+  }
+};
+
+window.generateSource = (serverType) => {
+  const tmdbId = document.getElementById('m-tmdb-id').value.trim();
+  const imdbId = document.getElementById('m-imdb-id').value.trim();
+  const type = document.getElementById('m-type').value;
+
+  if (!tmdbId && !imdbId) {
+    alert("¡Necesitas primero buscar y seleccionar la película en TMDb para obtener el ID! 🐒");
+    return;
+  }
+
+  let generatedUrl = "";
+  const isTV = (type === 'series' || type === 'tv' || type === 'anime');
+
+  if (serverType === 'vidsrc_to') {
+    if (isTV) {
+      generatedUrl = `https://vidsrc.to/embed/tv/${tmdbId}/1/1`;
+      alert("Se generó el enlace para la Temporada 1, Episodio 1. Puedes editar los números de temporada y episodio en la URL si lo deseas. 🍿");
+    } else {
+      generatedUrl = `https://vidsrc.to/embed/movie/${tmdbId}`;
+    }
+  } else if (serverType === 'vidsrc_me') {
+    if (isTV) {
+      generatedUrl = `https://vidsrc.xyz/embed/tv/${tmdbId}/1-1`;
+    } else {
+      generatedUrl = `https://vidsrc.xyz/embed/movie/${tmdbId}`;
+    }
+  } else if (serverType === 'vidsrc_pro') {
+    if (isTV) {
+      generatedUrl = `https://vidsrc.pro/embed/tv/${tmdbId}/1/1`;
+    } else {
+      generatedUrl = `https://vidsrc.pro/embed/movie/${tmdbId}`;
+    }
+  } else if (serverType === 'superembed') {
+    const id = imdbId || tmdbId;
+    generatedUrl = `https://multiembed.to/imdb.php?video_id=${id}`;
+  }
+
+  if (generatedUrl) {
+    document.getElementById('m-embed').value = generatedUrl;
+    window.updateMiniPlayer();
+    window.showToast("Fuente generada con éxito 🔌", "success");
+  }
+};
+
+window.runAdminScraper = async () => {
+  const tmdbId = document.getElementById('m-tmdb-id').value.trim();
+  const imdbId = document.getElementById('m-imdb-id').value.trim();
+  const type = document.getElementById('m-type').value;
+  const listContainer = document.getElementById('drawer-scraped-links-list');
+  const section = document.getElementById('drawer-scraped-links-section');
+
+  if (!tmdbId && !imdbId) {
+    alert("¡Necesitas primero buscar y seleccionar la película en TMDb para obtener el ID! 🐒");
+    return;
+  }
+
+  if (listContainer) {
+    listContainer.innerHTML = '<p style="color:#ff571a; font-size:0.75rem; font-weight:bold; animation:pulse 1s infinite;">🔍 Buscando torrents y enlaces en la red... 📡</p>';
+  }
+  if (section) section.style.display = 'block';
+
+  try {
+    const queryId = imdbId || tmdbId;
+    const queryType = (['series', 'tv', 'anime'].includes(type) ? 'series' : 'movie');
+
+    // URLs de scrapeo (Mismo motor de Player.js)
+    const providers = "cinecalidad,mejortorrent,wolfmax4k,yts,1337x,torrent9,limetorrents,eztv,rarbg";
+    const tConfig = `providers=${providers}|sort=seeders|qualityfilter=scr,cam`;
+
+    const urls = [
+      { url: `https://torrentio.strem.fun/${tConfig}/stream/${queryType}/${queryId}.json`, name: "T-IO" },
+      { url: `https://comet.strem.fun/stream/${queryType}/${queryId}.json`, name: "COMET" },
+      { url: `https://knightcrawler.elfhosted.com/stream/${queryType}/${queryId}.json`, name: "KNIGHT" }
+    ];
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    const responses = await Promise.allSettled(urls.map(u =>
+      fetch(u.url, { signal: controller.signal }).then(r => r.json())
+    ));
+    clearTimeout(timeoutId);
+
+    let allStreams = [];
+    responses.forEach((res, i) => {
+      if (res.status === 'fulfilled' && res.value && res.value.streams) {
+        res.value.streams.forEach(s => s.providerName = urls[i].name);
+        allStreams = allStreams.concat(res.value.streams);
+      }
+    });
+
+    // Guardar en SelvaStream para compatibilidad con la subida
+    const { SelvaStream } = await import('./components/Player/Player.js');
+    SelvaStream.lastScrapedStreams = allStreams;
+
+    if (allStreams.length === 0) {
+      listContainer.innerHTML = '<p style="color:var(--admin-text-muted); font-size:0.75rem;">No se encontraron torrents activos para este ID. Intenta usar un generador rápido de arriba.</p>';
+      return;
+    }
+
+    listContainer.innerHTML = allStreams.map((s, idx) => {
+      const titleClean = (s.title || s.name || 'Enlace').split('\n')[0].substring(0, 50);
+      const quality = s.title?.includes('4k') || s.title?.includes('2160p') ? '4K' : (s.title?.includes('1080p') ? '1080p' : (s.title?.includes('720p') ? '720p' : 'HD'));
+
+      return `
+        <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); padding:8px 10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom: 5px;">
+          <div style="flex:1; overflow:hidden;">
+            <span style="font-size:0.7rem; font-weight:bold; color:#ff571a; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">[${s.providerName}] ${titleClean}</span>
+            <span style="font-size:0.6rem; color:#aaa;">Calidad: ${quality} | ${s.name || ''}</span>
+          </div>
+          <div style="display:flex; gap:4px; flex-shrink:0;">
+            <button type="button" class="btn" style="font-size:0.65rem; padding:4px 8px; cursor:pointer; background:#2ecc71; border:none; color:#000; font-weight:bold; border-radius:4px;" onclick="window.useScrapedStream(${idx})">🔌 Usar</button>
+            <button type="button" class="btn" style="font-size:0.65rem; padding:4px 8px; cursor:pointer; background:#ff571a; border:none; color:#fff; font-weight:bold; border-radius:4px;" onclick="window.selvaExecuteExportToHosting(document.getElementById('m-db-id').value, ${idx}, true)">📤 Subir</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+  } catch (err) {
+    console.error(err);
+    listContainer.innerHTML = '<p style="color:#e74c3c; font-size:0.75rem;">Fallo al escanear la red. Intenta de nuevo.</p>';
+  }
+};
+
+window.useScrapedStream = (idx) => {
+  import('./components/Player/Player.js').then(({ SelvaStream }) => {
+    const s = SelvaStream.lastScrapedStreams[idx];
+    if (s) {
+      // Si tiene infoHash, de-restringimos primero si es posible, o usamos la url directa si existe
+      let directUrl = s.url;
+      if (s.infoHash && !directUrl) {
+        window.showToast("De-restringiendo link magnet...", "info");
+        SelvaStream.callMasterWorker(s.infoHash).then(rdData => {
+          if (rdData && rdData.url) {
+            document.getElementById('m-embed').value = rdData.url;
+            window.updateMiniPlayer();
+            window.showToast("¡Magnet de-restringido cargado en el video!", "success");
+          } else {
+            window.showToast("No se pudo de-restringir. Poniendo infoHash.", "warning");
+            document.getElementById('m-embed').value = s.infoHash;
+          }
+        });
+      } else {
+        document.getElementById('m-embed').value = directUrl || s.infoHash || "";
+        window.updateMiniPlayer();
+        window.showToast("Enlace de origen cargado con éxito", "success");
+      }
+    }
+  });
+};
+

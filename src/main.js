@@ -539,9 +539,35 @@ loadSelvaFlixData();
 let _currentFilter = '';   // 'movies' | 'series' | 'live' | ''
 let _currentGenre = '';   // TMDB genre id string or ''
 
+// Los enlaces de escritorio (Home / Películas / Series) llevan su propia clase
+// y nadie los actualizaba: "Home" se quedaba naranja aunque estuvieras en Series.
+function marcarNavEscritorio(tipo) {
+  const enlaces = document.querySelectorAll('.nav-desktop-links .nav-link-cinepulse');
+  if (!enlaces.length) return;
+
+  const destino = { '': 'Home', 'movies': 'Películas', 'series': 'Series' }[tipo || ''];
+  enlaces.forEach(a => {
+    a.classList.toggle('active', a.textContent.trim() === destino);
+  });
+}
+
+// "Continuar viendo" es cosa del Home. loadContinueWatching solo corre al cargar
+// el historial, así que al cambiar de pestaña hay que ocultarlo aquí.
+function sincronizarContinuarViendo(tipo) {
+  const fila = document.getElementById('continue-watching-row');
+  if (!fila) return;
+  if (tipo) {
+    fila.style.display = 'none';
+  } else if (document.getElementById('continue-watching-grid')?.children.length) {
+    fila.style.display = 'block';
+  }
+}
+
 window.setFilter = (type) => {
   _currentFilter = type;
   _currentGenre = '';   // reset genre on main filter change
+  marcarNavEscritorio(type);
+  sincronizarContinuarViendo(type);
 
   const adminEl = document.getElementById('admin-view');
   const homeEl = document.getElementById('home-view');
@@ -746,6 +772,10 @@ function handleRouting() {
     const btmMap = { '': 'btn-nav-home', 'movies': 'btn-nav-movies', 'series': 'btn-nav-series' };
     ['btn-nav-home', 'btn-nav-movies', 'btn-nav-series'].forEach(id => document.getElementById(id)?.classList.remove('active'));
     document.getElementById(btmMap[hashVal])?.classList.add('active');
+
+    // Nav de escritorio (también al llegar por URL directa o botón atrás)
+    marcarNavEscritorio(hashVal);
+    sincronizarContinuarViendo(hashVal);
 
     initApp(hashVal, '');
   }
@@ -995,8 +1025,8 @@ function _renderCardsInto(container, data, isTrending = false) {
         
         const cardHtml = `
             <div class="cinepulse-movie-card" data-id="${item.id}" onclick="window.handleCardClick('${item.id}')">
-              <img src="${item.img}" alt="${item.title}" loading="lazy"
-                onerror="this.src='https://via.placeholder.com/500x750/1a1a1a/E74C3C?text=Sin+Imagen';">
+              <img src="${item.img || ''}" alt="${item.title}" loading="lazy"
+                onerror="window.rescatarPoster(this, '${item.tmdbId || ''}', '${item.type || 'movie'}')">
               <div class="cinepulse-card-overlay"></div>
               <div class="btn-add-list ${favClass}" onclick="event.stopPropagation(); window.toggleMyList('${item.id}', this)" title="Añadir a mi selva" style="position: absolute; top: 10px; right: 10px; z-index: 5; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.2);">
                 ${favIcon}
@@ -1146,8 +1176,8 @@ function renderGallery(title, groups) {
 
         return `
           <div class="cinepulse-movie-card gallery-card" data-id="${item.id}" onclick="window.handleCardClick('${item.id}')">
-            <img src="${item.img}" alt="${item.title}" loading="lazy"
-              onerror="this.src='https://via.placeholder.com/500x750/1a1a1a/E74C3C?text=Sin+Imagen';">
+            <img src="${item.img || ''}" alt="${item.title}" loading="lazy"
+              onerror="window.rescatarPoster(this, '${item.tmdbId || ''}', '${item.type || 'movie'}')">
             <div class="cinepulse-card-overlay"></div>
             <div class="btn-add-list ${favClass}" onclick="event.stopPropagation(); window.toggleMyList('${item.id}', this)" title="Añadir a mi selva" style="position: absolute; top: 10px; right: 10px; z-index: 5; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.2);">
                 ${favIcon}
@@ -4137,41 +4167,58 @@ window.handleCardClick = (id) => {
 // ======================================================
 // DETALLE DE PELÍCULA — Vista Premium (Tailwind Design)
 // ======================================================
-// Cache en memoria para no repetir la consulta a TMDB al reabrir una ficha
-const _backdropCache = new Map();
+// ─── Imágenes vía TMDB ───────────────────────────────────────────
+// Guardar URLs de imagen a mano se rompe sola: basta una letra mal para tener un
+// 404 permanente. Con el tmdbId siempre podemos pedirle a TMDB la buena.
+//
+// La caché guarda la *promesa*, no el resultado: si veinte tarjetas del mismo
+// título piden imagen a la vez, se hace una sola llamada a la API.
+const _tmdbImgCache = new Map();
+
+function getTMDBImages(tipo, tmdbId) {
+    const clave = `${tipo}:${tmdbId}`;
+    if (_tmdbImgCache.has(clave)) return _tmdbImgCache.get(clave);
+
+    const pedido = (async () => {
+        try {
+            const res = await fetch(`${TMDB_URL}/${tipo}/${tmdbId}?api_key=${TMDB_API_KEY}&language=es-PE`);
+            const d = await res.json();
+            return { poster: d.poster_path || null, backdrop: d.backdrop_path || null };
+        } catch (e) {
+            console.warn('No se pudo consultar TMDB:', e);
+            return { poster: null, backdrop: null };
+        }
+    })();
+
+    _tmdbImgCache.set(clave, pedido);
+    return pedido;
+}
+
+const _tipoTMDB = (m) => (['series', 'tv', 'anime'].includes(m?.type) ? 'tv' : 'movie');
 
 // La mayoría del catálogo se guardó sin campo `backdrop`, así que el hero del
 // detalle terminaba usando el póster vertical. Aquí pedimos el apaisado real.
 async function fetchBackdropTMDB(movie, el) {
-    const clave = `${movie.type === 'series' ? 'tv' : 'movie'}:${movie.tmdbId}`;
-
-    if (_backdropCache.has(clave)) {
-        const guardado = _backdropCache.get(clave);
-        if (guardado) aplicarBackdrop(el, guardado);
-        return;
-    }
-
-    try {
-        const tipo = movie.type === 'series' ? 'tv' : 'movie';
-        const res = await fetch(`${TMDB_URL}/${tipo}/${movie.tmdbId}?api_key=${TMDB_API_KEY}&language=es-PE`);
-        const data = await res.json();
-        const path = data.backdrop_path;
-
-        _backdropCache.set(clave, path || null);
-        if (!path) return;
-
-        // Solo aplicamos si el usuario sigue en la misma ficha
-        if (el.isConnected) aplicarBackdrop(el, path);
-    } catch (e) {
-        console.warn('No se pudo traer el backdrop de TMDB:', e);
+    const { backdrop } = await getTMDBImages(_tipoTMDB(movie), movie.tmdbId);
+    // Solo aplicamos si el usuario sigue en la misma ficha
+    if (backdrop && el.isConnected) {
+        const size = window.innerWidth >= 1024 ? 'w1280' : 'w780';
+        el.style.backgroundImage = `url('https://image.tmdb.org/t/p/${size}${backdrop}')`;
+        el.style.backgroundPosition = 'center top';
     }
 }
 
-function aplicarBackdrop(el, path) {
-    const size = window.innerWidth >= 1024 ? 'w1280' : 'w780';
-    el.style.backgroundImage = `url('https://image.tmdb.org/t/p/${size}${path}')`;
-    el.style.backgroundPosition = 'center top';
-}
+// Rescate de pósters: se engancha al onerror de las tarjetas. Si la URL guardada
+// falla (o no hay), le pedimos el póster a TMDB en vez de mostrar "Sin Imagen".
+const SIN_IMAGEN = 'https://via.placeholder.com/500x750/1a1a1a/E74C3C?text=Sin+Imagen';
+
+window.rescatarPoster = async (el, tmdbId, tipo) => {
+    el.onerror = null; // sin esto, un fallo del rescate reentra en bucle
+    if (!tmdbId) { el.src = SIN_IMAGEN; return; }
+
+    const { poster } = await getTMDBImages(tipo === 'series' ? 'tv' : 'movie', tmdbId);
+    el.src = poster ? `https://image.tmdb.org/t/p/w500${poster}` : SIN_IMAGEN;
+};
 
 window.openMovieDetail = (slugOrId, opts = {}) => {
     const movie = findMovieBySlugOrId(slugOrId);
@@ -4271,7 +4318,7 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
         moreLike.innerHTML = similar.length ? similar.map(m => `
             <div onclick="window.handleCardClick('${m.id}')" style="cursor:pointer; border-radius:8px; overflow:hidden; background:#201f1f; position:relative; aspect-ratio:2/3;">
                 <img src="${m.img || ''}" alt="${m.title}" loading="lazy"
-                    onerror="this.src='https://via.placeholder.com/300x450/1a1a1a/ff571a?text=SF'"
+                    onerror="window.rescatarPoster(this, '${m.tmdbId || ''}', '${m.type || 'movie'}')"
                     style="width:100%;height:100%;object-fit:cover;">
                 <div style="position:absolute;bottom:0;left:0;right:0;padding:8px;background:linear-gradient(transparent,rgba(0,0,0,0.85));">
                     <p style="margin:0;font-size:12px;font-weight:600;color:#e5e2e1;font-family:Inter,sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${m.title}</p>
@@ -6482,7 +6529,9 @@ window.loadContinueWatching = async () => {
         const container = document.getElementById('continue-watching-row');
         if (!container) return;
 
-        if (history.length === 0) {
+        // Solo en el Home: dentro de Películas o Series estorba, ahí el usuario
+        // viene a explorar el catálogo, no a retomar.
+        if (history.length === 0 || _currentFilter) {
             container.style.display = 'none';
             return;
         }

@@ -555,6 +555,10 @@
           </div>
         </section>
 
+        <!-- Muelle del reproductor: en escritorio el player se acopla aquí en vez
+             de abrirse como pantalla completa, para convivir con la ficha. -->
+        <div id="detail-player-dock"></div>
+
         <!-- Actions -->
         <section id="detail-actions" class="px-margin-mobile py-md flex flex-col gap-sm" style="padding: 16px;">
           <button id="detail-btn-play" class="w-full h-12 bg-primary-container text-on-primary-container rounded-lg font-label-md text-label-md flex items-center justify-center gap-sm active:scale-95 transition-transform bloom-effect" style="background-color: #ff571a; color: #521300; border-radius: 8px; height: 48px; border: none; cursor: pointer; font-weight: 600; width: 100%;">
@@ -633,7 +637,7 @@
           </div>
         </section>
 
-          <div class="px-margin-mobile mb-md" style="padding-left: 16px; padding-right: 16px; margin-bottom: 16px;">
+          <div id="detail-more-like-this-title" class="px-margin-mobile mb-md" style="padding-left: 16px; padding-right: 16px; margin-bottom: 16px;">
             <h2 class="font-headline-md text-headline-md-mobile text-on-surface" style="font-family: Sora, sans-serif; font-size: 24px; font-weight: 700; color: #e5e2e1; margin: 0;">Más como esto</h2>
           </div>
           <div id="detail-more-like-this" class="grid grid-cols-2 gap-md px-margin-mobile" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding-left: 16px; padding-right: 16px;">

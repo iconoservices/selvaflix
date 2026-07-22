@@ -60,6 +60,8 @@ export const SelvaStream = {
                 <button id="floating-sources-btn" class="sources-btn-modern" onclick="SelvaStream.toggleVipMenu()">
                      📡 FUENTES VIP
                 </button>
+                <button id="player-expand-btn" class="sources-btn-modern" title="Pantalla completa"
+                        onclick="SelvaStream.alternarPantalla()">⛶</button>
             </div>
 
             <!-- Sliding Fuentes Menu (Drawer) -->
@@ -279,7 +281,14 @@ export const SelvaStream = {
         this.init();
         const modal = document.getElementById('player-modal');
         modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
+
+        // En escritorio, si venimos de la ficha, el player se acopla junto a la
+        // información en vez de taparla. Se mueve ANTES de cargar la fuente: mover
+        // un iframe en el DOM lo recarga, y así evitamos el doble arranque.
+        this.acoplar();
+
+        // Acoplado la página sigue siendo navegable; a pantalla completa no.
+        document.body.style.overflow = this.estaAcoplado() ? '' : 'hidden';
 
         // Empujamos /play al historial para que "atrás" cierre el player sin salir del detalle
         const currentHash = window.location.hash.substring(1);
@@ -332,15 +341,24 @@ export const SelvaStream = {
         if (movie.embed) {
             console.log("💎 Embed directo detectado — reproducción inmediata");
             if (loader) loader.style.display = 'none';
-            this.lastScrapedStreams = [{
+
+            const oficial = {
                 title: "Servidor Oficial",
                 name: "🌐 Source Directo (Cloud)",
-                url: movie.embed,
+                url: this.limpiarEmbed(movie.embed),
                 infoHash: null,
                 isPublic: true,
                 selvaScore: 1000000
-            }];
-            this.handleExternalStream(this.lastScrapedStreams[0]);
+            };
+
+            // El embed manual arranca primero, pero detrás dejamos las fuentes
+            // públicas: si el link de la BD murió (streamtape borra vídeos), el
+            // usuario tiene alternativas en el menú en vez de quedarse encerrado.
+            const tipo = ['series', 'tv', 'anime'].includes(movie.type) ? 'series' : 'movie';
+            this.lastScrapedStreams = [oficial, ...this.buildPublicStreams(tipo)];
+
+            this.handleExternalStream(oficial);
+            this.renderControls();
             return; // ✅ Reproducción directa — no interrumpir con scraping
         }
 
@@ -382,14 +400,17 @@ export const SelvaStream = {
             const eSel = document.getElementById('selva-episode');
 
             if (details.seasons && sSel && eSel) {
+                // Etiquetas cortas a propósito: en móvil el select mide 92px y
+                // "Temporada 1" se cortaba a "Tempor…", dejando al usuario sin
+                // saber en qué capítulo estaba.
                 sSel.innerHTML = details.seasons
                     .filter(s => s.season_number > 0)
-                    .map(s => `<option value="${s.season_number}">${s.name || `Temp ${s.season_number}`}</option>`).join('');
+                    .map(s => `<option value="${s.season_number}">T${s.season_number}</option>`).join('');
 
                 const updateE = (sNum) => {
                     const s = details.seasons.find(x => x.season_number == sNum);
                     const count = s ? s.episode_count : 24;
-                    eSel.innerHTML = Array.from({ length: count }, (_, i) => `<option value="${i + 1}">Capítulo ${i + 1}</option>`).join('');
+                    eSel.innerHTML = Array.from({ length: count }, (_, i) => `<option value="${i + 1}">E${i + 1}</option>`).join('');
                 };
 
                 let initialSeason = details.seasons.find(s => s.season_number > 0)?.season_number || 1;
@@ -517,15 +538,7 @@ export const SelvaStream = {
 
                 // 🔥 FUENTE OFICIAL (BASE DE DATOS):
                 if (movieRef.embed) {
-                    let cleanEmbed = movieRef.embed;
-                    if (movieRef.embed.includes('<iframe')) {
-                        const srcMatch = movieRef.embed.match(/src="([^"]+)"/);
-                        if (srcMatch) cleanEmbed = srcMatch[1];
-                    }
-
-                    if (cleanEmbed.includes('streamtape.com/v/')) {
-                        cleanEmbed = cleanEmbed.replace('/v/', '/e/');
-                    }
+                    const cleanEmbed = this.limpiarEmbed(movieRef.embed);
 
                     if (!filteredStreams.find(s => s.url === cleanEmbed || s.infoHash === cleanEmbed)) {
                         filteredStreams.unshift({
@@ -712,10 +725,81 @@ export const SelvaStream = {
         }
 
         document.body.style.overflow = ''; // Restaurar scroll
-        
+
+        // Devolver el modal al body para que la próxima apertura parta de cero
+        this.desacoplar();
+
         // 🧹 Limpieza de controles
         const root = document.getElementById('player-controls-root');
         if (root) root.innerHTML = '';
+    },
+
+    // ─── Acople del reproductor (escritorio) ─────────────────────────
+    estaAcoplado() {
+        return document.getElementById('player-modal')?.classList.contains('player-acoplado') || false;
+    },
+
+    // Mete el modal dentro de la ficha para que conviva con la información.
+    // Solo en escritorio y solo si el detalle está visible.
+    acoplar() {
+        const modal = document.getElementById('player-modal');
+        const muelle = document.getElementById('detail-player-dock');
+        const detalle = document.getElementById('detail-view');
+        if (!modal || !muelle) return;
+
+        const cabeAlLado = window.innerWidth >= 1024;
+        const enFicha = detalle && detalle.style.display !== 'none';
+        if (!cabeAlLado || !enFicha) return;
+
+        if (modal.parentElement !== muelle) muelle.appendChild(modal);
+        modal.classList.add('player-acoplado');
+        document.getElementById('detail-view')?.classList.add('con-player-acoplado');
+
+        // Aunque el hero encoge, si la página venía scrolleada el player puede
+        // quedar fuera de vista. Lo traemos para que se vea al instante.
+        requestAnimationFrame(() => {
+            muelle.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        });
+    },
+
+    // Devuelve el modal al <body> y lo deja como pantalla completa otra vez.
+    desacoplar() {
+        const modal = document.getElementById('player-modal');
+        if (!modal) return;
+        modal.classList.remove('player-acoplado');
+        document.getElementById('detail-view')?.classList.remove('con-player-acoplado');
+        if (modal.parentElement !== document.body) document.body.appendChild(modal);
+    },
+
+    // Alterna entre acoplado y pantalla completa sin recargar la fuente si se puede.
+    alternarPantalla() {
+        if (this.estaAcoplado()) {
+            this.desacoplar();
+            document.body.style.overflow = 'hidden';
+        } else {
+            this.acoplar();
+            if (this.estaAcoplado()) document.body.style.overflow = '';
+        }
+        const btn = document.getElementById('player-expand-btn');
+        if (btn) {
+            const acoplado = this.estaAcoplado();
+            btn.textContent = acoplado ? '⛶' : '⤡';
+            btn.title = acoplado ? 'Pantalla completa' : 'Volver junto a la ficha';
+        }
+    },
+
+    // El campo `embed` a veces se guarda como URL y a veces como <iframe ...> pegado
+    // entero desde el panel. Normalizarlo en un solo sitio evita que el mismo servidor
+    // aparezca dos veces en el menú (el crudo y el limpio no se reconocían iguales).
+    limpiarEmbed(embed) {
+        if (!embed) return '';
+        let url = embed;
+        if (url.includes('<iframe')) {
+            const m = url.match(/src="([^"]+)"/);
+            if (m) url = m[1];
+        }
+        if (url.includes('streamtape.com/v/')) url = url.replace('/v/', '/e/');
+        return url.trim();
     },
 
     // 🌐 Catálogo único de fuentes públicas.
@@ -845,15 +929,8 @@ export const SelvaStream = {
 
         // PRIORIDAD 1: Link Manual de Administrador (Vía Panel Admin)
         if (movie && movie.embed && (movie.embed.startsWith('http') || movie.embed.includes('<iframe'))) {
-            let cleanEmbed = movie.embed;
-            if (movie.embed.includes('<iframe')) {
-                const srcMatch = movie.embed.match(/src="([^"]+)"/);
-                if (srcMatch) cleanEmbed = srcMatch[1];
-            }
-            if (cleanEmbed.includes('streamtape.com/v/')) {
-                cleanEmbed = cleanEmbed.replace('/v/', '/e/');
-            }
-            
+            const cleanEmbed = this.limpiarEmbed(movie.embed);
+
             console.log("💎 Usando Link Manual Oficial");
             this.lastScrapedStreams = [{
                 url: cleanEmbed,
@@ -868,196 +945,26 @@ export const SelvaStream = {
             return;
         }
 
-        // Si es usuario normal y no hay embed, reproducimos la primera fuente pública directamente
-        const isAdminForScan = localStorage.getItem('selva_admin_auth') === 'true';
-        if (!isAdminForScan) {
-            if (publicStreams.length > 0) {
-                this.lastScrapedStreams = publicStreams;
-                // Al cambiar de capítulo respetamos el servidor que el usuario venía viendo
-                const elegido = publicStreams.find(s => s.providerName === this.preferredProvider);
-                this.handleExternalStream(elegido || publicStreams[0]);
-                this.renderControls();
-                return;
-            } else {
-                if (loader) loader.style.display = 'none';
-                if (startScreen) {
-                    startScreen.style.display = 'flex';
-                    const msgEl = document.getElementById('vip-status-msg');
-                    if (msgEl) msgEl.innerHTML = '<span style="color:#e74c3c;">⚠️ Contenido no disponible en este momento.</span>';
-                }
-                return;
-            }
-        }
-
-        const loaderText = document.querySelector('.loader-text');
-        if (loaderText) loaderText.innerText = '🚀 Escaneando Selva Global...';
-
-        try {
-            const providers = "cinecalidad,mejortorrent,wolfmax4k,yts,1337x,torrent9,limetorrents,eztv,rarbg";
-            const tConfig = `providers=${providers}|sort=seeders|qualityfilter=scr,cam`;
-
-            const urls = [
-                { url: `https://torrentio.strem.fun/${tConfig}/stream/${queryType}/${queryId}.json`, name: "T-IO" },
-                { url: `https://comet.strem.fun/stream/${queryType}/${queryId}.json`, name: "COMET" },
-                { url: `https://knightcrawler.elfhosted.com/stream/${queryType}/${queryId}.json`, name: "KNIGHT" },
-                { url: `https://mediafusion.elfhosted.com/stream/${queryType}/${queryId}.json`, name: "M-FUSION" }
-            ];
-
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 9500); // Un pelín más para los nuevos motores
-
-            const responses = await Promise.allSettled(urls.map(u =>
-                fetch(u.url, { signal: controller.signal }).then(r => r.json())
-            ));
-            clearTimeout(timeoutId);
-
-            let allStreams = [];
-            responses.forEach((res, i) => {
-                if (res.status === 'fulfilled' && res.value && res.value.streams) {
-                    res.value.streams.forEach(s => s.providerName = urls[i].name);
-                    allStreams = allStreams.concat(res.value.streams);
-                }
-            });
-
-            // Añadir las fuentes públicas al inicio o final
-            allStreams = [...publicStreams, ...allStreams];
-
-            // --- 🕵️‍♂️ PRE-PROCESAMIENTO Y SCORING INTELIGENTE ---
-            let streams = [];
-            allStreams.forEach(s => {
-                const qRaw = ((s.title || '') + ' ' + (s.name || '')).toLowerCase();
-                const url = (s.url || '').toLowerCase();
-
-                // 0. Filtro Básico "No admitidos"
-                if (qRaw.includes('dublado') || qRaw.includes('legendado') || qRaw.includes('português') || qRaw.includes('pt-br') || qRaw.includes('hindi') || qRaw.includes('tamil')) return;
-                
-                // Filtro para excluir IPTV, canales en vivo y archivos .ts de televisión de pago/en vivo
-                const isLiveOrTs = url.includes('.ts') || 
-                                   url.includes('/live') || 
-                                   url.includes('/iptv') || 
-                                   qRaw.includes('iptv') || 
-                                   qRaw.includes('canal en vivo') || 
-                                   qRaw.includes('live stream') ||
-                                   (s.title || '').toLowerCase().includes('.ts');
-                if (isLiveOrTs) return;
-
-                const isDirect = url.includes('.m3u8') || url.includes('.mp4') || url.includes('.mkv') || url.includes('.webm') || qRaw.includes('[rd+]');
-                if (!s.infoHash && !isDirect && !s.isPublic) return; // Filtro de seguridad VIP (Aceptamos Públicas)
-
-                // 1. Detección Profunda de Formato
-                let extMatch = qRaw.match(/\.(mkv|mp4|m3u8|avi|ts|webm)/i);
-                if (!extMatch) extMatch = url.match(/\.(mkv|mp4|m3u8|avi|ts|webm)/i);
-                s.detectedFormat = extMatch ? extMatch[1].toUpperCase() : 'VIDEO';
-
-                // 2. Cálculo de Peso
-                const weightMatch = qRaw.match(/(\d+(\.\d+)?)\s*(gb|mb)/i);
-                s.weightGB = 0;
-                if (weightMatch) {
-                    let val = parseFloat(weightMatch[1]);
-                    if (weightMatch[3].toLowerCase() === 'mb') val = val / 1024;
-                    s.weightGB = val;
-                }
-
-                // 3. Detección de Idioma y Codecs
-                const kwLat = ['latino', 'spanish', 'esp', 'español', 'castellano', 'cinecalidad', 'mx', 'pe', 'cl', 'ar', 'spa', 'dual', 'vose', 'cast', 'lat'];
-                const isLat = kwLat.some(k => qRaw.includes(k));
-                const isMulti = qRaw.includes('multi') || qRaw.includes('dual');
-                const kwEurope = ['french', 'truefrench', 'ita', 'italian', 'ger', 'german', 'rus'];
-                const isNuisance = kwEurope.some(k => qRaw.includes(k));
-                const isEng = qRaw.includes('english') || qRaw.includes('en-us') || qRaw.includes('en-uk');
-
-                if (qRaw.includes('264') || qRaw.includes('avc')) s.detectedVideoCodec = 'H264';
-                else if (qRaw.includes('265') || qRaw.includes('hevc')) s.detectedVideoCodec = 'HEVC';
-                
-                if (qRaw.includes('aac') || qRaw.includes('mp3')) s.detectedAudioCodec = 'AAC';
-                else if (qRaw.includes('ac3') || qRaw.includes('dts') || qRaw.includes('dd5')) s.detectedAudioCodec = 'AC3';
-
-                // 4. Sistema de Puntaje (Score) - ALGORITMO SELVAVIP 3.0 (Español-Fiel)
-                let score = 0;
-                
-                // --- PRIORIDAD 1: META-MATCH (Búsqueda por Títulos/Director) ---
-                const movieTitles = [
-                    this.currentPlayerMovie.title,
-                    this.currentPlayerMovie.original_title,
-                    this.currentPlayerMovie.director,
-                    ...(this.currentPlayerMovie.alternative_titles || [])
-                ].filter(Boolean).map(t => window.normalizeText(t));
-
-                const normStreamTitle = window.normalizeText(s.title + ' ' + (s.name || ''));
-                const hasTitleMatch = movieTitles.some(t => normStreamTitle.includes(t));
-                if (hasTitleMatch) score += 2000;
-
-                // --- PRIORIDAD 2: IDIOMA ---
-                if (isLat) {
-                    score += 5000; // El español siempre arriba
-                } else if (isNuisance) {
-                    score -= 3000; // Purga de idiomas no deseados
-                } else if (isMulti) {
-                    score += 800;  // Multi es buen respaldo
-                } else if (isEng && !isMulti) {
-                    score -= 500;  // Inglés puro al fondo
-                }
-
-                // --- PRIORIDAD 3: COMPATIBILIDAD iOS ---
-                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-                
-                if (s.detectedFormat === 'MP4' || s.detectedFormat === 'M3U8') {
-                    score += 1500; // MP4 es el rey de la compatibilidad
-                } else if (s.detectedFormat === 'MKV' && isIOS) {
-                    score -= 1000; // MKV en iOS = Problemas
-                } else if (s.detectedFormat === 'VIDEO') {
-                    score += 300;  // Fallback decente
-                }
-
-                if (isIOS && s.detectedAudioCodec === 'AC3') {
-                    score -= 1000; // AC3 en iOS = Mudo (Bajar prioridad)
-                }
-
-                // --- PRIORIDAD 4: PESO Y CALIDAD ---
-                if (s.weightGB > 0) {
-                    if (s.weightGB < 3.0) score += 500;      // Ligero/Rápido
-                    else if (s.weightGB <= 8.0) score += 200; // Alta calidad
-                    else if (s.weightGB > 20.0) score -= 800; // Demasiado pesado
-                }
-
-                if (qRaw.includes('1080')) score += 200;
-                else if (qRaw.includes('720')) score += 100;
-
-                // 5. El Dedo de Dios (Prioridad Manual desde Firebase)
-                const movieRef = this.currentPlayerMovie || {};
-                const favHashes = movieRef.suggestedVipHashes || (movieRef.suggestedVipHash ? [movieRef.suggestedVipHash] : []);
-                if (favHashes.includes(s.infoHash) || favHashes.includes(s.url)) {
-                    score += 20000; 
-                }
-
-                if (s.isPublic) score += 1000000; // Prioridad Máxima SelvaFlix (Gratis)
-                s.selvaScore = score;
-                streams.push(s);
-            });
-
-            if (streams.length === 0) throw new Error("No hay semillas VIP válidas");
-
-            // Ordenar de mayor a menor score
-            streams.sort((a, b) => (b.selvaScore || 0) - (a.selvaScore || 0));
-
-            this.lastScrapedStreams = streams;
+        // Los rastreadores de torrents (Torrentio, Comet, Knightcrawler, MediaFusion)
+        // se retiraron: el navegador solo puede hablar WebRTC y los torrents públicos
+        // tienen peers de BitTorrent normal, así que se quedaban en 0 peers para
+        // siempre. Real-Debrid era el puente que los convertía en enlace directo y ya
+        // no está contratado. Aportaban ~49 fuentes irreproducibles (varias ni siquiera
+        // de la película pedida) y desordenaban las buenas, así que admin y visitante
+        // ven ahora exactamente la misma lista.
+        if (publicStreams.length > 0) {
+            this.lastScrapedStreams = publicStreams;
+            // Al cambiar de capítulo respetamos el servidor que el usuario venía viendo
+            const elegido = publicStreams.find(s => s.providerName === this.preferredProvider);
+            this.handleExternalStream(elegido || publicStreams[0]);
             this.renderControls();
-
-            // ✅ AUTO-PLAY: Reproducir la mejor fuente directamente sin esperar click
-            const loader3 = document.getElementById('player-loader');
-            if (loader3) loader3.style.display = 'none';
-
-            // Ocultar el start-screen e ir directo al video
-            this.playFirstAvailable();
-        } catch (e) {
-            console.error("Motor VIP falló:", e);
-            // Mostrar start-screen con el error para que el usuario vea el mensaje y el botón de reintentar
-            const ss = document.getElementById('player-start-screen');
-            if (ss) ss.style.display = 'flex';
-            const loader3 = document.getElementById('player-loader');
-            if (loader3) loader3.style.display = 'none';
-            const msgEl = document.getElementById('vip-status-msg');
-            if (msgEl) msgEl.innerHTML = '<span style="color:#e74c3c;">⚠️ No se encontraron fuentes VIP. <button onclick="SelvaStream.loadDebridAuto()" style="background:var(--primary);color:black;border:none;padding:4px 10px;border-radius:6px;font-weight:bold;cursor:pointer;margin-left:6px;">Reintentar</button></span>';
+        } else {
+            if (loader) loader.style.display = "none";
+            if (startScreen) {
+                startScreen.style.display = "flex";
+                const msgEl = document.getElementById("vip-status-msg");
+                if (msgEl) msgEl.innerHTML = '<span style="color:#e74c3c;">⚠️ Contenido no disponible en este momento.</span>';
+            }
         }
     },
 

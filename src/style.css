@@ -5182,3 +5182,166 @@ input:checked+.slider:before {
     padding-right: clamp(24px, 3vw, 48px) !important;
   }
 }
+
+/* ── Recomendadas y paneles del detalle en escritorio ───────────────
+   La grilla "Más como esto" tenía 2 columnas fijas puestas en el HTML:
+   en un monitor de 1900px cada tarjeta salía de ~950px de ancho. Y los
+   botones de Soporte/Administración ocupaban la pantalla entera.
+   ------------------------------------------------------------------ */
+@media (min-width: 1024px) {
+
+  #detail-more-like-this-title {
+    max-width: 1180px;
+    margin: 0 auto 16px !important;
+    padding-left: clamp(32px, 5vw, 80px) !important;
+    padding-right: clamp(32px, 5vw, 80px) !important;
+  }
+
+  #detail-more-like-this {
+    grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)) !important;
+    gap: 20px !important;
+    max-width: 1180px;
+    margin: 0 auto !important;
+    padding-left: clamp(32px, 5vw, 80px) !important;
+    padding-right: clamp(32px, 5vw, 80px) !important;
+  }
+
+  /* Botones de acción a ancho natural, no de borde a borde */
+  #detail-admin-section button,
+  #detail-btn-report,
+  #detail-btn-share {
+    max-width: 320px;
+  }
+
+  #detail-admin-section input[type="text"] {
+    max-width: 520px;
+  }
+}
+
+/* ── Reproductor acoplado a la ficha (escritorio) ───────────────────
+   Antes, darle a PLAY abría una pantalla completa que tapaba toda la
+   información de la película. En escritorio sobra ancho, así que el
+   player se acopla a la derecha y convive con la ficha.
+   ------------------------------------------------------------------ */
+#detail-player-dock { display: none; }
+
+@media (min-width: 1024px) {
+
+  /* Solo montamos la rejilla de 2 columnas cuando hay player acoplado;
+     sin él la ficha conserva su maquetación de una columna. */
+  #detail-view.con-player-acoplado main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 620px);
+    column-gap: 40px;
+    align-items: start;
+    max-width: 1500px;
+    margin: 0 auto;
+  }
+
+  /* El hero y las recomendadas siguen ocupando todo el ancho */
+  #detail-view.con-player-acoplado #detail-hero,
+  #detail-view.con-player-acoplado #detail-more-like-this-title,
+  #detail-view.con-player-acoplado #detail-more-like-this {
+    grid-column: 1 / -1;
+  }
+
+  /* La información se queda en la columna izquierda */
+  #detail-view.con-player-acoplado #detail-actions,
+  #detail-view.con-player-acoplado #detail-synopsis-section,
+  #detail-view.con-player-acoplado #detail-admin-section,
+  #detail-view.con-player-acoplado main > section:not(#detail-hero) {
+    grid-column: 1;
+    max-width: none;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  /* Con el player acoplado el hero se encoge: si mide 700px el reproductor
+     nace por debajo del pliegue y no se ve al dar PLAY. */
+  #detail-view.con-player-acoplado #detail-hero {
+    height: min(42vh, 380px) !important;
+  }
+
+  #detail-view.con-player-acoplado #detail-title {
+    font-size: clamp(34px, 3vw, 52px) !important;
+  }
+
+  /* El muelle ocupa la columna derecha y acompaña al hacer scroll */
+  #detail-view.con-player-acoplado #detail-player-dock {
+    display: block;
+    grid-column: 2;
+    grid-row: 2 / span 20;
+    position: sticky;
+    top: 24px;
+    align-self: start;
+  }
+
+  /* El modal deja de ser pantalla completa y se comporta como un bloque.
+     `relative` (no `static`) para que los controles se anclen a él. */
+  .player-modal.player-acoplado {
+    position: relative !important;
+    width: 100% !important;
+    height: auto !important;
+    aspect-ratio: 16 / 9;
+    z-index: auto !important;
+    backdrop-filter: none !important;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.10);
+    box-shadow: 0 18px 50px rgba(0,0,0,0.55);
+    animation: none;
+  }
+}
+
+/* ── Controles del reproductor acoplado ─────────────────────────────
+   En pantalla completa los controles son `fixed` y se pegan a las
+   esquinas de la ventana. Acoplado eso los dejaba flotando sobre la
+   página en vez de sobre el vídeo, así que aquí se anclan al player
+   y aparecen al pasar el ratón, como en cualquier reproductor.
+   ------------------------------------------------------------------ */
+@media (min-width: 1024px) {
+
+  /* Siempre visibles, no al pasar el ratón: el iframe del proveedor cubre
+     todo el player y se traga los eventos de puntero, así que `:hover` sobre
+     el contenedor no dispara de forma fiable. Si se ocultaran, quedarían
+     inalcanzables. */
+  .player-modal.player-acoplado .player-back-arrow,
+  .player-modal.player-acoplado .player-top-controls {
+    position: absolute !important;
+    top: 12px !important;
+    opacity: 0.9;
+    transition: opacity 0.2s ease;
+    z-index: 20;
+  }
+
+  .player-modal.player-acoplado .player-back-arrow { left: 12px !important; }
+  .player-modal.player-acoplado .player-top-controls { right: 12px !important; }
+
+  .player-modal.player-acoplado .player-back-arrow:hover,
+  .player-modal.player-acoplado .player-top-controls:hover { opacity: 1; }
+
+  /* Degradado arriba para que los botones se lean sobre cualquier vídeo */
+  .player-modal.player-acoplado::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 80px;
+    background: linear-gradient(rgba(0,0,0,0.6), transparent);
+    pointer-events: none;
+    z-index: 15;
+  }
+
+  /* Botones más compactos: la caja acoplada es más pequeña */
+  .player-modal.player-acoplado .sources-btn-modern {
+    padding: 7px 14px;
+    font-size: 0.7rem;
+  }
+  .player-modal.player-acoplado .player-back-arrow {
+    width: 36px;
+    height: 36px;
+  }
+  .player-modal.player-acoplado .player-back-arrow svg {
+    width: 17px;
+    height: 17px;
+  }
+}

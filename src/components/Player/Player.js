@@ -786,6 +786,26 @@ export const SelvaStream = {
             // 🌐 SuperEmbed
             const superEmbed = `https://multiembed.mov/?video_id=${currentTid}&tmdb=1${isTv ? `&s=${s}&e=${e}` : ''}`;
             publicStreams.push({ title: `[MULTI] 🌐 ${movieTitle} - Servidor 6`, name: "🌐 MULTIEMBED", url: superEmbed, providerName: "SuperEmbed", isPublic: true });
+
+            // 🌐 VidLink (Excelente compatibilidad y audios en español)
+            const vidLink = isTv ? `https://vidlink.pro/tv/${currentTid}/${s}/${e}?primaryColor=ff7a00` : `https://vidlink.pro/movie/${currentTid}?primaryColor=ff7a00`;
+            publicStreams.push({ title: `[MULTI-IDIOMA] 🌐 ${movieTitle} - Servidor Link 7`, name: "🌐 VIDLINK.PRO", url: vidLink, providerName: "VidLink", isPublic: true });
+
+            // 🌐 Vidsrc.pro (Rápido y con múltiples opciones de idioma)
+            const vidsrcPro = isTv ? `https://vidsrc.pro/embed/tv/${currentTid}/${s}/${e}` : `https://vidsrc.pro/embed/movie/${currentTid}`;
+            publicStreams.push({ title: `[MULTI-IDIOMA] 🌐 ${movieTitle} - Servidor Pro 8`, name: "🌐 VIDSRC.PRO", url: vidsrcPro, providerName: "VidsrcPro", isPublic: true });
+
+            // 🌐 Vidsrc.cc (Estable con buen soporte en español)
+            const vidsrcCc = isTv ? `https://vidsrc.cc/v2/embed/tv/${currentTid}/${s}/${e}` : `https://vidsrc.cc/v2/embed/movie/${currentTid}`;
+            publicStreams.push({ title: `[MULTI-IDIOMA] 🌐 ${movieTitle} - Servidor CC 9`, name: "🌐 VIDSRC.CC", url: vidsrcCc, providerName: "VidsrcCc", isPublic: true });
+
+            // 🌐 FlixLatam (Excelente fuente en español latino)
+            if (imdbId) {
+                const flixLatamUrl = isTv 
+                    ? `https://flixlatam.com/vidurl/${imdbId}-${s}x${e < 10 ? '0' + e : e}/` 
+                    : `https://flixlatam.com/vidurl/${imdbId}/`;
+                publicStreams.push({ title: `[ESPAÑOL LATINO] 🌐 ${movieTitle} - Servidor FlixLatam`, name: "🇲🇽 FLIXLATAM", url: flixLatamUrl, providerName: "FlixLatam", isPublic: true });
+            }
         }
 
         // PRIORIDAD 1: Link Manual de Administrador (Vía Panel Admin)
@@ -882,6 +902,26 @@ export const SelvaStream = {
                 // 🌐 SuperEmbed
                 const superEmbed = `https://multiembed.mov/?video_id=${id}&tmdb=1${isTv ? `&s=${s}&e=${e}` : ''}`;
                 publicStreams.push({ title: `[MULTI] 🌐 ${movieTitle} - Servidor 6`, name: "🌐 MULTIEMBED", url: superEmbed, providerName: "SuperEmbed", isPublic: true });
+
+                // 🌐 VidLink (Excelente compatibilidad y audios en español)
+                const vidLink = isTv ? `https://vidlink.pro/tv/${tmdbId}/${s}/${e}?primaryColor=ff7a00` : `https://vidlink.pro/movie/${tmdbId}?primaryColor=ff7a00`;
+                publicStreams.push({ title: `[MULTI-IDIOMA] 🌐 ${movieTitle} - Servidor Link 7`, name: "🌐 VIDLINK.PRO", url: vidLink, providerName: "VidLink", isPublic: true });
+
+                // 🌐 Vidsrc.pro (Rápido y con múltiples opciones de idioma)
+                const vidsrcPro = isTv ? `https://vidsrc.pro/embed/tv/${tmdbId}/${s}/${e}` : `https://vidsrc.pro/embed/movie/${tmdbId}`;
+                publicStreams.push({ title: `[MULTI-IDIOMA] 🌐 ${movieTitle} - Servidor Pro 8`, name: "🌐 VIDSRC.PRO", url: vidsrcPro, providerName: "VidsrcPro", isPublic: true });
+
+                // 🌐 Vidsrc.cc (Estable con buen soporte en español)
+                const vidsrcCc = isTv ? `https://vidsrc.cc/v2/embed/tv/${tmdbId}/${s}/${e}` : `https://vidsrc.cc/v2/embed/movie/${tmdbId}`;
+                publicStreams.push({ title: `[MULTI-IDIOMA] 🌐 ${movieTitle} - Servidor CC 9`, name: "🌐 VIDSRC.CC", url: vidsrcCc, providerName: "VidsrcCc", isPublic: true });
+
+                // 🌐 FlixLatam (Excelente fuente en español latino)
+                if (imdbId) {
+                    const flixLatamUrl = isTv 
+                        ? `https://flixlatam.com/vidurl/${imdbId}-${s}x${e < 10 ? '0' + e : e}/` 
+                        : `https://flixlatam.com/vidurl/${imdbId}/`;
+                    publicStreams.push({ title: `[ESPAÑOL LATINO] 🌐 ${movieTitle} - Servidor FlixLatam`, name: "🇲🇽 FLIXLATAM", url: flixLatamUrl, providerName: "FlixLatam", isPublic: true });
+                }
             }
 
             const controller = new AbortController();
@@ -912,6 +952,16 @@ export const SelvaStream = {
                 // 0. Filtro Básico "No admitidos"
                 if (qRaw.includes('dublado') || qRaw.includes('legendado') || qRaw.includes('português') || qRaw.includes('pt-br') || qRaw.includes('hindi') || qRaw.includes('tamil')) return;
                 
+                // Filtro para excluir IPTV, canales en vivo y archivos .ts de televisión de pago/en vivo
+                const isLiveOrTs = url.includes('.ts') || 
+                                   url.includes('/live') || 
+                                   url.includes('/iptv') || 
+                                   qRaw.includes('iptv') || 
+                                   qRaw.includes('canal en vivo') || 
+                                   qRaw.includes('live stream') ||
+                                   (s.title || '').toLowerCase().includes('.ts');
+                if (isLiveOrTs) return;
+
                 const isDirect = url.includes('.m3u8') || url.includes('.mp4') || url.includes('.mkv') || url.includes('.webm') || qRaw.includes('[rd+]');
                 if (!s.infoHash && !isDirect && !s.isPublic) return; // Filtro de seguridad VIP (Aceptamos Públicas)
 

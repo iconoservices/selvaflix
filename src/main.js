@@ -5348,13 +5348,20 @@ function initApp(filterType = '', genreId = '') {
       .slice(0, 12);
     if (recommended.length > 0) renderRow('Recomendadas para ti', recommended);
 
-    // 2. Tendencias en la Selva (Local)
-    const popularity = [...allContent]
+    // 2. Tendencias en la Selva (Local plays, with fallback to top-rated mixed catalog if no plays yet)
+    let popularity = [...allContent]
       .filter(c => c.type !== 'live')
       .map(c => ({ ...c, plays: playCounts[c.tmdbId] || playCounts[c.id] || 0 }))
       .filter(c => c.plays > 0)
       .sort((a, b) => b.plays - a.plays)
       .slice(0, 12);
+
+    if (popularity.length === 0) {
+      popularity = [...allContent]
+        .filter(c => c.type !== 'live')
+        .sort((a, b) => parseFloat(b.rating || 0) - parseFloat(a.rating || 0))
+        .slice(0, 12);
+    }
     if (popularity.length > 0) renderRow('Tendencias en la Selva', popularity);
 
     // 3. Categorías Estándar
@@ -5365,35 +5372,6 @@ function initApp(filterType = '', genreId = '') {
     if (movies.length > 0) renderRow('Películas', movies, 'movies');
     if (series.length > 0) renderRow('Series', series, 'series');
     if (anime.length > 0) renderRow('Anime', anime, 'series');
-
-    // ALGORITMO 2: Tendencias Globales de TMDB (para usuarios nuevos sin historial)
-    // Corre en paralelo sin bloquear la UI (async fire-and-forget)
-    (async () => {
-      try {
-        const trendRes = await fetch(`${TMDB_URL}/trending/all/week?api_key=${TMDB_API_KEY}&language=es-MX`);
-        const trendData = await trendRes.json();
-        if (!trendData.results) return;
-        
-        // Solo mostrar los que YA están en nuestra selva (así no mostramos links rotos)
-        const selfIds = new Set(allContent.map(c => String(c.tmdbId)));
-        const globalTrends = trendData.results
-          .filter(t => selfIds.has(String(t.id)))
-          .map(t => allContent.find(c => String(c.tmdbId) === String(t.id)))
-          .filter(Boolean)
-          .slice(0, 12);
-
-        if (globalTrends.length > 0 && container.isConnected) {
-          renderRow('Lo más visto en el Mundo', globalTrends);
-          const worldSection = container.lastElementChild;
-          // Insertar después de Tendencias en la Selva (si existe) o al principio
-          const selvaRow = container.querySelector('.category-row');
-          if (selvaRow) selvaRow.after(worldSection);
-          else container.insertBefore(worldSection, container.firstChild);
-        }
-      } catch (e) {
-        console.warn('No se pudo cargar tendencias globales TMDB:', e.message);
-      }
-    })();
   }
 
   // 🚀 Encendido del motor de rotación (al final para liberar el hilo principal)

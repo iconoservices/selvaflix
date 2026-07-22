@@ -297,7 +297,7 @@ window.updateAdminUI = () => {
   if (dot) dot.style.display = isAdmin ? 'block' : 'none';
 };
 async function seedPopularSeries() {
-  const FAMOUS_SERIES = [
+  const FAMOUS_CONTENT = [
     {
       title: "Rick y Morty",
       tmdbId: 60625,
@@ -381,13 +381,73 @@ async function seedPopularSeries() {
       rating: "8.2",
       year: 2017,
       status: "healthy"
+    },
+    {
+      title: "Avatar: El sentido del agua",
+      tmdbId: 76600,
+      imdbId: "tt1630029",
+      type: "movie",
+      img: "https://image.tmdb.org/t/p/w500/8c9wsDToZ3z56m6Vj4nB25p64ui.jpg",
+      description: "Jake Sully vive con su nueva familia en el planeta de Pandora. Cuando una amenaza regresa, Jake debe trabajar con Neytiri.",
+      genres: ["Ciencia Ficción", "Aventura", "Acción"],
+      rating: "7.6",
+      year: 2022,
+      status: "healthy"
+    },
+    {
+      title: "Gladiator",
+      tmdbId: 98,
+      imdbId: "tt0172495",
+      type: "movie",
+      img: "https://image.tmdb.org/t/p/w500/u3W1W96yS81C1pivWnZ0wA1Qy8r.jpg",
+      description: "Un ex general romano jura venganza contra el corrupto emperador que asesinó a su familia y lo condenó a la esclavitud.",
+      genres: ["Acción", "Drama", "Aventura"],
+      rating: "8.2",
+      year: 2000,
+      status: "healthy"
+    },
+    {
+      title: "Del revés 2 (Inside Out 2)",
+      tmdbId: 1022789,
+      imdbId: "tt22022452",
+      type: "movie",
+      img: "https://image.tmdb.org/t/p/w500/wz97y7y0w4mB416g3FjH447N0Kk.jpg",
+      description: "Riley es ahora una adolescente y su mente experimenta cambios repentinos, introduciendo nuevas emociones.",
+      genres: ["Animación", "Aventura", "Familia", "Comedia"],
+      rating: "7.7",
+      year: 2024,
+      status: "healthy"
+    },
+    {
+      title: "Dune: Parte dos",
+      tmdbId: 693134,
+      imdbId: "tt15239678",
+      type: "movie",
+      img: "https://image.tmdb.org/t/p/w500/6v4UjL43dI4C8pQ6UfB8S1l3F7q.jpg",
+      description: "Paul Atreides se une a Chani y a los Fremen mientras busca venganza contra los conspiradores que destruyeron a su familia.",
+      genres: ["Ciencia Ficción", "Aventura"],
+      rating: "8.3",
+      year: 2024,
+      status: "healthy"
+    },
+    {
+      title: "Spider-Man: No Way Home",
+      tmdbId: 634649,
+      imdbId: "tt10872600",
+      type: "movie",
+      img: "https://image.tmdb.org/t/p/w500/uJ603O61g55Jg4u2XgD65c49N0K.jpg",
+      description: "Peter Parker pide ayuda al Doctor Strange para hacer que el mundo olvide su identidad secreta, desatando el multiverso.",
+      genres: ["Acción", "Aventura", "Ciencia Ficción"],
+      rating: "8.0",
+      year: 2021,
+      status: "healthy"
     }
   ];
 
   if (!Array.isArray(movieDatabase.trending)) return;
 
   let addedAny = false;
-  for (const s of FAMOUS_SERIES) {
+  for (const s of FAMOUS_CONTENT) {
     const exists = movieDatabase.trending.some(m => 
       (m.tmdbId && m.tmdbId === s.tmdbId) || 
       (m.title && m.title.toLowerCase() === s.title.toLowerCase())
@@ -397,7 +457,7 @@ async function seedPopularSeries() {
         const docRef = await addDoc(collection(db, "movies"), { ...s, createdAt: Date.now() });
         movieDatabase.trending.push({ id: docRef.id, ...s });
         addedAny = true;
-        console.log(`🌴 Serie sembrada automáticamente: ${s.title}`);
+        console.log(`🌴 Contenido sembrado automáticamente: ${s.title}`);
       } catch (err) {
         console.error(`Error sembrando ${s.title}:`, err);
       }
@@ -555,6 +615,8 @@ window.goToHome = () => {
 // Navega a la pestaña Mi Selva
 window.goToMyList = async () => {
   history.pushState(null, '', '#mylist');
+  // pushState no dispara hashchange, así que handleRouting no corre: cerramos aquí
+  if (typeof SelvaStream !== 'undefined') SelvaStream.close();
   showView('my-list-view');
   window.scrollTo(0, 0);
   await window.loadMyList();
@@ -562,8 +624,13 @@ window.goToMyList = async () => {
 
 function handleRouting() {
   const hash = window.location.hash.substring(1) || '';
-  
-  // El player-modal es ahora un overlay independiente del hash — no se cierra por cambios de ruta
+
+  // El player-modal es un overlay independiente del hash, así que hay que cerrarlo
+  // a mano en cuanto la ruta deja de ser /play. Si no, se queda encima de la app
+  // (invisible pero comiéndose los clics) y con el scroll del body bloqueado.
+  if (!hash.endsWith('/play') && typeof SelvaStream !== 'undefined') {
+    SelvaStream.close();
+  }
 
   const genreBar = document.getElementById('genre-bar');
   if (genreBar) genreBar.style.display = 'flex'; // Siempre visible
@@ -579,8 +646,7 @@ function handleRouting() {
       showView('detail-view');
       if (slugOrId) window.openMovieDetail(slugOrId, { autoPlay: true });
     } else {
-      // Ruta normal de detalle — cerrar player si estaba abierto
-      if (typeof SelvaStream !== 'undefined') SelvaStream.close();
+      // Ruta normal de detalle (el player ya se cerró arriba)
       showView('detail-view');
       if (slugOrId) window.openMovieDetail(slugOrId);
     }
@@ -3995,6 +4061,42 @@ window.handleCardClick = (id) => {
 // ======================================================
 // DETALLE DE PELÍCULA — Vista Premium (Tailwind Design)
 // ======================================================
+// Cache en memoria para no repetir la consulta a TMDB al reabrir una ficha
+const _backdropCache = new Map();
+
+// La mayoría del catálogo se guardó sin campo `backdrop`, así que el hero del
+// detalle terminaba usando el póster vertical. Aquí pedimos el apaisado real.
+async function fetchBackdropTMDB(movie, el) {
+    const clave = `${movie.type === 'series' ? 'tv' : 'movie'}:${movie.tmdbId}`;
+
+    if (_backdropCache.has(clave)) {
+        const guardado = _backdropCache.get(clave);
+        if (guardado) aplicarBackdrop(el, guardado);
+        return;
+    }
+
+    try {
+        const tipo = movie.type === 'series' ? 'tv' : 'movie';
+        const res = await fetch(`${TMDB_URL}/${tipo}/${movie.tmdbId}?api_key=${TMDB_API_KEY}&language=es-PE`);
+        const data = await res.json();
+        const path = data.backdrop_path;
+
+        _backdropCache.set(clave, path || null);
+        if (!path) return;
+
+        // Solo aplicamos si el usuario sigue en la misma ficha
+        if (el.isConnected) aplicarBackdrop(el, path);
+    } catch (e) {
+        console.warn('No se pudo traer el backdrop de TMDB:', e);
+    }
+}
+
+function aplicarBackdrop(el, path) {
+    const size = window.innerWidth >= 1024 ? 'w1280' : 'w780';
+    el.style.backgroundImage = `url('https://image.tmdb.org/t/p/${size}${path}')`;
+    el.style.backgroundPosition = 'center top';
+}
+
 window.openMovieDetail = (slugOrId, opts = {}) => {
     const movie = findMovieBySlugOrId(slugOrId);
     if (!movie) {
@@ -4011,10 +4113,24 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
     // 1. Backdrop / Hero Image
     const backdropEl = document.getElementById('detail-backdrop');
     if (backdropEl) {
-        const imgUrl = movie.backdrop || movie.img || '';
+        let imgUrl = movie.backdrop || movie.img || '';
+        const esApaisado = !!movie.backdrop;
+
+        // En escritorio el hero mide ~1600px: una w500 de TMDB se ve borrosa estirada.
+        // Solo tocamos URLs de TMDB, los backdrops subidos a mano se quedan igual.
+        if (window.innerWidth >= 1024 && imgUrl.includes('image.tmdb.org')) {
+            imgUrl = imgUrl.replace(/\/w(200|300|500|780)\//, '/w1280/');
+        }
+
         backdropEl.style.backgroundImage = `url('${imgUrl}')`;
         backdropEl.style.backgroundSize = 'cover';
-        backdropEl.style.backgroundPosition = 'center top';
+        // Si lo que tenemos es el póster vertical (la mayoría del catálogo no trae
+        // backdrop), encuadrar arriba deja ver solo la franja superior. El centro
+        // es donde suele estar el sujeto.
+        backdropEl.style.backgroundPosition = esApaisado ? 'center top' : 'center center';
+
+        // Y en paralelo pedimos a TMDB el backdrop apaisado de verdad.
+        if (!movie.backdrop && movie.tmdbId) fetchBackdropTMDB(movie, backdropEl);
     }
 
     // 2. Título
@@ -4890,7 +5006,10 @@ function initApp(filterType = '', genreId = '') {
   });
 
   // 🔒 Ocultar "En Revisión" del público - solo visibles en el panel Admin
-  allContent = allContent.filter(c => c.status !== 'review');
+  const isAdmin = localStorage.getItem('selva_admin_auth') === 'true';
+  if (!isAdmin) {
+    allContent = allContent.filter(c => c.status !== 'review');
+  }
 
   // Apply genre filter if set (genre stored as array or single string in item.genres)
   if (genreId && genreId !== 'all') {

@@ -5109,8 +5109,11 @@ input:checked+.slider:before {
     height: min(78vh, 700px) !important;
   }
 
-  /* La info del hero deja de pegarse al borde */
+  /* La info del hero comparte contenedor con el resto para que el título
+     y los botones arranquen sobre la misma línea vertical */
   #detail-hero-info {
+    max-width: 1180px;
+    margin: 0 auto !important;
     padding: 0 clamp(32px, 5vw, 80px) 48px !important;
   }
 

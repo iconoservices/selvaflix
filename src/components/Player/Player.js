@@ -81,8 +81,15 @@ export const SelvaStream = {
                         <div class="spinner-tropical"></div>
                     </div>
                     
-                    <iframe id="player-iframe" src="" style="display:none;" 
-                        allow="autoplay"
+                    <!-- sandbox SIN allow-popups: los servidores públicos intentan abrir
+                         ventanas flotantes al tocar el video. En PC el adblocker las
+                         frena, pero en el celular no hay extensiones, así que las
+                         prohibimos desde el navegador mismo. Tampoco lleva
+                         allow-top-navigation, para que el embed no pueda redirigir
+                         la página entera. -->
+                    <iframe id="player-iframe" src="" style="display:none;"
+                        sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
+                        allow="autoplay; encrypted-media; picture-in-picture"
                         allowfullscreen>
                     </iframe>
                     

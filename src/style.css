@@ -5259,11 +5259,15 @@ input:checked+.slider:before {
   /* Con el player acoplado el hero se encoge: si mide 700px el reproductor
      nace por debajo del pliegue y no se ve al dar PLAY. */
   #detail-view.con-player-acoplado #detail-hero {
-    height: min(42vh, 380px) !important;
+    height: min(30vh, 260px) !important;
   }
 
   #detail-view.con-player-acoplado #detail-title {
-    font-size: clamp(34px, 3vw, 52px) !important;
+    font-size: clamp(28px, 2.4vw, 42px) !important;
+  }
+
+  #detail-view.con-player-acoplado #detail-hero-info {
+    padding-bottom: 20px !important;
   }
 
   /* El muelle ocupa la columna derecha y acompaña al hacer scroll */
@@ -5343,5 +5347,38 @@ input:checked+.slider:before {
   .player-modal.player-acoplado .player-back-arrow svg {
     width: 17px;
     height: 17px;
+  }
+}
+
+/* ── Player acoplado en modo grande ─────────────────────────────────
+   Antes, expandir movía el elemento al <body> y eso reiniciaba el
+   iframe: el vídeo volvía a empezar. Ahora el nodo no se mueve, solo
+   cambia esta clase, así la reproducción continúa donde iba.
+   ------------------------------------------------------------------ */
+@media (min-width: 1024px) {
+  .player-modal.player-acoplado.player-expandido {
+    position: fixed !important;
+    top: 0; left: 0;
+    width: 100vw !important;
+    height: 100vh !important;
+    aspect-ratio: auto !important;
+    z-index: 10000 !important;
+    border-radius: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  /* A pantalla grande los controles vuelven a su tamaño normal */
+  .player-modal.player-acoplado.player-expandido .sources-btn-modern {
+    padding: 10px 20px;
+    font-size: 0.75rem;
+  }
+  .player-modal.player-acoplado.player-expandido .player-back-arrow {
+    width: 45px;
+    height: 45px;
+  }
+  .player-modal.player-acoplado.player-expandido .player-back-arrow svg {
+    width: 22px;
+    height: 22px;
   }
 }

@@ -348,16 +348,18 @@ export const SelvaStream = {
                 url: this.limpiarEmbed(movie.embed),
                 infoHash: null,
                 isPublic: true,
-                selvaScore: 1000000
+                lang: 'propio'
             };
 
-            // El embed manual arranca primero, pero detrás dejamos las fuentes
-            // públicas: si el link de la BD murió (streamtape borra vídeos), el
-            // usuario tiene alternativas en el menú en vez de quedarse encerrado.
+            // Las fuentes conocidas van primero y el enlace propio al final: no
+            // sabemos qué idioma trae ni si sigue vivo (streamtape borra vídeos),
+            // así que no debe encabezar la lista ni arrancar la reproducción.
             const tipo = ['series', 'tv', 'anime'].includes(movie.type) ? 'series' : 'movie';
-            this.lastScrapedStreams = [oficial, ...this.buildPublicStreams(tipo)];
+            const publicas = this.buildPublicStreams(tipo);
+            this.lastScrapedStreams = [...publicas, oficial];
 
-            this.handleExternalStream(oficial);
+            const preferida = publicas.find(s => s.providerName === this.preferredProvider);
+            this.handleExternalStream(preferida || publicas[0] || oficial);
             this.renderControls();
             return; // ✅ Reproducción directa — no interrumpir con scraping
         }
@@ -581,6 +583,7 @@ export const SelvaStream = {
                     // s.lang viene declarado en las fuentes públicas: no adivinamos por texto
                     if (s.lang === 'latino') langLabel = '🇲🇽 LATINO';
                     else if (s.lang === 'subs') langLabel = '💬 SUBS · audio original';
+                    else if (s.lang === 'propio') langLabel = '🔗 ENLACE PROPIO';
                     else if (isLatino) langLabel = '🇲🇽 LATINO';
                     else if (isCastellano) langLabel = '🇪🇸 CASTELLANO';
                     else if (isEnglish) langLabel = '🇺🇸 INGLÉS';
@@ -762,29 +765,33 @@ export const SelvaStream = {
         });
     },
 
-    // Devuelve el modal al <body> y lo deja como pantalla completa otra vez.
+    // Devuelve el modal al <body>. Solo al cerrar: mover el elemento reinicia el
+    // iframe, así que durante la reproducción no se toca el DOM.
     desacoplar() {
         const modal = document.getElementById('player-modal');
         if (!modal) return;
-        modal.classList.remove('player-acoplado');
+        modal.classList.remove('player-acoplado', 'player-expandido');
         document.getElementById('detail-view')?.classList.remove('con-player-acoplado');
         if (modal.parentElement !== document.body) document.body.appendChild(modal);
     },
 
-    // Alterna entre acoplado y pantalla completa sin recargar la fuente si se puede.
+    // Agranda y encoge el player SIN tocar el DOM: mover el elemento reiniciaría
+    // el iframe y el vídeo volvería a empezar. Aquí solo cambia una clase, así
+    // que la reproducción continúa donde iba.
     alternarPantalla() {
-        if (this.estaAcoplado()) {
-            this.desacoplar();
-            document.body.style.overflow = 'hidden';
-        } else {
-            this.acoplar();
-            if (this.estaAcoplado()) document.body.style.overflow = '';
-        }
+        const modal = document.getElementById('player-modal');
+        if (!modal) return;
+
+        // Fuera del modo acoplado (móvil) ya está a pantalla completa
+        if (!modal.classList.contains('player-acoplado')) return;
+
+        const expandido = modal.classList.toggle('player-expandido');
+        document.body.style.overflow = expandido ? 'hidden' : '';
+
         const btn = document.getElementById('player-expand-btn');
         if (btn) {
-            const acoplado = this.estaAcoplado();
-            btn.textContent = acoplado ? '⛶' : '⤡';
-            btn.title = acoplado ? 'Pantalla completa' : 'Volver junto a la ficha';
+            btn.textContent = expandido ? '⤡' : '⛶';
+            btn.title = expandido ? 'Volver junto a la ficha' : 'Pantalla completa';
         }
     },
 

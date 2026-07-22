@@ -81,15 +81,8 @@ export const SelvaStream = {
                         <div class="spinner-tropical"></div>
                     </div>
                     
-                    <!-- sandbox SIN allow-popups: los servidores públicos intentan abrir
-                         ventanas flotantes al tocar el video. En PC el adblocker las
-                         frena, pero en el celular no hay extensiones, así que las
-                         prohibimos desde el navegador mismo. Tampoco lleva
-                         allow-top-navigation, para que el embed no pueda redirigir
-                         la página entera. -->
                     <iframe id="player-iframe" src="" style="display:none;"
-                        sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
-                        allow="autoplay; encrypted-media; picture-in-picture"
+                        allow="autoplay"
                         allowfullscreen>
                     </iframe>
                     
@@ -119,6 +112,20 @@ export const SelvaStream = {
         document.getElementById('player-back-btn')?.addEventListener('click', () => {
             window.closePlayer ? window.closePlayer() : history.back();
         });
+
+        // Si el usuario sale de pantalla completa con el gesto del sistema
+        // (no con nuestro botón), plegamos también el modo grande CSS para
+        // que el botón ⛶ y la maquetación no queden desincronizados.
+        if (!this._fullscreenSyncListo) {
+            this._fullscreenSyncListo = true;
+            document.addEventListener('fullscreenchange', () => {
+                const m = document.getElementById('player-modal');
+                if (!document.fullscreenElement && window.innerWidth <= 1023 &&
+                    m?.classList.contains('player-expandido')) {
+                    this.alternarPantalla();
+                }
+            });
+        }
 
 
         if (!document.getElementById('selva-player-css')) {
@@ -805,6 +812,22 @@ export const SelvaStream = {
         if (btn) {
             btn.textContent = expandido ? '⤡' : '⛶';
             btn.title = expandido ? 'Volver junto a la ficha' : 'Pantalla completa';
+        }
+
+        // En el celular el modo grande CSS deja a la vista la barra del
+        // navegador y los botones del sistema. Pedimos ADEMÁS la pantalla
+        // completa real del navegador (como hace YouTube) y giramos a
+        // horizontal. En iPhone no existe requestFullscreen sobre divs, así
+        // que ahí queda solo el modo grande CSS de siempre.
+        if (window.innerWidth <= 1023) {
+            if (expandido) {
+                modal.requestFullscreen?.().then(() => {
+                    screen.orientation?.lock?.('landscape').catch(() => {});
+                }).catch(() => {});
+            } else if (document.fullscreenElement) {
+                try { screen.orientation?.unlock?.(); } catch (e) {}
+                document.exitFullscreen().catch(() => {});
+            }
         }
     },
 

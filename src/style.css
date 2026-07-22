@@ -5382,3 +5382,79 @@ input:checked+.slider:before {
     height: 22px;
   }
 }
+
+/* ── Reproductor acoplado en móvil ──────────────────────────────────
+   Mismo principio que en escritorio pero apilado: el player va arriba
+   en 16:9 y la información justo debajo, sin sacar al usuario de la
+   ficha. El botón de pantalla completa sigue disponible.
+   ------------------------------------------------------------------ */
+@media (max-width: 1023px) {
+
+  #detail-view.con-player-acoplado #detail-player-dock {
+    display: block;
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    background: #000;
+  }
+
+  /* El hero estorba con el player puesto: se oculta y manda el vídeo */
+  #detail-view.con-player-acoplado #detail-hero {
+    display: none !important;
+  }
+
+  .player-modal.player-acoplado {
+    position: relative !important;
+    width: 100% !important;
+    height: auto !important;
+    aspect-ratio: 16 / 9;
+    z-index: auto !important;
+    backdrop-filter: none !important;
+    animation: none;
+  }
+
+  /* Controles anclados al player, no a la ventana. Siempre visibles:
+     el iframe del proveedor se traga los eventos de puntero/toque. */
+  .player-modal.player-acoplado .player-back-arrow,
+  .player-modal.player-acoplado .player-top-controls {
+    position: absolute !important;
+    top: 10px !important;
+    z-index: 20;
+  }
+  .player-modal.player-acoplado .player-back-arrow { left: 10px !important; }
+  .player-modal.player-acoplado .player-top-controls { right: 10px !important; }
+
+  .player-modal.player-acoplado .player-back-arrow {
+    width: 34px;
+    height: 34px;
+  }
+  .player-modal.player-acoplado .player-back-arrow svg { width: 16px; height: 16px; }
+  .player-modal.player-acoplado .sources-btn-modern {
+    padding: 6px 12px;
+    font-size: 0.65rem;
+  }
+  .player-modal.player-acoplado .selva-custom-select {
+    height: 34px !important;
+    font-size: 0.65rem !important;
+  }
+
+  .player-modal.player-acoplado::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 60px;
+    background: linear-gradient(rgba(0,0,0,0.6), transparent);
+    pointer-events: none;
+    z-index: 15;
+  }
+
+  /* Pantalla completa: el nodo no se mueve, solo se estira */
+  .player-modal.player-acoplado.player-expandido {
+    position: fixed !important;
+    top: 0; left: 0;
+    width: 100vw !important;
+    height: 100vh !important;
+    aspect-ratio: auto !important;
+    z-index: 10000 !important;
+  }
+}

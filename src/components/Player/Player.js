@@ -750,9 +750,10 @@ export const SelvaStream = {
         const detalle = document.getElementById('detail-view');
         if (!modal || !muelle) return;
 
-        const cabeAlLado = window.innerWidth >= 1024;
+        // En móvil también se acopla (arriba, en 16:9, con la info debajo);
+        // lo que cambia es la maquetación, que la resuelve el CSS.
         const enFicha = detalle && detalle.style.display !== 'none';
-        if (!cabeAlLado || !enFicha) return;
+        if (!enFicha) return;
 
         if (modal.parentElement !== muelle) muelle.appendChild(modal);
         modal.classList.add('player-acoplado');
@@ -782,7 +783,6 @@ export const SelvaStream = {
         const modal = document.getElementById('player-modal');
         if (!modal) return;
 
-        // Fuera del modo acoplado (móvil) ya está a pantalla completa
         if (!modal.classList.contains('player-acoplado')) return;
 
         const expandido = modal.classList.toggle('player-expandido');

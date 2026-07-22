@@ -4220,12 +4220,34 @@ window.rescatarPoster = async (el, tmdbId, tipo) => {
     el.src = poster ? `https://image.tmdb.org/t/p/w500${poster}` : SIN_IMAGEN;
 };
 
+let _reintentosFicha = 0;
+
 window.openMovieDetail = (slugOrId, opts = {}) => {
     const movie = findMovieBySlugOrId(slugOrId);
     if (!movie) {
+        // Al recargar directamente sobre #detail/... el enrutado corre antes de
+        // que lleguen los datos de Firestore. Sin catálogo no hay nada que
+        // pintar y la ficha se quedaba con el "Cargando..." del HTML para
+        // siempre (pantalla negra). Reintentamos hasta que llegue el catálogo.
+        if (!movieDatabase?.trending?.length && _reintentosFicha < 40) {
+            _reintentosFicha++;
+            setTimeout(() => window.openMovieDetail(slugOrId, opts), 250);
+            return;
+        }
+
         console.warn('Movie not found for slug/id:', slugOrId);
+        _reintentosFicha = 0;
+
+        // Ya hay catálogo y aun así no está: decirlo en vez de dejar "Cargando..."
+        const titleEl = document.getElementById('detail-title');
+        if (titleEl) titleEl.textContent = 'Contenido no encontrado';
+        const synopsisEl = document.getElementById('detail-synopsis');
+        if (synopsisEl) synopsisEl.textContent = 'Este título ya no está disponible en la selva.';
+        if (typeof SelvaStream !== 'undefined') SelvaStream.close();
         return;
     }
+
+    _reintentosFicha = 0;
     // Sincronizar hash a slug limpio si llegamos por id antiguo
     const cleanSlug = slugify(movie.title, movie.year);
     const currentHash = window.location.hash.substring(1);

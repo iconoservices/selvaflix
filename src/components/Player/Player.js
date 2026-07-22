@@ -788,6 +788,13 @@ export const SelvaStream = {
         const expandido = modal.classList.toggle('player-expandido');
         document.body.style.overflow = expandido ? 'hidden' : '';
 
+        // El muelle es sticky con z-index propio, y eso crea un contexto de
+        // apilamiento que encierra al player: por alto que sea su z-index nunca
+        // superaría a la barra superior. Al expandir lo volvemos estático para
+        // que el player compita en el nivel de la página.
+        document.getElementById('detail-player-dock')
+            ?.classList.toggle('dock-expandido', expandido);
+
         const btn = document.getElementById('player-expand-btn');
         if (btn) {
             btn.textContent = expandido ? '⤡' : '⛶';

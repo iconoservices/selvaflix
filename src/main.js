@@ -1,4 +1,4 @@
-﻿import './style.css'
+import './style.css'
 import { SelvaStream } from './components/Player/Player.js'
 import { ExportManager } from './utils/exportManager.js'
 import './components/Player/Player.css'
@@ -276,6 +276,8 @@ async function loadSelvaFlixData() {
     _updateDetailedStats(movieDatabase.trending);
   }
 
+  seedPopularSeries();
+
   // Nota: handleRouting ya sabe si es la primera vez al revisar el DOM
   // ✅ Disparar anuncios automáticos si corresponde
   if(window.triggerLandingAd) window.triggerLandingAd();
@@ -294,6 +296,120 @@ window.updateAdminUI = () => {
   const dot = document.getElementById('admin-status-dot');
   if (dot) dot.style.display = isAdmin ? 'block' : 'none';
 };
+async function seedPopularSeries() {
+  const FAMOUS_SERIES = [
+    {
+      title: "Rick y Morty",
+      tmdbId: 60625,
+      imdbId: "tt2861424",
+      type: "series",
+      img: "https://image.tmdb.org/t/p/w500/cvhNj9eoRBe5SjprKVPKF8EdUob.jpg",
+      description: "Comedia animada que narra las aventuras del científico loco Rick Sánchez y su nieto Morty.",
+      genres: ["Animación", "Comedia", "Ciencia Ficción"],
+      rating: "8.7",
+      year: 2013,
+      status: "healthy"
+    },
+    {
+      title: "Los Simpson",
+      tmdbId: 456,
+      imdbId: "tt0096697",
+      type: "series",
+      img: "https://image.tmdb.org/t/p/w500/vHvuE107n248dC3d6vR4k37d36K.jpg",
+      description: "Las divertidas y caóticas aventuras de la familia Simpson en la ciudad de Springfield.",
+      genres: ["Animación", "Comedia"],
+      rating: "8.0",
+      year: 1989,
+      status: "healthy"
+    },
+    {
+      title: "Juego de Tronos",
+      tmdbId: 1399,
+      imdbId: "tt0944947",
+      type: "series",
+      img: "https://image.tmdb.org/t/p/w500/u3bZgnGQ9T01sWNhyveQz0wH0Hl.jpg",
+      description: "Varias familias nobles luchan por el control de la mítica tierra de Poniente.",
+      genres: ["Drama", "Fantasía"],
+      rating: "8.4",
+      year: 2011,
+      status: "healthy"
+    },
+    {
+      title: "The Walking Dead",
+      tmdbId: 1402,
+      imdbId: "tt1520211",
+      type: "series",
+      img: "https://image.tmdb.org/t/p/w500/xf9wuDcqlUPWABZ1wGvOWZLXEsG.jpg",
+      description: "Un grupo de supervivientes lucha por mantenerse con vida en un mundo apocalíptico infectado por zombis.",
+      genres: ["Drama", "Terror"],
+      rating: "8.1",
+      year: 2010,
+      status: "healthy"
+    },
+    {
+      title: "Breaking Bad",
+      tmdbId: 1396,
+      imdbId: "tt0903747",
+      type: "series",
+      img: "https://image.tmdb.org/t/p/w500/ztkUQFLlC19CCMY55i2zGyuUTKB.jpg",
+      description: "Un profesor de química de secundaria diagnosticado con cáncer terminal recurre al crimen.",
+      genres: ["Drama", "Crimen"],
+      rating: "8.9",
+      year: 2008,
+      status: "healthy"
+    },
+    {
+      title: "Stranger Things",
+      tmdbId: 66732,
+      imdbId: "tt4574334",
+      type: "series",
+      img: "https://image.tmdb.org/t/p/w500/49WJfeN0moxb9IPfGn88qbuYh9m.jpg",
+      description: "Cuando un niño desaparece, un pequeño pueblo desvela un misterio que involucra experimentos secretos.",
+      genres: ["Ciencia Ficción", "Drama"],
+      rating: "8.6",
+      year: 2016,
+      status: "healthy"
+    },
+    {
+      title: "La Casa de Papel",
+      tmdbId: 71446,
+      imdbId: "tt6468322",
+      type: "series",
+      img: "https://image.tmdb.org/t/p/w500/reEMJA1uzscCbkSRl8fJPXIOfdM.jpg",
+      description: "Un misterioso hombre conocido como 'El Profesor' planea el mayor atraco de la historia.",
+      genres: ["Crimen", "Drama"],
+      rating: "8.2",
+      year: 2017,
+      status: "healthy"
+    }
+  ];
+
+  if (!Array.isArray(movieDatabase.trending)) return;
+
+  let addedAny = false;
+  for (const s of FAMOUS_SERIES) {
+    const exists = movieDatabase.trending.some(m => 
+      (m.tmdbId && m.tmdbId === s.tmdbId) || 
+      (m.title && m.title.toLowerCase() === s.title.toLowerCase())
+    );
+    if (!exists) {
+      try {
+        const docRef = await addDoc(collection(db, "movies"), { ...s, createdAt: Date.now() });
+        movieDatabase.trending.push({ id: docRef.id, ...s });
+        addedAny = true;
+        console.log(`🌴 Serie sembrada automáticamente: ${s.title}`);
+      } catch (err) {
+        console.error(`Error sembrando ${s.title}:`, err);
+      }
+    }
+  }
+  if (addedAny) {
+    sessionStorage.removeItem('selvaflix_full_database');
+    sessionStorage.removeItem('selvaflix_cache_timestamp');
+    handleRouting();
+  }
+}
+
 window.updateAdminUI(); 
 loadSelvaFlixData();
 
@@ -731,6 +847,25 @@ function _renderCardsInto(container, data, isTrending = false) {
         // Obtener género
         const genre = item.genres ? (Array.isArray(item.genres) ? item.genres[0] : item.genres) : 'Action';
         
+        const isBroken = item.status === 'broken' || (window._brokenIds && window._brokenIds.has(item.id));
+        let statusBadgeHtml = '';
+        if (isBroken) {
+          statusBadgeHtml = `<div class="badge-maintenance" style="background:#FF5252; color:white;">Sin Fuentes</div>`;
+        } else if (item.status === 'maintenance') {
+          statusBadgeHtml = `<div class="badge-maintenance">Mantenimiento</div>`;
+        }
+
+        let streamBadge = '';
+        if (isBroken) {
+          streamBadge = `<span style="color: #FF5252; font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 2px;">🔴 Sin Fuentes</span>`;
+        } else if (item.embed && (item.embed.startsWith('http') || item.embed.includes('<iframe'))) {
+          streamBadge = `<span style="color: #00E676; font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 2px;">👑 Directo</span>`;
+        } else if (item.tmdbId || item.imdbId) {
+          streamBadge = `<span style="color: #00B0FF; font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 2px;">🟢 Online HD</span>`;
+        } else {
+          streamBadge = `<span style="color: #FFB300; font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 2px;">🟡 Buscando...</span>`;
+        }
+        
         const cardHtml = `
             <div class="cinepulse-movie-card" data-id="${item.id}" onclick="window.handleCardClick('${item.id}')">
               <img src="${item.img}" alt="${item.title}" loading="lazy"
@@ -739,7 +874,7 @@ function _renderCardsInto(container, data, isTrending = false) {
               <div class="btn-add-list ${favClass}" onclick="event.stopPropagation(); window.toggleMyList('${item.id}', this)" title="Añadir a mi selva" style="position: absolute; top: 10px; right: 10px; z-index: 5; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.2);">
                 ${favIcon}
               </div>
-              ${item.status === 'maintenance' ? '<div class="badge-maintenance">Mantenimiento</div>' : ''}
+              ${statusBadgeHtml}
               ${item.isVIP ? `
                 <div class="vip-badge-sm" style="position: absolute; top: 10px; left: 10px; z-index: 5; background: linear-gradient(45deg, #FFD700, #FFA500); color: black; font-size: 0.55rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; display: flex; align-items: center; gap: 2px; box-shadow: 0 0 10px rgba(255,165,0,0.3);">
                   <span>👑</span>
@@ -750,11 +885,7 @@ function _renderCardsInto(container, data, isTrending = false) {
                 <h3 class="cinepulse-card-title">${item.title}</h3>
                 <div class="cinepulse-card-meta">
                   <span class="cinepulse-card-genre">${genre}</span>
-                  ${item.embed && item.embed.includes('streamtape') ? `
-                    <span style="color: #00C853; font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 2px;">▶ ST</span>
-                  ` : `
-                    <span style="color: #F44336; font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 2px;">⚠ SIN ST</span>
-                  `}
+                  ${streamBadge}
                   <span class="cinepulse-card-rating">
                     <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1; font-size: 12px;">star</span>
                     ${item.rating || '8.9'}
@@ -867,6 +998,25 @@ function renderGallery(title, groups) {
         const favIcon = isFavorite ? '❤️' : '🤍';
         const genre = item.genres ? (Array.isArray(item.genres) ? item.genres[0] : item.genres) : 'Action';
 
+        const isBroken = item.status === 'broken' || (window._brokenIds && window._brokenIds.has(item.id));
+        let statusBadgeHtml = '';
+        if (isBroken) {
+          statusBadgeHtml = `<div class="badge-maintenance" style="background:#FF5252; color:white;">Sin Fuentes</div>`;
+        } else if (item.status === 'maintenance') {
+          statusBadgeHtml = `<div class="badge-maintenance">Mantenimiento</div>`;
+        }
+
+        let streamBadge = '';
+        if (isBroken) {
+          streamBadge = `<span style="color: #FF5252; font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 2px;">🔴 Sin Fuentes</span>`;
+        } else if (item.embed && (item.embed.startsWith('http') || item.embed.includes('<iframe'))) {
+          streamBadge = `<span style="color: #00E676; font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 2px;">👑 Directo</span>`;
+        } else if (item.tmdbId || item.imdbId) {
+          streamBadge = `<span style="color: #00B0FF; font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 2px;">🟢 Online HD</span>`;
+        } else {
+          streamBadge = `<span style="color: #FFB300; font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 2px;">🟡 Buscando...</span>`;
+        }
+
         return `
           <div class="cinepulse-movie-card gallery-card" data-id="${item.id}" onclick="window.handleCardClick('${item.id}')">
             <img src="${item.img}" alt="${item.title}" loading="lazy"
@@ -875,7 +1025,7 @@ function renderGallery(title, groups) {
             <div class="btn-add-list ${favClass}" onclick="event.stopPropagation(); window.toggleMyList('${item.id}', this)" title="Añadir a mi selva" style="position: absolute; top: 10px; right: 10px; z-index: 5; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.2);">
                 ${favIcon}
             </div>
-            ${item.status === 'maintenance' ? '<div class="badge-maintenance">Mantenimiento</div>' : ''}
+            ${statusBadgeHtml}
             ${item.isVIP ? `
               <div class="vip-badge-sm" style="position: absolute; top: 10px; left: 10px; z-index: 5; background: linear-gradient(45deg, #FFD700, #FFA500); color: black; font-size: 0.55rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; display: flex; align-items: center; gap: 2px; box-shadow: 0 0 10px rgba(255,165,0,0.3);">
                 <span>👑</span>
@@ -886,11 +1036,6 @@ function renderGallery(title, groups) {
               <h3 class="cinepulse-card-title">${item.title}</h3>
               <div class="cinepulse-card-meta">
                 <span class="cinepulse-card-genre">${genre}</span>
-                ${item.embed && item.embed.includes('streamtape') ? `
-                  <span style="color: #00C853; font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 2px;">▶ ST</span>
-                ` : `
-                  <span style="color: #F44336; font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 2px;">⚠ SIN ST</span>
-                `}
                 <span class="cinepulse-card-rating">
                   <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1; font-size: 12px;">star</span>
                   ${item.rating || '8.9'}

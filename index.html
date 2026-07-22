@@ -534,12 +534,12 @@
       
       <main class="pb-32">
         <!-- Hero Section -->
-        <section class="relative h-[574px] w-full overflow-hidden">
+        <section id="detail-hero" class="relative h-[574px] w-full overflow-hidden">
           <div id="detail-backdrop" class="absolute inset-0 w-full h-full bg-cover bg-center" style="background-image: url('');">
           </div>
           <div class="absolute inset-0 hero-gradient"></div>
           <!-- Floating Content Info Overlay -->
-          <div class="absolute bottom-0 left-0 right-0 px-margin-mobile pb-lg">
+          <div id="detail-hero-info" class="absolute bottom-0 left-0 right-0 px-margin-mobile pb-lg">
             <h1 id="detail-title" class="font-display-lg-mobile text-display-lg-mobile text-primary-container uppercase italic tracking-tighter mb-xs" style="color: #ff571a; font-family: Sora, sans-serif; font-size: 32px; font-weight: 800; line-height: 1.2;">
               Cargando...
             </h1>
@@ -556,7 +556,7 @@
         </section>
 
         <!-- Actions -->
-        <section class="px-margin-mobile py-md flex flex-col gap-sm" style="padding: 16px;">
+        <section id="detail-actions" class="px-margin-mobile py-md flex flex-col gap-sm" style="padding: 16px;">
           <button id="detail-btn-play" class="w-full h-12 bg-primary-container text-on-primary-container rounded-lg font-label-md text-label-md flex items-center justify-center gap-sm active:scale-95 transition-transform bloom-effect" style="background-color: #ff571a; color: #521300; border-radius: 8px; height: 48px; border: none; cursor: pointer; font-weight: 600; width: 100%;">
             <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
             PLAY
@@ -574,7 +574,7 @@
         </section>
 
         <!-- Synopsis -->
-        <section class="px-margin-mobile py-md" style="padding: 16px;">
+        <section id="detail-synopsis-section" class="px-margin-mobile py-md" style="padding: 16px;">
           <p id="detail-synopsis" class="text-on-surface-variant font-body-md text-body-md leading-relaxed" style="color: #e6beb2; font-family: Inter, sans-serif; font-size: 16px; line-height: 1.5; margin: 0;">
           </p>
         </section>

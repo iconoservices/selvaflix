@@ -5092,3 +5092,90 @@ input:checked+.slider:before {
   pointer-events: none;
   text-shadow: 0 2px 4px rgba(0,0,0,0.8);
 }
+
+/* ============================================================
+   VISTA DE DETALLE — ESCRITORIO
+   El detalle nació como pantalla de móvil: botones al 100%,
+   hero de 574px fijos y sinopsis sin límite de ancho. En un
+   monitor de 1600px el PLAY medía 1560px y la sinopsis se leía
+   en una sola línea larguísima.
+   Los estilos base están inline en index.html, así que aquí
+   hace falta !important para poder ganarles.
+   ============================================================ */
+@media (min-width: 1024px) {
+
+  /* Hero proporcional a la pantalla, no una tira fija */
+  #detail-hero {
+    height: min(78vh, 700px) !important;
+  }
+
+  /* La info del hero deja de pegarse al borde */
+  #detail-hero-info {
+    padding: 0 clamp(32px, 5vw, 80px) 48px !important;
+  }
+
+  #detail-title {
+    font-size: clamp(44px, 4.2vw, 72px) !important;
+    max-width: 18ch;
+  }
+
+  #detail-hero-info > div {
+    font-size: 16px !important;
+    gap: 20px !important;
+  }
+
+  /* Todo lo que va bajo el hero: columna centrada y legible */
+  #detail-actions,
+  #detail-synopsis-section,
+  #detail-view main > section:not(#detail-hero),
+  #detail-admin-section {
+    max-width: 1180px;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    padding-left: clamp(32px, 5vw, 80px) !important;
+    padding-right: clamp(32px, 5vw, 80px) !important;
+  }
+
+  /* Botonera en fila y con ancho natural */
+  #detail-actions {
+    flex-direction: row !important;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px !important;
+    padding-top: 28px !important;
+  }
+
+  #detail-btn-play {
+    width: auto !important;
+    min-width: 210px;
+    height: 52px !important;
+    padding: 0 34px !important;
+    font-size: 16px !important;
+  }
+
+  /* El contenedor de "Mi Lista"/"Descargar" no debe estirarse */
+  #detail-actions > div {
+    flex: 0 1 auto !important;
+    gap: 12px !important;
+  }
+
+  #detail-btn-list,
+  #detail-btn-download {
+    flex: 0 0 auto !important;
+    height: 52px !important;
+    padding: 0 26px !important;
+  }
+
+  /* Longitud de línea cómoda de leer */
+  #detail-synopsis {
+    max-width: 72ch;
+    font-size: 17px !important;
+    line-height: 1.65 !important;
+  }
+
+  /* El botón de volver tampoco pegado al borde */
+  #detail-header {
+    padding-left: clamp(24px, 3vw, 48px) !important;
+    padding-right: clamp(24px, 3vw, 48px) !important;
+  }
+}

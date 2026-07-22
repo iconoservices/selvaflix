@@ -271,6 +271,10 @@ export const SelvaStream = {
      * Abre el reproductor con el contenido seleccionado.
      */
     async open(movie) {
+        // Título nuevo = arrancamos otra vez por el mejor servidor, no por el último elegido
+        if (this.currentPlayerMovie?.id !== movie?.id) {
+            this.preferredProvider = null;
+        }
         this.currentPlayerMovie = movie;
         this.init();
         const modal = document.getElementById('player-modal');
@@ -761,28 +765,31 @@ export const SelvaStream = {
             defs.push({ lang: 'latino', name: "🇲🇽 PELISPLUS", providerName: "PelisPlus", url: pelisplusUrl });
         }
 
-        // 🇲🇽 Doblaje latino real
-        defs.push({ lang: 'latino', name: "🇲🇽 LATINO", providerName: "MoviesAPI",
-            url: isTv ? `https://moviesapi.club/tv/${tid}-${s}-${e}` : `https://moviesapi.club/movie/${tid}` });
+        // 🇲🇽 DiPelis (Gran catálogo en español latino/castellano).
+        // Solo películas: /episodio/{slug}-{s}x{ep}/ devuelve 200 con 0 bytes en todas
+        // las variantes probadas (1x01, 1x1, temporada-N-capitulo-N), así que en series
+        // solo aportaría una fuente en blanco.
+        if (slug && !isTv) {
+            defs.push({ lang: 'latino', name: "🇲🇽 DIPELIS", providerName: "DiPelis",
+                url: `https://ww2.dipelis.com/pelicula/${slug}/` });
+        }
 
         // 💬 Audio original + subtítulos (estos NO traen doblaje latino garantizado)
+        //
+        // Verificados 2026-07-22. Retirados por no servir video:
+        //   moviesapi.club → NXDOMAIN en varias ISP (incluida la de casa)
+        //   vidsrc.xyz     → NXDOMAIN global, dominio muerto
+        //   vidsrc.pro     → 301 a embed.su, era un duplicado
+        //   embed.su       → falla TCP/TLS
+        //   vidsrc.cc      → falla TCP/TLS
+        //   vidsrc.to      → 200 pero solo devuelve un cascarón de anuncios (llvpn.com)
         defs.push(
-            { lang: 'subs', name: "💬 EMBED.SU", providerName: "EmbedSu",
-              url: isTv ? `https://embed.su/api/tv/${tid}/${s}/${e}` : `https://embed.su/api/movie/${tid}` },
-            { lang: 'subs', name: "💬 VIDSRC.XYZ", providerName: "VidsrcXyz",
-              url: isTv ? `https://vidsrc.xyz/embed/tv/${tid}/${s}-${e}` : `https://vidsrc.xyz/embed/movie/${tid}` },
             { lang: 'subs', name: "💬 VIDSRC.ME", providerName: "VidsrcMe",
               url: isTv ? `https://vidsrc.me/embed/tv?tmdb=${tid}&sub_lang=es&s=${s}&e=${e}` : `https://vidsrc.me/embed/movie?tmdb=${tid}&sub_lang=es` },
-            { lang: 'subs', name: "💬 VIDSRC.TO", providerName: "VidsrcTo",
-              url: isTv ? `https://vidsrc.to/embed/tv/${tid}/${s}/${e}` : `https://vidsrc.to/embed/movie/${tid}` },
             { lang: 'subs', name: "💬 MULTIEMBED", providerName: "SuperEmbed",
               url: `https://multiembed.mov/?video_id=${tid}&tmdb=1${isTv ? `&s=${s}&e=${e}` : ''}` },
             { lang: 'subs', name: "💬 VIDLINK.PRO", providerName: "VidLink",
-              url: isTv ? `https://vidlink.pro/tv/${tid}/${s}/${e}?primaryColor=ff7a00` : `https://vidlink.pro/movie/${tid}?primaryColor=ff7a00` },
-            { lang: 'subs', name: "💬 VIDSRC.PRO", providerName: "VidsrcPro",
-              url: isTv ? `https://vidsrc.pro/embed/tv/${tid}/${s}/${e}` : `https://vidsrc.pro/embed/movie/${tid}` },
-            { lang: 'subs', name: "💬 VIDSRC.CC", providerName: "VidsrcCc",
-              url: isTv ? `https://vidsrc.cc/v2/embed/tv/${tid}/${s}/${e}` : `https://vidsrc.cc/v2/embed/movie/${tid}` }
+              url: isTv ? `https://vidlink.pro/tv/${tid}/${s}/${e}?primaryColor=ff7a00` : `https://vidlink.pro/movie/${tid}?primaryColor=ff7a00` }
         );
 
         return defs.map((d, i) => ({
@@ -866,7 +873,9 @@ export const SelvaStream = {
         if (!isAdminForScan) {
             if (publicStreams.length > 0) {
                 this.lastScrapedStreams = publicStreams;
-                this.handleExternalStream(this.lastScrapedStreams[0]);
+                // Al cambiar de capítulo respetamos el servidor que el usuario venía viendo
+                const elegido = publicStreams.find(s => s.providerName === this.preferredProvider);
+                this.handleExternalStream(elegido || publicStreams[0]);
                 this.renderControls();
                 return;
             } else {
@@ -1064,6 +1073,11 @@ export const SelvaStream = {
     handleExternalStream(stream) {
         console.log("💎 Cargando fuente externa:", stream);
         this.currentPlayingHash = stream.infoHash || stream.url;
+
+        // Recordamos el servidor elegido para no perderlo al cambiar de capítulo
+        if (stream.isPublic && stream.providerName) {
+            this.preferredProvider = stream.providerName;
+        }
 
         const loader = document.getElementById('player-loader');
         const startScreen = document.getElementById('player-start-screen');

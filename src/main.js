@@ -296,6 +296,9 @@ window.updateAdminUI = () => {
   const dot = document.getElementById('admin-status-dot');
   if (dot) dot.style.display = isAdmin ? 'block' : 'none';
 };
+let _seedInFlight = false;
+const SEED_DONE_KEY = 'selvaflix_seed_done';
+
 async function seedPopularSeries() {
   const FAMOUS_CONTENT = [
     {
@@ -303,7 +306,7 @@ async function seedPopularSeries() {
       tmdbId: 60625,
       imdbId: "tt2861424",
       type: "series",
-      img: "https://image.tmdb.org/t/p/w500/cvhNj9eoRBe5SjprKVPKF8EdUob.jpg",
+      img: "https://image.tmdb.org/t/p/w500/5Yiep9EwcQgLolg013ETBVqHxuD.jpg",
       description: "Comedia animada que narra las aventuras del científico loco Rick Sánchez y su nieto Morty.",
       genres: ["Animación", "Comedia", "Ciencia Ficción"],
       rating: "8.7",
@@ -315,7 +318,7 @@ async function seedPopularSeries() {
       tmdbId: 456,
       imdbId: "tt0096697",
       type: "series",
-      img: "https://image.tmdb.org/t/p/w500/vHvuE107n248dC3d6vR4k37d36K.jpg",
+      img: "https://image.tmdb.org/t/p/w500/9hmoEmntaYrrlb4HKSFisWUQnqy.jpg",
       description: "Las divertidas y caóticas aventuras de la familia Simpson en la ciudad de Springfield.",
       genres: ["Animación", "Comedia"],
       rating: "8.0",
@@ -327,7 +330,7 @@ async function seedPopularSeries() {
       tmdbId: 1399,
       imdbId: "tt0944947",
       type: "series",
-      img: "https://image.tmdb.org/t/p/w500/u3bZgnGQ9T01sWNhyveQz0wH0Hl.jpg",
+      img: "https://image.tmdb.org/t/p/w500/3hDtRuwTfQQYRst3kjhvp4Cogjw.jpg",
       description: "Varias familias nobles luchan por el control de la mítica tierra de Poniente.",
       genres: ["Drama", "Fantasía"],
       rating: "8.4",
@@ -339,7 +342,7 @@ async function seedPopularSeries() {
       tmdbId: 1402,
       imdbId: "tt1520211",
       type: "series",
-      img: "https://image.tmdb.org/t/p/w500/xf9wuDcqlUPWABZ1wGvOWZLXEsG.jpg",
+      img: "https://image.tmdb.org/t/p/w500/hUblG1KZCTRpHc3wqqoU0DW98Q3.jpg",
       description: "Un grupo de supervivientes lucha por mantenerse con vida en un mundo apocalíptico infectado por zombis.",
       genres: ["Drama", "Terror"],
       rating: "8.1",
@@ -351,7 +354,7 @@ async function seedPopularSeries() {
       tmdbId: 1396,
       imdbId: "tt0903747",
       type: "series",
-      img: "https://image.tmdb.org/t/p/w500/ztkUQFLlC19CCMY55i2zGyuUTKB.jpg",
+      img: "https://image.tmdb.org/t/p/w500/ztkUQFLlC19CCMYHW9o1zWhJRNq.jpg",
       description: "Un profesor de química de secundaria diagnosticado con cáncer terminal recurre al crimen.",
       genres: ["Drama", "Crimen"],
       rating: "8.9",
@@ -363,7 +366,7 @@ async function seedPopularSeries() {
       tmdbId: 66732,
       imdbId: "tt4574334",
       type: "series",
-      img: "https://image.tmdb.org/t/p/w500/49WJfeN0moxb9IPfGn88qbuYh9m.jpg",
+      img: "https://image.tmdb.org/t/p/w500/1sRJ8D1vpXE5WQBGrUBky3uUwvX.jpg",
       description: "Cuando un niño desaparece, un pequeño pueblo desvela un misterio que involucra experimentos secretos.",
       genres: ["Ciencia Ficción", "Drama"],
       rating: "8.6",
@@ -375,7 +378,7 @@ async function seedPopularSeries() {
       tmdbId: 71446,
       imdbId: "tt6468322",
       type: "series",
-      img: "https://image.tmdb.org/t/p/w500/reEMJA1uzscCbkSRl8fJPXIOfdM.jpg",
+      img: "https://image.tmdb.org/t/p/w500/z01Dc0Ly2GmCpLe6Scx4d3dPP1S.jpg",
       description: "Un misterioso hombre conocido como 'El Profesor' planea el mayor atraco de la historia.",
       genres: ["Crimen", "Drama"],
       rating: "8.2",
@@ -387,7 +390,7 @@ async function seedPopularSeries() {
       tmdbId: 76600,
       imdbId: "tt1630029",
       type: "movie",
-      img: "https://image.tmdb.org/t/p/w500/8c9wsDToZ3z56m6Vj4nB25p64ui.jpg",
+      img: "https://image.tmdb.org/t/p/w500/ckeTumMS4G31UQ9NNkmtW2QhfMF.jpg",
       description: "Jake Sully vive con su nueva familia en el planeta de Pandora. Cuando una amenaza regresa, Jake debe trabajar con Neytiri.",
       genres: ["Ciencia Ficción", "Aventura", "Acción"],
       rating: "7.6",
@@ -399,7 +402,7 @@ async function seedPopularSeries() {
       tmdbId: 98,
       imdbId: "tt0172495",
       type: "movie",
-      img: "https://image.tmdb.org/t/p/w500/u3W1W96yS81C1pivWnZ0wA1Qy8r.jpg",
+      img: "https://image.tmdb.org/t/p/w500/90QFOG5zSN4cbrIVs4DL4ePAuA5.jpg",
       description: "Un ex general romano jura venganza contra el corrupto emperador que asesinó a su familia y lo condenó a la esclavitud.",
       genres: ["Acción", "Drama", "Aventura"],
       rating: "8.2",
@@ -411,7 +414,7 @@ async function seedPopularSeries() {
       tmdbId: 1022789,
       imdbId: "tt22022452",
       type: "movie",
-      img: "https://image.tmdb.org/t/p/w500/wz97y7y0w4mB416g3FjH447N0Kk.jpg",
+      img: "https://image.tmdb.org/t/p/w500/lE3DCRI7bQgHSiIuEPcFiXpiuGV.jpg",
       description: "Riley es ahora una adolescente y su mente experimenta cambios repentinos, introduciendo nuevas emociones.",
       genres: ["Animación", "Aventura", "Familia", "Comedia"],
       rating: "7.7",
@@ -423,7 +426,7 @@ async function seedPopularSeries() {
       tmdbId: 693134,
       imdbId: "tt15239678",
       type: "movie",
-      img: "https://image.tmdb.org/t/p/w500/6v4UjL43dI4C8pQ6UfB8S1l3F7q.jpg",
+      img: "https://image.tmdb.org/t/p/w500/xCHmhHeO7aOCMlzcNukGH6Q7EiD.jpg",
       description: "Paul Atreides se une a Chani y a los Fremen mientras busca venganza contra los conspiradores que destruyeron a su familia.",
       genres: ["Ciencia Ficción", "Aventura"],
       rating: "8.3",
@@ -435,7 +438,7 @@ async function seedPopularSeries() {
       tmdbId: 634649,
       imdbId: "tt10872600",
       type: "movie",
-      img: "https://image.tmdb.org/t/p/w500/uJ603O61g55Jg4u2XgD65c49N0K.jpg",
+      img: "https://image.tmdb.org/t/p/w500/miZFgV81xG324rpUknQX8dtXuBl.jpg",
       description: "Peter Parker pide ayuda al Doctor Strange para hacer que el mundo olvide su identidad secreta, desatando el multiverso.",
       genres: ["Acción", "Aventura", "Ciencia Ficción"],
       rating: "8.0",
@@ -446,10 +449,64 @@ async function seedPopularSeries() {
 
   if (!Array.isArray(movieDatabase.trending)) return;
 
+  // --- AUTOMATIC DUPLICATE CLEANER ---
+  const seenIds = new Set();
+  const seenTitles = new Set();
+  const duplicatesToDelete = [];
+
+  for (const m of movieDatabase.trending) {
+    const normTmdb = m.tmdbId ? String(m.tmdbId).trim() : '';
+    const normTitle = m.title ? m.title.toLowerCase().trim() : '';
+
+    let isDup = false;
+    if (normTmdb && seenIds.has(normTmdb)) {
+      isDup = true;
+    } else if (normTitle && seenTitles.has(normTitle)) {
+      isDup = true;
+    }
+
+    if (isDup) {
+      duplicatesToDelete.push(m);
+    } else {
+      if (normTmdb) seenIds.add(normTmdb);
+      if (normTitle) seenTitles.add(normTitle);
+    }
+  }
+
+  if (duplicatesToDelete.length > 0) {
+    console.log(`🧹 Encontrados ${duplicatesToDelete.length} duplicados en Firebase. Iniciando limpieza...`);
+    for (const dup of duplicatesToDelete) {
+      try {
+        await deleteDoc(doc(db, "movies", dup.id));
+        movieDatabase.trending = movieDatabase.trending.filter(m => m.id !== dup.id);
+        console.log(`🗑️ Duplicado eliminado: ${dup.title} (ID: ${dup.id})`);
+      } catch (err) {
+        console.error(`Error eliminando duplicado ${dup.title}:`, err);
+      }
+    }
+    sessionStorage.removeItem('selvaflix_full_database');
+    sessionStorage.removeItem('selvaflix_cache_timestamp');
+  }
+
+  // Esta función se dispara en cada carga de datos y no se espera con await. Si dos
+  // cargas se solapan, ambas ven el catálogo sin sembrar y siembran por duplicado
+  // (así aparecieron 2 copias de cada serie). El cerrojo lo impide.
+  if (_seedInFlight) return;
+
+  // Y como el patrón es leer-y-luego-escribir contra Firestore desde el navegador,
+  // una recarga rápida puede no ver todavía lo recién escrito y volver a sembrar.
+  // Con la marca, cada navegador siembra como mucho una vez.
+  if (localStorage.getItem(SEED_DONE_KEY) === '1') return;
+
+  _seedInFlight = true;
+
+  try {
   let addedAny = false;
   for (const s of FAMOUS_CONTENT) {
-    const exists = movieDatabase.trending.some(m => 
-      (m.tmdbId && m.tmdbId === s.tmdbId) || 
+    // tmdbId se guarda como número en el seed pero como texto en el resto del
+    // catálogo, así que hay que comparar normalizado o el duplicado se cuela.
+    const exists = movieDatabase.trending.some(m =>
+      (m.tmdbId && String(m.tmdbId) === String(s.tmdbId)) ||
       (m.title && m.title.toLowerCase() === s.title.toLowerCase())
     );
     if (!exists) {
@@ -467,6 +524,10 @@ async function seedPopularSeries() {
     sessionStorage.removeItem('selvaflix_full_database');
     sessionStorage.removeItem('selvaflix_cache_timestamp');
     handleRouting();
+  }
+    localStorage.setItem(SEED_DONE_KEY, '1');
+  } finally {
+    _seedInFlight = false;
   }
 }
 
@@ -2740,7 +2801,10 @@ let _tmdbLastResults = [];
 
 window.searchTMDB = async function (query, isSuggestion = false) {
   if (!query) return;
-  const resultsDiv = document.getElementById('tmdb-results');
+  const resultsDiv = isSuggestion 
+    ? document.getElementById('tmdb-img-suggestions') 
+    : document.getElementById('tmdb-results');
+  if (!resultsDiv) return;
   if (!isSuggestion) resultsDiv.innerHTML = '<p style="color: var(--primary);">Buscando en Hollywood... 📡</p>';
 
   try {
@@ -2760,31 +2824,43 @@ window.searchTMDB = async function (query, isSuggestion = false) {
     }
 
     if (!data.results || data.results.length === 0) {
-      resultsDiv.innerHTML = '<p style="color: var(--text-muted);">No encontramos esa joya en la selva 🧐</p>';
+      if (!isSuggestion) resultsDiv.innerHTML = '<p style="color: var(--text-muted);">No encontramos esa joya en la selva 🧐</p>';
       return;
     }
 
     // Save to global storage to avoid attribute escaping issues
     _tmdbLastResults = data.results.slice(0, 5);
 
-    resultsDiv.innerHTML = (isSuggestion ? '<p style="width:100%; font-size:0.8rem; color:var(--primary); margin-bottom:5px;">💡 Sugerencias de Imagen:</p>' : '') +
-      _tmdbLastResults.map((m, index) => {
+    if (isSuggestion) {
+      resultsDiv.innerHTML = _tmdbLastResults
+        .filter(m => m.poster_path)
+        .map((m, index) => {
+          const imgUrl = TMDB_IMG_URL + m.poster_path;
+          return `
+            <div onclick="window.suggestImage('${imgUrl}')" style="cursor:pointer; flex:0 0 70px; text-align:center;">
+              <img src="${imgUrl}" style="width:70px; height:105px; border-radius:6px; object-fit:cover; border:1px solid rgba(255,255,255,0.1);" onerror="this.src='https://via.placeholder.com/70x105'">
+            </div>
+          `;
+        }).join('');
+    } else {
+      resultsDiv.innerHTML = _tmdbLastResults.map((m, index) => {
         const title = m.title || m.name || "Sin Título";
         const type = m.media_type === 'tv' ? 'series' : 'movie';
         const imgUrl = m.poster_path ? (TMDB_IMG_URL + m.poster_path) : 'https://via.placeholder.com/150x225?text=SIN+POSTER';
 
         return `
-        <div class="tmdb-item" onclick="window.selectTMDBMovie(${index})" style="cursor:pointer; min-width:100px; text-align:center;">
-          <img src="${imgUrl}" alt="${title}" style="height:150px; border-radius:8px; object-fit:cover; margin-bottom:5px;" onerror="this.src='https://via.placeholder.com/150x225'">
-          <p style="font-size:0.65rem; color:var(--primary); font-weight:bold;">[${type === 'series' ? 'Serie' : 'Peli'}]</p>
-          <p style="font-size:0.7rem; color:white; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${title}</p>
-        </div>
-      `;
+          <div class="tmdb-item" onclick="window.selectTMDBMovie(${index})" style="cursor:pointer; min-width:100px; text-align:center;">
+            <img src="${imgUrl}" alt="${title}" style="height:150px; border-radius:8px; object-fit:cover; margin-bottom:5px;" onerror="this.src='https://via.placeholder.com/150x225'">
+            <p style="font-size:0.65rem; color:var(--primary); font-weight:bold;">[${type === 'series' ? 'Serie' : 'Peli'}]</p>
+            <p style="font-size:0.7rem; color:white; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${title}</p>
+          </div>
+        `;
       }).join('');
+    }
 
   } catch (err) {
     console.error("TMDB error:", err);
-    resultsDiv.innerHTML = '<p style="color: #E74C3C;">Error al conectar con TMDB (Revisa el ID) 🐒</p>';
+    if (!isSuggestion) resultsDiv.innerHTML = '<p style="color: #E74C3C;">Error al conectar con TMDB (Revisa el ID) 🐒</p>';
   }
 }
 
@@ -5355,6 +5431,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const preview = document.getElementById('m-img-preview');
     if (preview) {
       preview.src = e.target.value || 'https://via.placeholder.com/150x220?text=Previsualización';
+    }
+  });
+
+  document.getElementById('m-title')?.addEventListener('input', (e) => {
+    const val = e.target.value.trim();
+    if (val.length > 2) {
+      searchTMDB(val, true);
     }
   });
 

@@ -4548,7 +4548,22 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
             if (setPriorityBtn) {
                 setPriorityBtn.onclick = async () => {
                     let link = linkInput.value.trim();
-                    if (!link) return;
+
+                    // Campo vacío = quitar el enlace propio. Antes esto no hacía
+                    // nada y no había forma de desfijar un link muerto desde la
+                    // interfaz; el título se quedaba atado a él para siempre.
+                    if (!link) {
+                        if (!confirm('¿Quitar el enlace propio de este título?\n\nPasará a reproducirse con los servidores públicos (FlixLatam, PelisPlus…).')) return;
+                        try {
+                            const { getFirestore, doc, updateDoc } = await import("firebase/firestore");
+                            await updateDoc(doc(getFirestore(), "movies", movie.id), { embed: '' });
+                            movie.embed = '';
+                            if (window.showToast) window.showToast("🧹 Enlace propio quitado. Ahora usa los servidores públicos.", "success");
+                        } catch (e) {
+                            if (window.showToast) window.showToast("Error al quitar el enlace: " + e.message, "error");
+                        }
+                        return;
+                    }
 
                     if (link.includes('<iframe')) {
                         const srcMatch = link.match(/src="([^"]+)"/);

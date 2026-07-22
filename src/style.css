@@ -5491,3 +5491,32 @@ input:checked+.slider:before {
   font-size: 1rem;
   line-height: 1;
 }
+
+/* ── Colisiones del player acoplado ─────────────────────────────────
+   1) La ficha tiene su propia cabecera fija con flecha de atrás. Con el
+      player puesto se veían DOS flechas, porque el reproductor trae la
+      suya. La del player basta.
+   2) En móvil los controles de arriba caían justo sobre el botón de play
+      que dibuja el proveedor dentro del iframe. Los bajamos.
+   ------------------------------------------------------------------ */
+#detail-view.con-player-acoplado #detail-header {
+  display: none !important;
+}
+
+@media (max-width: 1023px) {
+
+  /* Acoplado (no en grande): controles abajo, lejos del play del proveedor */
+  .player-modal.player-acoplado:not(.player-expandido) .player-back-arrow,
+  .player-modal.player-acoplado:not(.player-expandido) .player-top-controls {
+    top: auto !important;
+    bottom: 10px !important;
+  }
+
+  /* El degradado acompaña a los controles: de abajo hacia arriba */
+  .player-modal.player-acoplado:not(.player-expandido)::before {
+    top: auto;
+    bottom: 0;
+    height: 70px;
+    background: linear-gradient(transparent, rgba(0,0,0,0.7));
+  }
+}

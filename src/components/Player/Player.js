@@ -350,13 +350,14 @@ export const SelvaStream = {
             `;
         }
 
-        const isAdminForScan = localStorage.getItem('selva_admin_auth') === 'true';
         const id = movie.imdbId || movie.tmdbId;
         const type = movie.type === 'series' ? 'series' : 'movie';
-        if (id && isAdminForScan) {
+        if (id) {
+            // loadDebridAuto decide solo: admin escanea la selva, visitante va directo
+            // a las fuentes públicas (MoviesAPI, Embed.su, VidSrc...).
             this.loadDebridAuto(id, type);
         } else {
-            // Sin embed y sin admin: mostrar start-screen con mensaje de no disponible
+            // Sin embed y sin id de TMDB/IMDb no hay nada que buscar
             if (loader) loader.style.display = 'none';
             if (startScreen) {
                 startScreen.style.display = 'flex';
@@ -560,7 +561,10 @@ export const SelvaStream = {
                     const isEnglish = qRaw.includes('english') || qRaw.includes('subbed') || qRaw.includes('subtitulado') || qRaw.includes('subs');
                     
                     let langLabel = 'MULTI';
-                    if (isLatino) langLabel = '🇲🇽 LATINO';
+                    // s.lang viene declarado en las fuentes públicas: no adivinamos por texto
+                    if (s.lang === 'latino') langLabel = '🇲🇽 LATINO';
+                    else if (s.lang === 'subs') langLabel = '💬 SUBS · audio original';
+                    else if (isLatino) langLabel = '🇲🇽 LATINO';
                     else if (isCastellano) langLabel = '🇪🇸 CASTELLANO';
                     else if (isEnglish) langLabel = '🇺🇸 INGLÉS';
 
@@ -710,6 +714,84 @@ export const SelvaStream = {
         if (root) root.innerHTML = '';
     },
 
+    // 🌐 Catálogo único de fuentes públicas.
+    // lang: 'latino' = doblaje español latino | 'subs' = audio original (inglés) + subtítulos
+    buildPublicStreams(queryType) {
+        const movie = this.currentPlayerMovie || {};
+        const tmdbId = movie.tmdbId;
+        const imdbId = movie.imdbId;
+        if (!tmdbId && !imdbId) return [];
+
+        const tid = tmdbId || imdbId;
+        const isTv = queryType === 'series';
+        const s = isTv ? (document.getElementById('selva-season')?.value || 1) : null;
+        const e = isTv ? (document.getElementById('selva-episode')?.value || 1) : null;
+        const movieTitle = movie.title || "Película";
+        const epTag = isTv ? ` T${s}E${e}` : '';
+
+        // Helper para normalizar slugs al formato de PelisPlus
+        const cleanSlug = (text) => {
+            if (!text) return "";
+            return text.toString().toLowerCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "") // Eliminar acentos
+                .replace(/[^a-z0-9\s-]/g, "") // Eliminar caracteres especiales
+                .trim()
+                .replace(/\s+/g, "-") // Espacios a guiones
+                .replace(/-+/g, "-"); // Colapsar guiones múltiples
+        };
+        const slug = cleanSlug(movieTitle);
+
+        const defs = [];
+
+        // 🇲🇽 FlixLatam es un resolver por IMDb: la página que devuelve corre sobre
+        // EMBED69 y trae selector Latino / Castellano / Subtitulado. Va primero.
+        if (imdbId) {
+            defs.push({ lang: 'latino', name: "🇲🇽 FLIXLATAM · EMBED69", providerName: "FlixLatam",
+                url: isTv
+                    ? `https://flixlatam.com/vidurl/${imdbId}-${s}x${e < 10 ? '0' + e : e}/`
+                    : `https://flixlatam.com/vidurl/${imdbId}/` });
+        }
+
+        // 🇲🇽 PelisPlusHD (Excelente alternativa en español latino/castellano)
+        if (slug) {
+            const pelisplusUrl = isTv
+                ? `https://www.pelisplushd.la/serie/${slug}/temporada/${s}/capitulo/${e}`
+                : `https://www.pelisplushd.la/pelicula/${slug}-${tmdbId || ''}`;
+            defs.push({ lang: 'latino', name: "🇲🇽 PELISPLUS", providerName: "PelisPlus", url: pelisplusUrl });
+        }
+
+        // 🇲🇽 Doblaje latino real
+        defs.push({ lang: 'latino', name: "🇲🇽 LATINO", providerName: "MoviesAPI",
+            url: isTv ? `https://moviesapi.club/tv/${tid}-${s}-${e}` : `https://moviesapi.club/movie/${tid}` });
+
+        // 💬 Audio original + subtítulos (estos NO traen doblaje latino garantizado)
+        defs.push(
+            { lang: 'subs', name: "💬 EMBED.SU", providerName: "EmbedSu",
+              url: isTv ? `https://embed.su/api/tv/${tid}/${s}/${e}` : `https://embed.su/api/movie/${tid}` },
+            { lang: 'subs', name: "💬 VIDSRC.XYZ", providerName: "VidsrcXyz",
+              url: isTv ? `https://vidsrc.xyz/embed/tv/${tid}/${s}-${e}` : `https://vidsrc.xyz/embed/movie/${tid}` },
+            { lang: 'subs', name: "💬 VIDSRC.ME", providerName: "VidsrcMe",
+              url: isTv ? `https://vidsrc.me/embed/tv?tmdb=${tid}&sub_lang=es&s=${s}&e=${e}` : `https://vidsrc.me/embed/movie?tmdb=${tid}&sub_lang=es` },
+            { lang: 'subs', name: "💬 VIDSRC.TO", providerName: "VidsrcTo",
+              url: isTv ? `https://vidsrc.to/embed/tv/${tid}/${s}/${e}` : `https://vidsrc.to/embed/movie/${tid}` },
+            { lang: 'subs', name: "💬 MULTIEMBED", providerName: "SuperEmbed",
+              url: `https://multiembed.mov/?video_id=${tid}&tmdb=1${isTv ? `&s=${s}&e=${e}` : ''}` },
+            { lang: 'subs', name: "💬 VIDLINK.PRO", providerName: "VidLink",
+              url: isTv ? `https://vidlink.pro/tv/${tid}/${s}/${e}?primaryColor=ff7a00` : `https://vidlink.pro/movie/${tid}?primaryColor=ff7a00` },
+            { lang: 'subs', name: "💬 VIDSRC.PRO", providerName: "VidsrcPro",
+              url: isTv ? `https://vidsrc.pro/embed/tv/${tid}/${s}/${e}` : `https://vidsrc.pro/embed/movie/${tid}` },
+            { lang: 'subs', name: "💬 VIDSRC.CC", providerName: "VidsrcCc",
+              url: isTv ? `https://vidsrc.cc/v2/embed/tv/${tid}/${s}/${e}` : `https://vidsrc.cc/v2/embed/movie/${tid}` }
+        );
+
+        return defs.map((d, i) => ({
+            ...d,
+            title: `[${d.lang === 'latino' ? 'ESPAÑOL LATINO' : 'SUBTITULADO'}] 🌐 ${movieTitle}${epTag} - Servidor ${i + 1}`,
+            isPublic: true
+        }));
+    },
+
     async loadDebridAuto(id, type) {
         this.lastScrapedStreams = [];
         this.renderVipMenuList();
@@ -752,61 +834,7 @@ export const SelvaStream = {
         }
 
         // 1. Cargar las fuentes públicas disponibles (MoviesAPI Latino, Embed.su, etc.)
-        const tmdbId = movie?.tmdbId;
-        const imdbId = movie?.imdbId;
-        const publicStreams = [];
-
-        if (tmdbId || imdbId) {
-            const currentTid = tmdbId || imdbId;
-            const isTv = queryType === 'series';
-            const s = isTv ? (document.getElementById('selva-season')?.value || 1) : null;
-            const e = isTv ? (document.getElementById('selva-episode')?.value || 1) : null;
-            const movieTitle = movie?.title || "Película";
-
-            // 🇲🇽 MoviesAPI Latino (Especializado en Español Latino)
-            const moviesapiLat = isTv ? `https://moviesapi.club/tv/${currentTid}-${s}-${e}` : `https://moviesapi.club/movie/${currentTid}`;
-            publicStreams.push({ title: `[ESPAÑOL LATINO] 🌐 ${movieTitle} - Servidor Latino 1`, name: "🇲🇽 LATINO", url: moviesapiLat, providerName: "MoviesAPI", isPublic: true });
-
-            // 🌎 Embed.su (Excelente multi-idioma, auto-selecciona español)
-            const embedSu = isTv ? `https://embed.su/api/tv/${currentTid}/${s}/${e}` : `https://embed.su/api/movie/${currentTid}`;
-            publicStreams.push({ title: `[MULTI-IDIOMA] 🌐 ${movieTitle} - Servidor Multi 2`, name: "🌐 EMBED.SU", url: embedSu, providerName: "EmbedSu", isPublic: true });
-
-            // 🌐 Vidsrc.xyz (Estable, subtítulos y audios multi-lenguaje)
-            const vidsrcXyz = isTv ? `https://vidsrc.xyz/embed/tv/${currentTid}/${s}-${e}` : `https://vidsrc.xyz/embed/movie/${currentTid}`;
-            publicStreams.push({ title: `[MULTI-IDIOMA] 🌐 ${movieTitle} - Servidor Multi 3`, name: "🌐 VIDSRC.XYZ", url: vidsrcXyz, providerName: "VidsrcXyz", isPublic: true });
-
-            // 🌐 Vidsrc.me (Estable con opción de subtítulos)
-            const vidsrcMe = isTv ? `https://vidsrc.me/embed/tv?tmdb=${currentTid}&sub_lang=es&s=${s}&e=${e}` : `https://vidsrc.me/embed/movie?tmdb=${currentTid}&sub_lang=es`;
-            publicStreams.push({ title: `[SUBTITULADO/MULTI] 🌐 ${movieTitle} - Servidor 4`, name: "🌐 VIDSRC.ME", url: vidsrcMe, providerName: "VidsrcMe", isPublic: true });
-
-            // 🌐 Vidsrc.to
-            const vidsrcTo = isTv ? `https://vidsrc.to/embed/tv/${currentTid}/${s}/${e}` : `https://vidsrc.to/embed/movie/${currentTid}`;
-            publicStreams.push({ title: `[MULTI] 🌐 ${movieTitle} - Servidor 5`, name: "🌐 VIDSRC.TO", url: vidsrcTo, providerName: "VidsrcTo", isPublic: true });
-
-            // 🌐 SuperEmbed
-            const superEmbed = `https://multiembed.mov/?video_id=${currentTid}&tmdb=1${isTv ? `&s=${s}&e=${e}` : ''}`;
-            publicStreams.push({ title: `[MULTI] 🌐 ${movieTitle} - Servidor 6`, name: "🌐 MULTIEMBED", url: superEmbed, providerName: "SuperEmbed", isPublic: true });
-
-            // 🌐 VidLink (Excelente compatibilidad y audios en español)
-            const vidLink = isTv ? `https://vidlink.pro/tv/${currentTid}/${s}/${e}?primaryColor=ff7a00` : `https://vidlink.pro/movie/${currentTid}?primaryColor=ff7a00`;
-            publicStreams.push({ title: `[MULTI-IDIOMA] 🌐 ${movieTitle} - Servidor Link 7`, name: "🌐 VIDLINK.PRO", url: vidLink, providerName: "VidLink", isPublic: true });
-
-            // 🌐 Vidsrc.pro (Rápido y con múltiples opciones de idioma)
-            const vidsrcPro = isTv ? `https://vidsrc.pro/embed/tv/${currentTid}/${s}/${e}` : `https://vidsrc.pro/embed/movie/${currentTid}`;
-            publicStreams.push({ title: `[MULTI-IDIOMA] 🌐 ${movieTitle} - Servidor Pro 8`, name: "🌐 VIDSRC.PRO", url: vidsrcPro, providerName: "VidsrcPro", isPublic: true });
-
-            // 🌐 Vidsrc.cc (Estable con buen soporte en español)
-            const vidsrcCc = isTv ? `https://vidsrc.cc/v2/embed/tv/${currentTid}/${s}/${e}` : `https://vidsrc.cc/v2/embed/movie/${currentTid}`;
-            publicStreams.push({ title: `[MULTI-IDIOMA] 🌐 ${movieTitle} - Servidor CC 9`, name: "🌐 VIDSRC.CC", url: vidsrcCc, providerName: "VidsrcCc", isPublic: true });
-
-            // 🌐 FlixLatam (Excelente fuente en español latino)
-            if (imdbId) {
-                const flixLatamUrl = isTv 
-                    ? `https://flixlatam.com/vidurl/${imdbId}-${s}x${e < 10 ? '0' + e : e}/` 
-                    : `https://flixlatam.com/vidurl/${imdbId}/`;
-                publicStreams.push({ title: `[ESPAÑOL LATINO] 🌐 ${movieTitle} - Servidor FlixLatam`, name: "🇲🇽 FLIXLATAM", url: flixLatamUrl, providerName: "FlixLatam", isPublic: true });
-            }
-        }
+        const publicStreams = this.buildPublicStreams(queryType);
 
         // PRIORIDAD 1: Link Manual de Administrador (Vía Panel Admin)
         if (movie && movie.embed && (movie.embed.startsWith('http') || movie.embed.includes('<iframe'))) {
@@ -865,64 +893,6 @@ export const SelvaStream = {
                 { url: `https://knightcrawler.elfhosted.com/stream/${queryType}/${queryId}.json`, name: "KNIGHT" },
                 { url: `https://mediafusion.elfhosted.com/stream/${queryType}/${queryId}.json`, name: "M-FUSION" }
             ];
-
-            // 🌐 FUENTES ABIERTAS (No necesitan Real-Debrid)
-            const tmdbId = movie?.tmdbId;
-            const imdbId = movie?.imdbId;
-            const publicStreams = [];
-
-            if (tmdbId || imdbId) {
-                const id = tmdbId || imdbId;
-                const isTv = queryType === 'series';
-                const s = isTv ? (document.getElementById('selva-season')?.value || 1) : null;
-                const e = isTv ? (document.getElementById('selva-episode')?.value || 1) : null;
-
-                const movieTitle = movie?.title || "Película";
-
-                // 🇲🇽 MoviesAPI Latino (Especializado en Español Latino)
-                const moviesapiLat = isTv ? `https://moviesapi.club/tv/${tmdbId}-${s}-${e}` : `https://moviesapi.club/movie/${tmdbId}`;
-                publicStreams.push({ title: `[ESPAÑOL LATINO] 🌐 ${movieTitle} - Servidor Latino 1`, name: "🇲🇽 LATINO", url: moviesapiLat, providerName: "MoviesAPI", isPublic: true });
-
-                // 🌎 Embed.su (Excelente multi-idioma, auto-selecciona español)
-                const embedSu = isTv ? `https://embed.su/api/tv/${tmdbId}/${s}/${e}` : `https://embed.su/api/movie/${tmdbId}`;
-                publicStreams.push({ title: `[MULTI-IDIOMA] 🌐 ${movieTitle} - Servidor Multi 2`, name: "🌐 EMBED.SU", url: embedSu, providerName: "EmbedSu", isPublic: true });
-
-                // 🌐 Vidsrc.xyz (Estable, subtítulos y audios multi-lenguaje)
-                const vidsrcXyz = isTv ? `https://vidsrc.xyz/embed/tv/${tmdbId}/${s}-${e}` : `https://vidsrc.xyz/embed/movie/${tmdbId}`;
-                publicStreams.push({ title: `[MULTI-IDIOMA] 🌐 ${movieTitle} - Servidor Multi 3`, name: "🌐 VIDSRC.XYZ", url: vidsrcXyz, providerName: "VidsrcXyz", isPublic: true });
-
-                // 🌐 Vidsrc.me (Estable con opción de subtítulos)
-                const vidsrcMe = isTv ? `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&sub_lang=es&s=${s}&e=${e}` : `https://vidsrc.me/embed/movie?tmdb=${tmdbId}&sub_lang=es`;
-                publicStreams.push({ title: `[SUBTITULADO/MULTI] 🌐 ${movieTitle} - Servidor 4`, name: "🌐 VIDSRC.ME", url: vidsrcMe, providerName: "VidsrcMe", isPublic: true });
-
-                // 🌐 Vidsrc.to
-                const vidsrcTo = isTv ? `https://vidsrc.to/embed/tv/${tmdbId}/${s}/${e}` : `https://vidsrc.to/embed/movie/${tmdbId}`;
-                publicStreams.push({ title: `[MULTI] 🌐 ${movieTitle} - Servidor 5`, name: "🌐 VIDSRC.TO", url: vidsrcTo, providerName: "VidsrcTo", isPublic: true });
-
-                // 🌐 SuperEmbed
-                const superEmbed = `https://multiembed.mov/?video_id=${id}&tmdb=1${isTv ? `&s=${s}&e=${e}` : ''}`;
-                publicStreams.push({ title: `[MULTI] 🌐 ${movieTitle} - Servidor 6`, name: "🌐 MULTIEMBED", url: superEmbed, providerName: "SuperEmbed", isPublic: true });
-
-                // 🌐 VidLink (Excelente compatibilidad y audios en español)
-                const vidLink = isTv ? `https://vidlink.pro/tv/${tmdbId}/${s}/${e}?primaryColor=ff7a00` : `https://vidlink.pro/movie/${tmdbId}?primaryColor=ff7a00`;
-                publicStreams.push({ title: `[MULTI-IDIOMA] 🌐 ${movieTitle} - Servidor Link 7`, name: "🌐 VIDLINK.PRO", url: vidLink, providerName: "VidLink", isPublic: true });
-
-                // 🌐 Vidsrc.pro (Rápido y con múltiples opciones de idioma)
-                const vidsrcPro = isTv ? `https://vidsrc.pro/embed/tv/${tmdbId}/${s}/${e}` : `https://vidsrc.pro/embed/movie/${tmdbId}`;
-                publicStreams.push({ title: `[MULTI-IDIOMA] 🌐 ${movieTitle} - Servidor Pro 8`, name: "🌐 VIDSRC.PRO", url: vidsrcPro, providerName: "VidsrcPro", isPublic: true });
-
-                // 🌐 Vidsrc.cc (Estable con buen soporte en español)
-                const vidsrcCc = isTv ? `https://vidsrc.cc/v2/embed/tv/${tmdbId}/${s}/${e}` : `https://vidsrc.cc/v2/embed/movie/${tmdbId}`;
-                publicStreams.push({ title: `[MULTI-IDIOMA] 🌐 ${movieTitle} - Servidor CC 9`, name: "🌐 VIDSRC.CC", url: vidsrcCc, providerName: "VidsrcCc", isPublic: true });
-
-                // 🌐 FlixLatam (Excelente fuente en español latino)
-                if (imdbId) {
-                    const flixLatamUrl = isTv 
-                        ? `https://flixlatam.com/vidurl/${imdbId}-${s}x${e < 10 ? '0' + e : e}/` 
-                        : `https://flixlatam.com/vidurl/${imdbId}/`;
-                    publicStreams.push({ title: `[ESPAÑOL LATINO] 🌐 ${movieTitle} - Servidor FlixLatam`, name: "🇲🇽 FLIXLATAM", url: flixLatamUrl, providerName: "FlixLatam", isPublic: true });
-                }
-            }
 
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 9500); // Un pelín más para los nuevos motores

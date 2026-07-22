@@ -817,13 +817,26 @@ export const SelvaStream = {
         // En el celular el modo grande CSS deja a la vista la barra del
         // navegador y los botones del sistema. Pedimos ADEMÁS la pantalla
         // completa real del navegador (como hace YouTube) y giramos a
-        // horizontal. En iPhone no existe requestFullscreen sobre divs, así
-        // que ahí queda solo el modo grande CSS de siempre.
+        // horizontal.
         if (window.innerWidth <= 1023) {
+            const nativo = document.getElementById('native-video-player');
+            const contNativo = document.getElementById('native-player-container');
+            const nativoActivo = nativo && contNativo && contNativo.style.display !== 'none';
+
             if (expandido) {
-                modal.requestFullscreen?.().then(() => {
-                    screen.orientation?.lock?.('landscape').catch(() => {});
-                }).catch(() => {});
+                if (typeof modal.requestFullscreen === 'function') {
+                    modal.requestFullscreen().then(() => {
+                        screen.orientation?.lock?.('landscape').catch(() => {});
+                    }).catch(() => {});
+                } else if (nativoActivo && typeof nativo.webkitEnterFullscreen === 'function') {
+                    // iPhone: Safari no permite fullscreen sobre divs, pero si el
+                    // video corre en NUESTRO <video> (Servidor Oficial directo)
+                    // podemos abrir el reproductor nativo de iOS: el del sistema,
+                    // sin publicidad. Con fuentes de iframe (dominio ajeno) no se
+                    // puede: ahí manda el player del proveedor y queda solo el
+                    // modo grande CSS.
+                    try { nativo.webkitEnterFullscreen(); } catch (e) {}
+                }
             } else if (document.fullscreenElement) {
                 try { screen.orientation?.unlock?.(); } catch (e) {}
                 document.exitFullscreen().catch(() => {});

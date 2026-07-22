@@ -635,6 +635,14 @@ function marcarNavEscritorio(tipo) {
   });
 }
 
+// La barra inferior de móvil solo se marcaba desde el enrutado, así que al
+// cambiar de pestaña con setFilter se quedaba siempre en "Inicio".
+function marcarNavMovil(tipo) {
+  const mapa = { '': 'btn-nav-home', 'movies': 'btn-nav-movies', 'series': 'btn-nav-series' };
+  Object.values(mapa).forEach(id => document.getElementById(id)?.classList.remove('active'));
+  document.getElementById(mapa[tipo || ''])?.classList.add('active');
+}
+
 // "Continuar viendo" es cosa del Home. loadContinueWatching solo corre al cargar
 // el historial, así que al cambiar de pestaña hay que ocultarlo aquí.
 function sincronizarContinuarViendo(tipo) {
@@ -652,6 +660,7 @@ window.setFilter = (type) => {
   _currentGenre = '';   // reset genre on main filter change
   marcarNavEscritorio(type);
   sincronizarContinuarViendo(type);
+  marcarNavMovil(type);
 
   const adminEl = document.getElementById('admin-view');
   const homeEl = document.getElementById('home-view');

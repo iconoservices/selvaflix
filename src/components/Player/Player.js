@@ -351,15 +351,14 @@ export const SelvaStream = {
                 lang: 'propio'
             };
 
-            // Las fuentes conocidas van primero y el enlace propio al final: no
-            // sabemos qué idioma trae ni si sigue vivo (streamtape borra vídeos),
-            // así que no debe encabezar la lista ni arrancar la reproducción.
+            // El enlace propio manda: va directo al vídeo, sin la capa de
+            // "Estás viendo…" ni el botón de play que superponen los
+            // proveedores públicos. Estos quedan detrás como alternativa por si
+            // el enlace murió (streamtape borra vídeos), no como sustituto.
             const tipo = ['series', 'tv', 'anime'].includes(movie.type) ? 'series' : 'movie';
-            const publicas = this.buildPublicStreams(tipo);
-            this.lastScrapedStreams = [...publicas, oficial];
+            this.lastScrapedStreams = [oficial, ...this.buildPublicStreams(tipo)];
 
-            const preferida = publicas.find(s => s.providerName === this.preferredProvider);
-            this.handleExternalStream(preferida || publicas[0] || oficial);
+            this.handleExternalStream(oficial);
             this.renderControls();
             return; // ✅ Reproducción directa — no interrumpir con scraping
         }

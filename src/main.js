@@ -297,7 +297,7 @@ window.updateAdminUI = () => {
   if (dot) dot.style.display = isAdmin ? 'block' : 'none';
 };
 let _seedInFlight = false;
-const SEED_DONE_KEY = 'selvaflix_seed_done';
+const SEED_DONE_KEY = 'selvaflix_seed_done_v2';
 
 async function seedPopularSeries() {
   const FAMOUS_CONTENT = [
@@ -386,6 +386,42 @@ async function seedPopularSeries() {
       status: "healthy"
     },
     {
+      title: "Friends",
+      tmdbId: 1668,
+      imdbId: "tt0108778",
+      type: "series",
+      img: "https://image.tmdb.org/t/p/w500/f4961mQUNv2mOZNuACGZvnND79R.jpg",
+      description: "Las aventuras y desventuras amorosas, profesionales y afectivas de un grupo de seis jóvenes amigos en Nueva York.",
+      genres: ["Comedia"],
+      rating: "8.4",
+      year: 1994,
+      status: "healthy"
+    },
+    {
+      title: "The Office",
+      tmdbId: 2316,
+      imdbId: "tt0386676",
+      type: "series",
+      img: "https://image.tmdb.org/t/p/w500/dg4xJb3D4L6PjXgPryuSjXhNCSv.jpg",
+      description: "Un falso documental sobre el día a día de una oficina de venta de papel.",
+      genres: ["Comedia"],
+      rating: "8.6",
+      year: 2005,
+      status: "healthy"
+    },
+    {
+      title: "The Last of Us",
+      tmdbId: 100088,
+      imdbId: "tt3581920",
+      type: "series",
+      img: "https://image.tmdb.org/t/p/w500/uKVw3NYSuxmgHG42n6r8mTACHPT.jpg",
+      description: "Veinte años después de que la civilización moderna haya sido destruida, Joel es contratado para sacar de contrabando a Ellie.",
+      genres: ["Drama", "Action & Adventure", "Sci-Fi & Fantasy"],
+      rating: "8.6",
+      year: 2023,
+      status: "healthy"
+    },
+    {
       title: "Avatar: El sentido del agua",
       tmdbId: 76600,
       imdbId: "tt1630029",
@@ -443,6 +479,54 @@ async function seedPopularSeries() {
       genres: ["Acción", "Aventura", "Ciencia Ficción"],
       rating: "8.0",
       year: 2021,
+      status: "healthy"
+    },
+    {
+      title: "Origen (Inception)",
+      tmdbId: 27205,
+      imdbId: "tt1375666",
+      type: "movie",
+      img: "https://image.tmdb.org/t/p/w500/9gk7adHYe3Fo4C1206O6SbFIe75.jpg",
+      description: "Dom Cobb es un ladrón experto en el arte de la extracción, robando secretos del subconsciente durante el sueño.",
+      genres: ["Acción", "Ciencia Ficción", "Aventura"],
+      rating: "8.4",
+      year: 2010,
+      status: "healthy"
+    },
+    {
+      title: "Interstellar",
+      tmdbId: 157336,
+      imdbId: "tt0816692",
+      type: "movie",
+      img: "https://image.tmdb.org/t/p/w500/gEU2QvHOmzaz1v75vGuxj703mZ.jpg",
+      description: "Un grupo de exploradores viaja más allá de esta galaxia para descubrir si la humanidad tiene un futuro entre las estrellas.",
+      genres: ["Aventura", "Drama", "Ciencia Ficción"],
+      rating: "8.4",
+      year: 2014,
+      status: "healthy"
+    },
+    {
+      title: "Oppenheimer",
+      tmdbId: 872585,
+      imdbId: "tt15398776",
+      type: "movie",
+      img: "https://image.tmdb.org/t/p/w500/8Gxv2wS6nJyxjbgjZy1v7m75ZzG.jpg",
+      description: "La historia del físico teórico estadounidense J. Robert Oppenheimer, director del Proyecto Manhattan.",
+      genres: ["Drama", "Historia"],
+      rating: "8.1",
+      year: 2023,
+      status: "healthy"
+    },
+    {
+      title: "Deadpool y Lobezno (Deadpool & Wolverine)",
+      tmdbId: 533535,
+      imdbId: "tt6263850",
+      type: "movie",
+      img: "https://image.tmdb.org/t/p/w500/8cdWv6Arwyp1u5821y61tK05ffz.jpg",
+      description: "Deadpool y Wolverine se unen en una aventura multiversal para salvar su línea de tiempo.",
+      genres: ["Acción", "Comedia", "Ciencia Ficción"],
+      rating: "7.8",
+      year: 2024,
       status: "healthy"
     }
   ];

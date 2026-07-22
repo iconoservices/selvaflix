@@ -5390,14 +5390,17 @@ input:checked+.slider:before {
    ------------------------------------------------------------------ */
 @media (max-width: 1023px) {
 
-  /* La barra superior es fixed, mide 56px y va a z-index 1000, así que el
-     player pegado arriba quedaba recortado justo donde están sus controles.
-     Lo bajamos por debajo de ella. */
+  /* La barra superior es fixed y va a z-index 1000, así que el player pegado
+     arriba quedaba recortado. Lo bajamos por debajo de ella.
+     Ojo PWA: en modo instalado (standalone) la barra crece con el status bar
+     del teléfono (--safe-top: 44px en iOS), así que el offset tiene que
+     incluirlo. En el navegador --safe-top vale 0 y esto queda igual que antes
+     (56px), por eso no afecta a la versión web. */
   #detail-view.con-player-acoplado #detail-player-dock {
     display: block;
     position: sticky;
-    top: 56px;
-    margin-top: 56px;
+    top: calc(56px + var(--safe-top, 0px));
+    margin-top: calc(56px + var(--safe-top, 0px));
     z-index: 60;
     background: #000;
   }

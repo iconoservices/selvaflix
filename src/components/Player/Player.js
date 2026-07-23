@@ -97,6 +97,11 @@ export const SelvaStream = {
                         <div id="wt-progress">Buscando semillas...</div>
                     </div>
 
+                    <!-- Aviso: doble toque/clic sobre el video abre el reproductor
+                         de pantalla completa del proveedor. Se muestra unos segundos
+                         al abrir en AMBAS vistas (celular y escritorio). -->
+                    <div id="fullscreen-hint" style="display:none; position:absolute; bottom:14px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.78); color:#fff; padding:7px 14px; border-radius:20px; font-size:11px; font-weight:700; z-index:120; white-space:nowrap; pointer-events:none; box-shadow:0 2px 10px rgba(0,0,0,0.5); transition:opacity 0.6s ease;"></div>
+
                     <!-- Start screen is kept hidden and serves only as fallback on severe errors -->
                     <div id="player-start-screen" class="player-start-screen" style="display:none;">
                         <div class="start-bg" id="start-bg"></div>
@@ -291,6 +296,9 @@ export const SelvaStream = {
 
         // Acoplado la página sigue siendo navegable; a pantalla completa no.
         document.body.style.overflow = this.estaAcoplado() ? '' : 'hidden';
+
+        // Aviso de doble toque/clic para pantalla completa (ambas vistas).
+        this.mostrarAvisoPantalla();
 
         // Empujamos /play al historial para que "atrás" cierre el player sin salir del detalle
         const currentHash = window.location.hash.substring(1);
@@ -783,6 +791,24 @@ export const SelvaStream = {
     // Agranda y encoge el player SIN tocar el DOM: mover el elemento reiniciaría
     // el iframe y el vídeo volvería a empezar. Aquí solo cambia una clase, así
     // que la reproducción continúa donde iba.
+    // Aviso "doble toque/clic = pantalla completa". Se muestra en AMBAS vistas
+    // (celular y escritorio) unos segundos al abrir y luego se desvanece.
+    mostrarAvisoPantalla() {
+        const hint = document.getElementById('fullscreen-hint');
+        if (!hint) return;
+        const esCelular = window.innerWidth <= 1023;
+        hint.textContent = esCelular
+            ? '👆 Doble toque para pantalla completa'
+            : '🖱️ Doble clic para pantalla completa';
+        hint.style.display = 'block';
+        hint.style.opacity = '1';
+        clearTimeout(this._hintTimer);
+        this._hintTimer = setTimeout(() => {
+            hint.style.opacity = '0';
+            setTimeout(() => { hint.style.display = 'none'; }, 600);
+        }, 4000);
+    },
+
     alternarPantalla() {
         const modal = document.getElementById('player-modal');
         if (!modal) return;

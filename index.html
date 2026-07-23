@@ -842,29 +842,29 @@
                 </div>
               </div>
 
-              <!-- System Insights (mockeado/estático al estilo del diseño) -->
+              <!-- Señales del Sistema (datos REALES, poblados en _updateDetailedStats) -->
               <div class="system-insights-section">
                 <h3 class="insights-title">Señales del Sistema</h3>
                 <div class="insights-cards-grid">
                   <div class="insight-card">
                     <div class="insight-icon-container">
-                      <span class="material-symbols-outlined">cloud_done</span>
+                      <span class="material-symbols-outlined">movie</span>
                     </div>
                     <div class="insight-content">
-                      <h4>Optimización de Almacenamiento Completada</h4>
-                      <p>El clúster EU-West acaba de optimizar 4TB de archivos 4K para entrega en móviles.</p>
-                      <span class="insight-time">Hace 2 minutos</span>
+                      <h4 id="insight-catalog-title">Catálogo</h4>
+                      <p id="insight-catalog-desc">Cargando...</p>
+                      <span class="insight-time" id="insight-catalog-time">Estado actual</span>
                     </div>
                   </div>
-                  
+
                   <div class="insight-card highlight">
                     <div class="insight-icon-container">
                       <span class="material-symbols-outlined">trending_up</span>
                     </div>
                     <div class="insight-content">
-                      <h4>Pico de Tendencia Detectado</h4>
-                      <p>Un título del catálogo acaba de cruzar el umbral de 500k visualizaciones concurrentes.</p>
-                      <span class="insight-time">Ahora mismo</span>
+                      <h4 id="insight-top-title">Más reproducido</h4>
+                      <p id="insight-top-desc">Cargando...</p>
+                      <span class="insight-time" id="insight-top-time">Reproducciones locales</span>
                     </div>
                   </div>
                 </div>

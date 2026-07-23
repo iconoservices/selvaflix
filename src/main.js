@@ -1407,6 +1407,30 @@ function _updateDetailedStats(items) {
   if (countLiveEl) countLiveEl.innerText = liveVal.toLocaleString();
   if (countCurationEl) countCurationEl.innerText = curationVal.toLocaleString();
   if (countArchivedEl) countArchivedEl.innerText = archivedVal.toLocaleString();
+
+  // 📡 Señales del Sistema con datos REALES (no mock)
+  const catDesc = document.getElementById('insight-catalog-desc');
+  if (catDesc) {
+    catDesc.innerHTML = `<b>${totalVal}</b> títulos · <b style="color:#2ECC71;">${liveVal}</b> en línea · <b style="color:#E74C3C;">${b}</b> rotos · <b style="color:#f1c40f;">${curationVal}</b> en curación.`;
+  }
+  // Más reproducido: usa el conteo local de plays (selva_play_counts)
+  try {
+    const counts = JSON.parse(localStorage.getItem('selva_play_counts') || '{}');
+    const entries = Object.entries(counts).sort((a, b2) => b2[1] - a[1]);
+    const topDesc = document.getElementById('insight-top-desc');
+    const topTitleEl = document.getElementById('insight-top-title');
+    if (topDesc) {
+      if (entries.length === 0) {
+        topDesc.textContent = 'Aún no hay reproducciones registradas.';
+        if (topTitleEl) topTitleEl.textContent = 'Más reproducido';
+      } else {
+        const [topKey, topPlays] = entries[0];
+        const topMovie = items.find(i => String(i.tmdbId) === topKey || String(i.id) === topKey);
+        if (topTitleEl) topTitleEl.textContent = topMovie ? topMovie.title : 'Título ' + topKey;
+        topDesc.innerHTML = `<b>${topPlays}</b> reproducción(es). En total <b>${entries.reduce((s2, e) => s2 + e[1], 0)}</b> plays en ${entries.length} título(s).`;
+      }
+    }
+  } catch (e) { /* ignore */ }
 }
 
 window.loadMoreInventory = () => {

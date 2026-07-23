@@ -5526,12 +5526,6 @@ input:checked+.slider:before {
     background: linear-gradient(rgba(0,0,0,0.7), transparent);
   }
 
-  /* En celular el botón de pantalla completa se oculta: abría un modo grande
-     con anuncios que no queremos. Para pantalla completa limpia se usa el
-     doble toque sobre el video (reproductor nativo del teléfono). */
-  #player-expand-btn {
-    display: none !important;
-  }
 }
 
 /* Consejos según dispositivo, resueltos por CSS (no por JS) para que siempre

@@ -97,12 +97,6 @@ export const SelvaStream = {
                         <div id="wt-progress">Buscando semillas...</div>
                     </div>
 
-                    <!-- Aviso de pantalla completa (solo celular). Se muestra unos
-                         segundos al abrir y luego se desvanece para no tapar el video. -->
-                    <div id="fullscreen-hint" style="display:none; position:absolute; bottom:14px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.78); color:#fff; padding:7px 14px; border-radius:20px; font-size:11px; font-weight:700; z-index:120; white-space:nowrap; pointer-events:none; box-shadow:0 2px 10px rgba(0,0,0,0.5); transition:opacity 0.6s ease;">
-                        👆 Doble toque para pantalla completa
-                    </div>
-
                     <!-- Start screen is kept hidden and serves only as fallback on severe errors -->
                     <div id="player-start-screen" class="player-start-screen" style="display:none;">
                         <div class="start-bg" id="start-bg"></div>
@@ -297,10 +291,6 @@ export const SelvaStream = {
 
         // Acoplado la página sigue siendo navegable; a pantalla completa no.
         document.body.style.overflow = this.estaAcoplado() ? '' : 'hidden';
-
-        // En celular ya no hay botón de pantalla completa: enseñamos el aviso de
-        // doble toque unos segundos al abrir.
-        this.mostrarAvisoPantalla();
 
         // Empujamos /play al historial para que "atrás" cierre el player sin salir del detalle
         const currentHash = window.location.hash.substring(1);
@@ -793,22 +783,6 @@ export const SelvaStream = {
     // Agranda y encoge el player SIN tocar el DOM: mover el elemento reiniciaría
     // el iframe y el vídeo volvería a empezar. Aquí solo cambia una clase, así
     // que la reproducción continúa donde iba.
-    // Aviso "doble toque = pantalla completa". Solo en celular (en escritorio
-    // está el botón ⛶). Aparece al abrir y se desvanece a los 4 s.
-    mostrarAvisoPantalla() {
-        const hint = document.getElementById('fullscreen-hint');
-        if (!hint) return;
-        if (window.innerWidth > 1023) { hint.style.display = 'none'; return; }
-
-        hint.style.display = 'block';
-        hint.style.opacity = '1';
-        clearTimeout(this._hintTimer);
-        this._hintTimer = setTimeout(() => {
-            hint.style.opacity = '0';
-            setTimeout(() => { hint.style.display = 'none'; }, 600);
-        }, 4000);
-    },
-
     alternarPantalla() {
         const modal = document.getElementById('player-modal');
         if (!modal) return;

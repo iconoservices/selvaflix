@@ -2403,8 +2403,11 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
         const now = new Date();
         startDateStr = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
         endDateStr = now.toISOString().split('T')[0];
-        document.getElementById('metrics-start-date').value = startDateStr;
-        document.getElementById('metrics-end-date').value = endDateStr;
+        // Los selectores de fecha pueden no existir en el panel; blindar el .value
+        const sEl = document.getElementById('metrics-start-date');
+        const eEl = document.getElementById('metrics-end-date');
+        if (sEl) sEl.value = startDateStr;
+        if (eEl) eEl.value = endDateStr;
     }
 
     const start = new Date(startDateStr);

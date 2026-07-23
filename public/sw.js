@@ -1,6 +1,6 @@
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
-console.log('🌴 SW Check: Script cargado (v2.43)');
+console.log('🌴 SW Check: Script cargado (v2.44)');
 
 const firebaseConfig = {
     apiKey: "AIzaSyCABaNkvUlMjBatNh0Giih01IDH4sNbt1Q",
@@ -33,13 +33,14 @@ messaging.onBackgroundMessage((payload) => {
    4. Blindaje contra Opaque Responses (CORS).
 */
 
-const CACHE_NAME = 'selvaflix-cache-v2.43';
+const CACHE_NAME = 'selvaflix-cache-v2.44';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
     '/manifest.json',
     '/icon_192.png',
-    '/vite.svg'
+    '/icon_512.png',
+    '/favicon.png'
 ];
 
 const FALLBACK_IMAGE = '/icon_192.png'; // Nuestra imagen de rescate

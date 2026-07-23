@@ -176,7 +176,7 @@
   font-size: 1.6rem;
   font-weight: 900;
   letter-spacing: -0.02em;
-  font-style: italic;
+  /* Logo derecho (no italic) para unificar con el splash y el ícono PWA */
   background: linear-gradient(135deg, #fff 0%, var(--primary) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;

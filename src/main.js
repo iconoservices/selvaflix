@@ -927,7 +927,8 @@ window.selvaExecuteExportToHosting = async (movieId, streamIndex, isAuto = false
 
         let directUrl = streamData.url;
 
-        // 1. Si es un infoHash, necesitamos des-restringirlo primero con RD
+        // 1. ⚠️ EN DESUSO (Real-Debrid): esta rama solo corría si la fuente traía
+        //    infoHash (torrents), que ya no existen. Se conserva por si vuelve RD.
         if (streamData.infoHash && !directUrl) {
             if (window.showToast) window.showToast("🔍 Des-restringiendo link de la selva...", "info");
             const rdData = await SelvaStream.callMasterWorker(streamData.infoHash);
@@ -6920,7 +6921,8 @@ window.useScrapedStream = (idx) => {
   import('./components/Player/Player.js').then(({ SelvaStream }) => {
     const s = SelvaStream.lastScrapedStreams[idx];
     if (s) {
-      // Si tiene infoHash, de-restringimos primero si es posible, o usamos la url directa si existe
+      // ⚠️ EN DESUSO (Real-Debrid): la rama de infoHash solo aplicaba a torrents,
+      // que ya no existen. Se usa siempre la url directa. Se conserva por si vuelve RD.
       let directUrl = s.url;
       if (s.infoHash && !directUrl) {
         window.showToast("De-restringiendo link magnet...", "info");

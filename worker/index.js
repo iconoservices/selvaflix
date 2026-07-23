@@ -22,6 +22,8 @@ export default {
 
         try {
             // --- 🎥 RUTA: SELVAFLIX (Intelligent Debrid Logic) ---
+            // ⚠️ EN DESUSO (2026-07): Real-Debrid ya no se usa (ni contratado). La app
+            // ya no llama /flix/unrestrict. Se conserva por si se reactiva RD. No borrar.
             if (url.pathname === '/flix/unrestrict') {
                 const magnet = url.searchParams.get('magnet');
                 // 1. Añadir Magnet

@@ -10,6 +10,8 @@ export const SelvaStream = {
     hls: null,
     lastScrapedStreams: [],
     showTraditional: false,
+    // ⚠️ EN DESUSO: worker + token solo los usa callMasterWorker (Real-Debrid),
+    // que ya no se usa. Se conservan por si se reactiva Real-Debrid. No borrar.
     MASTER_WORKER_URL: 'https://icono-proxy.jnmcsky.workers.dev', // IconoServices Master Tunnel
     AUTH_TOKEN: import.meta.env.VITE_AUTH_TOKEN || localStorage.getItem('iconoservices_token') || '', // Token cargado desde Vercel (Seguridad)
     
@@ -1159,6 +1161,11 @@ export const SelvaStream = {
         }
     },
 
+    // ⚠️ EN DESUSO (2026-07): puente a Real-Debrid vía el worker para des-restringir
+    // magnets/torrents a enlace directo. Real-Debrid ya no está contratado y los
+    // torrents se retiraron, así que NADIE llega aquí (solo se invocaba cuando una
+    // fuente traía `infoHash`, cosa que ya no ocurre). Se conserva por si algún día
+    // se vuelve a contratar Real-Debrid; no borrar.
     async callMasterWorker(infoHash, attempt = 1) {
         try {
             const magnet = `magnet:?xt=urn:btih:${infoHash}`;

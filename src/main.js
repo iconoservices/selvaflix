@@ -1484,7 +1484,7 @@ function _renderInventoryRows(items) {
         </td>
         <td>
           <div class="cell-poster">
-            <img src="${m.img}" onerror="this.src='https://via.placeholder.com/150x225?text=ERROR'; window.markAsBroken('${m.id}')" alt="poster">
+            <img src="${m.img || ''}" loading="lazy" onerror="window.rescatarPoster(this, '${m.tmdbId || ''}', '${m.type || 'movie'}')" alt="poster">
           </div>
         </td>
         <td>

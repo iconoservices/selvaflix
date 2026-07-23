@@ -5579,7 +5579,28 @@ input:checked+.slider:before {
     background: linear-gradient(rgba(0,0,0,0.7), transparent);
   }
 
+  /* En celular NO va el botón de agrandar (⛶): la pantalla completa se hace
+     con doble toque sobre el video. En escritorio el botón sí se muestra. */
+  #player-expand-btn {
+    display: none !important;
+  }
+
+  /* Título de la peli bajo el reproductor acoplado (el hero está oculto) */
+  #detail-view.con-player-acoplado #detail-dock-title {
+    display: block;
+    padding: 14px 16px 0;
+    margin: 0;
+    color: #fff;
+    font-family: 'Sora', sans-serif;
+    font-size: 20px;
+    font-weight: 800;
+    line-height: 1.25;
+  }
+
 }
+
+/* Oculto por defecto (solo se muestra acoplado en celular, regla de arriba) */
+#detail-dock-title { display: none; }
 
 /* Consejos según dispositivo, resueltos por CSS (no por JS) para que siempre
    acierten sin depender de cuándo se abrió la ficha. */

@@ -4414,6 +4414,9 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
     // 2. Título
     const titleEl = document.getElementById('detail-title');
     if (titleEl) titleEl.textContent = movie.title || 'Sin Título';
+    // Título bajo el reproductor acoplado (visible en celular, donde el hero se oculta)
+    const dockTitleEl = document.getElementById('detail-dock-title');
+    if (dockTitleEl) dockTitleEl.textContent = movie.title || 'Sin Título';
 
     // 3. Año
     const yearEl = document.getElementById('detail-year');

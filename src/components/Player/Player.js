@@ -791,15 +791,14 @@ export const SelvaStream = {
     // Agranda y encoge el player SIN tocar el DOM: mover el elemento reiniciaría
     // el iframe y el vídeo volvería a empezar. Aquí solo cambia una clase, así
     // que la reproducción continúa donde iba.
-    // Aviso "doble toque/clic = pantalla completa". Se muestra en AMBAS vistas
-    // (celular y escritorio) unos segundos al abrir y luego se desvanece.
+    // Aviso "doble toque = pantalla completa". SOLO en celular: ahí la pantalla
+    // completa se hace con doble toque. En escritorio está el botón ⛶, así que
+    // no se muestra ningún aviso.
     mostrarAvisoPantalla() {
         const hint = document.getElementById('fullscreen-hint');
         if (!hint) return;
-        const esCelular = window.innerWidth <= 1023;
-        hint.textContent = esCelular
-            ? '👆 Doble toque para pantalla completa'
-            : '🖱️ Doble clic para pantalla completa';
+        if (window.innerWidth > 1023) { hint.style.display = 'none'; return; }
+        hint.textContent = '👆 Doble toque para pantalla completa';
         hint.style.display = 'block';
         hint.style.opacity = '1';
         clearTimeout(this._hintTimer);

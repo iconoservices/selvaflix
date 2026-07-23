@@ -281,11 +281,20 @@ async function loadSelvaFlixData() {
   // Nota: handleRouting ya sabe si es la primera vez al revisar el DOM
   // ✅ Disparar anuncios automáticos si corresponde
   if(window.triggerLandingAd) window.triggerLandingAd();
-  
-  handleRouting();
-  
-  // 🚀 Siempre intentar ocultar al finalizar carga de datos si ya estamos en un estado listo
-  window.hideSplashScreen();
+
+  // ⚠️ En un reload con caché caliente (< 15 min) esta función corre de forma
+  // SÍNCRONA durante la evaluación del módulo, y llega hasta aquí ANTES de que
+  // más abajo se defina window.openMovieDetail (y openPlayer). Si enrutáramos ya,
+  // en la ruta /detail/.../play la llamada a openMovieDetail sería undefined, la
+  // ficha se quedaba en "Cargando..." (pantalla negra) y el player nunca abría.
+  // Diferir un microtask deja terminar la carga del módulo: las funciones ya
+  // existen y la ruta se resuelve bien. En la primera visita (sin caché) el
+  // await del fetch ya daba ese margen; este fix cubre el reload cacheado.
+  queueMicrotask(() => {
+    handleRouting();
+    // 🚀 Ocultar splash una vez resuelta la ruta
+    window.hideSplashScreen();
+  });
 }
 
 // Iniciar recolección al cargar

@@ -226,6 +226,59 @@
   box-shadow: 0 0 15px rgba(255, 87, 26, 0.3);
 }
 
+/* 🔍 Buscador móvil (overlay a ancho completo, se abre desde la barra inferior) */
+#mobile-search-bar {
+  display: none; /* JS lo pone en flex al abrir */
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 3000;
+  align-items: center;
+  gap: 10px;
+  padding: calc(10px + var(--safe-top)) 14px 10px;
+  background: rgba(10, 10, 10, 0.98);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--primary);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  animation: mobileSearchFade 0.2s ease;
+}
+/* Solo opacidad (sin mover posición): así, aunque la animación se
+   interrumpa/pause, la barra nunca queda fuera de pantalla. */
+@keyframes mobileSearchFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+#mobile-search-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: #fff;
+  font-size: 16px; /* 16px evita el zoom automático de iOS al enfocar */
+  font-family: var(--font-body);
+  outline: none;
+}
+#mobile-search-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 12px rgba(255, 102, 0, 0.25);
+}
+#mobile-search-input::placeholder { color: rgba(255, 255, 255, 0.45); }
+#mobile-search-close {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
 /* Iconos de Material Symbols */
 .icon-cinepulse {
   font-size: 1.3rem;

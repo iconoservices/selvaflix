@@ -323,7 +323,7 @@
       <span class="material-symbols-outlined">live_tv</span>
       <span>Series</span>
     </button>
-    <button onclick="document.getElementById('global-search').focus()" class="nav-item nav-item-cinepulse">
+    <button id="btn-nav-search" onclick="window.openMobileSearch()" class="nav-item nav-item-cinepulse">
       <span class="material-symbols-outlined">search</span>
       <span>Buscar</span>
     </button>
@@ -332,6 +332,15 @@
       <span>Mi Selva</span>
     </button>
   </nav>
+
+  <!-- 🔍 Buscador móvil (overlay a ancho completo) -->
+  <div id="mobile-search-bar">
+    <span class="material-symbols-outlined" style="color: var(--primary); font-size: 22px;">search</span>
+    <input type="text" id="mobile-search-input" placeholder="Buscar películas, series..." autocomplete="off" spellcheck="false">
+    <button id="mobile-search-close" onclick="window.closeMobileSearch()" aria-label="Cerrar búsqueda">
+      <span class="material-symbols-outlined">close</span>
+    </button>
+  </div>
 
   <!-- Contenedor principal de la app (SOLO el contenido con scroll) -->
   <div id="app">

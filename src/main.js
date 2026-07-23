@@ -1057,6 +1057,36 @@ window.normalizeText = (str) => {
             .trim();
 };
 
+// 🔍 Buscador móvil: overlay a ancho completo que se abre desde la barra inferior.
+// Reutiliza handleGlobalSearch (los resultados se pintan en #main-content del Home).
+window.openMobileSearch = () => {
+  const bar = document.getElementById('mobile-search-bar');
+  const input = document.getElementById('mobile-search-input');
+  if (!bar || !input) return;
+
+  // Los resultados se pintan en el Home, así que nos aseguramos de estar ahí.
+  const hash = window.location.hash.substring(1) || '';
+  if (hash.startsWith('detail/') || hash === 'admin' || hash === 'mylist') {
+    if (typeof SelvaStream !== 'undefined') SelvaStream.close();
+    showView('home-view');
+  }
+
+  bar.style.display = 'flex';
+  // Pequeño delay: en móvil el foco inmediato a veces no abre el teclado.
+  setTimeout(() => input.focus(), 60);
+};
+
+window.closeMobileSearch = () => {
+  const bar = document.getElementById('mobile-search-bar');
+  const input = document.getElementById('mobile-search-input');
+  if (input) {
+    input.value = '';
+    handleGlobalSearch(''); // limpia resultados → vuelve al Home normal
+    input.blur();
+  }
+  if (bar) bar.style.display = 'none';
+};
+
 // Global Search (Filter)
 function handleGlobalSearch(query) {
   const normQuery = window.normalizeText(query);
@@ -5576,6 +5606,17 @@ document.addEventListener('DOMContentLoaded', () => {
         handleGlobalSearch('');
         globalSearch.blur();
       }
+    });
+  }
+
+  // 🔍 Buscador móvil (overlay)
+  const mobileSearch = document.getElementById('mobile-search-input');
+  if (mobileSearch) {
+    mobileSearch.addEventListener('input', (e) => {
+      handleGlobalSearch(e.target.value.trim());
+    });
+    mobileSearch.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') window.closeMobileSearch();
     });
   }
 

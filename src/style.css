@@ -5508,18 +5508,37 @@ input:checked+.slider:before {
 
 @media (max-width: 1023px) {
 
-  /* Acoplado (no en grande): controles abajo, lejos del play del proveedor */
+  /* Acoplado: nuestros controles van ARRIBA (flecha izq, FUENTES der) para
+     dejar libre la parte de ABAJO, donde el proveedor pinta el botón de
+     "saltar anuncio" y la barra de progreso. El botón de play del proveedor
+     va al centro, así que las esquinas de arriba no lo tapan. */
   .player-modal.player-acoplado:not(.player-expandido) .player-back-arrow,
   .player-modal.player-acoplado:not(.player-expandido) .player-top-controls {
-    top: auto !important;
-    bottom: 10px !important;
+    top: 10px !important;
+    bottom: auto !important;
   }
 
-  /* El degradado acompaña a los controles: de abajo hacia arriba */
+  /* Degradado arriba, acompañando a los controles */
   .player-modal.player-acoplado:not(.player-expandido)::before {
-    top: auto;
-    bottom: 0;
+    top: 0;
+    bottom: auto;
     height: 70px;
-    background: linear-gradient(transparent, rgba(0,0,0,0.7));
+    background: linear-gradient(rgba(0,0,0,0.7), transparent);
   }
+
+  /* En celular el botón de pantalla completa se oculta: abría un modo grande
+     con anuncios que no queremos. Para pantalla completa limpia se usa el
+     doble toque sobre el video (reproductor nativo del teléfono). */
+  #player-expand-btn {
+    display: none !important;
+  }
+}
+
+/* Consejos según dispositivo, resueltos por CSS (no por JS) para que siempre
+   acierten sin depender de cuándo se abrió la ficha. */
+.consejo-movil { display: none; }
+.consejo-escritorio { display: flex; }
+@media (max-width: 1023px) {
+  .consejo-movil { display: flex; }
+  .consejo-escritorio { display: none; }
 }

@@ -597,8 +597,8 @@
           </div>
           <div style="padding: 14px 16px; display: flex; flex-direction: column; gap: 12px;">
 
-            <!-- Tip de celular (se muestra solo en móvil) -->
-            <div id="tip-movil" style="display: none; flex-direction: column; gap: 10px;">
+            <!-- Tip de celular (se muestra solo en móvil, vía CSS media query) -->
+            <div id="tip-movil" class="consejo-movil" style="flex-direction: column; gap: 10px;">
               <div style="display: flex; gap: 10px; align-items: flex-start;">
                 <span style="font-size: 18px; line-height: 1.3;">👆</span>
                 <p style="margin: 0; color: #e6d5cc; font-family: Inter, sans-serif; font-size: 13px; line-height: 1.5;">Si te salta una <b>ventana o pestaña de publicidad</b>, no te preocupes: solo ciérrala o toca <b>atrás</b> y la película sigue donde iba.</p>
@@ -609,8 +609,8 @@
               </div>
             </div>
 
-            <!-- Tip de escritorio (se muestra solo en PC) -->
-            <div id="tip-escritorio" style="display: none; flex-direction: column; gap: 10px;">
+            <!-- Tip de escritorio (se muestra solo en PC, vía CSS media query) -->
+            <div id="tip-escritorio" class="consejo-escritorio" style="flex-direction: column; gap: 10px;">
               <div style="display: flex; gap: 10px; align-items: flex-start;">
                 <span style="font-size: 18px; line-height: 1.3;">🛡️</span>
                 <p style="margin: 0; color: #e6d5cc; font-family: Inter, sans-serif; font-size: 13px; line-height: 1.5;">Para ver <b>sin publicidad</b>, instala un <b>bloqueador de anuncios</b> en tu navegador (como uBlock Origin o AdBlock). La película se ve perfecta y sin ventanas molestas.</p>

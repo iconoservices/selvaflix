@@ -4396,14 +4396,9 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
     const synopsisEl = document.getElementById('detail-synopsis');
     if (synopsisEl) synopsisEl.textContent = movie.description || movie.overview || 'Sin descripción disponible.';
 
-    // 5b. Consejos según dispositivo: en celular el truco es el doble toque,
-    // en escritorio recomendar bloqueador. Se decide por ancho de pantalla,
-    // igual criterio que el resto del layout responsive de la app.
-    const enMovil = window.innerWidth <= 1023;
-    const tipMovil = document.getElementById('tip-movil');
-    const tipEscritorio = document.getElementById('tip-escritorio');
-    if (tipMovil) tipMovil.style.display = enMovil ? 'flex' : 'none';
-    if (tipEscritorio) tipEscritorio.style.display = enMovil ? 'none' : 'flex';
+    // 5b. Los consejos (móvil vs escritorio) se muestran por CSS media query
+    // (.consejo-movil / .consejo-escritorio), así siempre aciertan sin depender
+    // del ancho en el momento de abrir la ficha.
 
     // 6. Botón PLAY → lanza el player directamente como overlay sobre la detail-view
     const playBtn = document.getElementById('detail-btn-play');

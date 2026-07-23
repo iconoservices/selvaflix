@@ -638,7 +638,7 @@ function marcarNavEscritorio(tipo) {
   const enlaces = document.querySelectorAll('.nav-desktop-links .nav-link-cinepulse');
   if (!enlaces.length) return;
 
-  const destino = { '': 'Home', 'movies': 'Películas', 'series': 'Series' }[tipo || ''];
+  const destino = { '': 'Home', 'movies': 'Películas', 'series': 'Series', 'anime': 'Anime' }[tipo || ''];
   enlaces.forEach(a => {
     a.classList.toggle('active', a.textContent.trim() === destino);
   });
@@ -647,7 +647,7 @@ function marcarNavEscritorio(tipo) {
 // La barra inferior de móvil solo se marcaba desde el enrutado, así que al
 // cambiar de pestaña con setFilter se quedaba siempre en "Inicio".
 function marcarNavMovil(tipo) {
-  const mapa = { '': 'btn-nav-home', 'movies': 'btn-nav-movies', 'series': 'btn-nav-series' };
+  const mapa = { '': 'btn-nav-home', 'movies': 'btn-nav-movies', 'series': 'btn-nav-series', 'anime': 'btn-nav-anime' };
   Object.values(mapa).forEach(id => document.getElementById(id)?.classList.remove('active'));
   document.getElementById(mapa[tipo || ''])?.classList.add('active');
 }
@@ -677,16 +677,16 @@ window.setFilter = (type) => {
   if (homeEl) homeEl.style.display = 'block';
 
   // Update filter pill active state (only main pills)
-  ['filter-all', 'filter-movies', 'filter-series'].forEach(id => {
+  ['filter-all', 'filter-movies', 'filter-series', 'filter-anime'].forEach(id => {
     document.getElementById(id)?.classList.remove('active');
   });
-  const idMap = { '': 'filter-all', 'movies': 'filter-movies', 'series': 'filter-series' };
+  const idMap = { '': 'filter-all', 'movies': 'filter-movies', 'series': 'filter-series', 'anime': 'filter-anime' };
   document.getElementById(idMap[type] || 'filter-all')?.classList.add('active');
 
-  // Show genre sub-bar only in movies/series view; reset genre pills
+  // Show genre sub-bar only in movies/series/anime view; reset genre pills
   const genreBar = document.getElementById('genre-bar');
   if (genreBar) {
-    genreBar.style.display = (type === 'movies' || type === 'series') ? 'flex' : 'none';
+    genreBar.style.display = (type === 'movies' || type === 'series' || type === 'anime') ? 'flex' : 'none';
     genreBar.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
     document.getElementById('genre-all')?.classList.add('active');
   }
@@ -843,7 +843,7 @@ function handleRouting() {
     const isAdminAuthenticated = localStorage.getItem('selva_admin_auth') === 'true';
     if (!isAdminAuthenticated) {
         const password = prompt("🔒 Área Restringida. Introduce la contraseña de administrador:");
-        if (password === "selva2025") { 
+        if (password === "adminselvaflix") {
             localStorage.setItem('selva_admin_auth', 'true');
             window.updateAdminUI();
             alert("✅ Acceso Concedido.");
@@ -866,13 +866,13 @@ function handleRouting() {
     const hashVal = hash || '';
 
     // Top filters
-    const idMap = { '': 'filter-all', 'movies': 'filter-movies', 'series': 'filter-series' };
-    ['filter-all', 'filter-movies', 'filter-series'].forEach(id => document.getElementById(id)?.classList.remove('active'));
+    const idMap = { '': 'filter-all', 'movies': 'filter-movies', 'series': 'filter-series', 'anime': 'filter-anime' };
+    ['filter-all', 'filter-movies', 'filter-series', 'filter-anime'].forEach(id => document.getElementById(id)?.classList.remove('active'));
     document.getElementById(idMap[hashVal])?.classList.add('active');
 
     // Bottom nav (Mobile)
-    const btmMap = { '': 'btn-nav-home', 'movies': 'btn-nav-movies', 'series': 'btn-nav-series' };
-    ['btn-nav-home', 'btn-nav-movies', 'btn-nav-series'].forEach(id => document.getElementById(id)?.classList.remove('active'));
+    const btmMap = { '': 'btn-nav-home', 'movies': 'btn-nav-movies', 'series': 'btn-nav-series', 'anime': 'btn-nav-anime' };
+    ['btn-nav-home', 'btn-nav-movies', 'btn-nav-series', 'btn-nav-anime'].forEach(id => document.getElementById(id)?.classList.remove('active'));
     document.getElementById(btmMap[hashVal])?.classList.add('active');
 
     // Nav de escritorio (también al llegar por URL directa o botón atrás)
@@ -1601,9 +1601,13 @@ window.switchAdminTab = (tab) => {
     renderInventory();
   } else if (tab === 'analytics') {
     if (typeof window.initMetricsSelectors === 'function') window.initMetricsSelectors();
-    if (typeof window.loadMetrics === 'function') window.loadMetrics();
+    // Respeta el rango ya elegido (o el default que acaba de fijar initMetricsSelectors)
+    // en lugar de resetearlo siempre al mes actual.
+    if (typeof window.applyMetricsFilters === 'function') window.applyMetricsFilters();
   } else if (tab === 'ads') {
     if (typeof window.loadAdConfig === 'function') window.loadAdConfig();
+  } else if (tab === 'users') {
+    if (typeof window.loadRegisteredUsers === 'function') window.loadRegisteredUsers();
   } else if (tab === 'dashboard') {
     // Refresh dashboard stats using already-loaded inventory
     if (_allInventoryItems && _allInventoryItems.length > 0) {
@@ -2364,11 +2368,12 @@ window.initMetricsSelectors = () => {
   const endEl = document.getElementById('metrics-end-date');
   
   if (startEl && endEl) {
-    // Solo cargamos si los campos están vacíos (primera vez que se abre)
+    // Solo fijamos el default si los campos están vacíos (primera vez que se abre).
+    // No disparamos loadMetrics aquí: quien llama a initMetricsSelectors se encarga
+    // de pedir los datos después (evita duplicar la consulta a Firestore).
     if (!startEl.value) {
       startEl.value = firstDay;
       endEl.value = lastDay;
-      window.loadMetrics(firstDay, lastDay);
     }
   }
 };
@@ -2380,11 +2385,44 @@ window.applyMetricsFilters = () => {
   window.loadMetrics(start, end);
 };
 
+// Atajos rápidos de rango de fechas para Analíticas (Hoy / 7 días / Mes / Año)
+window.setMetricsPreset = (preset) => {
+  const now = new Date();
+  const toISO = (d) => d.toISOString().split('T')[0];
+  let start;
+  const end = toISO(now);
+
+  if (preset === 'today') {
+    start = end;
+  } else if (preset === '7d') {
+    const d = new Date(now);
+    d.setDate(d.getDate() - 6);
+    start = toISO(d);
+  } else if (preset === 'month') {
+    start = toISO(new Date(now.getFullYear(), now.getMonth(), 1));
+  } else if (preset === 'year') {
+    start = toISO(new Date(now.getFullYear(), 0, 1));
+  } else {
+    return;
+  }
+
+  const startEl = document.getElementById('metrics-start-date');
+  const endEl = document.getElementById('metrics-end-date');
+  if (startEl) startEl.value = start;
+  if (endEl) endEl.value = end;
+
+  window.loadMetrics(start, end);
+};
+
 window.loadMetrics = async (startDateStr, endDateStr) => {
   const log = document.getElementById('metrics-recent-log');
   const popularList = document.getElementById('metrics-popular-list');
   const deviceChart = document.getElementById('metrics-device-chart');
-  
+
+  // Gemelos del widget compacto en el Panel (Resumen General)
+  const logDash = document.getElementById('metrics-recent-log-dashboard');
+  const popularListDash = document.getElementById('metrics-popular-list-dashboard');
+
   // KPI Elements
   const totalVisits = document.getElementById('stat-total-visits');
   const totalPlays = document.getElementById('stat-total-plays');
@@ -2394,6 +2432,7 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
   const peakEl = document.getElementById('stat-peak-hour');
 
   if (log) log.innerText = "Sincronizando con la selva... 📡";
+  if (logDash) logDash.innerText = "Sincronizando con la selva... 📡";
 
   try {
     // await window.loadReports();
@@ -2428,6 +2467,8 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
 
     if (data.length === 0) {
       if (log) log.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);"><p>Sin actividad registrada en este periodo.</p></div>';
+      if (logDash) logDash.innerHTML = '<div style="text-align:center; padding:10px; color:var(--admin-text-muted);">Sin actividad registrada.</div>';
+      if (popularListDash) popularListDash.innerHTML = '<tr><td colspan="2" style="text-align:center; padding: 15px;">Sin datos.</td></tr>';
       [totalVisits, totalPlays, totalUniqueEl, growthEl, peakEl].forEach(el => { if(el) el.innerText = '0'; });
       return;
     }
@@ -2539,7 +2580,7 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
     }
 
     // Log Reciente
-    log.innerHTML = data.slice(0, 30).map(d => {
+    const buildLogRow = (d) => {
       const date = new Date(d.timestamp).toLocaleTimeString();
       let color = "#2ECC71"; // green
       let emoji = "👀";
@@ -2548,12 +2589,15 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
       if (d.action === 'mass_seed') { color = "#E67E22"; emoji = "🚜"; }
 
       return `<div style="margin-bottom: 5px; border-bottom: 1px solid #222; padding-bottom: 2px;">
-                <span style="color: #666;">[${date}]</span> 
-                <span style="color: ${color}; font-weight: bold;">${emoji} ${d.action.toUpperCase()}</span>: 
+                <span style="color: #666;">[${date}]</span>
+                <span style="color: ${color}; font-weight: bold;">${emoji} ${d.action.toUpperCase()}</span>:
                 <span style="color: #eee;">${d.details?.title || d.details?.page || 'N/A'}</span>
                 <span style="font-size: 0.6rem; color: #444;"> (${d.platform})</span>
             </div>`;
-    }).join('');
+    };
+
+    if (log) log.innerHTML = data.slice(0, 30).map(buildLogRow).join('');
+    if (logDash) logDash.innerHTML = data.slice(0, 8).map(buildLogRow).join('');
 
     // Popularidad (Conteo por titulo)
     const counts = {};
@@ -2566,13 +2610,16 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
       }
     });
 
-    const sortedPopular = Object.entries(counts).sort((a, b) => b[1].count - a[1].count).slice(0, 10);
-    popularList.innerHTML = sortedPopular.map(([title, info]) => `
+    const sortedPopularAll = Object.entries(counts).sort((a, b) => b[1].count - a[1].count);
+    const buildPopularRow = ([title, info]) => `
             <tr>
                 <td style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">${title}</td>
                 <td style="font-weight: bold; color:white; text-align:right;">${info.count}</td>
             </tr>
-        `).join('') || '<tr><td colspan="2" style="text-align:center; padding: 20px;">No hay datos.</td></tr>';
+        `;
+
+    popularList.innerHTML = sortedPopularAll.slice(0, 10).map(buildPopularRow).join('') || '<tr><td colspan="2" style="text-align:center; padding: 20px;">No hay datos.</td></tr>';
+    if (popularListDash) popularListDash.innerHTML = sortedPopularAll.slice(0, 5).map(buildPopularRow).join('') || '<tr><td colspan="2" style="text-align:center; padding: 15px;">Sin datos.</td></tr>';
 
     // FCM Tokens counter
     try {
@@ -2586,13 +2633,14 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
     } catch (err) { console.error("Error cargando usuarios: ", err); }
 
     // Dispositivos (Chart simple)
-    const platforms = {};
-    data.forEach(d => { platforms[d.platform] = (platforms[d.platform] || 0) + 1; });
-    const max = Math.max(...Object.values(platforms));
+    if (deviceChart) {
+      const platforms = {};
+      data.forEach(d => { platforms[d.platform] = (platforms[d.platform] || 0) + 1; });
+      const max = Math.max(...Object.values(platforms));
 
-    deviceChart.innerHTML = Object.entries(platforms).map(([plat, count]) => {
-      const width = (count / max) * 100;
-      return `
+      deviceChart.innerHTML = Object.entries(platforms).map(([plat, count]) => {
+        const width = (count / max) * 100;
+        return `
                 <div style="background: rgba(255,255,255,0.02); padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.03);">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 0.6rem;">
                         <span style="color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px;">${plat}</span>
@@ -2603,7 +2651,8 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
                     </div>
                 </div>
             `;
-    }).join('');
+      }).join('');
+    }
 
     // 🌍 ANALÍTICAS GEOGRÁFICAS (Fase 14)
     try {
@@ -2658,7 +2707,86 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
             </div>
         `;
     }
+    if (logDash) {
+      logDash.innerHTML = `<div style="text-align:center; padding:10px; color:#E74C3C; font-size:0.7rem;">Fallo la conexión con las métricas 🐒</div>`;
+    }
   }
+};
+
+// --- Panel de Usuarios: cuentas reales + logins + dispositivos (v2.45) ---
+window.loadRegisteredUsers = async () => {
+    const tableBody = document.getElementById('admin-users-table-body');
+    const countEl = document.getElementById('admin-users-count');
+    if (!tableBody) return;
+
+    tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:30px;">Cargando usuarios... 📡</td></tr>`;
+
+    try {
+        // 1. Cuentas (documento de "users" con email = cuenta real, no suscriptor anónimo de push)
+        const usersSnap = await getDocs(collection(db, "users"));
+        const accounts = [];
+        usersSnap.forEach(d => {
+            const data = d.data();
+            if (data.email) accounts.push({ uid: d.id, ...data });
+        });
+
+        // 2. Logins agrupados por uid (sin orderBy para no requerir índice compuesto en Firestore)
+        const loginQuery = query(
+            collection(db, "user_activity"),
+            where("action", "==", "login"),
+            limit(3000)
+        );
+        const loginSnap = await getDocs(loginQuery);
+        const loginsByUid = {};
+        loginSnap.forEach(d => {
+            const data = d.data();
+            if (!data.uid) return;
+            if (!loginsByUid[data.uid]) loginsByUid[data.uid] = { count: 0, platforms: new Set(), last: 0 };
+            loginsByUid[data.uid].count++;
+            if (data.platform) loginsByUid[data.uid].platforms.add(data.platform);
+            if (data.timestamp > loginsByUid[data.uid].last) loginsByUid[data.uid].last = data.timestamp;
+        });
+
+        if (countEl) countEl.innerText = `${accounts.length} cuenta(s) registrada(s)`;
+
+        if (accounts.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:30px; color:var(--admin-text-muted);">Nadie se ha registrado con Google todavía. 🐒</td></tr>`;
+            return;
+        }
+
+        accounts.sort((a, b) => (b.lastLoginAt || 0) - (a.lastLoginAt || 0));
+
+        tableBody.innerHTML = accounts.map(acc => {
+            const stats = loginsByUid[acc.uid] || { count: 0, platforms: new Set(), last: acc.lastLoginAt || 0 };
+            const devices = Array.from(stats.platforms).join(', ') || '—';
+            const registered = acc.createdAt ? new Date(acc.createdAt).toLocaleDateString() : '—';
+            const lastSeen = stats.last ? new Date(stats.last).toLocaleString() : '—';
+            const avatarLetter = (acc.displayName || acc.email || '?').charAt(0).toUpperCase();
+
+            return `
+                <tr>
+                    <td>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            ${acc.photoURL
+                                ? `<img src="${acc.photoURL}" style="width:32px; height:32px; border-radius:50%; object-fit:cover;">`
+                                : `<div style="width:32px; height:32px; border-radius:50%; background:var(--admin-accent-orange); color:#111; display:flex; align-items:center; justify-content:center; font-weight:800;">${avatarLetter}</div>`}
+                            <div>
+                                <div style="font-weight:700; color:#fff; font-size:0.8rem;">${acc.displayName || 'Sin nombre'}</div>
+                                <div style="font-size:0.7rem; color:var(--admin-text-muted);">${acc.email}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td style="font-size:0.78rem;">${registered}</td>
+                    <td style="text-align:center; font-weight:800; color:var(--admin-accent-orange);">${stats.count}</td>
+                    <td style="font-size:0.75rem;">${devices}</td>
+                    <td style="font-size:0.78rem;">${lastSeen}</td>
+                </tr>
+            `;
+        }).join('');
+    } catch (e) {
+        console.error("Error cargando usuarios registrados:", e);
+        tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:30px; color:#E74C3C;">Fallo cargando usuarios: ${e.message}</td></tr>`;
+    }
 };
 
 window.loadReports = async () => {
@@ -3130,6 +3258,7 @@ async function collectUserData(action, details = {}) {
       platform: navigator.platform,
       userAgent: navigator.userAgent.substring(0, 80),
       visitorId: getVisitorId(),  // 🔑 ID de visitante unico
+      uid: auth.currentUser ? auth.currentUser.uid : null, // 🔑 Cuenta real, si hay sesión
       date: new Date().toISOString().split('T')[0]  // '2026-03-11' para agrupar por dia
     };
     await addDoc(collection(db, "user_activity"), userData);
@@ -4982,6 +5111,16 @@ window.quickSeedContent = async (s, type) => {
 
 // quickSeedManual consolidada más abajo
 
+window.openMassSeedModal = () => {
+  const modal = document.getElementById('mass-seed-modal');
+  if (modal) modal.style.display = 'flex';
+};
+
+window.closeMassSeedModal = () => {
+  const modal = document.getElementById('mass-seed-modal');
+  if (modal) modal.style.display = 'none';
+};
+
 window.massSeedMovies = async (contentType) => {
   const type = contentType || document.getElementById('m-type').value || 'movie';
   const pages = parseInt(document.getElementById('mass-seed-amount').value) || 1;
@@ -5029,9 +5168,17 @@ window.massSeedMovies = async (contentType) => {
       const sortBy = document.getElementById('discover-sort')?.value || 'popularity.desc';
       let url = `${TMDB_URL}/discover/${endpoint}?api_key=${TMDB_API_KEY}&language=${lang}&sort_by=${sortBy}&page=${pageNum}`;
       if (year && year !== '') url += `&${isTv ? 'first_air_date_year' : 'primary_release_year'}=${year}`;
-      if (genre && genre !== '') url += `&with_genres=${genre}`;
+
+      // 🇯🇵 "Anime" no existe como tipo en TMDB: sin este filtro devuelve las mismas
+      // series populares que "Buscar Series" (Colbert, C.I.D, etc.) con la etiqueta
+      // cambiada. Si el admin no eligió género/idioma manualmente, forzamos
+      // Animación (16) + idioma original japonés para que de verdad traiga anime.
+      const finalGenre = (type === 'anime' && !genre) ? '16' : genre;
       const origLang = document.getElementById('discover-orig-lang')?.value || '';
-      if (origLang !== '') url += `&with_original_language=${origLang}`;
+      const finalOrigLang = (type === 'anime' && !origLang) ? 'ja' : origLang;
+
+      if (finalGenre && finalGenre !== '') url += `&with_genres=${finalGenre}`;
+      if (finalOrigLang !== '') url += `&with_original_language=${finalOrigLang}`;
 
       const res = await fetch(url);
       if (!res.ok) throw new Error(`TMDB respondió con error ${res.status}`);
@@ -5076,13 +5223,14 @@ window.massSeedMovies = async (contentType) => {
     confirmBtn.style.display = 'block';
     confirmBtn.innerText = `✅ Sembrar ${pendingSeeds.length} Coconas`;
 
+    const DUB_LABELS = { 'es-MX': 'Latino', 'es-ES': 'España', 'en-US': 'Inglés' };
     list.innerHTML = pendingSeeds.map((s, idx) => `
       <div style="background: rgba(255,255,255,0.05); padding: 8px; border-radius: 8px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--glass-border);">
         <input type="checkbox" checked class="seed-check" data-idx="${idx}" onchange="window.updateSeedCount()">
         <img src="${s.img}" style="width: 35px; height: 50px; object-fit: cover; border-radius: 4px;" onerror="this.src='https://via.placeholder.com/35x50?text=IMG'">
         <div style="flex: 1; overflow: hidden;">
           <p style="font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: bold; color:white;">${s.title}</p>
-          <p style="font-size: 0.6rem; color: var(--text-muted);">${s.year} · ${s.type}</p>
+          <p style="font-size: 0.6rem; color: var(--text-muted);">${s.year} · ${s.type} · ${DUB_LABELS[s.lang] || s.lang}</p>
         </div>
       </div>
     `).join('');
@@ -5145,7 +5293,8 @@ window.confirmBatchSeed = async () => {
       createdAt: Date.now()
     };
     try {
-      await addDoc(moviesCol, mData);
+      const ref = await addDoc(moviesCol, mData);
+      movieDatabase.trending.push({ id: ref.id, ...mData }); // Reflejar en memoria sin esperar un reload
       collectUserData("manual_seed", { title: s.title, type: s.type });
       count++;
       const percent = Math.round((count / checks.length) * 100);
@@ -5164,6 +5313,9 @@ window.confirmBatchSeed = async () => {
     window.showToast(`✅ ¡Siembra masiva completada! ${count} elementos añadidos. 🌴🍿`, "success");
   }
   document.getElementById('discover-container').style.display = 'none';
+
+  // Refrescar la tabla del Catálogo si está abierta, para ver lo recién sembrado sin recargar
+  if (document.getElementById('admin-view')?.style.display === 'block') renderInventory();
 };
 
 
@@ -5351,9 +5503,11 @@ function initApp(filterType = '', genreId = '') {
   let heroPoolRaw = allContent.filter(c => !window._brokenIds.has(c.id));
   
   if (filterType === 'series') {
-    heroPoolRaw = heroPoolRaw.filter(c => c.type === 'series' || c.type === 'tv' || c.type === 'anime');
+    heroPoolRaw = heroPoolRaw.filter(c => c.type === 'series' || c.type === 'tv');
   } else if (filterType === 'movies') {
     heroPoolRaw = heroPoolRaw.filter(c => c.type === 'movie' || !c.type);
+  } else if (filterType === 'anime') {
+    heroPoolRaw = heroPoolRaw.filter(c => c.type === 'anime');
   }
 
   // Prioridad: 1. Pinned (Fijados) | 2. Taquilleras (Rating/Trends) | 3. Latest (createdAt)
@@ -5395,8 +5549,8 @@ function initApp(filterType = '', genreId = '') {
       await updateHeroCarousel();
     })();
   } else {
-    // Si no hay series en el hero, intentamos poner peliculas destacadas para no dejar el hueco
-    if (filterType === 'series') {
+    // Si no hay series/anime en el hero, intentamos poner peliculas destacadas para no dejar el hueco
+    if (filterType === 'series' || filterType === 'anime') {
         const fallbackPool = allContent.filter(c => !window._brokenIds.has(c.id) && (c.type === 'movie' || !c.type)).slice(0, 3);
         if (fallbackPool.length > 0 && heroSection) {
             heroPool = fallbackPool; 
@@ -5421,12 +5575,19 @@ function initApp(filterType = '', genreId = '') {
 
   } else if (filterType === 'series') {
     const series = allContent.filter(c => c.type === 'series' || c.type === 'tv');
+    if (series.length > 0) {
+      renderGallery('Series', [{ label: `Series${genreId ? ' · filtradas' : ''}`, items: series }]);
+    } else {
+      if (container) container.innerHTML = '<p style="padding:80px;text-align:center;color:var(--text-muted);">No hay series con ese filtro</p>';
+    }
+
+  } else if (filterType === 'anime') {
     const anime = allContent.filter(c => c.type === 'anime');
-    console.log(`Renderizando Series (${series.length}) y Anime (${anime.length})`);
-    renderGallery('Series & Anime', [
-      { label: `Series${genreId ? ' · filtradas' : ''}`, items: series },
-      { label: `Anime`, items: anime }
-    ]);
+    if (anime.length > 0) {
+      renderGallery('Anime', [{ label: `Anime${genreId ? ' · filtrado' : ''}`, items: anime }]);
+    } else {
+      if (container) container.innerHTML = '<p style="padding:80px;text-align:center;color:var(--text-muted);">Todavía no hay anime en la selva. ⛩️🌴</p>';
+    }
 
   } else if (filterType === 'live') {
     // Categoría eliminada
@@ -5469,7 +5630,7 @@ function initApp(filterType = '', genreId = '') {
 
     if (movies.length > 0) renderRow('Películas', movies, 'movies');
     if (series.length > 0) renderRow('Series', series, 'series');
-    if (anime.length > 0) renderRow('Anime', anime, 'series');
+    if (anime.length > 0) renderRow('Anime', anime, 'anime');
   }
 
   // 🚀 Encendido del motor de rotación (al final para liberar el hilo principal)
@@ -6092,14 +6253,51 @@ document.getElementById('btn-google-login')?.addEventListener('click', async () 
     }
 });
 
+// --- Registro de cuenta + conteo de inicios de sesión (v2.45) ---
+// Se dispara una sola vez por pestaña/sesión de navegador (no en cada re-render)
+// para no inflar el contador con cada acción del usuario ya logueado.
+async function trackAccountLogin(user) {
+    const flagKey = 'selva_login_tracked_' + user.uid;
+    if (sessionStorage.getItem(flagKey)) return; // Ya contado en esta sesión de navegador
+
+    const userRef = doc(db, "users", user.uid);
+    try {
+        const snap = await getDoc(userRef);
+        const isNewAccount = !snap.exists() || !snap.data().createdAt;
+
+        await setDoc(userRef, {
+            email: user.email || null,
+            displayName: user.displayName || null,
+            photoURL: user.photoURL || null,
+            createdAt: isNewAccount ? Date.now() : snap.data().createdAt,
+            lastLoginAt: Date.now(),
+        }, { merge: true });
+
+        await addDoc(collection(db, "user_activity"), {
+            action: 'login',
+            details: { email: user.email || 'sin-email' },
+            timestamp: Date.now(),
+            platform: navigator.platform,
+            userAgent: navigator.userAgent.substring(0, 80),
+            visitorId: getVisitorId(),
+            uid: user.uid,
+            date: new Date().toISOString().split('T')[0]
+        });
+
+        sessionStorage.setItem(flagKey, '1');
+    } catch (e) { console.error("Error registrando login:", e); }
+}
+
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         console.log("👤 Sesión activa:", user.email);
-        
+
         // Verificación de BAN (Admin Only)
         const userRef = doc(db, "users", user.uid);
         // En una implementación real verificaríamos un campo 'banned' en el documento del usuario.
-        
+
+        trackAccountLogin(user); // 📊 No bloqueante: registra cuenta + login para el panel de Usuarios
+
         document.getElementById('user-initials').innerText = user.displayName.charAt(0);
         document.getElementById('user-initials').style.display = 'flex';
         document.getElementById('user-avatar-img').style.display = 'none';

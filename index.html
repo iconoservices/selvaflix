@@ -249,6 +249,7 @@
         <a class="nav-link-cinepulse active" href="#" onclick="window.goToHome(); return false;">Home</a>
         <a class="nav-link-cinepulse" href="#movies" onclick="window.setFilter('movies'); return false;">Películas</a>
         <a class="nav-link-cinepulse" href="#series" onclick="window.setFilter('series'); return false;">Series</a>
+        <a class="nav-link-cinepulse" href="#anime" onclick="window.setFilter('anime'); return false;">Anime</a>
         <a class="nav-link-cinepulse" href="#" onclick="window.toggleMyListModal(); return false;">Mi Selva</a>
       </div>
     </div>
@@ -322,6 +323,10 @@
     <button id="btn-nav-series" onclick="window.setFilter('series')" class="nav-item nav-item-cinepulse">
       <span class="material-symbols-outlined">live_tv</span>
       <span>Series</span>
+    </button>
+    <button id="btn-nav-anime" onclick="window.setFilter('anime')" class="nav-item nav-item-cinepulse">
+      <span class="material-symbols-outlined">bolt</span>
+      <span>Anime</span>
     </button>
     <button id="btn-nav-search" onclick="window.openMobileSearch()" class="nav-item nav-item-cinepulse">
       <span class="material-symbols-outlined">search</span>
@@ -878,9 +883,14 @@
                   <h1 class="portal-pane-title">Gestión de Catálogo</h1>
                   <p class="portal-pane-desc">Administra tu biblioteca de películas, actualiza metadatos y controla la visibilidad en todos los endpoints.</p>
                 </div>
-                <button class="btn btn-upload-orange" onclick="window.openUploadDrawer()">
-                  <span class="material-symbols-outlined">add</span> Agregar Título
-                </button>
+                <div style="display:flex; gap:10px;">
+                  <button class="btn btn-secondary" onclick="window.openMassSeedModal()">
+                    <span class="material-symbols-outlined">library_add</span> Carga Masiva
+                  </button>
+                  <button class="btn btn-upload-orange" onclick="window.openUploadDrawer()">
+                    <span class="material-symbols-outlined">add</span> Agregar Título
+                  </button>
+                </div>
               </div>
 
               <!-- Controles del Catálogo -->
@@ -974,6 +984,27 @@
                 </div>
               </div>
 
+              <div class="admin-card" style="margin-bottom: 20px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+                  <h2 class="admin-title" style="margin:0;">👥 Cuentas Registradas</h2>
+                  <span id="admin-users-count" style="font-size:0.75rem; color:var(--admin-text-muted);">Cargando...</span>
+                </div>
+                <table class="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Usuario</th>
+                      <th>Registrado</th>
+                      <th style="text-align:center;">Logins</th>
+                      <th>Dispositivos</th>
+                      <th>Última conexión</th>
+                    </tr>
+                  </thead>
+                  <tbody id="admin-users-table-body">
+                    <tr><td colspan="5" style="text-align:center; padding:30px;">Abre esta pestaña para cargar los usuarios...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+
               <div class="admin-grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
                 <div class="admin-card">
                   <div style="font-size: 2.5rem; margin-bottom: 15px;">🐾</div>
@@ -1022,6 +1053,93 @@
                   <h1 class="portal-pane-title">Analytics & Activity</h1>
                   <p class="portal-pane-desc">Información en tiempo real y estadísticas detalladas de consumo.</p>
                 </div>
+              </div>
+
+              <!-- Filtro de fechas -->
+              <div class="admin-card" style="margin-bottom: 20px; display:flex; flex-wrap:wrap; gap: 10px; align-items:flex-end;">
+                <div class="form-group" style="margin:0;">
+                  <label style="font-size:0.65rem;">Desde</label>
+                  <input type="date" id="metrics-start-date" class="form-control">
+                </div>
+                <div class="form-group" style="margin:0;">
+                  <label style="font-size:0.65rem;">Hasta</label>
+                  <input type="date" id="metrics-end-date" class="form-control">
+                </div>
+                <button class="btn btn-secondary" onclick="window.applyMetricsFilters()">Aplicar</button>
+                <div style="display:flex; gap:6px; margin-left:auto;">
+                  <button class="btn btn-secondary" onclick="window.setMetricsPreset('today')">Hoy</button>
+                  <button class="btn btn-secondary" onclick="window.setMetricsPreset('7d')">7 días</button>
+                  <button class="btn btn-secondary" onclick="window.setMetricsPreset('month')">Este mes</button>
+                  <button class="btn btn-secondary" onclick="window.setMetricsPreset('year')">Este año</button>
+                </div>
+              </div>
+
+              <!-- KPIs -->
+              <div class="admin-metrics-grid">
+                <div class="metric-card">
+                  <span class="metric-label">VISITAS</span>
+                  <span class="metric-value" id="stat-total-visits">0</span>
+                </div>
+                <div class="metric-card live">
+                  <span class="metric-label">REPRODUCCIONES</span>
+                  <span class="metric-value" id="stat-total-plays">0</span>
+                </div>
+                <div class="metric-card">
+                  <span class="metric-label">VISITANTES ÚNICOS</span>
+                  <span class="metric-value" id="stat-unique-visitors">0</span>
+                </div>
+                <div class="metric-card curation">
+                  <span class="metric-label" id="stat-growth-label">CRECIMIENTO</span>
+                  <span class="metric-value" id="stat-growth">0%</span>
+                </div>
+                <div class="metric-card">
+                  <span class="metric-label">HORA PICO</span>
+                  <span class="metric-value" id="stat-peak-hour" style="font-size:1.4rem;">—</span>
+                </div>
+              </div>
+
+              <!-- Actividad por Día / Hora -->
+              <div class="dashboard-widgets-grid">
+                <div class="admin-card">
+                  <h2 class="admin-title">📅 Actividad por Día</h2>
+                  <div id="metrics-day-chart" style="display:flex; align-items:flex-end; gap:2px; height:150px; padding-top:10px;"></div>
+                </div>
+                <div class="admin-card">
+                  <h2 class="admin-title">🕒 Actividad por Hora</h2>
+                  <div id="metrics-hour-chart" style="display:flex; align-items:flex-end; gap:2px; height:150px; padding-top:10px;"></div>
+                </div>
+              </div>
+
+              <!-- Dispositivos / Geografía -->
+              <div class="dashboard-widgets-grid">
+                <div class="admin-card">
+                  <h2 class="admin-title">📱 Dispositivos</h2>
+                  <div id="metrics-device-chart" style="display:flex; flex-direction:column; gap:8px;"></div>
+                  <p id="push-subs-count" style="font-size:0.7rem; color:var(--admin-text-muted); margin-top:12px;"></p>
+                </div>
+                <div class="admin-card">
+                  <h2 class="admin-title">🌍 Países / Ciudades</h2>
+                  <div style="display:flex; gap:10px; height:160px;">
+                    <canvas id="metrics-geo-countries" style="max-width:50%;"></canvas>
+                    <canvas id="metrics-geo-cities" style="max-width:50%;"></canvas>
+                  </div>
+                </div>
+              </div>
+
+              <div class="admin-card" style="margin-bottom: 20px;">
+                <h2 class="admin-title">📊 Desglose por País</h2>
+                <table class="admin-table">
+                  <thead>
+                    <tr>
+                      <th>País</th>
+                      <th style="text-align:center;">Visitas</th>
+                      <th style="text-align:center;">% del total</th>
+                    </tr>
+                  </thead>
+                  <tbody id="metrics-geo-table-body">
+                    <!-- Inyectado dinámicamente -->
+                  </tbody>
+                </table>
               </div>
 
               <div class="dashboard-widgets-grid" style="grid-template-columns: 1fr;">
@@ -1205,6 +1323,87 @@
 
           </div>
         </main>
+      </div>
+
+      <!-- ============================================================ -->
+      <!-- MODAL: CARGA MASIVA DESDE TMDB (por tipo + categoría)         -->
+      <!-- ============================================================ -->
+      <div id="mass-seed-modal" class="modal-overlay" style="display:none; z-index:20010; background:rgba(0,0,0,0.85); align-items:center; justify-content:center;">
+        <div class="admin-card" style="max-width:min(1400px, 96vw); width:96vw; max-height:94vh; overflow-y:auto;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h2 class="admin-title" style="margin:0;">📦 Carga Masiva desde TMDB</h2>
+            <button onclick="window.closeMassSeedModal()" style="background:none; border:none; color:#888; font-size:1.4rem; cursor:pointer; line-height:1;">&times;</button>
+          </div>
+          <p style="font-size:0.75rem; color:var(--admin-text-muted); margin-bottom:15px;">Elige categoría, filtros y tipo de contenido. Se buscan las páginas más populares de TMDB y podrás desmarcar lo que no quieras antes de sembrarlo.</p>
+
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:10px; margin-bottom:12px;">
+            <div class="form-group" style="margin:0;">
+              <label style="font-size:0.65rem;">Género</label>
+              <select id="discover-genre" class="form-control">
+                <option value="">Todos</option>
+                <option value="28">Acción</option>
+                <option value="35">Comedia</option>
+                <option value="18">Drama</option>
+                <option value="16">Animación</option>
+                <option value="27">Terror</option>
+                <option value="10749">Romance</option>
+                <option value="878">Sci-Fi</option>
+                <option value="9648">Misterio</option>
+                <option value="10402">Música</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label style="font-size:0.65rem;">Año</label>
+              <input type="number" id="discover-year" class="form-control" placeholder="Ej. 2024">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label style="font-size:0.65rem;">Idioma Original</label>
+              <select id="discover-orig-lang" class="form-control">
+                <option value="">Todos</option>
+                <option value="en">Inglés</option>
+                <option value="ja">Japonés</option>
+                <option value="ko">Coreano</option>
+                <option value="es">Español</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label style="font-size:0.65rem;">Etiqueta / Doblaje</label>
+              <select id="discover-lang" class="form-control">
+                <option value="es-MX">Latino</option>
+                <option value="es-ES">España</option>
+                <option value="en-US">Inglés</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label style="font-size:0.65rem;">Orden</label>
+              <select id="discover-sort" class="form-control">
+                <option value="popularity.desc">Más populares</option>
+                <option value="vote_average.desc">Mejor calificadas</option>
+                <option value="primary_release_date.desc">Más recientes</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label style="font-size:0.65rem;">Páginas a buscar</label>
+              <input type="number" id="mass-seed-amount" class="form-control" value="1" min="1" max="10">
+            </div>
+          </div>
+
+          <label style="display:flex; align-items:center; gap:8px; font-size:0.75rem; color:var(--admin-text-muted); margin-bottom:15px; cursor:pointer;">
+            <input type="checkbox" id="discover-send-to-review"> Enviar todo a "En Revisión" en vez de publicar directo
+          </label>
+
+          <div style="display:flex; gap:8px; margin-bottom:15px; flex-wrap:wrap; align-items:center;">
+            <button class="btn btn-secondary" onclick="window.massSeedMovies('movie')">🎬 Buscar Películas</button>
+            <button class="btn btn-secondary" onclick="window.massSeedMovies('series')">🏆 Buscar Series</button>
+            <button class="btn btn-secondary" onclick="window.massSeedMovies('anime')">⛩️ Buscar Anime</button>
+            <button id="btn-confirm-mass-seed" class="btn btn-upload-orange" style="display:none; margin-left:auto;">✅ Sembrar</button>
+          </div>
+
+          <div id="discover-container" style="display:none;">
+            <p id="discover-status" style="font-size:0.75rem; color:var(--admin-text-muted); margin-bottom:10px;"></p>
+            <div id="discover-list" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap:8px; max-height:60vh; overflow-y:auto;"></div>
+          </div>
+        </div>
       </div>
 
       <!-- ============================================================ -->

@@ -363,14 +363,17 @@ export const SelvaStream = {
                 lang: 'propio'
             };
 
-            // El enlace propio manda: va directo al vídeo, sin la capa de
-            // "Estás viendo…" ni el botón de play que superponen los
-            // proveedores públicos. Estos quedan detrás como alternativa por si
-            // el enlace murió (streamtape borra vídeos), no como sustituto.
+            // ⏪ Restaurado a como estaba en 52c1cb5 (versión que el usuario
+            // confirmó "limpia"): las fuentes públicas conocidas van primero y
+            // arrancan la reproducción; el enlace propio queda al final como
+            // alternativa. El reorden que las ponía después (dec7c62) fue el que
+            // introdujo la diferencia de comportamiento reportada.
             const tipo = ['series', 'tv', 'anime'].includes(movie.type) ? 'series' : 'movie';
-            this.lastScrapedStreams = [oficial, ...this.buildPublicStreams(tipo)];
+            const publicas = this.buildPublicStreams(tipo);
+            this.lastScrapedStreams = [...publicas, oficial];
 
-            this.handleExternalStream(oficial);
+            const preferida = publicas.find(s => s.providerName === this.preferredProvider);
+            this.handleExternalStream(preferida || publicas[0] || oficial);
             this.renderControls();
             return; // ✅ Reproducción directa — no interrumpir con scraping
         }

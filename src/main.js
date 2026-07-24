@@ -7068,6 +7068,25 @@ window.syncPlaybackProgress = async (movie, lastTime, duration, episodeId = null
     console.log(`🎬 Progreso guardado: ${movie.title} ${episodeLabel ? `(${episodeLabel})` : ''} (${lastTime}s)`);
 };
 
+// Versión ligera de lo anterior: sin lastTime/duration (eso solo existe con
+// video nativo). Guarda en qué capítulo va el usuario para que la próxima
+// vez que abra la serie, el selector de temporada/capítulo arranque ahí.
+window.markWatchingEpisode = (movie, season, episode, episodeLabel) => {
+    if (!auth.currentUser || !_currentProfile || !movie?.id) return;
+
+    const historyRef = doc(db, "users", auth.currentUser.uid, "profiles", _currentProfile.id, "history", movie.id);
+    setDoc(historyRef, {
+        movieId: movie.id,
+        title: movie.title || movie.name,
+        poster: movie.img || movie.poster_path,
+        type: movie.type,
+        season,
+        episode,
+        episodeLabel,
+        timestamp: Date.now()
+    }, { merge: true }).catch(e => console.warn("No se pudo registrar el capítulo en Continuar Viendo:", e));
+};
+
 window.loadContinueWatching = async () => {
     if (!auth.currentUser || !_currentProfile) return;
     try {

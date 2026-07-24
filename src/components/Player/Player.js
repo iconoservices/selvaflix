@@ -969,6 +969,13 @@ export const SelvaStream = {
             this.currentEpisodeId = `s${season}e${episode}`;
             this.currentEpisodeLabel = `T${season} E${episode}`;
             queryId = `${queryId}:${season}:${episode}`;
+
+            // Guardamos qué capítulo se está viendo AHORA (no el tiempo exacto,
+            // eso solo se puede con video nativo) para que la próxima vez que
+            // se abra esta serie, el selector arranque en este mismo capítulo.
+            if (typeof window.markWatchingEpisode === 'function') {
+                window.markWatchingEpisode(movie, season, episode, this.currentEpisodeLabel);
+            }
         } else {
             this.currentEpisodeId = null;
             this.currentEpisodeLabel = null;

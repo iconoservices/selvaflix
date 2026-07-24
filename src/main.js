@@ -3332,6 +3332,21 @@ function startPlayer(movie) {
   counts[key] = (counts[key] || 0) + 1;
   localStorage.setItem('selva_play_counts', JSON.stringify(counts));
 
+  // 🍿 Continuar Viendo (simple, sin barra de progreso): marcamos qué se
+  // empezó a ver apenas se abre el player, sin importar la fuente (a
+  // diferencia de syncPlaybackProgress, esto sí funciona con los servidores
+  // externos en iframe, no solo con el <video> nativo).
+  if (auth.currentUser && _currentProfile) {
+    const historyRef = doc(db, "users", auth.currentUser.uid, "profiles", _currentProfile.id, "history", movie.id);
+    setDoc(historyRef, {
+      movieId: movie.id,
+      title: movie.title || movie.name,
+      poster: movie.img || movie.poster_path,
+      type: movie.type,
+      timestamp: Date.now()
+    }, { merge: true }).catch(e => console.warn("No se pudo registrar en Continuar Viendo:", e));
+  }
+
   SelvaStream.open(movie);
 }
 
@@ -7078,16 +7093,15 @@ window.loadContinueWatching = async () => {
         const grid = document.getElementById('continue-watching-grid');
         if (!grid) return;
         
+        // Sin barra de progreso: solo mostramos qué se empezó a ver, sin
+        // pretender saber en qué minuto quedó (eso solo es fiable con el
+        // <video> nativo, que es la minoría de las reproducciones reales).
         grid.innerHTML = history.map(h => {
-            const progress = (h.lastTime / h.duration) * 100;
             const poster = (h.poster && h.poster.startsWith('http')) ? h.poster : 'https://image.tmdb.org/t/p/w300' + (h.poster || h.poster_path);
             return `
                 <div class="card-horizontal-container" onclick="window.handleCardClick('${h.movieId}')">
                     <div class="card-horizontal-media">
                         <img src="${poster}" alt="${h.title}" loading="lazy" onerror="this.src='/icon_192.png'">
-                        <div class="progress-bar-h">
-                            <div class="progress-fill-h" style="width: ${progress}%;"></div>
-                        </div>
                     </div>
                     <div class="card-horizontal-title">${h.title}</div>
                     <div class="card-horizontal-subtitle">${h.episodeLabel || ''}</div>

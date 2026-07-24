@@ -182,6 +182,61 @@ export const SelvaStream = {
                 .vip-menu-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; color: var(--primary); font-weight: 800; border-bottom: 1px solid #333; padding-bottom: 10px; }
                 .vip-menu-header button { background: none; border: none; color: white; font-size: 24px; cursor: pointer; }
 
+                /* ── Tarjetas de servidor (selector de fuentes) ── */
+                .stream-card-vip {
+                    background: rgba(255,255,255,0.03);
+                    border: 1px solid rgba(255,255,255,0.08);
+                    border-left: 3px solid var(--vip-accent, #2ECC71);
+                    border-radius: 10px;
+                    padding: 12px 14px;
+                    margin-bottom: 8px;
+                    cursor: pointer;
+                    text-align: left;
+                    transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+                }
+                .stream-card-vip:hover {
+                    background: rgba(255,255,255,0.06);
+                    border-color: var(--vip-accent, #2ECC71);
+                    transform: translateX(2px);
+                }
+                .stream-card-vip.is-playing {
+                    background: rgba(46,204,113,0.08);
+                    border-color: rgba(46,204,113,0.5);
+                }
+                .vip-card-head {
+                    display: flex; align-items: center; justify-content: space-between;
+                    gap: 8px; margin-bottom: 4px;
+                }
+                .vip-provider {
+                    color: #fff; font-size: 0.85rem; font-weight: 800; letter-spacing: 0.3px;
+                    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+                }
+                .vip-lang { color: #9a9aa2; font-size: 0.7rem; font-weight: 600; margin-bottom: 8px; }
+                .vip-meta { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+                .vip-chip {
+                    background: rgba(255,255,255,0.08); color: #ddd;
+                    padding: 2px 7px; border-radius: 4px; font-size: 0.58rem; font-weight: 700;
+                }
+                .vip-chip-green { background: rgba(46,204,113,0.12); color: #2ecc71; }
+                .vip-chip-blue  { background: rgba(52,152,219,0.12); color: #3498db; }
+                .vip-chip-plain { font-size: 0.58rem; color: #888; font-weight: 500; }
+                .vip-tag {
+                    flex-shrink: 0; padding: 2px 7px; border-radius: 4px;
+                    font-size: 0.55rem; font-weight: 900; letter-spacing: 0.5px; white-space: nowrap;
+                }
+                .vip-tag-crown   { background: #FF6600; color: #fff; }
+                .vip-tag-official{ background: rgba(0,242,255,0.15); color: #00f2ff; border: 1px solid rgba(0,242,255,0.3); }
+                .vip-tag-best    { background: rgba(255,102,0,0.15); color: #FF6600; border: 1px solid rgba(255,102,0,0.3); }
+                .vip-tag-playing { background: #2ECC71; color: #062; }
+                .vip-admin-actions { display: flex; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.06); }
+                .vip-admin-btn {
+                    background: rgba(0,0,0,0.4); border: 1px solid var(--btn-color, #FF6600);
+                    color: var(--btn-color, #FF6600); border-radius: 8px;
+                    width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+                    cursor: pointer; font-size: 0.95rem; transition: transform 0.15s ease, background 0.15s ease;
+                }
+                .vip-admin-btn:hover { transform: scale(1.1); background: rgba(255,255,255,0.06); }
+
                 .compact-sidebar { width: 180px !important; font-size: 11px; }
                 .sidebar-ad-space { margin-top: auto; background: rgba(255,102,0,0.1); border: 1px dashed var(--primary); padding: 10px; text-align: center; border-radius: 8px; font-weight: bold; font-size: 10px; color: var(--primary); }
 
@@ -621,67 +676,50 @@ export const SelvaStream = {
                     const isPublicLink = movieRef.embed && (movieRef.embed === s.url || movieRef.embed === s.infoHash);
 
                     const crownBtn = isAdmin ? `
-                        <div style="position:absolute; bottom:12px; left:12px; display:flex; gap:8px; z-index:9999;">
-                            <button class="crown-btn" 
-                                    onclick="event.stopPropagation(); window.selvaExecuteCrownPromotion('${movieRef.id}', '${s.infoHash || s.url}')" 
-                                    style="background:rgba(0,0,0,0.6); border:1.5px solid ${isSuggested ? '#E74C3C' : '#FF6600'}; color:#FF6600; border-radius:50%; width:38px; height:38px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:1.2rem; box-shadow:0 0 15px ${isSuggested ? 'rgba(231,76,60,0.4)' : 'rgba(255,102,0,0.4)'}; transition: all 0.2s;" 
-                                    onmouseover="this.style.transform='scale(1.2)';" onmouseout="this.style.transform='scale(1)';"
+                        <div class="vip-admin-actions">
+                            <button class="vip-admin-btn crown-btn" style="--btn-color:${isSuggested ? '#E74C3C' : '#FF6600'};"
+                                    onclick="event.stopPropagation(); window.selvaExecuteCrownPromotion('${movieRef.id}', '${s.infoHash || s.url}')"
                                     title="${isSuggested ? 'Quitar Corona' : 'Coronar esta fuente'}">
                                 ${isSuggested ? '🚫' : '👑'}
                             </button>
-                            <button class="export-btn" 
-                                    onclick="event.stopPropagation(); window.selvaExecuteExportToHosting('${movieRef.id}', ${realIndex}, false)" 
-                                    style="background:rgba(0,0,0,0.6); border:1.5px solid #00f2ff; color:#00f2ff; border-radius:50%; width:38px; height:38px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:1.2rem; box-shadow:0 0 15px rgba(0,242,255,0.4); transition: all 0.2s;" 
-                                    onmouseover="this.style.transform='scale(1.2)';" onmouseout="this.style.transform='scale(1)';"
+                            <button class="vip-admin-btn export-btn" style="--btn-color:#00f2ff;"
+                                    onclick="event.stopPropagation(); window.selvaExecuteExportToHosting('${movieRef.id}', ${realIndex}, false)"
                                     title="Exportar a Hosting (🪄 Manual)">
                                 🪄
                             </button>
-                            <button class="auto-export-btn" 
-                                    onclick="event.stopPropagation(); window.selvaExecuteExportToHosting('${movieRef.id}', ${realIndex}, true)" 
-                                    style="background:rgba(0,0,0,0.6); border:1.5px solid #2ecc71; color:#2ecc71; border-radius:50%; width:38px; height:38px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:1.2rem; box-shadow:0 0 15px rgba(46,204,113,0.4); transition: all 0.2s;" 
-                                    onmouseover="this.style.transform='scale(1.2)';" onmouseout="this.style.transform='scale(1)';"
+                            <button class="vip-admin-btn auto-export-btn" style="--btn-color:#2ecc71;"
+                                    onclick="event.stopPropagation(); window.selvaExecuteExportToHosting('${movieRef.id}', ${realIndex}, true)"
                                     title="Auto-Exportar (⚡ Subir + Guardar)">
                                 ⚡
                             </button>
                         </div>
                     ` : '';
 
-                    // Badge dinámico según rol
-                    let badgeHtml = '';
-                    if (isAdmin) {
-                        if (isSuggested) badgeHtml = `<div style="position:absolute; top:-10px; right:-25px; background:#FF6600; color:white; padding:15px 30px; transform:rotate(45deg); font-size:0.55rem; font-weight:900; letter-spacing:1px; z-index:10; pointer-events:none;">👑 SUGERIDA</div>`;
-                        else if (isPublicLink) badgeHtml = `<div style="position:absolute; top:-10px; right:-25px; background:#00f2ff; color:black; padding:15px 30px; transform:rotate(45deg); font-size:0.55rem; font-weight:900; letter-spacing:1px; z-index:10; pointer-events:none;">🌐 PÚBLICO</div>`;
-                        else if (index === 0) badgeHtml = `<div style="position:absolute; top:-10px; right:-25px; background:#FF6600; color:white; padding:15px 30px; transform:rotate(45deg); font-size:0.5rem; font-weight:900; letter-spacing:1px; z-index:10; pointer-events:none;">EL MEJOR</div>`;
-                    } else {
-                        if (isSuggested) badgeHtml = `<div style="position:absolute; top:-10px; right:-25px; background:#FF6600; color:white; padding:15px 30px; transform:rotate(45deg); font-size:0.55rem; font-weight:900; letter-spacing:1px; z-index:10; pointer-events:none;">👑 PREMIUM</div>`;
-                        else badgeHtml = `<div style="position:absolute; top:-10px; right:-25px; background:#00f2ff; color:black; padding:15px 30px; transform:rotate(45deg); font-size:0.55rem; font-weight:900; letter-spacing:1px; z-index:10; pointer-events:none;">🌐 DISPONIBLE</div>`;
-                    }
+                    // Etiqueta de estado: una sola, en línea (antes eran banners
+                    // diagonales rotados que se encimaban con el resto y ensuciaban).
+                    let tagHtml = '';
+                    if (isSuggested) tagHtml = `<span class="vip-tag vip-tag-crown">👑 ${isAdmin ? 'SUGERIDA' : 'PREMIUM'}</span>`;
+                    else if (isPublicLink) tagHtml = `<span class="vip-tag vip-tag-official">🌐 OFICIAL</span>`;
+                    else if (index === 0) tagHtml = `<span class="vip-tag vip-tag-best">⭐ RECOMENDADO</span>`;
 
-                    const cardBg = isSuggested ? 'rgba(255,102,0,0.1)' : 'rgba(255,102,0,0.05)';
-                    const cardBorder = isSuggested ? '#FF6600' : (isPublicLink ? '#00f2ff' : 'rgba(255,102,0,0.15)');
-                    const borderLeft = isSuggested ? '#FF6600' : (isPublicLink ? '#00f2ff' : '#2ECC71');
+                    const accent = isSuggested ? '#FF6600' : (isPublicLink ? '#00f2ff' : '#2ECC71');
 
                     return `
-                        <div class="stream-card-vip" onclick='if(event.target.closest("button")) return; SelvaStream.toggleVipMenu(); SelvaStream.handleExternalStream(${realIndex === -1 ? JSON.stringify(s).replace(/'/g, "&apos;") : `SelvaStream.lastScrapedStreams[${realIndex}]`})'  
-                                style="background: ${cardBg}; border: 1px solid ${cardBorder}; border-radius: 12px; padding: 15px; cursor: pointer; transition: all 0.2s ease; border-left: 4px solid ${borderLeft}; position: relative; overflow: hidden; text-align:left; margin-bottom:10px;">
-                            ${badgeHtml}
-                            ${isPlaying ? `<div style="position:absolute; top:12px; right:12px; background:#2ECC71; color:white; padding:4px 8px; border-radius:6px; font-size:0.55rem; font-weight:900; letter-spacing:1px; z-index:5; box-shadow:0 0 10px rgba(46,204,113,0.4);">● REPRODUCIENDO</div>` : ''}
-                            ${crownBtn}
-                            <div style="display:flex; flex-direction:column; gap:4px;">
-                                <div style="font-size:0.65rem; font-weight:900; color:#2ECC71; text-transform:uppercase; letter-spacing:1px; display:flex; align-items:center; gap:5px; margin-bottom:2px;">
-                                    ${s.providerName || 'SERVIDOR'} • ${langLabel}
-                                </div>
-                                <div style="color:white; font-size:0.82rem; font-weight:700; line-height:1.3; margin:2px 0; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;">
-                                    ${(s.title || '').split('\n')[0]}
-                                </div>
-                                <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-top:5px;">
-                                    <span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-size:0.55rem; color:#fff; font-weight:900;">${quality}</span>
-                                    <span style="background:rgba(46,204,113,0.1); padding:2px 6px; border-radius:4px; font-size:0.55rem; color:#2ecc71; font-weight:700; border:1px solid rgba(46,204,113,0.2);">${fileFormat}</span>
-                                    ${s.detectedVideoCodec ? `<span style="background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-size:0.55rem; color:#fff; font-weight:700;">${s.detectedVideoCodec}</span>` : ''}
-                                    ${s.detectedAudioCodec ? `<span style="background:rgba(52,152,219,0.1); padding:2px 6px; border-radius:4px; font-size:0.55rem; color:#3498db; font-weight:700;">🎵 ${s.detectedAudioCodec}</span>` : ''}
-                                    ${weight ? `<span style="font-size:0.6rem; color:#bbb; font-weight:500;">⚖️ ${weight}</span>` : ''}
-                                </div>
+                        <div class="stream-card-vip${isPlaying ? ' is-playing' : ''}" style="--vip-accent:${accent};"
+                             onclick='if(event.target.closest("button")) return; SelvaStream.toggleVipMenu(); SelvaStream.handleExternalStream(${realIndex === -1 ? JSON.stringify(s).replace(/'/g, "&apos;") : `SelvaStream.lastScrapedStreams[${realIndex}]`})'>
+                            <div class="vip-card-head">
+                                <span class="vip-provider">${s.providerName || 'SERVIDOR'}</span>
+                                ${isPlaying ? `<span class="vip-tag vip-tag-playing">● VIENDO</span>` : tagHtml}
                             </div>
+                            <div class="vip-lang">${langLabel}</div>
+                            <div class="vip-meta">
+                                <span class="vip-chip">${quality}</span>
+                                <span class="vip-chip vip-chip-green">${fileFormat}</span>
+                                ${s.detectedVideoCodec ? `<span class="vip-chip">${s.detectedVideoCodec}</span>` : ''}
+                                ${s.detectedAudioCodec ? `<span class="vip-chip vip-chip-blue">🎵 ${s.detectedAudioCodec}</span>` : ''}
+                                ${weight ? `<span class="vip-chip-plain">⚖️ ${weight}</span>` : ''}
+                            </div>
+                            ${crownBtn}
                         </div>
                     `;
                 }).join('');

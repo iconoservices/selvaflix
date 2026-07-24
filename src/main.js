@@ -168,6 +168,7 @@ let heroTimer = null;
 let currentPlayerMovie = null;
 window._brokenIds = new Set();
 let pendingSeeds = [];
+let _lastMetricsData = []; // Eventos crudos del último rango cargado en Analíticas, para el detalle de visitantes
 let deferredPrompt;
 
 // --- Splash Screen Engine v2.40 ---
@@ -2464,6 +2465,7 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
     const snap = await getDocs(metricsQuery);
     const data = [];
     snap.forEach(doc => data.push(doc.data()));
+    _lastMetricsData = data; // Disponible para el modal de detalle de visitantes
 
     if (data.length === 0) {
       if (log) log.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);"><p>Sin actividad registrada en este periodo.</p></div>';
@@ -2789,6 +2791,58 @@ window.loadRegisteredUsers = async () => {
     }
 };
 
+// --- Detalle de Visitantes (drill-down desde la KPI "Visitantes Únicos") ---
+window.openVisitorDetailModal = () => {
+  const modal = document.getElementById('visitor-detail-modal');
+  if (modal) modal.style.display = 'flex';
+  window.renderVisitorDetailTable();
+};
+
+window.closeVisitorDetailModal = () => {
+  const modal = document.getElementById('visitor-detail-modal');
+  if (modal) modal.style.display = 'none';
+};
+
+window.renderVisitorDetailTable = () => {
+  const tbody = document.getElementById('visitor-detail-table-body');
+  const countEl = document.getElementById('visitor-detail-count');
+  if (!tbody) return;
+
+  if (!_lastMetricsData || _lastMetricsData.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px;">No hay actividad cargada. Cierra este panel y aplica un rango de fechas en Analíticas primero.</td></tr>`;
+    if (countEl) countEl.innerText = '';
+    return;
+  }
+
+  const byVisitor = {};
+  _lastMetricsData.forEach(d => {
+    const vid = d.visitorId || 'anónimo';
+    if (!byVisitor[vid]) {
+      byVisitor[vid] = { platform: d.platform || '—', first: d.timestamp, last: d.timestamp, events: 0, plays: 0, titles: new Set() };
+    }
+    const v = byVisitor[vid];
+    v.events++;
+    if (d.action === 'play_start' || d.action === 'watch_attempt') v.plays++;
+    if (d.timestamp < v.first) v.first = d.timestamp;
+    if (d.timestamp > v.last) v.last = d.timestamp;
+    if (d.details?.title) v.titles.add(d.details.title);
+  });
+
+  const rows = Object.entries(byVisitor).sort((a, b) => b[1].last - a[1].last);
+  if (countEl) countEl.innerText = `${rows.length} visitante(s) único(s) en este rango`;
+
+  tbody.innerHTML = rows.map(([vid, v]) => `
+    <tr>
+      <td style="font-family:monospace; font-size:0.7rem; color:var(--admin-text-muted);">${vid.slice(0, 18)}</td>
+      <td>${v.platform}</td>
+      <td style="text-align:center;">${v.events}</td>
+      <td style="text-align:center; color:var(--admin-accent-orange); font-weight:800;">${v.plays}</td>
+      <td style="font-size:0.72rem;">${new Date(v.first).toLocaleString()}</td>
+      <td style="font-size:0.72rem;">${new Date(v.last).toLocaleString()}</td>
+    </tr>
+  `).join('') || `<tr><td colspan="6" style="text-align:center; padding:30px;">Sin datos.</td></tr>`;
+};
+
 window.loadReports = async () => {
     try {
         const q = query(collection(db, "link_reports"), orderBy("reportedAt", "desc"), limit(100));
@@ -2843,9 +2897,12 @@ window.filterInventoryByCategory = () => {
   const category = document.getElementById('inventory-filter')?.value || 'all';
   const langFilter = document.getElementById('inventory-lang-filter')?.value || 'all';
   const genreFilter = document.getElementById('inventory-genre-filter')?.value || 'all';
-  // Admin usa el buscador de la cabecera; fallback al legacy
-  const searchInput = document.getElementById('admin-global-search') || document.getElementById('inventory-search');
-  const query = searchInput ? searchInput.value.toLowerCase() : '';
+  // Hay dos cajas de búsqueda (la del header y la propia de Catálogo) que
+  // disparan esta misma función; usamos la que tenga texto, priorizando la
+  // de Catálogo por ser la más específica al contexto de esta pestaña.
+  const catalogSearch = document.getElementById('inventory-search');
+  const headerSearch = document.getElementById('admin-global-search');
+  const query = (catalogSearch?.value || headerSearch?.value || '').toLowerCase();
 
   let filtered = _allInventoryItems.filter(m => {
     const matchSearch = String(m.title || '').toLowerCase().includes(query);
@@ -4505,7 +4562,7 @@ window.rescatarPoster = async (el, tmdbId, tipo) => {
     el.onerror = null; // sin esto, un fallo del rescate reentra en bucle
     if (!tmdbId) { el.src = SIN_IMAGEN; return; }
 
-    const { poster } = await getTMDBImages(tipo === 'series' ? 'tv' : 'movie', tmdbId);
+    const { poster } = await getTMDBImages(['series', 'tv', 'anime'].includes(tipo) ? 'tv' : 'movie', tmdbId);
     el.src = poster ? `https://image.tmdb.org/t/p/w500${poster}` : SIN_IMAGEN;
 };
 
@@ -5114,11 +5171,111 @@ window.quickSeedContent = async (s, type) => {
 window.openMassSeedModal = () => {
   const modal = document.getElementById('mass-seed-modal');
   if (modal) modal.style.display = 'flex';
+  window.loadRecommendedMix(); // Al abrir, mostrar algo listo para sembrar sin tener que buscar
 };
 
 window.closeMassSeedModal = () => {
   const modal = document.getElementById('mass-seed-modal');
   if (modal) modal.style.display = 'none';
+};
+
+const DUB_LABELS = { 'es-MX': 'Latino', 'es-ES': 'España', 'en-US': 'Inglés' };
+
+// TMDB devuelve el título en japonés/chino/coreano nativo cuando no tiene
+// traducción para el idioma pedido (pasa seguido con anime de nicho). Si el
+// título trae escritura no latina, pedimos el título en inglés como rescate:
+// casi siempre existe una versión romanizada en TMDB aunque no haya en latino.
+const CJK_REGEX = /[぀-ヿ㐀-䶿一-鿿가-힯豈-﫿]/;
+
+async function rescatarTituloLatino(rawTitle, endpoint, tmdbId) {
+  if (!rawTitle || !CJK_REGEX.test(rawTitle)) return rawTitle;
+  try {
+    const res = await fetch(`${TMDB_URL}/${endpoint}/${tmdbId}?api_key=${TMDB_API_KEY}&language=en-US`);
+    const d = await res.json();
+    const enTitle = d.title || d.name;
+    if (enTitle && !CJK_REGEX.test(enTitle)) return enTitle;
+  } catch (e) { /* sin rescate posible, seguimos con el original */ }
+  return rawTitle;
+}
+
+// Pinta la grilla de checkboxes de "pendingSeeds" en el contenedor dado.
+// Compartida entre massSeedMovies y loadRecommendedMix para no duplicar el template.
+function renderSeedList(list) {
+  list.innerHTML = pendingSeeds.map((s, idx) => `
+    <div style="background: rgba(255,255,255,0.05); padding: 8px; border-radius: 8px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--glass-border);">
+      <input type="checkbox" checked class="seed-check" data-idx="${idx}" onchange="window.updateSeedCount()">
+      <img src="${s.img}" style="width: 35px; height: 50px; object-fit: cover; border-radius: 4px;" onerror="this.src='https://via.placeholder.com/35x50?text=IMG'">
+      <div style="flex: 1; overflow: hidden;">
+        <p style="font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: bold; color:white;">${s.title}</p>
+        <p style="font-size: 0.6rem; color: var(--text-muted);">${s.year} · ${s.type} · ${DUB_LABELS[s.lang] || s.lang}</p>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Mezcla inicial (películas + series + anime más populares) para que el modal
+// tenga algo listo para sembrar apenas se abre, sin necesidad de buscar nada.
+window.loadRecommendedMix = async () => {
+  const list = document.getElementById('discover-list');
+  const status = document.getElementById('discover-status');
+  const container = document.getElementById('discover-container');
+  const confirmBtn = document.getElementById('btn-confirm-mass-seed');
+  if (!list || !status || !container || !confirmBtn) return;
+
+  container.style.display = 'block';
+  confirmBtn.style.display = 'none';
+  status.innerText = '🔍 Cargando recomendados (películas, series y anime)...';
+  pendingSeeds = [];
+
+  const existingIds = new Set(
+    movieDatabase.trending.filter(m => m.tmdbId != null).map(m => String(m.tmdbId))
+  );
+  const lang = document.getElementById('discover-lang')?.value || 'es-MX';
+  const sources = [
+    { type: 'movie', endpoint: 'movie', extra: '' },
+    { type: 'series', endpoint: 'tv', extra: '' },
+    { type: 'anime', endpoint: 'tv', extra: '&with_genres=16&with_original_language=ja' },
+  ];
+
+  try {
+    for (const src of sources) {
+      const url = `${TMDB_URL}/discover/${src.endpoint}?api_key=${TMDB_API_KEY}&language=${lang}&sort_by=popularity.desc&page=1${src.extra}`;
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const data = await res.json();
+      for (const s of (data.results || [])) {
+        const tmdbIdStr = String(s.id);
+        if (!existingIds.has(tmdbIdStr) && (s.poster_path || s.backdrop_path)) {
+          const rawTitle = s.title || s.name || 'Sin título';
+          pendingSeeds.push({
+            title: await rescatarTituloLatino(rawTitle, src.endpoint, tmdbIdStr),
+            original_title: s.original_title || s.original_name || '',
+            img: TMDB_IMG_URL + (s.poster_path || s.backdrop_path),
+            tmdbId: tmdbIdStr,
+            year: (s.release_date || s.first_air_date || '2024').split('-')[0],
+            rating: s.vote_average?.toFixed(1) || '7.5',
+            genres: (s.genre_ids || []).map(String),
+            type: src.type,
+            lang: lang
+          });
+          existingIds.add(tmdbIdStr); // no repetir el mismo id si aparece en más de una fuente
+        }
+      }
+    }
+
+    if (pendingSeeds.length === 0) {
+      status.innerText = '🍃 No hay recomendaciones nuevas ahora mismo. Prueba los filtros y botones de abajo.';
+      return;
+    }
+
+    status.innerText = `✨ ${pendingSeeds.length} recomendados para empezar (pelis + series + anime). Desmarca lo que no quieras, o busca algo específico con los botones de abajo:`;
+    confirmBtn.style.display = 'block';
+    confirmBtn.innerText = `✅ Sembrar ${pendingSeeds.length} Coconas`;
+    renderSeedList(list);
+  } catch (err) {
+    console.error('Error cargando recomendados:', err);
+    status.innerText = `❌ Error cargando recomendados: ${err.message}`;
+  }
 };
 
 window.massSeedMovies = async (contentType) => {
@@ -5191,8 +5348,9 @@ window.massSeedMovies = async (contentType) => {
       for (const s of data.results) {
         const tmdbIdStr = String(s.id);
         if (!existingIds.has(tmdbIdStr) && (s.poster_path || s.backdrop_path)) {
+          const rawTitle = s.title || s.name || 'Sin título';
           pendingSeeds.push({
-            title: s.title || s.name || 'Sin título',
+            title: await rescatarTituloLatino(rawTitle, endpoint, tmdbIdStr),
             original_title: s.original_title || s.original_name || "",
             img: TMDB_IMG_URL + (s.poster_path || s.backdrop_path),
             tmdbId: tmdbIdStr,
@@ -5222,18 +5380,7 @@ window.massSeedMovies = async (contentType) => {
     status.innerText = `✅ ¡${pendingSeeds.length} coconas nuevas! Desmarca las que no quieras:`;
     confirmBtn.style.display = 'block';
     confirmBtn.innerText = `✅ Sembrar ${pendingSeeds.length} Coconas`;
-
-    const DUB_LABELS = { 'es-MX': 'Latino', 'es-ES': 'España', 'en-US': 'Inglés' };
-    list.innerHTML = pendingSeeds.map((s, idx) => `
-      <div style="background: rgba(255,255,255,0.05); padding: 8px; border-radius: 8px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--glass-border);">
-        <input type="checkbox" checked class="seed-check" data-idx="${idx}" onchange="window.updateSeedCount()">
-        <img src="${s.img}" style="width: 35px; height: 50px; object-fit: cover; border-radius: 4px;" onerror="this.src='https://via.placeholder.com/35x50?text=IMG'">
-        <div style="flex: 1; overflow: hidden;">
-          <p style="font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: bold; color:white;">${s.title}</p>
-          <p style="font-size: 0.6rem; color: var(--text-muted);">${s.year} · ${s.type} · ${DUB_LABELS[s.lang] || s.lang}</p>
-        </div>
-      </div>
-    `).join('');
+    renderSeedList(list);
 
   } catch (err) {
     console.error('Error en massSeedMovies:', err);
@@ -5332,8 +5479,8 @@ async function updateHeroCarousel() {
   
   if (!item.backdrop && item.tmdbId) {
     try {
-      // Determinar si es serie o película
-      const type = item.type === 'series' || item.type === 'tv' ? 'tv' : 'movie';
+      // Determinar si es serie o película (anime cuenta como serie en TMDB: endpoint /tv)
+      const type = item.type === 'series' || item.type === 'tv' || item.type === 'anime' ? 'tv' : 'movie';
       const res = await fetch(`${TMDB_URL}/${type}/${item.tmdbId}?api_key=${TMDB_API_KEY}&language=es-MX`);
       const data = await res.json();
       if (data.backdrop_path) {

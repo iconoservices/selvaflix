@@ -4331,8 +4331,9 @@ input:checked+.slider:before {
 /* 5. TABLA DEL CATALOGO */
 .catalog-controls-bar {
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
   align-items: center;
+  gap: 12px;
   margin-bottom: 20px;
   background: var(--admin-card-bg);
   border: 1px solid var(--admin-border);
@@ -4340,23 +4341,33 @@ input:checked+.slider:before {
   padding: 12px 16px;
 }
 
+/* El buscador ya no ocupa toda la fila: queda compacto junto a los filtros */
+.catalog-controls-bar > div:first-child {
+  flex: 1 1 260px;
+  max-width: 320px;
+  margin-bottom: 0 !important;
+}
+
 .catalog-filters {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
   flex-wrap: wrap;
+  flex: 2 1 auto;
 }
 
 .catalog-filters .form-control {
+  width: auto;
   background: #18181b;
   border: 1px solid var(--admin-border);
   color: #fff;
   border-radius: 8px;
-  font-size: 0.78rem;
-  height: 36px;
-  padding: 0 12px;
+  font-size: 0.75rem;
+  height: 34px;
+  padding: 0 10px;
   outline: none;
-  min-width: 140px;
+  min-width: 0;
+  flex: 1 1 110px;
 }
 
 .btn-secondary-outline {

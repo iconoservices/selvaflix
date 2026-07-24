@@ -1092,6 +1092,7 @@ export const SelvaStream = {
                     nativePlayer.currentTime = this.currentPlayerMovie.resumeTime;
                 }
                 nativePlayer.play().catch(e => console.warn("Auto-play prevented", e));
+                this.wireProgressTracking(nativePlayer);
             } else {
                 // Modo Iframe
                 nativePlayer.style.display = 'none';
@@ -1109,8 +1110,34 @@ export const SelvaStream = {
         }
     },
 
+    // --- "Continuar Viendo": solo es posible cuando el video corre en el
+    // <video> nativo (HLS/mp4 directo), porque ahí sí controlamos el elemento.
+    // Los servidores externos (PelisPlus, VidSrc, etc.) van en iframe de otro
+    // origen: el navegador nos bloquea leer su currentTime, así que para esas
+    // fuentes no hay forma de guardar progreso.
+    wireProgressTracking(video) {
+        if (video._selvaProgressWired) return; // un solo listener para toda la vida del <video>
+        video._selvaProgressWired = true;
 
+        const guardar = () => {
+            if (!video.duration || isNaN(video.duration) || video.currentTime < 1) return;
+            if (typeof window.syncPlaybackProgress !== 'function' || !this.currentPlayerMovie) return;
+            window.syncPlaybackProgress(this.currentPlayerMovie, video.currentTime, video.duration, this.currentEpisodeId, this.currentEpisodeLabel);
+        };
 
+        let lastSync = 0;
+        video.addEventListener('timeupdate', () => {
+            const now = Date.now();
+            if (now - lastSync < 15000) return; // cada 15s, no en cada frame
+            lastSync = now;
+            guardar();
+        });
+
+        // Al pausar o cerrar la pestaña, guardamos la posición exacta aunque
+        // no hayan pasado los 15s del intervalo de arriba.
+        video.addEventListener('pause', guardar);
+        window.addEventListener('beforeunload', guardar);
+    },
 
     injectInPlayerBanner() {
         if (typeof window.getInPlayerAd !== 'function') return;

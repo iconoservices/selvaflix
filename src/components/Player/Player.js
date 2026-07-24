@@ -407,7 +407,15 @@ export const SelvaStream = {
             const TMDB_API_KEY = import.meta.env.VITE_TMDB_KEY || '15d2ea6d0dc1d476efbca3eba2b9bbfb';
             const TMDB_URL = 'https://api.themoviedb.org/3';
 
-            const resp = await fetch(`${TMDB_URL}/tv/${tmdbId}?api_key=${TMDB_API_KEY}&language=es-PE`);
+            // `open()` espera a que esto termine ANTES de mostrar nada (temporadas/
+            // capítulos). Sin límite de tiempo, una conexión de datos móviles lenta
+            // o inestable puede colgar este fetch para siempre y el reproductor se
+            // queda pegado en el loader eternamente. Con un timeout, si TMDB no
+            // responde rápido simplemente seguimos sin esa info en vez de trabarnos.
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 7000);
+            const resp = await fetch(`${TMDB_URL}/tv/${tmdbId}?api_key=${TMDB_API_KEY}&language=es-PE`, { signal: controller.signal });
+            clearTimeout(timeoutId);
             const details = await resp.json();
 
             const sSel = document.getElementById('selva-season');

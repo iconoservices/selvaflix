@@ -16,9 +16,16 @@ export const SelvaStream = {
     AUTH_TOKEN: import.meta.env.VITE_AUTH_TOKEN || localStorage.getItem('iconoservices_token') || '', // Token cargado desde Vercel (Seguridad)
     
     // 🔑 CREDENCIALES DE HOSTING (PPD)
-    STREAMTAPE_LOGIN: import.meta.env.VITE_STREAMTAPE_LOGIN || '', 
+    STREAMTAPE_LOGIN: import.meta.env.VITE_STREAMTAPE_LOGIN || '',
     STREAMTAPE_KEY: import.meta.env.VITE_STREAMTAPE_KEY || '',
     DOODSTREAM_KEY: import.meta.env.VITE_DOODSTREAM_KEY || '',
+
+    // 🎬 Vimeus (el reproductor real detrás de LaMovie): a diferencia de la
+    // API Key (ak_..., server-only, NUNCA en el cliente), el view_key es fijo
+    // por cuenta y la propia documentación de Vimeus dice que es seguro
+    // pegarlo en el embed_url del lado del cliente — valida por dominio, no
+    // es secreto de acceso a la cuenta.
+    VIMEUS_VIEW_KEY: import.meta.env.VITE_VIMEUS_VIEW_KEY || 'v_iqxXe9PHkPzdWQcQv8q8Mxxgi1Og5ZxF3Be6Gi3Gg',
 
     /**
      * Sanea la URL para evitar inyecciones maliciosas.
@@ -91,7 +98,8 @@ export const SelvaStream = {
                     
                     <iframe id="player-iframe" src="" style="display:none;"
                         allow="autoplay"
-                        allowfullscreen>
+                        allowfullscreen
+                        referrerpolicy="origin">
                     </iframe>
                     
                     <div id="native-player-container" style="display:none; width: 100%; height: 100%; position: relative;">
@@ -1011,8 +1019,24 @@ export const SelvaStream = {
 
         const defs = [];
 
+        // 🎬 Vimeus (el servidor real; LaMovie es solo un sitio que lo usa):
+        // igual que los demás, tiene huecos de catálogo — un título que no
+        // tiene devuelve una página real de "Not Found" (200, no vacía ni
+        // colgada), así que el vigilante por timeout NO lo detecta. Como acá
+        // es la prioridad #1 y arranca sola, un hueco se veía como pantalla
+        // negra directo. A diferencia de DiPelis, Vimeus SÍ tiene CORS
+        // habilitado, así que se puede chequear el contenido directo desde
+        // el navegador (sin worker) antes de ofrecerla.
+        if (tid) {
+            const idParam = imdbId ? `imdb=${imdbId}` : `tmdb=${tmdbId}`;
+            const tipoVimeus = movie.type === 'anime' ? 'anime' : (isTv ? 'serie' : 'movie');
+            const epParams = isTv ? `&se=${s}&ep=${e}` : '';
+            const vimeusUrl = `https://vimeus.com/e/${tipoVimeus}?${idParam}${epParams}&view_key=${this.VIMEUS_VIEW_KEY}`;
+            this.fetchVimeusSource(vimeusUrl, movieTitle);
+        }
+
         // 🇲🇽 FlixLatam es un resolver por IMDb: la página que devuelve corre sobre
-        // EMBED69 y trae selector Latino / Castellano / Subtitulado. Va primero.
+        // EMBED69 y trae selector Latino / Castellano / Subtitulado.
         if (imdbId) {
             defs.push({ lang: 'latino', name: "🇲🇽 FLIXLATAM · EMBED69", providerName: "FlixLatam",
                 url: isTv
@@ -1050,6 +1074,18 @@ export const SelvaStream = {
                 url: `https://verhdlink.cam/movie/${imdbId}` });
         }
 
+        // 🎬 LaMovie (vía Vimeus): la única de las cuatro con serie Y anime,
+        // no solo películas — soporta imdb= o tmdb= + view_key fijo por
+        // cuenta (confirmado seguro para el cliente por su propia doc,
+        // valida por dominio, no es la API Key server-only).
+        if (tid) {
+            const idParam = imdbId ? `imdb=${imdbId}` : `tmdb=${tmdbId}`;
+            const tipoVimeus = movie.type === 'anime' ? 'anime' : (isTv ? 'serie' : 'movie');
+            const epParams = isTv ? `&se=${s}&ep=${e}` : '';
+            defs.push({ lang: 'latino', name: "🎬 LAMOVIE · VIMEUS", providerName: "LaMovie",
+                url: `https://vimeus.com/e/${tipoVimeus}?${idParam}${epParams}&view_key=${this.VIMEUS_VIEW_KEY}` });
+        }
+
         // 💬 Audio original + subtítulos: RETIRADOS del todo 2026-07-27 a
         // pedido (VidsrcMe incluido) — ninguno traía doblaje latino
         // garantizado, y eso es justo lo que no se quiere. Ojo: sin esto, una
@@ -1071,6 +1107,48 @@ export const SelvaStream = {
             title: `[${d.lang === 'latino' ? 'ESPAÑOL LATINO' : 'SUBTITULADO'}] 🌐 ${movieTitle}${epTag} - Servidor ${i + 1}`,
             isPublic: true
         }));
+    },
+
+    // Vimeus tiene CORS abierto, así que a diferencia de DiPelis esto no
+    // necesita worker: se chequea el HTML directo desde el navegador. Un
+    // título que Vimeus no tiene devuelve 200 con una página real de
+    // "Not Found" (no vacía, no cuelga), así que sin este chequeo el
+    // vigilante por timeout jamás lo detectaría — y como Vimeus es la
+    // prioridad #1 y arranca sola, eso era pantalla negra directa.
+    async fetchVimeusSource(url, movieTitle) {
+        const tituloAlPedir = this.currentPlayerMovie;
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000);
+            const res = await fetch(url, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            const html = await res.text();
+            if (!res.ok || /not found/i.test(html)) return;
+
+            if (this.currentPlayerMovie !== tituloAlPedir) return;
+            if ((this.lastScrapedStreams || []).some(s => s.providerName === 'Vimeus')) return;
+
+            const nuevaFuente = {
+                lang: 'latino',
+                name: "🎬 VIMEUS",
+                providerName: "Vimeus",
+                url,
+                title: `[ESPAÑOL LATINO] 🌐 ${movieTitle} - VIMEUS`,
+                isPublic: true
+            };
+
+            // Primera de la lista a pedido, y toma el control de la
+            // reproducción (auto-upgrade) — pero solo si el usuario no
+            // eligió nada a mano mientras se confirmaba (~lo que tarde el
+            // fetch, normalmente rápido al tener CORS y no pasar por worker).
+            this.lastScrapedStreams = [nuevaFuente, ...(this.lastScrapedStreams || [])];
+            if (!this._fuenteElegidaAMano) {
+                this.handleExternalStream(nuevaFuente);
+            }
+            this.renderControls();
+        } catch (e) {
+            console.warn('Vimeus no respondió o no tiene el título:', e);
+        }
     },
 
     // Pide al worker el link real de DiPelis y lo suma a la lista de fuentes
@@ -1104,20 +1182,14 @@ export const SelvaStream = {
                 isPublic: true
             };
 
-            // Primera de la lista a pedido — aunque llega tarde (es la única
-            // async, ~3s), se muestra arriba de todo apenas está lista.
-            this.lastScrapedStreams = [nuevaFuente, ...(this.lastScrapedStreams || [])];
-
-            // Auto-upgrade: a pedido, DiPelis es la fuente que debe terminar
-            // reproduciendo, no solo la primera de la lista. Como tarda ~3s,
-            // se arranca igual con la más rápida (para no repetir el problema
-            // que ya arreglamos) y acá se cambia sola apenas DiPelis confirma
-            // que existe — pero SOLO si el usuario no tocó nada a mano
-            // mientras tanto, para no pisarle una elección propia.
-            if (!this._fuenteElegidaAMano) {
-                this.handleExternalStream(nuevaFuente);
-            }
-
+            // Va justo después de Vimeus (que ahora es la prioridad #1) en
+            // vez de al final — aunque llega tarde (es la única async, ~3s),
+            // se muestra cerca del principio apenas está lista. Ya no hace
+            // auto-upgrade de la reproducción: ese lugar es de Vimeus ahora.
+            const lista = [...(this.lastScrapedStreams || [])];
+            const idxVimeus = lista.findIndex(s => s.providerName === 'Vimeus');
+            lista.splice(idxVimeus === -1 ? 0 : idxVimeus + 1, 0, nuevaFuente);
+            this.lastScrapedStreams = lista;
             this.renderControls();
         } catch (e) {
             console.warn('DiPelis (worker) no respondió:', e);

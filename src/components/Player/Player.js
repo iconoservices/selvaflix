@@ -62,6 +62,12 @@ export const SelvaStream = {
                 <button id="floating-sources-btn" class="sources-btn-modern" onclick="SelvaStream.toggleVipMenu()">
                      📡 FUENTES VIP
                 </button>
+                <!-- Cuando el servidor responde pero con su página de error (no
+                     tiene el título), el iframe "carga" bien y el vigilante no
+                     puede darse cuenta. Esto deja saltar de un toque en vez de
+                     ir a bucear al menú de fuentes. -->
+                <button id="player-next-source-btn" class="sources-btn-modern" title="Este servidor no carga"
+                        onclick="SelvaStream.siguienteFuente(SelvaStream.streamActual)">⏭ NO CARGA</button>
                 <button id="player-expand-btn" class="sources-btn-modern" title="Pantalla completa"
                         onclick="SelvaStream.alternarPantalla()">⛶</button>
             </div>
@@ -329,8 +335,62 @@ export const SelvaStream = {
         }
     },
 
-    // Rescate de emergencia temporalmente desactivado para depuración de pantalla negra
-    handlePlayerError() {},
+    // Un embed puede morir de dos formas y las dos dejaban la pantalla en negro
+    // para siempre, porque este rescate estaba vacío y había que cambiar de
+    // servidor a mano: el servidor no responde (FlixLatam se cuelga a ratos) o
+    // responde pero no tiene el título (devuelve un JSON de error en vez del
+    // reproductor). Aquí saltamos solos a la siguiente fuente de la lista.
+    handlePlayerError() {
+        this.siguienteFuente(this.streamActual);
+    },
+
+    // Si el iframe no termina de cargar a tiempo, damos la fuente por muerta.
+    // Un embed vivo entrega su HTML en un par de segundos; los que fallan se
+    // quedan colgados mucho más que esto.
+    ESPERA_FUENTE_MS: 15000,
+
+    vigilarCarga(iframe, stream) {
+        clearTimeout(this._vigilante);
+        if (!iframe) return;
+
+        let cargo = false;
+        iframe.onload = () => {
+            cargo = true;
+            clearTimeout(this._vigilante);
+            const loader = document.getElementById('player-loader');
+            if (loader) {
+                loader.style.opacity = '0';
+                setTimeout(() => loader.style.display = 'none', 500);
+            }
+        };
+        iframe.onerror = () => this.siguienteFuente(stream);
+
+        this._vigilante = setTimeout(() => {
+            if (!cargo) this.siguienteFuente(stream);
+        }, this.ESPERA_FUENTE_MS);
+    },
+
+    siguienteFuente(fallida) {
+        clearTimeout(this._vigilante);
+        if (!fallida) return;
+
+        const lista = this.lastScrapedStreams || [];
+        const siguiente = lista[lista.indexOf(fallida) + 1];
+
+        if (!siguiente) {
+            const startScreen = document.getElementById('player-start-screen');
+            const msgEl = document.getElementById('vip-status-msg');
+            if (startScreen) startScreen.style.display = 'flex';
+            if (msgEl) msgEl.innerHTML = '<span style="color:#e74c3c;">⚠️ Ningún servidor respondió. Probá de nuevo en un rato.</span>';
+            return;
+        }
+
+        if (window.showToast) {
+            window.showToast(`⚠️ ${fallida.providerName || 'El servidor'} no cargó. Probando ${siguiente.providerName || 'otro'}…`, 'info');
+        }
+        this.handleExternalStream(siguiente);
+    },
+
     /**
      * Abre el reproductor con el contenido seleccionado.
      */
@@ -340,6 +400,11 @@ export const SelvaStream = {
             this.preferredProvider = null;
         }
         this.currentPlayerMovie = movie;
+        // Arrancamos sin fuente en curso: el about:blank de más abajo dispara un
+        // load y, con una fuente vieja aquí, el rescate saltaba al servidor
+        // siguiente del título anterior.
+        clearTimeout(this._vigilante);
+        this.streamActual = null;
         this.init();
         const modal = document.getElementById('player-modal');
         modal.style.display = 'flex';
@@ -759,6 +824,11 @@ export const SelvaStream = {
         const nativePlayer = document.getElementById('native-video-player');
         const statusDiv = document.getElementById('webtorrent-status');
 
+        // Sin esto el vigilante seguía corriendo y hacía saltar de servidor
+        // con el reproductor ya cerrado.
+        clearTimeout(this._vigilante);
+        this.streamActual = null;
+
         if (modal) modal.style.display = 'none';
         if (iframe) window.setIframeSource('player-iframe', '');
 
@@ -1083,6 +1153,8 @@ export const SelvaStream = {
     handleExternalStream(stream) {
         console.log("💎 Cargando fuente externa:", stream);
         this.currentPlayingHash = stream.infoHash || stream.url;
+        // Guardamos cuál está sonando para saber desde dónde saltar si muere
+        this.streamActual = stream;
 
         // Recordamos el servidor elegido para no perderlo al cambiar de capítulo
         if (stream.isPublic && stream.providerName) {
@@ -1157,7 +1229,9 @@ export const SelvaStream = {
                 }
 
                 iframe.style.display = 'block';
-                window.setIframeSource('player-iframe', finalUrl);
+                // setIframeSource clona el iframe, así que el onload que se puso
+                // en init() se pierde: el vigilante va sobre el elemento nuevo.
+                this.vigilarCarga(window.setIframeSource('player-iframe', finalUrl), stream);
                 if (statusDiv) statusDiv.style.display = 'none';
             }
         }

@@ -1048,11 +1048,11 @@ export const SelvaStream = {
                 url: `https://verhdlink.cam/movie/${imdbId}` });
         }
 
-        // 💬 Audio original + subtítulos (estos NO traen doblaje latino garantizado)
-        // Retirados 2026-07-27 a pedido: el usuario los quiere afuera porque
-        // llegan en inglés, no por estar rotos. VidsrcMe queda como único
-        // respaldo — es el único no-Latino que sobrevive, y solo para no
-        // dejar a las series sin nada si FlixLatam Y PelisPlus fallan juntos.
+        // 💬 Audio original + subtítulos: RETIRADOS del todo 2026-07-27 a
+        // pedido (VidsrcMe incluido) — ninguno traía doblaje latino
+        // garantizado, y eso es justo lo que no se quiere. Ojo: sin esto, una
+        // serie sin imdbId (o donde FlixLatam Y PelisPlus fallen) se queda
+        // sin ninguna fuente — es el trade-off que se pidió, no un olvido.
         //
         // Retirados antes (2026-07-22) por no servir video en absoluto:
         //   moviesapi.club → NXDOMAIN en varias ISP (incluida la de casa)
@@ -1061,10 +1061,8 @@ export const SelvaStream = {
         //   embed.su       → falla TCP/TLS
         //   vidsrc.cc      → falla TCP/TLS
         //   vidsrc.to      → 200 pero solo devuelve un cascarón de anuncios (llvpn.com)
-        defs.push(
-            { lang: 'subs', name: "💬 VIDSRC.ME", providerName: "VidsrcMe",
-              url: isTv ? `https://vidsrc.me/embed/tv?tmdb=${tid}&sub_lang=es&s=${s}&e=${e}` : `https://vidsrc.me/embed/movie?tmdb=${tid}&sub_lang=es` }
-        );
+        //   vidsrc.me, multiembed.mov (SuperEmbed), vidlink.pro → funcionaban,
+        //     pero solo en inglés con subtítulos, nunca doblaje latino
 
         return defs.map((d, i) => ({
             ...d,

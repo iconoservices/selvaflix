@@ -2940,6 +2940,13 @@ window.auditarCatalogoCompleto = async () => {
 // es grande (puede ser miles de títulos, varias páginas cada uno), conviene
 // probar de a uno: sincronizarCatalogoVimeus(['movies']) primero.
 window.sincronizarCatalogoVimeus = async (tipos = ['movies', 'series', 'animes']) => {
+    // La respuesta real de Vimeus NO es la que muestra su propia
+    // documentación (esa describía data.movies/data.series/data.animes +
+    // data.pagination.total_pages, con id/content_type/imdb_id/synced_at).
+    // Comprobado a mano: viene siempre en data.result (mismo nombre sin
+    // importar el tipo pedido) + data.pages (número plano, no un objeto de
+    // paginación), sin imdb_id, y con un embed_url ya armado con el
+    // view_key correcto. Se usa esta forma real, no la de la doc.
     const nuevos = [];
 
     for (const tipo of tipos) {
@@ -2962,14 +2969,12 @@ window.sincronizarCatalogoVimeus = async (tipos = ['movies', 'series', 'animes']
                 break;
             }
 
-            const items = data.data[tipo] || [];
-            totalPages = data.data.pagination?.total_pages || 1;
+            const items = data.data.result || [];
+            totalPages = data.data.pages || 1;
 
             for (const it of items) {
-                const yaExiste = movieDatabase.trending.some(m =>
-                    (it.tmdb_id && String(m.tmdbId) === String(it.tmdb_id)) ||
-                    (it.imdb_id && m.imdbId === it.imdb_id)
-                );
+                if (!it.tmdb_id) continue; // sin tmdb_id no hay con qué buscar detalles ni deduplicar
+                const yaExiste = movieDatabase.trending.some(m => String(m.tmdbId) === String(it.tmdb_id));
                 if (!yaExiste) nuevos.push({ ...it, _tipoLocal: tipo });
             }
 
@@ -2993,14 +2998,24 @@ window.sincronizarCatalogoVimeus = async (tipos = ['movies', 'series', 'animes']
         const it = nuevos[i];
         console.log(`➕ [${i + 1}/${nuevos.length}] Agregando: ${it.title}`);
         try {
-            const tipoTMDB = it.content_type === 'movie' ? 'movie' : 'tv';
-            const detailsRes = await fetch(`${TMDB_URL}/${tipoTMDB}/${it.tmdb_id}?api_key=${TMDB_API_KEY}&language=es-MX`);
+            // La API de Vimeus no manda content_type ni imdb_id (a diferencia
+            // de lo que decía su doc) — el tipo real sale de qué endpoint se
+            // pidió (_tipoLocal), y el imdbId hay que sacarlo aparte de TMDB
+            // (external_ids), si se necesita para las otras fuentes (FlixLatam,
+            // RepelisHD) que sí lo piden.
+            const esSerie = it._tipoLocal === 'series' || it._tipoLocal === 'animes';
+            const tipoTMDB = esSerie ? 'tv' : 'movie';
+            const [detailsRes, extIdsRes] = await Promise.all([
+                fetch(`${TMDB_URL}/${tipoTMDB}/${it.tmdb_id}?api_key=${TMDB_API_KEY}&language=es-MX`),
+                fetch(`${TMDB_URL}/${tipoTMDB}/${it.tmdb_id}/external_ids?api_key=${TMDB_API_KEY}`)
+            ]);
             const details = await detailsRes.json();
+            const extIds = await extIdsRes.json();
 
             const nuevoDoc = {
                 title: details.title || details.name || it.title,
                 tmdbId: String(it.tmdb_id),
-                imdbId: it.imdb_id || '',
+                imdbId: extIds.imdb_id || '',
                 type: it._tipoLocal === 'animes' ? 'anime' : (it._tipoLocal === 'series' ? 'series' : 'movie'),
                 img: (details.poster_path ? `https://image.tmdb.org/t/p/w500${details.poster_path}` : (it.poster ? `https://image.tmdb.org/t/p/w500${it.poster}` : '')),
                 backdrop: details.backdrop_path ? `https://image.tmdb.org/t/p/original${details.backdrop_path}` : (it.backdrop ? `https://image.tmdb.org/t/p/original${it.backdrop}` : ''),

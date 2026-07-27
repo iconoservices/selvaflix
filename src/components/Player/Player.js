@@ -787,6 +787,10 @@ export const SelvaStream = {
                     // mejor. Vimeus se comporta mejor y con menos publicidad que el
                     // resto, así que la etiqueta va atada a ella, no a la posición.
                     else if (s.providerName === 'Vimeus') tagHtml = `<span class="vip-tag vip-tag-best">⭐ MEJOR CALIDAD</span>`;
+                    // El resto (FlixLatam, RepelisHD, DiPelis) son sitios de
+                    // terceros con su propia publicidad/popups — se avisa para
+                    // que no sorprenda si aparece algo raro al tocarlas.
+                    else tagHtml = `<span class="vip-tag vip-tag-external">🔗 SITIO EXTERNO</span>`;
 
                     const accent = isSuggested ? '#FF6600' : (isPublicLink ? '#00f2ff' : '#2ECC71');
 

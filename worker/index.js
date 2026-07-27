@@ -158,8 +158,20 @@ export default {
                 let target = `https://vimeus.com/api/listing/${tipo}?page=${page}`;
                 if (tipo === 'episodes' && tmdbId) target += `&tmdb_id=${tmdbId}`;
 
+                if (!env.VIMEUS_API_KEY) {
+                    return new Response(JSON.stringify({ error: 'Falta la variable VIMEUS_API_KEY en el worker (Settings -> Variables and Secrets)' }), { status: 500, headers: corsHeaders });
+                }
+
                 const r = await fetch(target, { headers: { 'X-API-Key': env.VIMEUS_API_KEY } });
-                const data = await r.json();
+                const rawText = await r.text();
+                // Diagnostico: si Vimeus devuelve vacio o algo que no es JSON,
+                // se ve el motivo en vez de "Unexpected end of JSON input" a ciegas.
+                let data;
+                try {
+                    data = JSON.parse(rawText);
+                } catch (e) {
+                    return new Response(JSON.stringify({ error: 'Vimeus no devolvio JSON', status: r.status, bodyPreview: rawText.slice(0, 300) }), { status: 502, headers: corsHeaders });
+                }
                 return new Response(JSON.stringify(data), { status: r.status, headers: corsHeaders });
             }
 

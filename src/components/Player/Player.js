@@ -1162,23 +1162,19 @@ export const SelvaStream = {
                 isPublic: true
             };
 
-            // Va justo después de Vimeus (prioridad #1) en vez de al final —
-            // aunque llega tarde (es async, ~3s), se muestra cerca del
-            // principio apenas está lista.
+            // A pedido, DiPelis pasa a prioridad #3 (Vimeus > RepelisHD >
+            // DiPelis > FlixLatam) — se inserta después de RepelisHD si está
+            // (o después de Vimeus si no hay RepelisHD, ej. sin imdbId), pero
+            // ya NO hace auto-upgrade: RepelisHD es sincrónica y ya está
+            // reproduciendo para cuando esto llega (~3s), y ese lugar es de
+            // ella ahora. Solo Vimeus tiene privilegio de robarle el control
+            // a lo que sea (ver fetchVimeusSource).
             const lista = [...(this.lastScrapedStreams || [])];
+            const idxRepelis = lista.findIndex(s => s.providerName === 'RepelisHD');
             const idxVimeus = lista.findIndex(s => s.providerName === 'Vimeus');
-            lista.splice(idxVimeus === -1 ? 0 : idxVimeus + 1, 0, nuevaFuente);
+            const idxRef = idxRepelis !== -1 ? idxRepelis : idxVimeus;
+            lista.splice(idxRef === -1 ? 0 : idxRef + 1, 0, nuevaFuente);
             this.lastScrapedStreams = lista;
-
-            // Auto-upgrade igual que Vimeus (DiPelis es la prioridad #2), pero
-            // respetando que Vimeus le gana: si Vimeus ya tomó el control acá
-            // no la pisa. Si Vimeus todavía no respondió (o no tiene el
-            // título), DiPelis sí reemplaza a lo que haya arrancado
-            // instantáneo (RepelisHD/FlixLatam).
-            if (!this._fuenteElegidaAMano && this.streamActual?.providerName !== 'Vimeus') {
-                this.handleExternalStream(nuevaFuente);
-            }
-
             this.renderControls();
         } catch (e) {
             console.warn('DiPelis (worker) no respondió:', e);

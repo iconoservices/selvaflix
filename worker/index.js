@@ -141,6 +141,28 @@ export default {
                 }
             }
 
+            // --- 📚 RUTA: CATALOGO DE VIMEUS (para sembrar SelvaFlix) ---
+            // La API Key de Vimeus (ak_..., distinta del view_key que va en los
+            // embeds) es server-only segun su propia doc ("nunca en el
+            // cliente"), asi que este proxy existe solo para que el admin
+            // pueda traer el catalogo completo (peliculas/series/animes que
+            // Vimeus YA tiene confirmadas) y sembrar SelvaFlix con eso, en vez
+            // de cargar titulos a mano y descubrir despues si tienen fuente.
+            if (url.pathname === '/flix/vimeus-catalog') {
+                const tipo = url.searchParams.get('type'); // movies | series | animes | episodes
+                const page = url.searchParams.get('page') || '1';
+                const tmdbId = url.searchParams.get('tmdb_id');
+                const validos = ['movies', 'series', 'animes', 'episodes'];
+                if (!validos.includes(tipo)) return new Response(JSON.stringify({ error: 'type invalido' }), { status: 400, headers: corsHeaders });
+
+                let target = `https://vimeus.com/api/listing/${tipo}?page=${page}`;
+                if (tipo === 'episodes' && tmdbId) target += `&tmdb_id=${tmdbId}`;
+
+                const r = await fetch(target, { headers: { 'X-API-Key': env.VIMEUS_API_KEY } });
+                const data = await r.json();
+                return new Response(JSON.stringify(data), { status: r.status, headers: corsHeaders });
+            }
+
             // --- 🛡️ RUTA: BÚNKER (Túnel de Descarga) ---
             // Esta ruta permite que el navegador descargue el binario sin errores de CORS.
             if (url.pathname === '/beat/bunker') {

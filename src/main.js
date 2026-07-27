@@ -2931,6 +2931,109 @@ window.auditarCatalogoCompleto = async () => {
     return { borrados, marcados, arreglados };
 };
 
+// Trae el catálogo que Vimeus YA tiene confirmado (via su API Key, server-only
+// por el worker — ver /flix/vimeus-catalog) y agrega a SelvaFlix lo que todavía
+// no esté, en vez de cargar títulos a mano y descubrir después si tienen
+// fuente o no: estos nacen "garantizados" con al menos Vimeus funcionando.
+//
+// Uso: sincronizarCatalogoVimeus() trae los 3 tipos. Si el catálogo de Vimeus
+// es grande (puede ser miles de títulos, varias páginas cada uno), conviene
+// probar de a uno: sincronizarCatalogoVimeus(['movies']) primero.
+window.sincronizarCatalogoVimeus = async (tipos = ['movies', 'series', 'animes']) => {
+    const nuevos = [];
+
+    for (const tipo of tipos) {
+        let page = 1;
+        let totalPages = 1;
+        do {
+            console.log(`📚 Vimeus ${tipo} — página ${page}${totalPages > 1 ? `/${totalPages}` : ''}`);
+            let data;
+            try {
+                const res = await fetch(`${SelvaStream.MASTER_WORKER_URL}/flix/vimeus-catalog?type=${tipo}&page=${page}`, {
+                    headers: { 'x-selva-auth': SelvaStream.AUTH_TOKEN }
+                });
+                data = await res.json();
+            } catch (e) {
+                console.error(`Error pidiendo página ${page} de ${tipo}:`, e);
+                break;
+            }
+            if (data.error || !data.data) {
+                console.error(`Vimeus catalog (${tipo}) devolvió error:`, data);
+                break;
+            }
+
+            const items = data.data[tipo] || [];
+            totalPages = data.data.pagination?.total_pages || 1;
+
+            for (const it of items) {
+                const yaExiste = movieDatabase.trending.some(m =>
+                    (it.tmdb_id && String(m.tmdbId) === String(it.tmdb_id)) ||
+                    (it.imdb_id && m.imdbId === it.imdb_id)
+                );
+                if (!yaExiste) nuevos.push({ ...it, _tipoLocal: tipo });
+            }
+
+            page++;
+            await new Promise(r => setTimeout(r, 300)); // no bombardear el worker/Vimeus de golpe
+        } while (page <= totalPages);
+    }
+
+    if (nuevos.length === 0) {
+        if (window.showToast) window.showToast('El catálogo ya tiene todo lo que Vimeus ofrece. 🎉', 'info');
+        return { agregados: 0 };
+    }
+
+    if (!confirm(`Vimeus tiene ${nuevos.length} título(s) que todavía no están en tu catálogo. Se van a agregar con detalles de TMDB (título, póster, género, año). ¿Continuar?`)) {
+        if (window.showToast) window.showToast('Sincronización cancelada, no se agregó nada.', 'info');
+        return { agregados: 0, pendientes: nuevos.length };
+    }
+
+    let agregados = 0, fallidos = 0;
+    for (let i = 0; i < nuevos.length; i++) {
+        const it = nuevos[i];
+        console.log(`➕ [${i + 1}/${nuevos.length}] Agregando: ${it.title}`);
+        try {
+            const tipoTMDB = it.content_type === 'movie' ? 'movie' : 'tv';
+            const detailsRes = await fetch(`${TMDB_URL}/${tipoTMDB}/${it.tmdb_id}?api_key=${TMDB_API_KEY}&language=es-MX`);
+            const details = await detailsRes.json();
+
+            const nuevoDoc = {
+                title: details.title || details.name || it.title,
+                tmdbId: String(it.tmdb_id),
+                imdbId: it.imdb_id || '',
+                type: it._tipoLocal === 'animes' ? 'anime' : (it._tipoLocal === 'series' ? 'series' : 'movie'),
+                img: (details.poster_path ? `https://image.tmdb.org/t/p/w500${details.poster_path}` : (it.poster ? `https://image.tmdb.org/t/p/w500${it.poster}` : '')),
+                backdrop: details.backdrop_path ? `https://image.tmdb.org/t/p/original${details.backdrop_path}` : (it.backdrop ? `https://image.tmdb.org/t/p/original${it.backdrop}` : ''),
+                genres: (details.genres || []).map(g => String(g.id)),
+                rating: details.vote_average ? details.vote_average.toFixed(1) : '',
+                year: (details.release_date || details.first_air_date || '').slice(0, 4),
+                original_title: details.original_title || details.original_name || '',
+                lang: 'es-MX',
+                status: 'healthy',
+                embed: ''
+            };
+
+            const docRef = await addDoc(collection(db, "movies"), { ...nuevoDoc, createdAt: Date.now() });
+            movieDatabase.trending.push({ id: docRef.id, ...nuevoDoc });
+            agregados++;
+        } catch (e) {
+            console.error('Error agregando título de Vimeus:', it.title, e);
+            fallidos++;
+        }
+        await new Promise(r => setTimeout(r, 300));
+    }
+
+    sessionStorage.removeItem('selvaflix_full_database');
+    sessionStorage.removeItem('selvaflix_cache_timestamp');
+    if (document.getElementById('admin-view')?.style.display === 'block') renderInventory();
+
+    const msg = `✅ Sincronización completa: ${agregados} título(s) agregados desde Vimeus${fallidos ? `, ${fallidos} fallaron` : ''}.`;
+    console.log(msg);
+    if (window.showToast) window.showToast(msg, 'success');
+
+    return { agregados, fallidos, total: nuevos.length };
+};
+
 // --- Panel de Usuarios: cuentas reales + logins + dispositivos (v2.45) ---
 window.loadRegisteredUsers = async () => {
     const tableBody = document.getElementById('admin-users-table-body');

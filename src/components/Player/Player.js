@@ -786,7 +786,7 @@ export const SelvaStream = {
                     // eso etiquetaba a cualquiera que llegara primero, no siempre al
                     // mejor. Vimeus se comporta mejor y con menos publicidad que el
                     // resto, así que la etiqueta va atada a ella, no a la posición.
-                    else if (s.providerName === 'Vimeus') tagHtml = `<span class="vip-tag vip-tag-best">⭐ RECOMENDADO · MENOS ANUNCIOS</span>`;
+                    else if (s.providerName === 'Vimeus') tagHtml = `<span class="vip-tag vip-tag-best">⭐ MEJOR CALIDAD</span>`;
 
                     const accent = isSuggested ? '#FF6600' : (isPublicLink ? '#00f2ff' : '#2ECC71');
 

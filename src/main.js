@@ -3537,8 +3537,42 @@ window.searchTMDB = async function (query, isSuggestion = false) {
       return;
     }
 
+    // Se chequea Vimeus siempre (Vimeus tiene CORS, se hace directo desde
+    // acá sin pasar por worker — mismo truco que fetchVimeusSource en el
+    // player), tanto para poder filtrar como para poner el distintivo en
+    // cada tarjeta. "Fuentes externas" apagado = además de mostrarlo, se
+    // sacan de la lista los que Vimeus no tiene.
+    const fuentesExternasOn = document.getElementById('chk-fuentes-externas')?.checked;
+    let disponibleEnVimeus = [];
+    if (!isSuggestion) {
+      resultsDiv.innerHTML = '<p style="color: var(--primary);">Chequeando cuáles tiene Vimeus... 🔎</p>';
+      const candidatos = data.results.slice(0, 8);
+      disponibleEnVimeus = await Promise.all(candidatos.map(async (m) => {
+        if (!m.id) return false;
+        const tipoVimeus = m.media_type === 'tv' ? 'serie' : 'movie';
+        try {
+          const r = await fetch(`https://vimeus.com/e/${tipoVimeus}?tmdb=${m.id}&view_key=${SelvaStream.VIMEUS_VIEW_KEY}`);
+          const html = await r.text();
+          return r.ok && !/not found/i.test(html);
+        } catch (e) { return false; }
+      }));
+
+      if (!fuentesExternasOn) {
+        data = { results: candidatos.filter((_, i) => disponibleEnVimeus[i]) };
+        if (data.results.length === 0) {
+          resultsDiv.innerHTML = '<p style="color: var(--text-muted);">Vimeus no tiene ninguno de estos. Activá "Fuentes externas" para ver todos los resultados de TMDb.</p>';
+          return;
+        }
+      } else {
+        data = { results: candidatos };
+      }
+    }
+
     // Save to global storage to avoid attribute escaping issues
     _tmdbLastResults = data.results.slice(0, 5);
+    const disponibilidadFinal = fuentesExternasOn || isSuggestion
+      ? disponibleEnVimeus.slice(0, 5)
+      : disponibleEnVimeus.filter(Boolean).slice(0, 5); // si se filtró, todo lo que quedó es Vimeus=true
 
     if (isSuggestion) {
       resultsDiv.innerHTML = _tmdbLastResults
@@ -3556,12 +3590,17 @@ window.searchTMDB = async function (query, isSuggestion = false) {
         const title = m.title || m.name || "Sin Título";
         const type = m.media_type === 'tv' ? 'series' : 'movie';
         const imgUrl = m.poster_path ? (TMDB_IMG_URL + m.poster_path) : 'https://via.placeholder.com/150x225?text=SIN+POSTER';
+        const esVimeus = disponibilidadFinal[index];
+        const distintivo = esVimeus
+          ? `<span style="display:inline-block; margin-top:2px; padding:1px 6px; border-radius:4px; background:rgba(46,204,113,0.15); color:#2ECC71; font-size:0.58rem; font-weight:700;">✅ VIMEUS</span>`
+          : `<span style="display:inline-block; margin-top:2px; padding:1px 6px; border-radius:4px; background:rgba(0,242,255,0.12); color:#00f2ff; font-size:0.58rem; font-weight:700;">🔗 EXTERNO</span>`;
 
         return `
           <div class="tmdb-item" onclick="window.selectTMDBMovie(${index})" style="cursor:pointer; min-width:100px; text-align:center;">
             <img src="${imgUrl}" alt="${title}" style="height:150px; border-radius:8px; object-fit:cover; margin-bottom:5px;" onerror="this.src='https://via.placeholder.com/150x225'">
             <p style="font-size:0.65rem; color:var(--primary); font-weight:bold;">[${type === 'series' ? 'Serie' : 'Peli'}]</p>
             <p style="font-size:0.7rem; color:white; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${title}</p>
+            ${distintivo}
           </div>
         `;
       }).join('');

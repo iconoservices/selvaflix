@@ -1474,6 +1474,10 @@
                 <input type="text" id="tmdb-search-input" class="form-control" placeholder="Buscar título en TMDb...">
                 <button class="btn btn-primary" id="btn-tmdb-search" style="padding:0 16px; white-space:nowrap;">Buscar</button>
               </div>
+              <label style="display:flex; align-items:center; gap:6px; margin-bottom:10px; font-size:0.78rem; color:var(--text-muted); cursor:pointer;" title="Apagado: solo se muestran resultados que Vimeus ya tiene confirmados. Prendido: todo lo que devuelva TMDb, aunque no tenga fuente garantizada.">
+                <input type="checkbox" id="chk-fuentes-externas">
+                Fuentes externas (mostrar títulos aunque no estén en Vimeus)
+              </label>
               <div id="tmdb-results" style="display:flex; gap:8px; overflow-x:auto; padding-bottom:6px;"></div>
             </div>
 

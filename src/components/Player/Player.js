@@ -386,7 +386,14 @@ export const SelvaStream = {
         }
 
         if (window.showToast) {
-            window.showToast(`⚠️ ${fallida.providerName || 'El servidor'} no cargó. Probando ${siguiente.providerName || 'otro'}…`, 'info');
+            // FlixLatam en particular se reportó fallando con datos móviles
+            // pero no con wifi (no confirmado del lado del servidor — se vio
+            // igual de inestable en ambos casos en las pruebas — pero como se
+            // repitió, mejor avisar por si el usuario puede probar con wifi).
+            const pistaMovil = fallida.providerName === 'FlixLatam' && window.innerWidth <= 1023
+                ? ' Si estás con datos móviles, probá con wifi.'
+                : '';
+            window.showToast(`⚠️ ${fallida.providerName || 'El servidor'} no cargó.${pistaMovil} Probando ${siguiente.providerName || 'otro'}…`, 'info');
         }
         this.handleExternalStream(siguiente);
     },

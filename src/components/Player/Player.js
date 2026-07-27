@@ -992,7 +992,11 @@ export const SelvaStream = {
                 .replace(/[^a-z0-9\s-]/g, "") // Eliminar caracteres especiales
                 .trim()
                 .replace(/\s+/g, "-") // Espacios a guiones
-                .replace(/-+/g, "-"); // Colapsar guiones múltiples
+                .replace(/-+/g, "-") // Colapsar guiones múltiples
+                .replace(/^-+|-+$/g, ""); // Sin esto, un guion (o espacio) al
+                // final del título (ej. "Los Vigilantes -") sobrevivía a todo
+                // el resto y el slug quedaba "los-vigilantes-": otra URL
+                // distinta para DiPelis/PelisPlus, que manda a su portada.
         };
         const slug = cleanSlug(movieTitle);
 
@@ -1015,13 +1019,17 @@ export const SelvaStream = {
             defs.push({ lang: 'latino', name: "🇲🇽 PELISPLUS", providerName: "PelisPlus", url: pelisplusUrl });
         }
 
-        // 🇲🇽 DiPelis (Gran catálogo en español latino/castellano).
-        // Solo películas: /episodio/{slug}-{s}x{ep}/ devuelve 200 con 0 bytes en todas
-        // las variantes probadas (1x01, 1x1, temporada-N-capitulo-N), así que en series
-        // solo aportaría una fuente en blanco.
+        // 🇲🇽 DiPelis: su página NO es un embed listo para reproducir (es el
+        // sitio completo, con su propio menú "Opción 1/2/3", y en celular ese
+        // menú no inyecta el video sin un toque manual adentro — se ve como
+        // "no carga" aunque el video sí exista). Pero el link real SÍ está en
+        // texto plano en su HTML, así que el worker lo saca server-side y acá
+        // usamos ese link directo, igual que FlixLatam. Se pide en segundo
+        // plano (no se espera acá) porque tarda ~3s y las demás fuentes ya
+        // están listas al toque: que aparezca solo cuando llegue, sin frenar
+        // el arranque. Solo películas: nunca se probó/necesitó en series.
         if (slug && !isTv) {
-            defs.push({ lang: 'latino', name: "🇲🇽 DIPELIS", providerName: "DiPelis",
-                url: `https://ww2.dipelis.com/pelicula/${slug}/` });
+            this.fetchDiPelisSource(slug, movieTitle);
         }
 
         // 💬 Audio original + subtítulos (estos NO traen doblaje latino garantizado)
@@ -1047,6 +1055,51 @@ export const SelvaStream = {
             title: `[${d.lang === 'latino' ? 'ESPAÑOL LATINO' : 'SUBTITULADO'}] 🌐 ${movieTitle}${epTag} - Servidor ${i + 1}`,
             isPublic: true
         }));
+    },
+
+    // Pide al worker el link real de DiPelis y lo suma a la lista de fuentes
+    // ya mostrada, sin bloquear el arranque (tarda ~3s: ver buildPublicStreams).
+    // "Disparar y olvidar" — si tarda más de 8s o falla, no pasa nada, el
+    // usuario ya está viendo otra fuente.
+    async fetchDiPelisSource(slug, movieTitle) {
+        const tituloAlPedir = this.currentPlayerMovie;
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 8000);
+            const res = await fetch(`${this.MASTER_WORKER_URL}/flix/dipelis?slug=${encodeURIComponent(slug)}`, {
+                headers: { 'x-selva-auth': this.AUTH_TOKEN },
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            const data = await res.json();
+            if (!data.url) return;
+
+            // Si en el medio tiempo se cerró el player o se cambió de título,
+            // no mezclamos la fuente de una película con la de otra.
+            if (this.currentPlayerMovie !== tituloAlPedir) return;
+            if ((this.lastScrapedStreams || []).some(s => s.providerName === 'DiPelis')) return;
+
+            const nuevaFuente = {
+                lang: 'latino',
+                name: "🇲🇽 DIPELIS",
+                providerName: "DiPelis",
+                url: data.url,
+                title: `[ESPAÑOL LATINO] 🌐 ${movieTitle} - DIPELIS`,
+                isPublic: true
+            };
+
+            // Va arriba de la lista (justo después de FlixLatam si está, si no
+            // primera) en vez de al final: aunque llega tarde, es de las dos
+            // fuentes "buenas" (embed listo, no la página completa de un
+            // sitio) y así se ve/elige antes que las de solo subtítulos.
+            const lista = [...(this.lastScrapedStreams || [])];
+            const idxFlixLatam = lista.findIndex(s => s.providerName === 'FlixLatam');
+            lista.splice(idxFlixLatam === -1 ? 0 : idxFlixLatam + 1, 0, nuevaFuente);
+            this.lastScrapedStreams = lista;
+            this.renderControls();
+        } catch (e) {
+            console.warn('DiPelis (worker) no respondió:', e);
+        }
     },
 
     async loadDebridAuto(id, type) {

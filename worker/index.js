@@ -64,6 +64,46 @@ export default {
                 }), { headers: corsHeaders });
             }
 
+            // --- 🎬 RUTA: DIPELIS (Extractor de link directo) ---
+            // DiPelis no es un embed listo para reproducir: su página completa
+            // (menú "Opción 1/2/3", header, etc.) es lo que se ve si se pega
+            // esa URL directo en un iframe, y en celular ni siquiera carga el
+            // video sin un toque manual adentro. Pero el link real del video
+            // ya está en texto plano en un <script> de esa misma página, sin
+            // cifrado ni proof-of-work (a diferencia de FlixLatam) — solo hay
+            // que pedir el HTML server-side (el navegador no puede por CORS)
+            // y sacarlo con una regex.
+            if (url.pathname === '/flix/dipelis') {
+                const slug = url.searchParams.get('slug');
+                if (!slug) return new Response(JSON.stringify({ error: 'Falta el parametro slug' }), { status: 400, headers: corsHeaders });
+
+                const pageRes = await fetch(`https://ww2.dipelis.com/pelicula/${slug}/`, {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                        'Accept-Language': 'es-ES,es;q=0.9'
+                    }
+                });
+
+                if (!pageRes.ok) return new Response(JSON.stringify({ error: 'DiPelis no respondio', status: pageRes.status }), { status: 502, headers: corsHeaders });
+
+                const html = await pageRes.text();
+                const match = html.match(/const\s+videosPorIdioma\s*=\s*(\{.*?\});/s);
+                if (!match) return new Response(JSON.stringify({ error: 'No se encontro el titulo en DiPelis' }), { status: 404, headers: corsHeaders });
+
+                let videos;
+                try {
+                    videos = JSON.parse(match[1]);
+                } catch (e) {
+                    return new Response(JSON.stringify({ error: 'DiPelis cambio su formato' }), { status: 500, headers: corsHeaders });
+                }
+
+                // Latino primero, y si no hay, lo que haya (española o subtitulada)
+                const link = videos.lat?.[0] || videos.esp?.[0] || videos.sub?.[0];
+                if (!link) return new Response(JSON.stringify({ error: 'DiPelis no tiene servidores para este titulo' }), { status: 404, headers: corsHeaders });
+
+                return new Response(JSON.stringify({ url: link }), { headers: corsHeaders });
+            }
+
             // --- 🛡️ RUTA: BÚNKER (Túnel de Descarga) ---
             // Esta ruta permite que el navegador descargue el binario sin errores de CORS.
             if (url.pathname === '/beat/bunker') {

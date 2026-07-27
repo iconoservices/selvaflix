@@ -1039,9 +1039,22 @@ export const SelvaStream = {
             this.fetchDiPelisSource(slug, movieTitle);
         }
 
+        // 🎬 RepelisHD: no resuelve el video en su propia página, pero su
+        // botón "reproducir" carga un iframe de verhdlink.cam con el IMDb ID
+        // directo en la URL — igual de simple que FlixLatam, no hace falta
+        // scraping. Solo películas: no encontré el patrón de series.
+        if (imdbId && !isTv) {
+            defs.push({ lang: 'latino', name: "🎬 REPELISHD", providerName: "RepelisHD",
+                url: `https://verhdlink.cam/movie/${imdbId}` });
+        }
+
         // 💬 Audio original + subtítulos (estos NO traen doblaje latino garantizado)
+        // Retirados 2026-07-27 a pedido: el usuario los quiere afuera porque
+        // llegan en inglés, no por estar rotos. VidsrcMe queda como único
+        // respaldo — es el único no-Latino que sobrevive, y solo para no
+        // dejar a las series sin nada si FlixLatam Y PelisPlus fallan juntos.
         //
-        // Verificados 2026-07-22. Retirados por no servir video:
+        // Retirados antes (2026-07-22) por no servir video en absoluto:
         //   moviesapi.club → NXDOMAIN en varias ISP (incluida la de casa)
         //   vidsrc.xyz     → NXDOMAIN global, dominio muerto
         //   vidsrc.pro     → 301 a embed.su, era un duplicado
@@ -1050,11 +1063,7 @@ export const SelvaStream = {
         //   vidsrc.to      → 200 pero solo devuelve un cascarón de anuncios (llvpn.com)
         defs.push(
             { lang: 'subs', name: "💬 VIDSRC.ME", providerName: "VidsrcMe",
-              url: isTv ? `https://vidsrc.me/embed/tv?tmdb=${tid}&sub_lang=es&s=${s}&e=${e}` : `https://vidsrc.me/embed/movie?tmdb=${tid}&sub_lang=es` },
-            { lang: 'subs', name: "💬 MULTIEMBED", providerName: "SuperEmbed",
-              url: `https://multiembed.mov/?video_id=${tid}&tmdb=1${isTv ? `&s=${s}&e=${e}` : ''}` },
-            { lang: 'subs', name: "💬 VIDLINK.PRO", providerName: "VidLink",
-              url: isTv ? `https://vidlink.pro/tv/${tid}/${s}/${e}?primaryColor=ff7a00` : `https://vidlink.pro/movie/${tid}?primaryColor=ff7a00` }
+              url: isTv ? `https://vidsrc.me/embed/tv?tmdb=${tid}&sub_lang=es&s=${s}&e=${e}` : `https://vidsrc.me/embed/movie?tmdb=${tid}&sub_lang=es` }
         );
 
         return defs.map((d, i) => ({
@@ -1095,14 +1104,9 @@ export const SelvaStream = {
                 isPublic: true
             };
 
-            // Va arriba de la lista (justo después de FlixLatam si está, si no
-            // primera) en vez de al final: aunque llega tarde, es de las dos
-            // fuentes "buenas" (embed listo, no la página completa de un
-            // sitio) y así se ve/elige antes que las de solo subtítulos.
-            const lista = [...(this.lastScrapedStreams || [])];
-            const idxFlixLatam = lista.findIndex(s => s.providerName === 'FlixLatam');
-            lista.splice(idxFlixLatam === -1 ? 0 : idxFlixLatam + 1, 0, nuevaFuente);
-            this.lastScrapedStreams = lista;
+            // Primera de la lista a pedido — aunque llega tarde (es la única
+            // async, ~3s), se muestra arriba de todo apenas está lista.
+            this.lastScrapedStreams = [nuevaFuente, ...(this.lastScrapedStreams || [])];
             this.renderControls();
         } catch (e) {
             console.warn('DiPelis (worker) no respondió:', e);

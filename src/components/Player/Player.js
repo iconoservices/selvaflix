@@ -406,6 +406,8 @@ export const SelvaStream = {
         if (this.currentPlayerMovie?.id !== movie?.id) {
             this.preferredProvider = null;
         }
+        // Título nuevo = nadie eligió nada a mano todavía en ESTA película.
+        this._fuenteElegidaAMano = false;
         this.currentPlayerMovie = movie;
         // Arrancamos sin fuente en curso: el about:blank de más abajo dispara un
         // load y, con una fuente vieja aquí, el rescate saltaba al servidor
@@ -778,7 +780,7 @@ export const SelvaStream = {
 
                     return `
                         <div class="stream-card-vip${isPlaying ? ' is-playing' : ''}" style="--vip-accent:${accent};"
-                             onclick='if(event.target.closest("button")) return; SelvaStream.toggleVipMenu(); SelvaStream.handleExternalStream(${realIndex === -1 ? JSON.stringify(s).replace(/'/g, "&apos;") : `SelvaStream.lastScrapedStreams[${realIndex}]`})'>
+                             onclick='if(event.target.closest("button")) return; SelvaStream.toggleVipMenu(); SelvaStream.elegirFuenteManual(${realIndex === -1 ? JSON.stringify(s).replace(/'/g, "&apos;") : `SelvaStream.lastScrapedStreams[${realIndex}]`})'>
                             <div class="vip-card-head">
                                 <span class="vip-provider">${s.providerName || 'SERVIDOR'}</span>
                                 ${isPlaying ? `<span class="vip-tag vip-tag-playing">● VIENDO</span>` : tagHtml}
@@ -1105,6 +1107,17 @@ export const SelvaStream = {
             // Primera de la lista a pedido — aunque llega tarde (es la única
             // async, ~3s), se muestra arriba de todo apenas está lista.
             this.lastScrapedStreams = [nuevaFuente, ...(this.lastScrapedStreams || [])];
+
+            // Auto-upgrade: a pedido, DiPelis es la fuente que debe terminar
+            // reproduciendo, no solo la primera de la lista. Como tarda ~3s,
+            // se arranca igual con la más rápida (para no repetir el problema
+            // que ya arreglamos) y acá se cambia sola apenas DiPelis confirma
+            // que existe — pero SOLO si el usuario no tocó nada a mano
+            // mientras tanto, para no pisarle una elección propia.
+            if (!this._fuenteElegidaAMano) {
+                this.handleExternalStream(nuevaFuente);
+            }
+
             this.renderControls();
         } catch (e) {
             console.warn('DiPelis (worker) no respondió:', e);
@@ -1210,6 +1223,15 @@ export const SelvaStream = {
             console.warn("No hay fuentes listas para reproducir automáticamente.");
             this.fetchExternalStreams();
         }
+    },
+
+    // Clic manual del usuario en el menú de fuentes. Se distingue de un
+    // cambio automático (arranque inicial, salto por falla, o el auto-upgrade
+    // a DiPelis en fetchDiPelisSource) para que, una vez que el usuario elige
+    // a mano, nada le pise esa elección por debajo sin que él lo pida.
+    elegirFuenteManual(stream) {
+        this._fuenteElegidaAMano = true;
+        this.handleExternalStream(stream);
     },
 
     handleExternalStream(stream) {

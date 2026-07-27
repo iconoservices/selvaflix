@@ -782,7 +782,11 @@ export const SelvaStream = {
                     let tagHtml = '';
                     if (isSuggested) tagHtml = `<span class="vip-tag vip-tag-crown">👑 ${isAdmin ? 'SUGERIDA' : 'PREMIUM'}</span>`;
                     else if (isPublicLink) tagHtml = `<span class="vip-tag vip-tag-official">🌐 OFICIAL</span>`;
-                    else if (index === 0) tagHtml = `<span class="vip-tag vip-tag-best">⭐ RECOMENDADO</span>`;
+                    // Antes era "el que quede primero en la lista" (index === 0), pero
+                    // eso etiquetaba a cualquiera que llegara primero, no siempre al
+                    // mejor. Vimeus se comporta mejor y con menos publicidad que el
+                    // resto, así que la etiqueta va atada a ella, no a la posición.
+                    else if (s.providerName === 'Vimeus') tagHtml = `<span class="vip-tag vip-tag-best">⭐ RECOMENDADO · MENOS ANUNCIOS</span>`;
 
                     const accent = isSuggested ? '#FF6600' : (isPublicLink ? '#00f2ff' : '#2ECC71');
 

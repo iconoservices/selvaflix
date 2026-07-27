@@ -104,6 +104,43 @@ export default {
                 return new Response(JSON.stringify({ url: link }), { headers: corsHeaders });
             }
 
+            // --- 🔎 RUTA: CHECK (¿esta fuente tiene este titulo?) ---
+            // FlixLatam, PelisPlus y RepelisHD no mandan CORS, asi que el
+            // navegador no puede chequearlos directo (Vimeus si tiene CORS,
+            // ese chequeo va del lado del cliente sin pasar por aca).
+            if (url.pathname === '/flix/check') {
+                const provider = url.searchParams.get('provider');
+                const imdb = url.searchParams.get('imdb');
+                const tmdb = url.searchParams.get('tmdb');
+                const slug = url.searchParams.get('slug');
+                const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
+                try {
+                    if (provider === 'flixlatam') {
+                        if (!imdb) return new Response(JSON.stringify({ error: 'falta imdb' }), { status: 400, headers: corsHeaders });
+                        const r = await fetch(`https://flixlatam.com/vidurl/${imdb}/`, { headers: { 'User-Agent': UA } });
+                        const text = await r.text();
+                        return new Response(JSON.stringify({ available: r.ok && !text.includes('No folders found') }), { headers: corsHeaders });
+                    }
+                    if (provider === 'pelisplus') {
+                        if (!slug) return new Response(JSON.stringify({ error: 'falta slug' }), { status: 400, headers: corsHeaders });
+                        const r = await fetch(`https://www.pelisplushd.la/pelicula/${slug}-${tmdb || ''}`, { headers: { 'User-Agent': UA } });
+                        const text = await r.text();
+                        return new Response(JSON.stringify({ available: r.ok && !/<title>404 Not found/i.test(text) }), { headers: corsHeaders });
+                    }
+                    if (provider === 'repelishd') {
+                        if (!imdb) return new Response(JSON.stringify({ error: 'falta imdb' }), { status: 400, headers: corsHeaders });
+                        const r = await fetch(`https://verhdlink.cam/movie/${imdb}`, { headers: { 'User-Agent': UA } });
+                        const text = await r.text();
+                        // Sin el titulo, el <title> queda "Movie " sin el imdb pegado atras
+                        return new Response(JSON.stringify({ available: r.ok && text.includes(imdb) }), { headers: corsHeaders });
+                    }
+                    return new Response(JSON.stringify({ error: 'provider desconocido: ' + provider }), { status: 400, headers: corsHeaders });
+                } catch (e) {
+                    return new Response(JSON.stringify({ available: false, error: e.message }), { headers: corsHeaders });
+                }
+            }
+
             // --- 🛡️ RUTA: BÚNKER (Túnel de Descarga) ---
             // Esta ruta permite que el navegador descargue el binario sin errores de CORS.
             if (url.pathname === '/beat/bunker') {

@@ -2715,6 +2715,222 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
   }
 };
 
+// Limpieza única: la "Etiqueta/Doblaje" (Latino/España/Inglés) que se guarda
+// en cada título NO verifica nada real, es solo lo que estaba elegido en el
+// desplegable al sembrar. Si se sembró anime/dramas asiáticos con "Latino"
+// de default (lo normal, es el valor inicial del select), quedaron marcados
+// con un doblaje que casi seguro no existe en las fuentes reales. Corregimos
+// esa etiqueta para no prometer un doblaje latino que probablemente no está.
+window.cleanupNonLatinoLabels = async () => {
+    const affected = movieDatabase.trending.filter(m => {
+        const esAsiatico = m.type === 'anime' || (m.original_title && CJK_REGEX.test(m.original_title));
+        const marcadoLatino = (m.lang || 'es-MX') === 'es-MX';
+        return esAsiatico && marcadoLatino;
+    });
+
+    if (affected.length === 0) {
+        if (window.showToast) window.showToast('No hay títulos de anime/origen asiático marcados como Latino para corregir. 🎉', 'info');
+        return { fixed: 0, total: 0 };
+    }
+
+    let fixed = 0;
+    for (const m of affected) {
+        try {
+            await updateDoc(doc(db, "movies", m.id), { lang: 'en-US' });
+            console.log(`✅ Etiqueta corregida: "${m.title}" (Latino → Inglés/Sub)`);
+            m.lang = 'en-US'; // reflejar en memoria sin esperar un reload
+            fixed++;
+        } catch (e) {
+            console.error('Error corrigiendo etiqueta de idioma:', m.title, e);
+        }
+    }
+
+    sessionStorage.removeItem('selvaflix_full_database');
+    sessionStorage.removeItem('selvaflix_cache_timestamp');
+    if (document.getElementById('admin-view')?.style.display === 'block') renderInventory();
+    if (window.showToast) window.showToast(`✅ ${fixed} etiqueta(s) corregida(s): ya no dicen "Latino" sin serlo.`, 'success');
+
+    return { fixed, total: affected.length };
+};
+
+// Limpieza única de títulos guardados en japonés/chino (de siembras previas
+// al fix de rescatarTituloLatino). Reusa esa misma lógica, pero sobre el
+// catálogo ya existente en vez de sobre resultados nuevos de TMDB.
+window.cleanupCJKTitles = async () => {
+    const affected = movieDatabase.trending.filter(m => m.title && CJK_REGEX.test(m.title) && m.tmdbId);
+    if (affected.length === 0) {
+        if (window.showToast) window.showToast('No hay títulos en japonés/chino para limpiar. 🎉', 'info');
+        return { fixed: 0, skipped: 0, total: 0 };
+    }
+
+    let fixed = 0, skipped = 0;
+    for (const m of affected) {
+        const endpoint = ['series', 'tv', 'anime'].includes(m.type) ? 'tv' : 'movie';
+        try {
+            const newTitle = await rescatarTituloLatino(m.title, endpoint, m.tmdbId);
+            if (newTitle && newTitle !== m.title) {
+                await updateDoc(doc(db, "movies", m.id), { title: newTitle });
+                console.log(`✅ "${m.title}" → "${newTitle}"`);
+                m.title = newTitle; // reflejar en memoria sin esperar un reload
+                fixed++;
+            } else {
+                skipped++;
+            }
+        } catch (e) {
+            console.error('Error limpiando título CJK:', m.title, e);
+            skipped++;
+        }
+    }
+
+    sessionStorage.removeItem('selvaflix_full_database');
+    sessionStorage.removeItem('selvaflix_cache_timestamp');
+    if (document.getElementById('admin-view')?.style.display === 'block') renderInventory();
+    if (window.showToast) window.showToast(`✅ ${fixed} título(s) traducido(s), ${skipped} sin versión en inglés disponible.`, 'success');
+
+    return { fixed, skipped, total: affected.length };
+};
+
+// Prueba las 5 fuentes del player contra un titulo puntual y dice si ALGUNA
+// tiene contenido real. Reutiliza las mismas firmas de "no encontrado" que
+// ya se verificaron a mano en el player (Vimeus por CORS directo desde el
+// cliente; FlixLatam/PelisPlus/RepelisHD por el worker, que no mandan CORS;
+// DiPelis ya tiene su propio endpoint que sirve para esto tal cual).
+async function tieneAlgunaFuente(m) {
+    const isTv = ['series', 'tv', 'anime'].includes(m.type);
+    const imdbId = m.imdbId;
+    const tmdbId = m.tmdbId;
+    if (!imdbId && !tmdbId) return false;
+
+    const slug = m.title ? m.title.toString().toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9\s-]/g, "").trim()
+        .replace(/\s+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "") : "";
+
+    const checks = [];
+
+    if (imdbId || tmdbId) {
+        const idParam = imdbId ? `imdb=${imdbId}` : `tmdb=${tmdbId}`;
+        const tipo = m.type === 'anime' ? 'anime' : (isTv ? 'serie' : 'movie');
+        const vimeusUrl = `https://vimeus.com/e/${tipo}?${idParam}&view_key=${SelvaStream.VIMEUS_VIEW_KEY}`;
+        checks.push(fetch(vimeusUrl).then(r => r.text()).then(html => !/not found/i.test(html)).catch(() => false));
+    }
+
+    const workerCheck = (params) => fetch(`${SelvaStream.MASTER_WORKER_URL}/flix/check?${params}`, {
+        headers: { 'x-selva-auth': SelvaStream.AUTH_TOKEN }
+    }).then(r => r.json()).then(d => !!d.available).catch(() => false);
+
+    if (imdbId) {
+        checks.push(workerCheck(`provider=flixlatam&imdb=${imdbId}`));
+        if (!isTv) checks.push(workerCheck(`provider=repelishd&imdb=${imdbId}`));
+    }
+    if (slug) {
+        checks.push(workerCheck(`provider=pelisplus&slug=${encodeURIComponent(slug)}&tmdb=${tmdbId || ''}`));
+        if (!isTv) {
+            checks.push(fetch(`${SelvaStream.MASTER_WORKER_URL}/flix/dipelis?slug=${encodeURIComponent(slug)}`, {
+                headers: { 'x-selva-auth': SelvaStream.AUTH_TOKEN }
+            }).then(r => r.json()).then(d => !!d.url).catch(() => false));
+        }
+    }
+
+    const resultados = await Promise.all(checks);
+    return resultados.some(Boolean);
+}
+
+// Auditoría completa del catálogo: revisa cada título contra las 5 fuentes.
+// - Sin ninguna fuente + título en chino/japonés (siembra vieja sin arreglar)
+//   → se BORRA (a pedido: un título ilegible y sin video no sirve de nada).
+// - Sin ninguna fuente, título normal → se marca status:'broken' (ya existe
+//   el campo, las tarjetas ya muestran "Sin Fuentes" para esto — no hace
+//   falta inventar nada nuevo, y no se borra nada de por sí: un sitio caído
+//   momentáneamente no es un título muerto para siempre).
+// - Con alguna fuente + título en chino/japonés → se intenta traducir con
+//   rescatarTituloLatino (misma lógica que cleanupCJKTitles).
+// Dos confirm(): uno antes de arrancar (avisa que tarda) y otro con los
+// números exactos antes de tocar la base de datos.
+window.auditarCatalogoCompleto = async () => {
+    const total = movieDatabase.trending.filter(m => m.imdbId || m.tmdbId);
+    if (total.length === 0) {
+        if (window.showToast) window.showToast('No hay títulos con imdbId/tmdbId para auditar.', 'info');
+        return;
+    }
+
+    if (!confirm(`Esto va a revisar ${total.length} títulos contra las 5 fuentes (puede tardar varios minutos, hay una pausa chica entre cada uno para no saturar los sitios). ¿Continuar?`)) return;
+
+    const paraBorrar = [];
+    const paraMarcarRoto = [];
+    const paraArreglarTitulo = [];
+
+    for (let i = 0; i < total.length; i++) {
+        const m = total[i];
+        console.log(`🔎 [${i + 1}/${total.length}] Revisando: ${m.title}`);
+        const tieneFuente = await tieneAlgunaFuente(m);
+        const esCJK = m.title && CJK_REGEX.test(m.title);
+
+        if (esCJK) {
+            if (tieneFuente) paraArreglarTitulo.push(m);
+            else paraBorrar.push(m);
+        } else if (!tieneFuente && m.status !== 'broken') {
+            paraMarcarRoto.push(m);
+        }
+
+        await new Promise(r => setTimeout(r, 400)); // no bombardear los sitios de golpe
+    }
+
+    const resumen = `Resultado de la auditoría:\n\n`
+        + `🗑️ ${paraBorrar.length} sin fuente y con título en chino/japonés → se BORRAN\n`
+        + `🔴 ${paraMarcarRoto.length} sin ninguna fuente → se marcan "Sin Fuentes"\n`
+        + `✏️ ${paraArreglarTitulo.length} con título chino/japonés pero SÍ tienen fuente → se traduce el título\n\n`
+        + `¿Aplicar estos cambios?`;
+
+    if (!confirm(resumen)) {
+        if (window.showToast) window.showToast('Auditoría cancelada, no se aplicó ningún cambio.', 'info');
+        return { paraBorrar, paraMarcarRoto, paraArreglarTitulo };
+    }
+
+    let borrados = 0, marcados = 0, arreglados = 0;
+
+    for (const m of paraBorrar) {
+        try {
+            await deleteDoc(doc(db, "movies", m.id));
+            movieDatabase.trending = movieDatabase.trending.filter(x => x.id !== m.id);
+            console.log(`🗑️ Borrado (sin fuente + CJK): ${m.title}`);
+            borrados++;
+        } catch (e) { console.error('Error borrando', m.title, e); }
+    }
+
+    for (const m of paraMarcarRoto) {
+        try {
+            await updateDoc(doc(db, "movies", m.id), { status: 'broken' });
+            m.status = 'broken';
+            console.log(`🔴 Marcado sin fuentes: ${m.title}`);
+            marcados++;
+        } catch (e) { console.error('Error marcando', m.title, e); }
+    }
+
+    for (const m of paraArreglarTitulo) {
+        try {
+            const endpoint = ['series', 'tv', 'anime'].includes(m.type) ? 'tv' : 'movie';
+            const newTitle = await rescatarTituloLatino(m.title, endpoint, m.tmdbId);
+            if (newTitle && newTitle !== m.title) {
+                await updateDoc(doc(db, "movies", m.id), { title: newTitle });
+                console.log(`✅ "${m.title}" → "${newTitle}"`);
+                m.title = newTitle;
+                arreglados++;
+            }
+        } catch (e) { console.error('Error arreglando título', m.title, e); }
+    }
+
+    sessionStorage.removeItem('selvaflix_full_database');
+    sessionStorage.removeItem('selvaflix_cache_timestamp');
+    if (document.getElementById('admin-view')?.style.display === 'block') renderInventory();
+
+    const msg = `✅ Auditoría completa: ${borrados} borrados, ${marcados} marcados sin fuentes, ${arreglados} títulos traducidos.`;
+    console.log(msg);
+    if (window.showToast) window.showToast(msg, 'success');
+
+    return { borrados, marcados, arreglados };
+};
+
 // --- Panel de Usuarios: cuentas reales + logins + dispositivos (v2.45) ---
 window.loadRegisteredUsers = async () => {
     const tableBody = document.getElementById('admin-users-table-body');

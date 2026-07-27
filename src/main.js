@@ -5586,19 +5586,62 @@ async function rescatarTituloLatino(rawTitle, endpoint, tmdbId) {
   return rawTitle;
 }
 
+// Vimeus tiene CORS abierto, se chequea directo desde el navegador (mismo
+// truco que fetchVimeusSource en el player y el buscador de "Importar desde
+// TMDb"). Se usa acá para el distintivo de la Carga Masiva.
+async function chequearVimeusDisponible(tmdbId, tipo) {
+  const tipoVimeus = tipo === 'anime' ? 'anime' : ((tipo === 'series' || tipo === 'tv') ? 'serie' : 'movie');
+  try {
+    const r = await fetch(`https://vimeus.com/e/${tipoVimeus}?tmdb=${tmdbId}&view_key=${SelvaStream.VIMEUS_VIEW_KEY}`);
+    const html = await r.text();
+    return r.ok && !/not found/i.test(html);
+  } catch (e) { return false; }
+}
+
+// Completa s.disponibleVimeus para los items de pendingSeeds que todavia no
+// lo tengan, en tandas (no todo junto de una: la Carga Masiva puede traer
+// cientos de items, y bombardear a Vimeus de golpe no es buena idea).
+async function marcarDisponibilidadVimeus(items) {
+  const pendientes = items.filter(s => s.disponibleVimeus === undefined);
+  const TANDA = 15;
+  for (let i = 0; i < pendientes.length; i += TANDA) {
+    const tanda = pendientes.slice(i, i + TANDA);
+    await Promise.all(tanda.map(async (s) => {
+      s.disponibleVimeus = await chequearVimeusDisponible(s.tmdbId, s.type);
+    }));
+  }
+}
+
 // Pinta la grilla de checkboxes de "pendingSeeds" en el contenedor dado.
 // Compartida entre massSeedMovies y loadRecommendedMix para no duplicar el template.
+// Re-renderizamos esta lista dos veces (antes y después de chequear Vimeus,
+// ver marcarDisponibilidadVimeus): si el usuario desmarcó algo en el medio,
+// el segundo render no debe pisarle esa elección y volver a tildar todo.
+function guardarEstadoChecks(list) {
+  list.querySelectorAll('.seed-check').forEach(chk => {
+    const idx = Number(chk.dataset.idx);
+    if (pendingSeeds[idx]) pendingSeeds[idx].selected = chk.checked;
+  });
+}
+
 function renderSeedList(list) {
-  list.innerHTML = pendingSeeds.map((s, idx) => `
+  list.innerHTML = pendingSeeds.map((s, idx) => {
+    const distintivo = s.disponibleVimeus
+      ? `<span style="display:inline-block; margin-top:2px; padding:1px 6px; border-radius:4px; background:rgba(46,204,113,0.15); color:#2ECC71; font-size:0.58rem; font-weight:700;">✅ VIMEUS</span>`
+      : `<span style="display:inline-block; margin-top:2px; padding:1px 6px; border-radius:4px; background:rgba(0,242,255,0.12); color:#00f2ff; font-size:0.58rem; font-weight:700;">🔗 EXTERNO</span>`;
+    const marcado = s.selected !== false ? 'checked' : '';
+    return `
     <div style="background: rgba(255,255,255,0.05); padding: 8px; border-radius: 8px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--glass-border);">
-      <input type="checkbox" checked class="seed-check" data-idx="${idx}" onchange="window.updateSeedCount()">
+      <input type="checkbox" ${marcado} class="seed-check" data-idx="${idx}" onchange="window.updateSeedCount()">
       <img src="${s.img}" style="width: 35px; height: 50px; object-fit: cover; border-radius: 4px;" onerror="this.src='https://via.placeholder.com/35x50?text=IMG'">
       <div style="flex: 1; overflow: hidden;">
         <p style="font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: bold; color:white;">${s.title}</p>
         <p style="font-size: 0.6rem; color: var(--text-muted);">${s.year} · ${s.type} · ${DUB_LABELS[s.lang] || s.lang}</p>
+        ${distintivo}
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 // Mezcla inicial (películas + series + anime más populares) para que el modal
@@ -5659,7 +5702,10 @@ window.loadRecommendedMix = async () => {
     status.innerText = `✨ ${pendingSeeds.length} recomendados para empezar (pelis + series + anime). Desmarca lo que no quieras, o busca algo específico con los botones de abajo:`;
     confirmBtn.style.display = 'block';
     confirmBtn.innerText = `✅ Sembrar ${pendingSeeds.length} Coconas`;
-    renderSeedList(list);
+    renderSeedList(list); // primero sin distintivo, para no hacer esperar la lista
+    await marcarDisponibilidadVimeus(pendingSeeds);
+    guardarEstadoChecks(list); // por si el usuario ya desmarcó algo mientras se chequeaba
+    renderSeedList(list); // y de nuevo ya con "VIMEUS"/"EXTERNO" resuelto
   } catch (err) {
     console.error('Error cargando recomendados:', err);
     status.innerText = `❌ Error cargando recomendados: ${err.message}`;
@@ -5768,7 +5814,10 @@ window.massSeedMovies = async (contentType) => {
     status.innerText = `✅ ¡${pendingSeeds.length} coconas nuevas! Desmarca las que no quieras:`;
     confirmBtn.style.display = 'block';
     confirmBtn.innerText = `✅ Sembrar ${pendingSeeds.length} Coconas`;
-    renderSeedList(list);
+    renderSeedList(list); // primero sin distintivo, para no hacer esperar la lista
+    await marcarDisponibilidadVimeus(pendingSeeds);
+    guardarEstadoChecks(list); // por si el usuario ya desmarcó algo mientras se chequeaba
+    renderSeedList(list); // y de nuevo ya con "VIMEUS"/"EXTERNO" resuelto
 
   } catch (err) {
     console.error('Error en massSeedMovies:', err);

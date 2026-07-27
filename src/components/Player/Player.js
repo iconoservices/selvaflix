@@ -1035,32 +1035,9 @@ export const SelvaStream = {
             this.fetchVimeusSource(vimeusUrl, movieTitle);
         }
 
-        // 🇲🇽 FlixLatam es un resolver por IMDb: la página que devuelve corre sobre
-        // EMBED69 y trae selector Latino / Castellano / Subtitulado.
-        if (imdbId) {
-            defs.push({ lang: 'latino', name: "🇲🇽 FLIXLATAM · EMBED69", providerName: "FlixLatam",
-                url: isTv
-                    ? `https://flixlatam.com/vidurl/${imdbId}-${s}x${e < 10 ? '0' + e : e}/`
-                    : `https://flixlatam.com/vidurl/${imdbId}/` });
-        }
-
-        // 🇲🇽 PelisPlusHD (Excelente alternativa en español latino/castellano)
-        if (slug) {
-            const pelisplusUrl = isTv
-                ? `https://www.pelisplushd.la/serie/${slug}/temporada/${s}/capitulo/${e}`
-                : `https://www.pelisplushd.la/pelicula/${slug}-${tmdbId || ''}`;
-            defs.push({ lang: 'latino', name: "🇲🇽 PELISPLUS", providerName: "PelisPlus", url: pelisplusUrl });
-        }
-
-        // 🇲🇽 DiPelis: su página NO es un embed listo para reproducir (es el
-        // sitio completo, con su propio menú "Opción 1/2/3", y en celular ese
-        // menú no inyecta el video sin un toque manual adentro — se ve como
-        // "no carga" aunque el video sí exista). Pero el link real SÍ está en
-        // texto plano en su HTML, así que el worker lo saca server-side y acá
-        // usamos ese link directo, igual que FlixLatam. Se pide en segundo
-        // plano (no se espera acá) porque tarda ~3s y las demás fuentes ya
-        // están listas al toque: que aparezca solo cuando llegue, sin frenar
-        // el arranque. Solo películas: nunca se probó/necesitó en series.
+        // 🇲🇽 DiPelis se inserta después de Vimeus por código (ver
+        // fetchDiPelisSource), así que el orden real termina siendo
+        // Vimeus → DiPelis → RepelisHD → FlixLatam, como se pidió.
         if (slug && !isTv) {
             this.fetchDiPelisSource(slug, movieTitle);
         }
@@ -1074,17 +1051,20 @@ export const SelvaStream = {
                 url: `https://verhdlink.cam/movie/${imdbId}` });
         }
 
-        // 🎬 LaMovie (vía Vimeus): la única de las cuatro con serie Y anime,
-        // no solo películas — soporta imdb= o tmdb= + view_key fijo por
-        // cuenta (confirmado seguro para el cliente por su propia doc,
-        // valida por dominio, no es la API Key server-only).
-        if (tid) {
-            const idParam = imdbId ? `imdb=${imdbId}` : `tmdb=${tmdbId}`;
-            const tipoVimeus = movie.type === 'anime' ? 'anime' : (isTv ? 'serie' : 'movie');
-            const epParams = isTv ? `&se=${s}&ep=${e}` : '';
-            defs.push({ lang: 'latino', name: "🎬 LAMOVIE · VIMEUS", providerName: "LaMovie",
-                url: `https://vimeus.com/e/${tipoVimeus}?${idParam}${epParams}&view_key=${this.VIMEUS_VIEW_KEY}` });
+        // 🇲🇽 FlixLatam es un resolver por IMDb: la página que devuelve corre sobre
+        // EMBED69 y trae selector Latino / Castellano / Subtitulado. Al final de
+        // la lista sincrónica: se reportó fallando seguido con datos móviles
+        // (ver siguienteFuente, avisa "probá con wifi" cuando esta falla).
+        if (imdbId) {
+            defs.push({ lang: 'latino', name: "🇲🇽 FLIXLATAM · EMBED69", providerName: "FlixLatam",
+                url: isTv
+                    ? `https://flixlatam.com/vidurl/${imdbId}-${s}x${e < 10 ? '0' + e : e}/`
+                    : `https://flixlatam.com/vidurl/${imdbId}/` });
         }
+
+        // 🇲🇽 PelisPlus: RETIRADO 2026-07-27 a pedido — reportado repetidas
+        // veces sin cargar. Era el único de los 5 con series Y latino aparte
+        // de Vimeus, pero Vimeus ya cubre ese mismo rol.
 
         // 💬 Audio original + subtítulos: RETIRADOS del todo 2026-07-27 a
         // pedido (VidsrcMe incluido) — ninguno traía doblaje latino
@@ -1182,14 +1162,23 @@ export const SelvaStream = {
                 isPublic: true
             };
 
-            // Va justo después de Vimeus (que ahora es la prioridad #1) en
-            // vez de al final — aunque llega tarde (es la única async, ~3s),
-            // se muestra cerca del principio apenas está lista. Ya no hace
-            // auto-upgrade de la reproducción: ese lugar es de Vimeus ahora.
+            // Va justo después de Vimeus (prioridad #1) en vez de al final —
+            // aunque llega tarde (es async, ~3s), se muestra cerca del
+            // principio apenas está lista.
             const lista = [...(this.lastScrapedStreams || [])];
             const idxVimeus = lista.findIndex(s => s.providerName === 'Vimeus');
             lista.splice(idxVimeus === -1 ? 0 : idxVimeus + 1, 0, nuevaFuente);
             this.lastScrapedStreams = lista;
+
+            // Auto-upgrade igual que Vimeus (DiPelis es la prioridad #2), pero
+            // respetando que Vimeus le gana: si Vimeus ya tomó el control acá
+            // no la pisa. Si Vimeus todavía no respondió (o no tiene el
+            // título), DiPelis sí reemplaza a lo que haya arrancado
+            // instantáneo (RepelisHD/FlixLatam).
+            if (!this._fuenteElegidaAMano && this.streamActual?.providerName !== 'Vimeus') {
+                this.handleExternalStream(nuevaFuente);
+            }
+
             this.renderControls();
         } catch (e) {
             console.warn('DiPelis (worker) no respondió:', e);

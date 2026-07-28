@@ -3,10 +3,8 @@ import { SelvaStream } from './components/Player/Player.js'
 import { ExportManager } from './utils/exportManager.js'
 import './components/Player/Player.css'
 import './ui/toasts.js' // 🍿 Notificaciones (define window.showToast)
-/* 
-   🌴 Perla de Sabiduría: Firebase es nuestro "Puesto de Vigilancia". 
-   Mantiene un ojo en los datos y nos avisa al instante cuando algo cambia en la selva.
-*/
+// Firebase es nuestro Puesto de Vigilancia: mantiene un ojo en los datos
+// y nos avisa al instante cuando algo cambia en la selva.
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, setDoc, query, orderBy, limit, getDocs, getDoc, where } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -544,26 +542,44 @@ async function seedPopularSeries() {
   if (!Array.isArray(movieDatabase.trending)) return;
 
   // --- AUTOMATIC DUPLICATE CLEANER ---
-  const seenIds = new Set();
-  const seenTitles = new Set();
-  const duplicatesToDelete = [];
+  // getDocs(moviesCol) no lleva orderBy, así que el orden en que Firestore
+  // devuelve los duplicados no está garantizado (no es por fecha de creación).
+  // Antes esto se quedaba con el primero que aparecía en ese orden arbitrario
+  // y borraba el resto — si el duplicado "bueno" (con link healthy) aparecía
+  // después del viejo roto, se borraba el bueno y el título se quedaba sin
+  // fuente aunque su estado dijera "Sano". Ahora se agrupan los duplicados y
+  // de cada grupo se queda el "mejor" (status más sano, y entre empates el
+  // más reciente por createdAt).
+  const STATUS_RANK = { healthy: 3, waiting: 2, review: 1, broken: 0 };
+  const rankOf = (m) => STATUS_RANK[m.status] ?? 1;
+  const isBetter = (a, b) => {
+    const ra = rankOf(a), rb = rankOf(b);
+    if (ra !== rb) return ra > rb;
+    return (a.createdAt || 0) > (b.createdAt || 0);
+  };
+
+  const bestByKey = new Map(); // normTmdb||normTitle -> mejor item visto hasta ahora
+  const groups = new Map();    // misma key -> todos los items (para calcular el resto a borrar)
 
   for (const m of movieDatabase.trending) {
     const normTmdb = m.tmdbId ? String(m.tmdbId).trim() : '';
     const normTitle = m.title ? m.title.toLowerCase().trim() : '';
+    const key = normTmdb || normTitle;
+    if (!key) continue;
 
-    let isDup = false;
-    if (normTmdb && seenIds.has(normTmdb)) {
-      isDup = true;
-    } else if (normTitle && seenTitles.has(normTitle)) {
-      isDup = true;
-    }
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(m);
 
-    if (isDup) {
-      duplicatesToDelete.push(m);
-    } else {
-      if (normTmdb) seenIds.add(normTmdb);
-      if (normTitle) seenTitles.add(normTitle);
+    const current = bestByKey.get(key);
+    if (!current || isBetter(m, current)) bestByKey.set(key, m);
+  }
+
+  const duplicatesToDelete = [];
+  for (const [key, items] of groups) {
+    if (items.length <= 1) continue;
+    const best = bestByKey.get(key);
+    for (const m of items) {
+      if (m.id !== best.id) duplicatesToDelete.push(m);
     }
   }
 
@@ -1172,6 +1188,12 @@ function _renderCardsInto(container, data, isTrending = false) {
                   <span>VIP</span>
                 </div>
               ` : ''}
+              ${item.vimeusDisponible ? `
+                <div class="vimeus-badge-sm" style="position: absolute; top: ${item.isVIP ? '38px' : '10px'}; left: 10px; z-index: 5; background: rgba(46,204,113,0.92); color: #06210f; font-size: 0.55rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; display: flex; align-items: center; gap: 2px; box-shadow: 0 0 8px rgba(46,204,113,0.35);" title="Confirmado en Vimeus: la fuente que mejor y más rápido funciona">
+                  <span>⭐</span>
+                  <span>ÓPTIMO</span>
+                </div>
+              ` : ''}
               <div class="cinepulse-card-content">
                 <h3 class="cinepulse-card-title">${item.title}</h3>
                 <div class="cinepulse-card-meta">
@@ -1323,6 +1345,12 @@ function renderGallery(title, groups) {
                 <span>VIP</span>
               </div>
             ` : ''}
+            ${item.vimeusDisponible ? `
+              <div class="vimeus-badge-sm" style="position: absolute; top: ${item.isVIP ? '38px' : '10px'}; left: 10px; z-index: 5; background: rgba(46,204,113,0.92); color: #06210f; font-size: 0.55rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; display: flex; align-items: center; gap: 2px; box-shadow: 0 0 8px rgba(46,204,113,0.35);" title="Confirmado en Vimeus: la fuente que mejor y más rápido funciona">
+                <span>⭐</span>
+                <span>ÓPTIMO</span>
+              </div>
+            ` : ''}
             <div class="cinepulse-card-content">
               <h3 class="cinepulse-card-title">${item.title}</h3>
               <div class="cinepulse-card-meta">
@@ -1408,6 +1436,25 @@ function _updateDetailedStats(items) {
   if (countLiveEl) countLiveEl.innerText = liveVal.toLocaleString();
   if (countCurationEl) countCurationEl.innerText = curationVal.toLocaleString();
   if (countArchivedEl) countArchivedEl.innerText = archivedVal.toLocaleString();
+
+  // 📊 Resumen en la pestaña "Gestión de Catálogo": conteo por tipo, en
+  // revisión, y cuántos títulos están confirmados en Vimeus vs. dependiendo
+  // de las fuentes públicas de respaldo (FlixLatam, DiPelis, RepelisHD).
+  const seriesVal = items.filter(i => i.type === 'series' || i.type === 'tv').length;
+  const animeVal = items.filter(i => i.type === 'anime').length;
+  const vimeusVal = items.filter(i => i.vimeusDisponible === true).length;
+  const respaldoVal = items.filter(i => i.vimeusDisponible === false).length;
+  const sinVerificarVal = items.length - vimeusVal - respaldoVal;
+
+  const setStat = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val.toLocaleString(); };
+  setStat('cstat-total', items.length);
+  setStat('cstat-movies', m);
+  setStat('cstat-series', seriesVal);
+  setStat('cstat-anime', animeVal);
+  setStat('cstat-review', rev);
+  setStat('cstat-vimeus', vimeusVal);
+  setStat('cstat-respaldo', respaldoVal);
+  setStat('cstat-sinverificar', sinVerificarVal);
 
   // 📡 Señales del Sistema con datos REALES (no mock)
   const catDesc = document.getElementById('insight-catalog-desc');
@@ -2795,25 +2842,29 @@ window.cleanupCJKTitles = async () => {
 // ya se verificaron a mano en el player (Vimeus por CORS directo desde el
 // cliente; FlixLatam/PelisPlus/RepelisHD por el worker, que no mandan CORS;
 // DiPelis ya tiene su propio endpoint que sirve para esto tal cual).
+// Devuelve { tieneFuente, vimeusDisponible } en vez de un solo boolean: el
+// home necesita saber puntualmente si Vimeus la tiene (para el distintivo en
+// las tarjetas), no solo si ALGUNA fuente la tiene.
 async function tieneAlgunaFuente(m) {
     const isTv = ['series', 'tv', 'anime'].includes(m.type);
     const imdbId = m.imdbId;
     const tmdbId = m.tmdbId;
-    if (!imdbId && !tmdbId) return false;
+    if (!imdbId && !tmdbId) return { tieneFuente: false, vimeusDisponible: false };
 
     const slug = m.title ? m.title.toString().toLowerCase()
         .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
         .replace(/[^a-z0-9\s-]/g, "").trim()
         .replace(/\s+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "") : "";
 
-    const checks = [];
-
+    let vimeusPromise = Promise.resolve(false);
     if (imdbId || tmdbId) {
         const idParam = imdbId ? `imdb=${imdbId}` : `tmdb=${tmdbId}`;
         const tipo = m.type === 'anime' ? 'anime' : (isTv ? 'serie' : 'movie');
         const vimeusUrl = `https://vimeus.com/e/${tipo}?${idParam}&view_key=${SelvaStream.VIMEUS_VIEW_KEY}`;
-        checks.push(fetch(vimeusUrl).then(r => r.text()).then(html => !/not found/i.test(html)).catch(() => false));
+        vimeusPromise = fetch(vimeusUrl).then(r => r.text()).then(html => !/not found/i.test(html)).catch(() => false);
     }
+
+    const checks = [vimeusPromise];
 
     const workerCheck = (params) => fetch(`${SelvaStream.MASTER_WORKER_URL}/flix/check?${params}`, {
         headers: { 'x-selva-auth': SelvaStream.AUTH_TOKEN }
@@ -2832,8 +2883,8 @@ async function tieneAlgunaFuente(m) {
         }
     }
 
-    const resultados = await Promise.all(checks);
-    return resultados.some(Boolean);
+    const [vimeusDisponible, ...resto] = await Promise.all(checks);
+    return { tieneFuente: vimeusDisponible || resto.some(Boolean), vimeusDisponible };
 }
 
 // Auditoría completa del catálogo: revisa cada título contra las 5 fuentes.
@@ -2859,11 +2910,12 @@ window.auditarCatalogoCompleto = async () => {
     const paraBorrar = [];
     const paraMarcarRoto = [];
     const paraArreglarTitulo = [];
+    const paraActualizarVimeus = []; // { m, vimeusDisponible } -- se guarda siempre que cambió
 
     for (let i = 0; i < total.length; i++) {
         const m = total[i];
         console.log(`🔎 [${i + 1}/${total.length}] Revisando: ${m.title}`);
-        const tieneFuente = await tieneAlgunaFuente(m);
+        const { tieneFuente, vimeusDisponible } = await tieneAlgunaFuente(m);
         const esCJK = m.title && CJK_REGEX.test(m.title);
 
         if (esCJK) {
@@ -2873,13 +2925,19 @@ window.auditarCatalogoCompleto = async () => {
             paraMarcarRoto.push(m);
         }
 
+        // El distintivo del home lee esto; se guarda para todos, no solo los
+        // que ya iban a cambiar de status, porque puede cambiar sin que el
+        // resto del título cambie (ej. Vimeus suma un titulo que ya tenia otra fuente).
+        if (m.vimeusDisponible !== vimeusDisponible) paraActualizarVimeus.push({ m, vimeusDisponible });
+
         await new Promise(r => setTimeout(r, 400)); // no bombardear los sitios de golpe
     }
 
     const resumen = `Resultado de la auditoría:\n\n`
         + `🗑️ ${paraBorrar.length} sin fuente y con título en chino/japonés → se BORRAN\n`
         + `🔴 ${paraMarcarRoto.length} sin ninguna fuente → se marcan "Sin Fuentes"\n`
-        + `✏️ ${paraArreglarTitulo.length} con título chino/japonés pero SÍ tienen fuente → se traduce el título\n\n`
+        + `✏️ ${paraArreglarTitulo.length} con título chino/japonés pero SÍ tienen fuente → se traduce el título\n`
+        + `🎬 ${paraActualizarVimeus.length} título(s) cambian su distintivo de Vimeus (para el home)\n\n`
         + `¿Aplicar estos cambios?`;
 
     if (!confirm(resumen)) {
@@ -2920,15 +2978,24 @@ window.auditarCatalogoCompleto = async () => {
         } catch (e) { console.error('Error arreglando título', m.title, e); }
     }
 
+    let vimeusActualizados = 0;
+    for (const { m, vimeusDisponible } of paraActualizarVimeus) {
+        try {
+            await updateDoc(doc(db, "movies", m.id), { vimeusDisponible });
+            m.vimeusDisponible = vimeusDisponible;
+            vimeusActualizados++;
+        } catch (e) { console.error('Error actualizando vimeusDisponible', m.title, e); }
+    }
+
     sessionStorage.removeItem('selvaflix_full_database');
     sessionStorage.removeItem('selvaflix_cache_timestamp');
     if (document.getElementById('admin-view')?.style.display === 'block') renderInventory();
 
-    const msg = `✅ Auditoría completa: ${borrados} borrados, ${marcados} marcados sin fuentes, ${arreglados} títulos traducidos.`;
+    const msg = `✅ Auditoría completa: ${borrados} borrados, ${marcados} marcados sin fuentes, ${arreglados} títulos traducidos, ${vimeusActualizados} distintivos de Vimeus actualizados.`;
     console.log(msg);
     if (window.showToast) window.showToast(msg, 'success');
 
-    return { borrados, marcados, arreglados };
+    return { borrados, marcados, arreglados, vimeusActualizados };
 };
 
 // Trae el catálogo que Vimeus YA tiene confirmado (via su API Key, server-only
@@ -3593,7 +3660,7 @@ window.searchTMDB = async function (query, isSuggestion = false) {
         const esVimeus = disponibilidadFinal[index];
         const distintivo = esVimeus
           ? `<span style="display:inline-block; margin-top:2px; padding:1px 6px; border-radius:4px; background:rgba(46,204,113,0.15); color:#2ECC71; font-size:0.58rem; font-weight:700;">✅ VIMEUS</span>`
-          : `<span style="display:inline-block; margin-top:2px; padding:1px 6px; border-radius:4px; background:rgba(0,242,255,0.12); color:#00f2ff; font-size:0.58rem; font-weight:700;">🔗 EXTERNO</span>`;
+          : `<span style="display:inline-block; margin-top:2px; padding:1px 6px; border-radius:4px; background:rgba(0,242,255,0.12); color:#00f2ff; font-size:0.58rem; font-weight:700;">🔗 RESPALDO</span>`;
 
         return `
           <div class="tmdb-item" onclick="window.selectTMDBMovie(${index})" style="cursor:pointer; min-width:100px; text-align:center;">
@@ -5624,11 +5691,29 @@ function guardarEstadoChecks(list) {
   });
 }
 
+// Si el admin marcó "Solo Vimeus" (#chk-solo-vimeus), descarta de pendingSeeds
+// todo lo que no venga confirmado por Vimeus (mismo criterio que "Fuentes
+// externas" en el buscador de un solo título). Se llama después de
+// marcarDisponibilidadVimeus, cuando s.disponibleVimeus ya está resuelto.
+function aplicarFiltroSoloVimeus(status, confirmBtn) {
+  if (!document.getElementById('chk-solo-vimeus')?.checked) return;
+
+  pendingSeeds = pendingSeeds.filter(s => s.disponibleVimeus);
+
+  if (pendingSeeds.length === 0) {
+    if (status) status.innerText = '🍃 Ninguno de estos títulos está confirmado en Vimeus todavía. Desmarca "Solo Vimeus" para ver el resto, o prueba con otra página/filtro.';
+    if (confirmBtn) confirmBtn.style.display = 'none';
+  } else {
+    if (status) status.innerText = `✅ ${pendingSeeds.length} confirmados en Vimeus. Desmarca los que no quieras:`;
+    if (confirmBtn) confirmBtn.innerText = `✅ Sembrar ${pendingSeeds.length} Coconas`;
+  }
+}
+
 function renderSeedList(list) {
   list.innerHTML = pendingSeeds.map((s, idx) => {
     const distintivo = s.disponibleVimeus
       ? `<span style="display:inline-block; margin-top:2px; padding:1px 6px; border-radius:4px; background:rgba(46,204,113,0.15); color:#2ECC71; font-size:0.58rem; font-weight:700;">✅ VIMEUS</span>`
-      : `<span style="display:inline-block; margin-top:2px; padding:1px 6px; border-radius:4px; background:rgba(0,242,255,0.12); color:#00f2ff; font-size:0.58rem; font-weight:700;">🔗 EXTERNO</span>`;
+      : `<span style="display:inline-block; margin-top:2px; padding:1px 6px; border-radius:4px; background:rgba(0,242,255,0.12); color:#00f2ff; font-size:0.58rem; font-weight:700;">🔗 RESPALDO</span>`;
     const marcado = s.selected !== false ? 'checked' : '';
     return `
     <div style="background: rgba(255,255,255,0.05); padding: 8px; border-radius: 8px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--glass-border);">
@@ -5699,13 +5784,23 @@ window.loadRecommendedMix = async () => {
       return;
     }
 
-    status.innerText = `✨ ${pendingSeeds.length} recomendados para empezar (pelis + series + anime). Desmarca lo que no quieras, o busca algo específico con los botones de abajo:`;
     confirmBtn.style.display = 'block';
     confirmBtn.innerText = `✅ Sembrar ${pendingSeeds.length} Coconas`;
-    renderSeedList(list); // primero sin distintivo, para no hacer esperar la lista
+    const soloVimeus1 = document.getElementById('chk-solo-vimeus')?.checked;
+    if (soloVimeus1) {
+      // Con el filtro activo no pintamos la lista cruda (saldría todo con el
+      // badge RESPALDO provisional y luego se encogería de golpe cuando
+      // termine de chequear) — mejor esperar a tener el resultado real.
+      status.innerText = `🔎 Verificando cuáles de los ${pendingSeeds.length} títulos están en Vimeus...`;
+      list.innerHTML = '';
+    } else {
+      status.innerText = `✨ ${pendingSeeds.length} recomendados para empezar (pelis + series + anime). Desmarca lo que no quieras, o busca algo específico con los botones de abajo:`;
+      renderSeedList(list); // primero sin distintivo, para no hacer esperar la lista
+    }
     await marcarDisponibilidadVimeus(pendingSeeds);
-    guardarEstadoChecks(list); // por si el usuario ya desmarcó algo mientras se chequeaba
-    renderSeedList(list); // y de nuevo ya con "VIMEUS"/"EXTERNO" resuelto
+    if (!soloVimeus1) guardarEstadoChecks(list); // por si el usuario ya desmarcó algo mientras se chequeaba
+    aplicarFiltroSoloVimeus(status, confirmBtn);
+    renderSeedList(list); // y de nuevo ya con "VIMEUS"/"RESPALDO" resuelto
   } catch (err) {
     console.error('Error cargando recomendados:', err);
     status.innerText = `❌ Error cargando recomendados: ${err.message}`;
@@ -5746,15 +5841,30 @@ window.massSeedMovies = async (contentType) => {
 
   const isTv = type === 'series' || type === 'anime' || type === 'tv';
   const endpoint = isTv ? 'tv' : 'movie';
-  const maxExtraAttempts = 5; // Si la página 1 está llena de duplicados, probamos hasta 5 páginas más
+  const soloVimeusBusqueda = document.getElementById('chk-solo-vimeus')?.checked;
+  // Con "Solo Vimeus" activo la mayoría de lo que trae TMDB se descarta, así
+  // que 1-2 páginas casi siempre dan 0 resultados. En vez de rendirse ahí,
+  // seguimos pidiendo páginas extra hasta juntar una tanda razonable de
+  // confirmados (o agotar el límite de seguridad), chequeando Vimeus página
+  // por página en vez de esperar al final.
+  const maxExtraAttempts = soloVimeusBusqueda ? 20 : 5;
+  const targetVimeusConfirmados = pages * 15;
   let pagesSearched = 0;
   let totalPagesTried = 0;
+  let vimeusConfirmados = 0;
 
   try {
-    // Buscamos las páginas pedidas, y si todas están duplicadas probamos más automáticamente
-    for (let attempt = 0; pagesSearched < pages && attempt < pages + maxExtraAttempts; attempt++) {
+    // Buscamos las páginas pedidas, y si todas están duplicadas (o filtradas
+    // por Vimeus) probamos más automáticamente
+    for (
+      let attempt = 0;
+      (soloVimeusBusqueda ? vimeusConfirmados < targetVimeusConfirmados : pagesSearched < pages) && attempt < pages + maxExtraAttempts;
+      attempt++
+    ) {
       const pageNum = attempt + 1;
-      status.innerText = `🔍 Buscando página ${pageNum}... (${pendingSeeds.length} nuevas encontradas)`;
+      status.innerText = soloVimeusBusqueda
+        ? `🔍 Buscando página ${pageNum}... (${vimeusConfirmados} confirmados en Vimeus hasta ahora)`
+        : `🔍 Buscando página ${pageNum}... (${pendingSeeds.length} nuevas encontradas)`;
 
       const sortBy = document.getElementById('discover-sort')?.value || 'popularity.desc';
       let url = `${TMDB_URL}/discover/${endpoint}?api_key=${TMDB_API_KEY}&language=${lang}&sort_by=${sortBy}&page=${pageNum}`;
@@ -5779,11 +5889,12 @@ window.massSeedMovies = async (contentType) => {
       if (!data.results || data.results.length === 0) break; // No hay más páginas
 
       let foundNew = 0;
+      const nuevosDeEstaPagina = [];
       for (const s of data.results) {
         const tmdbIdStr = String(s.id);
         if (!existingIds.has(tmdbIdStr) && (s.poster_path || s.backdrop_path)) {
           const rawTitle = s.title || s.name || 'Sin título';
-          pendingSeeds.push({
+          const seed = {
             title: await rescatarTituloLatino(rawTitle, endpoint, tmdbIdStr),
             original_title: s.original_title || s.original_name || "",
             img: TMDB_IMG_URL + (s.poster_path || s.backdrop_path),
@@ -5793,9 +5904,19 @@ window.massSeedMovies = async (contentType) => {
             genres: (s.genre_ids || []).map(String),
             type: type,
             lang: lang
-          });
+          };
+          pendingSeeds.push(seed);
+          nuevosDeEstaPagina.push(seed);
           foundNew++;
         }
+      }
+
+      // Chequeamos Vimeus página por página (no al final) para saber si ya
+      // alcanza o hace falta pedir otra página más.
+      if (soloVimeusBusqueda && nuevosDeEstaPagina.length > 0) {
+        status.innerText = `🔎 Verificando Vimeus en la página ${pageNum}... (${vimeusConfirmados} confirmados hasta ahora)`;
+        await marcarDisponibilidadVimeus(nuevosDeEstaPagina);
+        vimeusConfirmados = pendingSeeds.filter(s => s.disponibleVimeus).length;
       }
 
       if (foundNew > 0) pagesSearched++; // Solo contamos páginas que aportaron algo nuevo
@@ -5811,13 +5932,20 @@ window.massSeedMovies = async (contentType) => {
       return;
     }
 
-    status.innerText = `✅ ¡${pendingSeeds.length} coconas nuevas! Desmarca las que no quieras:`;
     confirmBtn.style.display = 'block';
     confirmBtn.innerText = `✅ Sembrar ${pendingSeeds.length} Coconas`;
-    renderSeedList(list); // primero sin distintivo, para no hacer esperar la lista
+    const soloVimeus2 = document.getElementById('chk-solo-vimeus')?.checked;
+    if (soloVimeus2) {
+      status.innerText = `🔎 Verificando cuáles de los ${pendingSeeds.length} títulos están en Vimeus...`;
+      list.innerHTML = '';
+    } else {
+      status.innerText = `✅ ¡${pendingSeeds.length} coconas nuevas! Desmarca las que no quieras:`;
+      renderSeedList(list); // primero sin distintivo, para no hacer esperar la lista
+    }
     await marcarDisponibilidadVimeus(pendingSeeds);
-    guardarEstadoChecks(list); // por si el usuario ya desmarcó algo mientras se chequeaba
-    renderSeedList(list); // y de nuevo ya con "VIMEUS"/"EXTERNO" resuelto
+    if (!soloVimeus2) guardarEstadoChecks(list); // por si el usuario ya desmarcó algo mientras se chequeaba
+    aplicarFiltroSoloVimeus(status, confirmBtn);
+    renderSeedList(list); // y de nuevo ya con "VIMEUS"/"RESPALDO" resuelto
 
   } catch (err) {
     console.error('Error en massSeedMovies:', err);
@@ -5869,13 +5997,21 @@ window.confirmBatchSeed = async () => {
 
     const toReview = document.getElementById('discover-send-to-review')?.checked;
 
+    // s.disponibleVimeus es el nombre que usa el chequeo de Carga Masiva
+    // (chequearVimeusDisponible); el resto de la app (auditoría "Revisar
+    // Enlaces", stats del catálogo, badge "ÓPTIMO" en las tarjetas) usa
+    // vimeusDisponible. Sin este mapeo, lo sembrado acá quedaba con el campo
+    // "equivocado" y nunca se veía como confirmado en Vimeus.
     const mData = {
       ...s,
       imdbId: imdbId,
       embed: "",
       status: toReview ? 'review' : 'healthy',
+      vimeusDisponible: s.disponibleVimeus,
       createdAt: Date.now()
     };
+    delete mData.disponibleVimeus;
+    delete mData.selected;
     try {
       const ref = await addDoc(moviesCol, mData);
       movieDatabase.trending.push({ id: ref.id, ...mData }); // Reflejar en memoria sin esperar un reload

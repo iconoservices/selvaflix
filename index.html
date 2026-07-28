@@ -893,6 +893,42 @@
                 </div>
               </div>
 
+              <!-- Resumen del Catálogo -->
+              <div id="catalog-stats-bar" style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+                <div style="display:flex; align-items:baseline; gap:6px; background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:8px; padding:8px 14px;">
+                  <span id="cstat-total" style="font-size:1.1rem; font-weight:800; color:#fff;">0</span>
+                  <span style="font-size:0.7rem; color:var(--text-muted);">Total</span>
+                </div>
+                <div style="display:flex; align-items:baseline; gap:6px; background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:8px; padding:8px 14px;">
+                  <span id="cstat-movies" style="font-size:1.1rem; font-weight:800; color:#fff;">0</span>
+                  <span style="font-size:0.7rem; color:var(--text-muted);">🎬 Pelis</span>
+                </div>
+                <div style="display:flex; align-items:baseline; gap:6px; background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:8px; padding:8px 14px;">
+                  <span id="cstat-series" style="font-size:1.1rem; font-weight:800; color:#fff;">0</span>
+                  <span style="font-size:0.7rem; color:var(--text-muted);">🏆 Series</span>
+                </div>
+                <div style="display:flex; align-items:baseline; gap:6px; background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:8px; padding:8px 14px;">
+                  <span id="cstat-anime" style="font-size:1.1rem; font-weight:800; color:#fff;">0</span>
+                  <span style="font-size:0.7rem; color:var(--text-muted);">⛩️ Anime</span>
+                </div>
+                <div style="display:flex; align-items:baseline; gap:6px; background:rgba(241,196,15,0.08); border:1px solid rgba(241,196,15,0.25); border-radius:8px; padding:8px 14px;">
+                  <span id="cstat-review" style="font-size:1.1rem; font-weight:800; color:#f1c40f;">0</span>
+                  <span style="font-size:0.7rem; color:var(--text-muted);">⚠️ En Revisión</span>
+                </div>
+                <div style="display:flex; align-items:baseline; gap:6px; background:rgba(46,204,113,0.08); border:1px solid rgba(46,204,113,0.25); border-radius:8px; padding:8px 14px;">
+                  <span id="cstat-vimeus" style="font-size:1.1rem; font-weight:800; color:#2ECC71;">0</span>
+                  <span style="font-size:0.7rem; color:var(--text-muted);">✅ Vimeus</span>
+                </div>
+                <div style="display:flex; align-items:baseline; gap:6px; background:rgba(0,242,255,0.08); border:1px solid rgba(0,242,255,0.25); border-radius:8px; padding:8px 14px;">
+                  <span id="cstat-respaldo" style="font-size:1.1rem; font-weight:800; color:#00f2ff;">0</span>
+                  <span style="font-size:0.7rem; color:var(--text-muted);">🔗 Respaldo</span>
+                </div>
+                <div style="display:flex; align-items:baseline; gap:6px; background:rgba(255,255,255,0.03); border:1px solid var(--glass-border); border-radius:8px; padding:8px 14px;">
+                  <span id="cstat-sinverificar" style="font-size:1.1rem; font-weight:800; color:var(--text-muted);">0</span>
+                  <span style="font-size:0.7rem; color:var(--text-muted);">❔ Sin Verificar</span>
+                </div>
+              </div>
+
               <!-- Controles del Catálogo -->
               <div class="catalog-controls-bar">
                 <!-- Buscador del catálogo -->
@@ -1389,8 +1425,11 @@
           </div>
           <p style="font-size:0.65rem; color:var(--admin-text-muted); margin:-6px 0 12px;">💡 "Páginas a buscar" = cuántas tandas de ~20 títulos pedir a TMDB por cada búsqueda. Ej: 3 páginas ≈ 60 títulos.</p>
 
-          <label style="display:flex; align-items:center; gap:8px; font-size:0.75rem; color:var(--admin-text-muted); margin-bottom:15px; cursor:pointer;">
+          <label style="display:flex; align-items:center; gap:8px; font-size:0.75rem; color:var(--admin-text-muted); margin-bottom:10px; cursor:pointer;">
             <input type="checkbox" id="discover-send-to-review"> Enviar todo a "En Revisión" en vez de publicar directo
+          </label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:0.75rem; color:var(--admin-text-muted); margin-bottom:15px; cursor:pointer;" title="Prendido: de todo lo que traiga TMDB, solo se deja en la lista lo que Vimeus ya tiene confirmado. Apagado: se muestra todo, aunque dependa de las fuentes de respaldo.">
+            <input type="checkbox" id="chk-solo-vimeus"> ✅ Solo Vimeus (descartar lo que dependa de Respaldo)
           </label>
 
           <div style="display:flex; gap:8px; margin-bottom:15px; flex-wrap:wrap; align-items:center;">

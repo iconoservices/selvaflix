@@ -2845,6 +2845,20 @@ window.cleanupCJKTitles = async () => {
 // Devuelve { tieneFuente, vimeusDisponible } en vez de un solo boolean: el
 // home necesita saber puntualmente si Vimeus la tiene (para el distintivo en
 // las tarjetas), no solo si ALGUNA fuente la tiene.
+// Vimeus indexa de forma mas confiable por TMDB que por IMDB (su propia API
+// de catalogo, sincronizarCatalogoVimeus, solo entrega tmdb_id) — se
+// confirmo un titulo con IMDB valido que Vimeus SI tiene, pero devuelve 404
+// real por imdb= y 200 por tmdb= (Avatar: Aang, El ultimo Maestro Aire). Se
+// prueba TMDB primero y, si falla o no hay tmdbId, se cae a IMDB.
+async function vimeusTieneTitulo(tmdbId, imdbId, tipo) {
+    const build = (idParam) => `https://vimeus.com/e/${tipo}?${idParam}&view_key=${SelvaStream.VIMEUS_VIEW_KEY}`;
+    const probar = (idParam) => fetch(build(idParam)).then(r => r.text()).then(html => !/not found/i.test(html)).catch(() => false);
+
+    if (tmdbId && await probar(`tmdb=${tmdbId}`)) return true;
+    if (imdbId) return probar(`imdb=${imdbId}`);
+    return false;
+}
+
 async function tieneAlgunaFuente(m) {
     const isTv = ['series', 'tv', 'anime'].includes(m.type);
     const imdbId = m.imdbId;
@@ -2858,10 +2872,8 @@ async function tieneAlgunaFuente(m) {
 
     let vimeusPromise = Promise.resolve(false);
     if (imdbId || tmdbId) {
-        const idParam = imdbId ? `imdb=${imdbId}` : `tmdb=${tmdbId}`;
         const tipo = m.type === 'anime' ? 'anime' : (isTv ? 'serie' : 'movie');
-        const vimeusUrl = `https://vimeus.com/e/${tipo}?${idParam}&view_key=${SelvaStream.VIMEUS_VIEW_KEY}`;
-        vimeusPromise = fetch(vimeusUrl).then(r => r.text()).then(html => !/not found/i.test(html)).catch(() => false);
+        vimeusPromise = vimeusTieneTitulo(tmdbId, imdbId, tipo);
     }
 
     const checks = [vimeusPromise];

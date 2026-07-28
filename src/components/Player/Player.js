@@ -1036,11 +1036,35 @@ export const SelvaStream = {
         // habilitado, así que se puede chequear el contenido directo desde
         // el navegador (sin worker) antes de ofrecerla.
         if (tid) {
-            const idParam = imdbId ? `imdb=${imdbId}` : `tmdb=${tmdbId}`;
             const tipoVimeus = movie.type === 'anime' ? 'anime' : (isTv ? 'serie' : 'movie');
             const epParams = isTv ? `&se=${s}&ep=${e}` : '';
-            const vimeusUrl = `https://vimeus.com/e/${tipoVimeus}?${idParam}${epParams}&view_key=${this.VIMEUS_VIEW_KEY}`;
-            this.fetchVimeusSource(vimeusUrl, movieTitle);
+            const buildVimeusUrl = (idParam, conEp) => `https://vimeus.com/e/${tipoVimeus}?${idParam}${conEp ? epParams : ''}&view_key=${this.VIMEUS_VIEW_KEY}`;
+
+            // Lista de candidatos a probar en orden, sin repetir URLs. Dos
+            // problemas reales encontrados en catalogo:
+            // 1. Vimeus indexa mas confiable por TMDB que por IMDB (su propia
+            //    API de catalogo, sincronizarCatalogoVimeus, solo entrega
+            //    tmdb_id) — un titulo con IMDB valido dio 404 real por imdb=
+            //    y 200 por tmdb= (Avatar: Aang, El ultimo Maestro Aire).
+            // 2. Para series, algunos "especiales" de un solo capitulo estan
+            //    indexados sin selector de episodio: con &se=&ep= dan 404,
+            //    sin esos params dan 200 (Contigo Capitan).
+            // Se prueba TMDB antes que IMDB, y con episodio antes que sin,
+            // pero se agotan las 4 combinaciones antes de rendirse.
+            const idCandidatos = [];
+            if (tmdbId) idCandidatos.push(`tmdb=${tmdbId}`);
+            if (imdbId) idCandidatos.push(`imdb=${imdbId}`);
+
+            const urls = [];
+            const vistas = new Set();
+            const agregar = (idParam, conEp) => {
+                const url = buildVimeusUrl(idParam, conEp);
+                if (!vistas.has(url)) { vistas.add(url); urls.push(url); }
+            };
+            idCandidatos.forEach(idParam => agregar(idParam, true));
+            if (isTv) idCandidatos.forEach(idParam => agregar(idParam, false));
+
+            this.fetchVimeusSource(urls, movieTitle);
         }
 
         // 🇲🇽 DiPelis se inserta después de Vimeus por código (ver
@@ -1103,39 +1127,46 @@ export const SelvaStream = {
     // "Not Found" (no vacía, no cuelga), así que sin este chequeo el
     // vigilante por timeout jamás lo detectaría — y como Vimeus es la
     // prioridad #1 y arranca sola, eso era pantalla negra directa.
-    async fetchVimeusSource(url, movieTitle) {
+    async fetchVimeusSource(urls, movieTitle) {
+        const candidatos = Array.isArray(urls) ? urls : [urls]; // por compatibilidad si algo llama con un solo string
         const tituloAlPedir = this.currentPlayerMovie;
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 8000);
-            const res = await fetch(url, { signal: controller.signal });
-            clearTimeout(timeoutId);
-            const html = await res.text();
-            if (!res.ok || /not found/i.test(html)) return;
 
-            if (this.currentPlayerMovie !== tituloAlPedir) return;
-            if ((this.lastScrapedStreams || []).some(s => s.providerName === 'Vimeus')) return;
+        for (const url of candidatos) {
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 8000);
+                const res = await fetch(url, { signal: controller.signal });
+                clearTimeout(timeoutId);
+                const html = await res.text();
+                // Este candidato (combinación de ID/episodio) no dio con el
+                // título — se prueba el siguiente antes de rendirse.
+                if (!res.ok || /not found/i.test(html)) continue;
 
-            const nuevaFuente = {
-                lang: 'latino',
-                name: "🎬 VIMEUS",
-                providerName: "Vimeus",
-                url,
-                title: `[ESPAÑOL LATINO] 🌐 ${movieTitle} - VIMEUS`,
-                isPublic: true
-            };
+                if (this.currentPlayerMovie !== tituloAlPedir) return;
+                if ((this.lastScrapedStreams || []).some(s => s.providerName === 'Vimeus')) return;
 
-            // Primera de la lista a pedido, y toma el control de la
-            // reproducción (auto-upgrade) — pero solo si el usuario no
-            // eligió nada a mano mientras se confirmaba (~lo que tarde el
-            // fetch, normalmente rápido al tener CORS y no pasar por worker).
-            this.lastScrapedStreams = [nuevaFuente, ...(this.lastScrapedStreams || [])];
-            if (!this._fuenteElegidaAMano) {
-                this.handleExternalStream(nuevaFuente);
+                const nuevaFuente = {
+                    lang: 'latino',
+                    name: "🎬 VIMEUS",
+                    providerName: "Vimeus",
+                    url,
+                    title: `[ESPAÑOL LATINO] 🌐 ${movieTitle} - VIMEUS`,
+                    isPublic: true
+                };
+
+                // Primera de la lista a pedido, y toma el control de la
+                // reproducción (auto-upgrade) — pero solo si el usuario no
+                // eligió nada a mano mientras se confirmaba (~lo que tarde el
+                // fetch, normalmente rápido al tener CORS y no pasar por worker).
+                this.lastScrapedStreams = [nuevaFuente, ...(this.lastScrapedStreams || [])];
+                if (!this._fuenteElegidaAMano) {
+                    this.handleExternalStream(nuevaFuente);
+                }
+                this.renderControls();
+                return;
+            } catch (e) {
+                console.warn('Vimeus no respondió para un candidato, probando el siguiente:', url, e);
             }
-            this.renderControls();
-        } catch (e) {
-            console.warn('Vimeus no respondió o no tiene el título:', e);
         }
     },
 

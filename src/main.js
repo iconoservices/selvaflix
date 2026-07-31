@@ -1549,6 +1549,18 @@ function _renderInventoryRows(items) {
     const cleanId = m.imdbId || m.tmdbId || m.id;
     const releaseDate = m.year ? `Dec 05, ${m.year}` : 'Unknown';
 
+    // A pedido: marca a la vista cuáles títulos no tienen Vimeus (nunca
+    // matcheó) o son "Fantasma" (matcheó por tmdb/imdb pero sin contenido
+    // real cargado del otro lado — ver vimeusEstadoTitulo). Solo se pinta si
+    // ya se corrió la auditoría al menos una vez para este título
+    // (vimeusDisponible/vimeusFantasma vienen undefined si nunca se chequeó).
+    let vimeusBadge = '';
+    if (m.vimeusFantasma) {
+      vimeusBadge = `<span class="genre-badge" style="background:rgba(155,89,182,0.15); color:#9b59b6; border:1px solid rgba(155,89,182,0.35);" title="Vimeus matchea el título pero no tiene contenido cargado (temporadas/embeds vacíos)">👻 Fantasma</span>`;
+    } else if (m.vimeusDisponible === false) {
+      vimeusBadge = `<span class="genre-badge" style="background:rgba(255,82,82,0.12); color:#FF5252; border:1px solid rgba(255,82,82,0.3);" title="Vimeus no tiene este título">🚫 Sin Vimeus</span>`;
+    }
+
     return `
       <tr data-id="${m.id}">
         <td style="text-align: center;">
@@ -1566,8 +1578,8 @@ function _renderInventoryRows(items) {
           </div>
         </td>
         <td>
-          <div style="display: flex; gap: 4px;">
-            ${genres}
+          <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+            ${genres}${vimeusBadge}
           </div>
         </td>
         <td>
@@ -2850,33 +2862,58 @@ window.cleanupCJKTitles = async () => {
 // confirmo un titulo con IMDB valido que Vimeus SI tiene, pero devuelve 404
 // real por imdb= y 200 por tmdb= (Avatar: Aang, El ultimo Maestro Aire). Se
 // prueba TMDB primero y, si falla o no hay tmdbId, se cae a IMDB.
-async function vimeusTieneTitulo(tmdbId, imdbId, tipo) {
+//
+// "Vimeus Fantasma": a veces la pagina responde 200 (no es un "not found"
+// real, asi que el chequeo viejo lo daba por bueno) pero con el titulo
+// vacio y sin contenido — matchea el tmdb_id contra algo que no tiene video
+// cargado (caso real: "Jose Jose: El Principe de la Cancion", tmdb 76541).
+// Se detecta leyendo el `<script id="data">` que Vimeus manda server-side
+// (sin ejecutar su JS): title:null + seasons/embeds vacios = fantasma.
+async function vimeusEstadoTitulo(tmdbId, imdbId, tipo) {
     const build = (idParam) => `https://vimeus.com/e/${tipo}?${idParam}&view_key=${SelvaStream.VIMEUS_VIEW_KEY}`;
-    const probar = (idParam) => fetch(build(idParam)).then(r => r.text()).then(html => !/not found/i.test(html)).catch(() => false);
+    const probar = async (idParam) => {
+        try {
+            const r = await fetch(build(idParam));
+            const html = await r.text();
+            if (!r.ok || /not found/i.test(html)) return 'no-match';
+            const m = html.match(/<script type="text\/json" id="data">([\s\S]*?)<\/script>/);
+            if (!m) return 'no-match';
+            const data = JSON.parse(m[1]);
+            return data.title !== null ? 'ok' : 'fantasma';
+        } catch (e) { return 'no-match'; }
+    };
 
-    if (tmdbId && await probar(`tmdb=${tmdbId}`)) return true;
+    if (tmdbId) {
+        const estado = await probar(`tmdb=${tmdbId}`);
+        if (estado !== 'no-match') return estado;
+    }
     if (imdbId) return probar(`imdb=${imdbId}`);
-    return false;
+    return 'no-match';
+}
+
+// Compat: varias llamadas viejas solo necesitan el boolean.
+async function vimeusTieneTitulo(tmdbId, imdbId, tipo) {
+    return (await vimeusEstadoTitulo(tmdbId, imdbId, tipo)) === 'ok';
 }
 
 async function tieneAlgunaFuente(m) {
     const isTv = ['series', 'tv', 'anime'].includes(m.type);
     const imdbId = m.imdbId;
     const tmdbId = m.tmdbId;
-    if (!imdbId && !tmdbId) return { tieneFuente: false, vimeusDisponible: false };
+    if (!imdbId && !tmdbId) return { tieneFuente: false, vimeusDisponible: false, vimeusFantasma: false };
 
     const slug = m.title ? m.title.toString().toLowerCase()
         .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
         .replace(/[^a-z0-9\s-]/g, "").trim()
         .replace(/\s+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "") : "";
 
-    let vimeusPromise = Promise.resolve(false);
+    let vimeusEstadoPromise = Promise.resolve('no-match');
     if (imdbId || tmdbId) {
         const tipo = m.type === 'anime' ? 'anime' : (isTv ? 'serie' : 'movie');
-        vimeusPromise = vimeusTieneTitulo(tmdbId, imdbId, tipo);
+        vimeusEstadoPromise = vimeusEstadoTitulo(tmdbId, imdbId, tipo);
     }
 
-    const checks = [vimeusPromise];
+    const checks = [vimeusEstadoPromise];
 
     const workerCheck = (params) => fetch(`${SelvaStream.MASTER_WORKER_URL}/flix/check?${params}`, {
         headers: { 'x-selva-auth': SelvaStream.AUTH_TOKEN }
@@ -2895,8 +2932,10 @@ async function tieneAlgunaFuente(m) {
         }
     }
 
-    const [vimeusDisponible, ...resto] = await Promise.all(checks);
-    return { tieneFuente: vimeusDisponible || resto.some(Boolean), vimeusDisponible };
+    const [vimeusEstado, ...resto] = await Promise.all(checks);
+    const vimeusDisponible = vimeusEstado === 'ok';
+    const vimeusFantasma = vimeusEstado === 'fantasma';
+    return { tieneFuente: vimeusDisponible || resto.some(Boolean), vimeusDisponible, vimeusFantasma };
 }
 
 // Auditoría completa del catálogo: revisa cada título contra las 5 fuentes.
@@ -2922,12 +2961,13 @@ window.auditarCatalogoCompleto = async () => {
     const paraBorrar = [];
     const paraMarcarRoto = [];
     const paraArreglarTitulo = [];
-    const paraActualizarVimeus = []; // { m, vimeusDisponible } -- se guarda siempre que cambió
+    const paraActualizarVimeus = []; // { m, vimeusDisponible, vimeusFantasma } -- se guarda siempre que cambió algo
+    let fantasmasEncontrados = 0;
 
     for (let i = 0; i < total.length; i++) {
         const m = total[i];
         console.log(`🔎 [${i + 1}/${total.length}] Revisando: ${m.title}`);
-        const { tieneFuente, vimeusDisponible } = await tieneAlgunaFuente(m);
+        const { tieneFuente, vimeusDisponible, vimeusFantasma } = await tieneAlgunaFuente(m);
         const esCJK = m.title && CJK_REGEX.test(m.title);
 
         if (esCJK) {
@@ -2937,10 +2977,17 @@ window.auditarCatalogoCompleto = async () => {
             paraMarcarRoto.push(m);
         }
 
+        if (vimeusFantasma) {
+            fantasmasEncontrados++;
+            console.warn(`👻 Vimeus Fantasma (matchea pero sin contenido): ${m.title}`);
+        }
+
         // El distintivo del home lee esto; se guarda para todos, no solo los
         // que ya iban a cambiar de status, porque puede cambiar sin que el
         // resto del título cambie (ej. Vimeus suma un titulo que ya tenia otra fuente).
-        if (m.vimeusDisponible !== vimeusDisponible) paraActualizarVimeus.push({ m, vimeusDisponible });
+        if (m.vimeusDisponible !== vimeusDisponible || m.vimeusFantasma !== vimeusFantasma) {
+            paraActualizarVimeus.push({ m, vimeusDisponible, vimeusFantasma });
+        }
 
         await new Promise(r => setTimeout(r, 400)); // no bombardear los sitios de golpe
     }
@@ -2949,7 +2996,8 @@ window.auditarCatalogoCompleto = async () => {
         + `🗑️ ${paraBorrar.length} sin fuente y con título en chino/japonés → se BORRAN\n`
         + `🔴 ${paraMarcarRoto.length} sin ninguna fuente → se marcan "Sin Fuentes"\n`
         + `✏️ ${paraArreglarTitulo.length} con título chino/japonés pero SÍ tienen fuente → se traduce el título\n`
-        + `🎬 ${paraActualizarVimeus.length} título(s) cambian su distintivo de Vimeus (para el home)\n\n`
+        + `👻 ${fantasmasEncontrados} "Vimeus Fantasma" (matchean por ID pero sin contenido real) → filtrables en Catálogo como "Vimeus Fantasma"\n`
+        + `🎬 ${paraActualizarVimeus.length} título(s) cambian su distintivo de Vimeus (para el home y el filtro)\n\n`
         + `¿Aplicar estos cambios?`;
 
     if (!confirm(resumen)) {
@@ -2991,10 +3039,11 @@ window.auditarCatalogoCompleto = async () => {
     }
 
     let vimeusActualizados = 0;
-    for (const { m, vimeusDisponible } of paraActualizarVimeus) {
+    for (const { m, vimeusDisponible, vimeusFantasma } of paraActualizarVimeus) {
         try {
-            await updateDoc(doc(db, "movies", m.id), { vimeusDisponible });
+            await updateDoc(doc(db, "movies", m.id), { vimeusDisponible, vimeusFantasma });
             m.vimeusDisponible = vimeusDisponible;
+            m.vimeusFantasma = vimeusFantasma;
             vimeusActualizados++;
         } catch (e) { console.error('Error actualizando vimeusDisponible', m.title, e); }
     }
@@ -3003,11 +3052,11 @@ window.auditarCatalogoCompleto = async () => {
     sessionStorage.removeItem('selvaflix_cache_timestamp');
     if (document.getElementById('admin-view')?.style.display === 'block') renderInventory();
 
-    const msg = `✅ Auditoría completa: ${borrados} borrados, ${marcados} marcados sin fuentes, ${arreglados} títulos traducidos, ${vimeusActualizados} distintivos de Vimeus actualizados.`;
+    const msg = `✅ Auditoría completa: ${borrados} borrados, ${marcados} marcados sin fuentes, ${arreglados} títulos traducidos, ${vimeusActualizados} distintivos de Vimeus actualizados (${fantasmasEncontrados} Vimeus Fantasma).`;
     console.log(msg);
     if (window.showToast) window.showToast(msg, 'success');
 
-    return { borrados, marcados, arreglados, vimeusActualizados };
+    return { borrados, marcados, arreglados, vimeusActualizados, fantasmasEncontrados };
 };
 
 // Trae el catálogo que Vimeus YA tiene confirmado (via su API Key, server-only
@@ -3336,6 +3385,11 @@ window.filterInventoryByCategory = () => {
     if (category === 'waiting') matchHealth = m.status === 'waiting';
     if (category === 'verify') matchHealth = (m.status === 'review' || m.status === 'waiting') && m.embed && m.embed.includes('streamtape') && m.exportStatus !== 'processing';
     if (category === 'reported') matchHealth = window._reportedIds && window._reportedIds.has(m.id);
+    // "Sin Vimeus" no cuenta los Fantasma aparte: son casos distintos (uno
+    // nunca matcheo, el otro matcheo pero sin contenido) y mezclarlos
+    // confundiria el filtro.
+    if (category === 'no-vimeus') matchHealth = !m.vimeusDisponible && !m.vimeusFantasma;
+    if (category === 'vimeus-fantasma') matchHealth = !!m.vimeusFantasma;
     // En el admin panel 'all' = TODOS (sin exclusiones por estado)
 
     return matchSearch && matchType && matchLang && matchGenre && matchHealth;

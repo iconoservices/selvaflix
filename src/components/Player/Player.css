@@ -92,6 +92,29 @@
     box-shadow: 0 0 20px var(--primary-glow);
 }
 
+/* En celular los 3 botones + selectores de T/E no entran en una sola fila:
+   los botones quedan arriba y el selector de temporada/episodio (100% del
+   ancho vía order+flex-basis) baja a su propia fila debajo. */
+@media (max-width: 600px) {
+    .player-top-controls {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        max-width: calc(100vw - 75px);
+        gap: 8px;
+    }
+
+    .player-top-controls #player-controls-root {
+        order: 3;
+        flex-basis: 100%;
+    }
+
+    .sources-btn-modern {
+        padding: 8px 12px;
+        font-size: 0.65rem;
+        height: 38px;
+    }
+}
+
 /* Layout de video pantalla completa */
 .video-layout {
     width: 100vw;

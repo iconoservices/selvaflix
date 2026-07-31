@@ -196,6 +196,36 @@ export const SelvaStream = {
                 .vip-menu-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; color: var(--primary); font-weight: 800; border-bottom: 1px solid #333; padding-bottom: 10px; }
                 .vip-menu-header button { background: none; border: none; color: white; font-size: 24px; cursor: pointer; }
 
+                /* En celular el panel de 300px se comía casi toda la pantalla y
+                   tapaba el video. Pasa a hoja de ancho completo que sube desde
+                   abajo en vez de entrar deslizando desde la derecha. */
+                @media (max-width: 600px) {
+                    /* position:fixed (no absolute) a propósito: en modo "acoplado"
+                       el modal del player es un recuadro chico de 16:9 metido en
+                       la ficha (no pantalla completa), y con absolute este panel
+                       quedaba encerrado dentro de ese recuadro en vez de cubrir
+                       la pantalla entera. */
+                    .side-vip-menu {
+                        position: fixed;
+                        top: auto;
+                        bottom: 0;
+                        left: 0;
+                        right: 0;
+                        width: 100%;
+                        height: 75vh;
+                        max-height: 75vh;
+                        border-left: none;
+                        border-top: 1px solid #333;
+                        border-radius: 20px 20px 0 0;
+                        transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                        transform: translateY(100%);
+                    }
+                    .side-vip-menu.active {
+                        right: 0;
+                        transform: translateY(0);
+                    }
+                }
+
                 /* ── Tarjetas de servidor (selector de fuentes) ── */
                 .stream-card-vip {
                     background: rgba(255,255,255,0.03);

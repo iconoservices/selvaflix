@@ -5371,7 +5371,7 @@ input:checked+.slider:before {
      sí flotan sobre el video, como en cualquier reproductor a pantalla
      completa. */
   .player-modal.player-acoplado:not(.player-expandido) {
-    padding-bottom: 120px;
+    padding-bottom: 56px;
   }
 }
 
@@ -5437,6 +5437,15 @@ input:checked+.slider:before {
   .player-modal.player-acoplado .player-back-arrow svg {
     width: 17px;
     height: 17px;
+  }
+
+  /* Los selectores T/E también compactos (venían a tamaño completo, 45px):
+     así entran junto a los botones en una sola fila y no hace falta reservar
+     tanto espacio debajo del video para la franja de controles. */
+  .player-modal.player-acoplado .selva-custom-select {
+    height: 36px !important;
+    font-size: 0.7rem !important;
+    padding: 6px 26px 6px 12px !important;
   }
 }
 
@@ -5549,6 +5558,14 @@ input:checked+.slider:before {
     font-size: 0.65rem !important;
   }
 
+  /* En celular no hay ancho de sobra (a diferencia de escritorio, donde el
+     select compacto ya alcanza a entrar en una fila): los selectores de T/E
+     bajan a su propia fila dentro de la franja de controles. */
+  .player-modal.player-acoplado #player-controls-root {
+    order: 3;
+    flex-basis: 100%;
+  }
+
   /* Degradado solo en expandido: en modo chico los controles ya no están
      sobre el video, así que no hace falta oscurecerlo para leerlos. */
   .player-modal.player-acoplado.player-expandido::before {
@@ -5612,19 +5629,14 @@ input:checked+.slider:before {
   height: auto !important;
 }
 
-/* La caja acoplada (620px en escritorio, ancho completo en celular) es
-   angosta para 3 botones + selectores de T/E en una sola fila. Se envuelve
-   en 2 filas dentro de la franja reservada de abajo, sin importar el ancho
-   exacto (a diferencia del media query general de player-top-controls, que
-   solo entra por debajo de 600px). */
+/* Red de seguridad: si el contenido no entra (celular, o un título con
+   nombres de servidor largos), que envuelva en vez de desbordar — pero sin
+   forzar 2 filas cuando SÍ entra en una (escritorio: ver regla de abajo con
+   selects compactos, que la hace innecesaria en la mayoría de los casos). */
 .player-modal.player-acoplado .player-top-controls {
   flex-wrap: wrap;
   justify-content: flex-end;
   max-width: calc(100% - 60px);
-}
-.player-modal.player-acoplado #player-controls-root {
-  order: 3;
-  flex-basis: 100%;
 }
 
 /* Botón de minimizar bien visible y con área de toque cómoda */

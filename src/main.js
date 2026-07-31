@@ -3073,7 +3073,18 @@ window.auditarCatalogoCompleto = async () => {
     sessionStorage.removeItem('selvaflix_cache_timestamp');
     if (document.getElementById('admin-view')?.style.display === 'block') renderInventory();
 
-    const msg = `✅ Auditoría completa: ${borrados} borrados, ${marcados} marcados sin fuentes, ${arreglados} títulos traducidos, ${vimeusActualizados} distintivos de Vimeus actualizados (${fantasmasEncontrados} Vimeus Fantasma).`;
+    // A pedido: sin esto había que ir a mano al filtro "Salud" y elegir
+    // "Vimeus Fantasma" — no quedaba claro dónde ver el resultado de la
+    // auditoría. Si encontró Fantasmas, los deja filtrados de una; si no
+    // hubo Fantasmas pero sí "Sin Vimeus", filtra esos en su lugar.
+    const filtroSalud = document.getElementById('inventory-filter');
+    if (filtroSalud) {
+        if (fantasmasEncontrados > 0) filtroSalud.value = 'vimeus-fantasma';
+        else if (vimeusActualizados > fantasmasEncontrados) filtroSalud.value = 'no-vimeus';
+        if (window.filterInventoryByCategory) window.filterInventoryByCategory();
+    }
+
+    const msg = `✅ Auditoría completa: ${borrados} borrados, ${marcados} marcados sin fuentes, ${arreglados} títulos traducidos, ${vimeusActualizados} distintivos de Vimeus actualizados (${fantasmasEncontrados} Vimeus Fantasma). Filtro "Salud" ya te muestra el resultado.`;
     console.log(msg);
     if (window.showToast) window.showToast(msg, 'success');
 

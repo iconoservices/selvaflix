@@ -25,7 +25,7 @@ export const SelvaStream = {
     // por cuenta y la propia documentación de Vimeus dice que es seguro
     // pegarlo en el embed_url del lado del cliente — valida por dominio, no
     // es secreto de acceso a la cuenta.
-    VIMEUS_VIEW_KEY: import.meta.env.VITE_VIMEUS_VIEW_KEY || 'v_iqxXe9PHkPzdWQcQv8q8Mxxgi1Og5ZxF3Be6Gi3Gg',
+    VIMEUS_VIEW_KEY: import.meta.env.VITE_VIMEUS_VIEW_KEY || 'bVQEGHe-bF4PjDWQ5xbzE2SPoBnj3ofRi2pj0VXPYzk',
 
     /**
      * Sanea la URL para evitar inyecciones maliciosas.

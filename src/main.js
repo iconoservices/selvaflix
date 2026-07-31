@@ -2866,9 +2866,11 @@ window.cleanupCJKTitles = async () => {
 // "Vimeus Fantasma": a veces la pagina responde 200 (no es un "not found"
 // real, asi que el chequeo viejo lo daba por bueno) pero con el titulo
 // vacio y sin contenido — matchea el tmdb_id contra algo que no tiene video
-// cargado (caso real: "Jose Jose: El Principe de la Cancion", tmdb 76541).
+// cargado (caso real: "Jose Jose: El Principe de la Cancion", tmdb 76541;
+// tambien visto con title:"" en vez de null — "Black Torch", tmdb 285993 —
+// asi que se chequea con !title, no solo !== null).
 // Se detecta leyendo el `<script id="data">` que Vimeus manda server-side
-// (sin ejecutar su JS): title:null + seasons/embeds vacios = fantasma.
+// (sin ejecutar su JS): title vacio, o seasons/embeds vacios = fantasma.
 async function vimeusEstadoTitulo(tmdbId, imdbId, tipo) {
     const build = (idParam) => `https://vimeus.com/e/${tipo}?${idParam}&view_key=${SelvaStream.VIMEUS_VIEW_KEY}`;
     const probar = async (idParam) => {
@@ -2879,7 +2881,10 @@ async function vimeusEstadoTitulo(tmdbId, imdbId, tipo) {
             const m = html.match(/<script type="text\/json" id="data">([\s\S]*?)<\/script>/);
             if (!m) return 'no-match';
             const data = JSON.parse(m[1]);
-            return data.title !== null ? 'ok' : 'fantasma';
+            const sinContenido = !data.title
+                || (Array.isArray(data.seasons) && data.seasons.length === 0)
+                || (Array.isArray(data.embeds) && data.embeds.length === 0);
+            return sinContenido ? 'fantasma' : 'ok';
         } catch (e) { return 'no-match'; }
     };
 
@@ -3385,10 +3390,12 @@ window.filterInventoryByCategory = () => {
     if (category === 'waiting') matchHealth = m.status === 'waiting';
     if (category === 'verify') matchHealth = (m.status === 'review' || m.status === 'waiting') && m.embed && m.embed.includes('streamtape') && m.exportStatus !== 'processing';
     if (category === 'reported') matchHealth = window._reportedIds && window._reportedIds.has(m.id);
-    // "Sin Vimeus" no cuenta los Fantasma aparte: son casos distintos (uno
-    // nunca matcheo, el otro matcheo pero sin contenido) y mezclarlos
-    // confundiria el filtro.
-    if (category === 'no-vimeus') matchHealth = !m.vimeusDisponible && !m.vimeusFantasma;
+    // OJO: vimeusDisponible/vimeusFantasma vienen `undefined` hasta que se
+    // corre la auditoría (auditarCatalogoCompleto) al menos una vez para ese
+    // título. `=== false` explícito (no solo `!vimeusDisponible`) evita que
+    // todo lo NUNCA chequeado caiga en "Sin Vimeus" como si ya se hubiera
+    // confirmado que no lo tiene.
+    if (category === 'no-vimeus') matchHealth = m.vimeusDisponible === false && !m.vimeusFantasma;
     if (category === 'vimeus-fantasma') matchHealth = !!m.vimeusFantasma;
     // En el admin panel 'all' = TODOS (sin exclusiones por estado)
 

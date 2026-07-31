@@ -2963,6 +2963,16 @@ window.auditarCatalogoCompleto = async () => {
 
     if (!confirm(`Esto va a revisar ${total.length} títulos contra las 5 fuentes (puede tardar varios minutos, hay una pausa chica entre cada uno para no saturar los sitios). ¿Continuar?`)) return;
 
+    // Misma barra de progreso que usa "Revisar Enlaces" (runBotHealthCheck):
+    // sin esto la auditoría corría en silencio varios minutos y parecía
+    // trabada / que no hacía nada.
+    const overlay = document.getElementById('delete-progress-overlay');
+    const bar = document.getElementById('progress-bar-fill');
+    const percentText = document.getElementById('progress-percent');
+    const statusText = document.getElementById('progress-text');
+    if (statusText) statusText.innerText = '👻 Auditando Vimeus y demás fuentes... 🔎🌴';
+    if (overlay) overlay.style.display = 'flex';
+
     const paraBorrar = [];
     const paraMarcarRoto = [];
     const paraArreglarTitulo = [];
@@ -2994,8 +3004,14 @@ window.auditarCatalogoCompleto = async () => {
             paraActualizarVimeus.push({ m, vimeusDisponible, vimeusFantasma });
         }
 
+        const percent = Math.round(((i + 1) / total.length) * 100);
+        if (bar) bar.style.width = `${percent}%`;
+        if (percentText) percentText.innerText = `${percent}% (${i + 1}/${total.length}) — ${m.title}`;
+
         await new Promise(r => setTimeout(r, 400)); // no bombardear los sitios de golpe
     }
+
+    if (overlay) overlay.style.display = 'none';
 
     const resumen = `Resultado de la auditoría:\n\n`
         + `🗑️ ${paraBorrar.length} sin fuente y con título en chino/japonés → se BORRAN\n`

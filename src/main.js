@@ -1416,7 +1416,7 @@ function renderInventory() {
 function _updateDetailedStats(items) {
   const m = items.filter(i => i.type === 'movie' || !i.type).length;
   const s = items.filter(i => i.type === 'series' || i.type === 'tv' || i.type === 'anime').length;
-  const b = items.filter(i => window._brokenIds.has(i.id)).length;
+  const b = items.filter(i => i.status === 'broken' || window._brokenIds.has(i.id)).length;
   const r = window._reportedIds ? window._reportedIds.size : 0;
   const w = items.filter(i => i.status === 'waiting').length;
   const rev = items.filter(i => i.status === 'review').length;
@@ -1521,7 +1521,11 @@ function _renderInventoryRows(items) {
   if (loadMore) loadMore.style.display = end < items.length ? 'block' : 'none';
 
   tableBody.innerHTML = visibleItems.map(m => {
-    const isBroken = window._brokenIds.has(m.id);
+    // Mismo bug que el filtro "Sin Fuentes": _brokenIds es un Set aparte
+    // que solo llena runBotHealthCheck/markAsBroken. auditarCatalogoCompleto()
+    // marca sin fuentes escribiendo status:'broken' directo -- sin este OR,
+    // el filtro ya encontraba la fila pero la etiqueta seguía diciendo "Live".
+    const isBroken = m.status === 'broken' || window._brokenIds.has(m.id);
     const isWaiting = m.status === 'waiting';
     const isReview = m.status === 'review';
     
@@ -6307,9 +6311,10 @@ function initApp(filterType = '', genreId = '') {
   collectUserData("page_view", { page: filterType || 'home' });
 
   // ORDEN INTELIGENTE: Salud -> Fecha de Creación
+  const esRoto = (c) => c.status === 'broken' || window._brokenIds.has(c.id);
   let allContent = [...movieDatabase.trending].sort((a, b) => {
-    const healthA = window._brokenIds.has(a.id) ? 0 : 1;
-    const healthB = window._brokenIds.has(b.id) ? 0 : 1;
+    const healthA = esRoto(a) ? 0 : 1;
+    const healthB = esRoto(b) ? 0 : 1;
     if (healthA !== healthB) return healthB - healthA;
     return (b.createdAt || 0) - (a.createdAt || 0);
   });
@@ -6330,7 +6335,7 @@ function initApp(filterType = '', genreId = '') {
   }
 
   // --- Motor Hero Elite Algorithm v2.40 ---
-  let heroPoolRaw = allContent.filter(c => !window._brokenIds.has(c.id));
+  let heroPoolRaw = allContent.filter(c => !esRoto(c));
   
   if (filterType === 'series') {
     heroPoolRaw = heroPoolRaw.filter(c => c.type === 'series' || c.type === 'tv');
@@ -6381,7 +6386,7 @@ function initApp(filterType = '', genreId = '') {
   } else {
     // Si no hay series/anime en el hero, intentamos poner peliculas destacadas para no dejar el hueco
     if (filterType === 'series' || filterType === 'anime') {
-        const fallbackPool = allContent.filter(c => !window._brokenIds.has(c.id) && (c.type === 'movie' || !c.type)).slice(0, 3);
+        const fallbackPool = allContent.filter(c => !esRoto(c) && (c.type === 'movie' || !c.type)).slice(0, 3);
         if (fallbackPool.length > 0 && heroSection) {
             heroPool = fallbackPool; 
             heroSection.style.display = 'flex';

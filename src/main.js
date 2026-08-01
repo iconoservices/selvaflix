@@ -3071,7 +3071,12 @@ window.auditarCatalogoCompleto = async () => {
 
     sessionStorage.removeItem('selvaflix_full_database');
     sessionStorage.removeItem('selvaflix_cache_timestamp');
-    if (document.getElementById('admin-view')?.style.display === 'block') renderInventory();
+    // Sin condicionar a "¿admin-view está en display:block ahora mismo?":
+    // ese chequeo podía fallar (otra sub-pestaña, timing) y entonces
+    // _allInventoryItems se quedaba con los datos de ANTES de auditar —
+    // ni cambiando el filtro a mano aparecía nada, porque la lista en
+    // memoria nunca se refrescó. renderInventory() es barata igual.
+    if (document.getElementById('admin-catalog-table-body')) renderInventory();
 
     // A pedido: sin esto había que ir a mano al filtro "Salud" y elegir
     // "Vimeus Fantasma" — no quedaba claro dónde ver el resultado de la
@@ -3411,7 +3416,12 @@ window.filterInventoryByCategory = () => {
     }
 
     let matchHealth = true;
-    if (category === 'broken') matchHealth = window._brokenIds.has(m.id) || !m.img || (m.img && m.img.includes('placeholder'));
+    // m.status === 'broken': lo que pone auditarCatalogoCompleto() (y lo que
+    // lee la tarjeta del home para el badge "Sin Fuentes"). _brokenIds es un
+    // Set aparte que solo llena runBotHealthCheck()/markAsBroken() — sin el
+    // OR de status, la auditoría marcaba bien la home pero el filtro de acá
+    // no encontraba nada.
+    if (category === 'broken') matchHealth = m.status === 'broken' || window._brokenIds.has(m.id) || !m.img || (m.img && m.img.includes('placeholder'));
     if (category === 'missing') matchHealth = !m.tmdbId || m.tmdbId === "";
     if (category === 'review') matchHealth = m.status === 'review';
     if (category === 'waiting') matchHealth = m.status === 'waiting';

@@ -517,12 +517,12 @@
                 </div>
             </div>
 
-            <h2 style="color: white; margin-bottom: 20px;">Nombre del Perfil 🐒</h2>
+            <h2 id="profile-edit-modal-title" style="color: white; margin-bottom: 20px;">Nombre del Perfil 🐒</h2>
             <input type="text" id="edit-profile-name-input" class="form-control" style="width: 100%; margin-bottom: 15px; background: #222; border: 1px solid #444; color: white; padding: 12px; border-radius: 8px; text-align: center; font-size: 1.2rem;" placeholder="Ej: Explorador">
             <input type="password" id="edit-profile-pin-input" class="form-control" placeholder="PIN 4 dígitos (opcional)" maxlength="4" inputmode="numeric" style="width: 100%; margin-bottom: 8px; background: #222; border: 1px solid #444; color: white; padding: 12px; border-radius: 8px; text-align: center; letter-spacing: 6px;">
             <p style="font-size: 0.65rem; color: #555; margin-bottom: 20px;">Deja vacío para no usar PIN. 🔒</p>
             <div style="display: flex; gap: 10px;">
-                <button onclick="document.getElementById('profile-edit-name-modal').style.display='none'" class="btn btn-secondary" style="flex: 1;">Cancelar</button>
+                <button id="btn-cancel-profile-name" onclick="document.getElementById('profile-edit-name-modal').style.display='none'" class="btn btn-secondary" style="flex: 1;">Cancelar</button>
                 <button id="btn-save-profile-name" class="btn btn-primary" style="flex: 1;">Siguiente</button>
             </div>
             <button id="btn-delete-profile" class="btn" style="background: rgba(231,76,60,0.1); border: 1px solid rgba(231,76,60,0.3); color: #E74C3C; width: 100%; margin-top: 15px; display: none;">🗑️ Eliminar Perfil</button>
@@ -1496,10 +1496,23 @@
           </div>
           <h1 class="drawer-movie-title" id="drawer-form-title">Sin Título</h1>
           <div class="drawer-header-actions">
-            <button class="btn btn-cancel-drawer" onclick="window.closeUploadDrawer()">Cancelar</button>
-            <button class="btn btn-save-drawer" onclick="window.submitMovieForm()">
-              <span class="material-symbols-outlined">save</span> Guardar Cambios
-            </button>
+            <div class="drawer-header-status-group">
+              <select id="m-status" class="form-control drawer-header-status" title="Estado de Salud">
+                <option value="healthy">✅ Sano</option>
+                <option value="review" selected>⚠️ Revisión</option>
+                <option value="waiting">⏳ En Espera</option>
+                <option value="broken">❌ Roto</option>
+              </select>
+              <button type="button" class="btn-delete-drawer" onclick="window.deleteFromDrawer()" title="Eliminar Película">
+                <span class="material-symbols-outlined">delete</span>
+              </button>
+            </div>
+            <div class="drawer-header-save-group">
+              <button class="btn btn-cancel-drawer" onclick="window.closeUploadDrawer()">Cancelar</button>
+              <button class="btn btn-save-drawer" onclick="window.submitMovieForm()">
+                <span class="material-symbols-outlined">save</span> Guardar Cambios
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1525,7 +1538,8 @@
               <div id="tmdb-results" style="display:flex; gap:8px; overflow-x:auto; padding-bottom:6px;"></div>
             </div>
 
-            <!-- General Information -->
+            <!-- General Information + Cast & Crew: lado a lado en escritorio -->
+            <div class="info-cast-grid">
             <div class="drawer-card">
               <h3 class="drawer-card-title">
                 <span class="material-symbols-outlined">info</span> Información General
@@ -1570,20 +1584,23 @@
                 <span class="material-symbols-outlined">group</span> Reparto y Equipo
               </h3>
 
-              <div class="form-group">
-                <label>Reparto Principal <small style="color:#666;">(separado por comas)</small></label>
-                <input type="text" id="m-cast" class="form-control" placeholder="Actor 1, Actor 2, Actor 3...">
-              </div>
-
-              <div class="form-group" style="margin-bottom:0;">
-                <label>Etiquetas y Géneros</label>
-                <div id="genre-tags-container" class="genre-tags-input-area">
-                  <!-- Pills inyectados por JS -->
-                  <button type="button" onclick="window.addGenreTag()" class="add-tag-btn">+ Agregar</button>
+              <div class="cast-genres-grid">
+                <div class="form-group" style="margin-bottom:0;">
+                  <label>Reparto Principal <small style="color:#666;">(separado por comas)</small></label>
+                  <input type="text" id="m-cast" class="form-control" placeholder="Actor 1, Actor 2, Actor 3...">
                 </div>
-                <input type="hidden" id="m-genres">
+
+                <div class="form-group" style="margin-bottom:0;">
+                  <label>Etiquetas y Géneros</label>
+                  <div id="genre-tags-container" class="genre-tags-input-area">
+                    <!-- Pills inyectados por JS -->
+                    <button type="button" onclick="window.addGenreTag()" class="add-tag-btn">+ Agregar</button>
+                  </div>
+                  <input type="hidden" id="m-genres">
+                </div>
               </div>
             </div>
+            </div><!-- /info-cast-grid -->
 
             <!-- Metadata -->
             <div class="drawer-card">
@@ -1591,22 +1608,13 @@
                 <span class="material-symbols-outlined">tune</span> Metadatos
               </h3>
 
-              <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px;">
+              <div class="metadata-fields-grid" style="margin-bottom:14px;">
                 <div class="form-group" style="margin-bottom:0;">
                   <label>Tipo</label>
                   <select id="m-type" class="form-control">
                     <option value="movie">🎬 Película</option>
                     <option value="series">🏆 Serie</option>
                     <option value="anime">⛩️ Anime</option>
-                  </select>
-                </div>
-                <div class="form-group" style="margin-bottom:0;">
-                  <label>Estado de Salud</label>
-                  <select id="m-status" class="form-control">
-                    <option value="healthy">✅ Sano</option>
-                    <option value="review" selected>⚠️ Revisión</option>
-                    <option value="waiting">⏳ En Espera</option>
-                    <option value="broken">❌ Roto</option>
                   </select>
                 </div>
                 <div class="form-group" style="margin-bottom:0;">
@@ -1666,37 +1674,7 @@
                 </div>
               </div>
 
-              <!-- Generador Rápido de Fuentes -->
-              <div style="margin-top:12px; margin-bottom:12px;">
-                <label style="font-size:0.75rem; color:#ff571a; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">
-                  🔌 Generador de Servidores
-                </label>
-                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap:6px; margin-top:6px;">
-                  <button type="button" class="btn btn-secondary-outline" style="font-size:0.7rem; padding:6px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1); color:#fff; border-radius:6px; cursor:pointer;" onclick="window.generateSource('vidsrc_to')">🌐 Vidsrc.to</button>
-                  <button type="button" class="btn btn-secondary-outline" style="font-size:0.7rem; padding:6px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1); color:#fff; border-radius:6px; cursor:pointer;" onclick="window.generateSource('vidsrc_me')">🌐 Vidsrc.me</button>
-                  <button type="button" class="btn btn-secondary-outline" style="font-size:0.7rem; padding:6px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1); color:#fff; border-radius:6px; cursor:pointer;" onclick="window.generateSource('vidsrc_pro')">🌐 Vidsrc.pro</button>
-                  <button type="button" class="btn btn-secondary-outline" style="font-size:0.7rem; padding:6px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.1); color:#fff; border-radius:6px; cursor:pointer;" onclick="window.generateSource('superembed')">🎬 Superembed</button>
-                </div>
-              </div>
-
-              <!-- Buscador e Ingestor de Torrents/Fuentes -->
-              <div style="margin-top:12px; margin-bottom:12px; border-top: 1px solid rgba(255,255,255,0.05); padding-top:12px;">
-                <button type="button" class="btn" style="width:100%; background:#ff571a; color:#fff; font-weight:bold; font-size:0.75rem; padding:8px; border-radius:6px; cursor:pointer; border:none; display:flex; align-items:center; justify-content:center; gap:6px;" onclick="window.runAdminScraper()">
-                  <span class="material-symbols-outlined" style="font-size:16px;">search</span> Buscar Torrents / Enlaces en la Red
-                </button>
-              </div>
-
-              <!-- Enlaces Encontrados / Scrapeados (Debrid / Automáticos) -->
-              <div id="drawer-scraped-links-section" style="display:none; border-top:1px solid rgba(255,255,255,0.05); padding-top:12px; margin-top:12px; margin-bottom: 12px;">
-                <label style="font-size:0.75rem; color:#ff571a; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; display:block; margin-bottom:4px;">
-                  🍿 Enlaces Autodetectados (Torrents / Directos)
-                </label>
-                <div id="drawer-scraped-links-list" style="display:flex; flex-direction:column; gap:6px; max-height:180px; overflow-y:auto; padding-right:4px;">
-                  <!-- Inyectado dinámicamente -->
-                </div>
-              </div>
-
-              <!-- Admin Player Mini Preview -->
+              <!-- Admin Player Mini Preview (visible solo si hay embed activo) -->
               <div id="admin-embed-preview" class="admin-embed-preview" style="display:none;">
                 <div class="embed-preview-file">
                   <span class="material-symbols-outlined" style="color:#ff571a;">movie</span>
@@ -1712,32 +1690,44 @@
                 </div>
               </div>
 
-              <!-- Enlace Prioritario (Fijar Enlace) -->
-              <div style="border-top:1px solid rgba(255,255,255,0.05); padding-top:14px; margin-top:14px;">
-                <label style="font-size:0.75rem; color:#00f2ff; font-weight:700; letter-spacing:.05em; text-transform:uppercase;">
-                  🔒 Enlace Prioritario Manual (Admin Override)
-                </label>
-                <div style="display:flex; gap:8px; margin-top:6px;">
-                  <input type="url" id="detail-admin-manual-link-input" class="form-control" placeholder="Pegar enlace manual aquí...">
-                  <button type="button" class="btn" style="background:#00f2ff; color:#000; font-weight:900; white-space:nowrap; font-size:0.75rem; cursor:pointer; border:none; padding:8px 12px; border-radius:6px;"
-                    onclick="window.setAdminPriorityFromDrawer()">
-                    Fijar Enlace
-                  </button>
-                </div>
-              </div>
+              <!-- Opciones avanzadas: generador de servidores, scraper de torrents, enlace prioritario -->
+              <details class="drawer-advanced">
+                <summary class="drawer-advanced-summary">
+                  <span class="material-symbols-outlined">tune</span> Opciones avanzadas de fuente
+                  <span class="material-symbols-outlined drawer-advanced-chevron">expand_more</span>
+                </summary>
+                <div class="drawer-advanced-body">
 
-              <!-- Botones de estado rápido del admin -->
-              <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; padding-top:14px; border-top:1px solid rgba(255,255,255,0.05);">
-                <button type="button" id="drawer-approve-btn" class="btn btn-success-sm" onclick="window.approveFromDrawer()" style="flex:1; padding:10px; cursor:pointer; background:#2ecc71; border:none; color:#000; font-weight:bold; border-radius:6px;">
-                  ✅ Aprobar Sano
-                </button>
-                <button type="button" id="drawer-wait-btn" class="btn btn-warning-sm" onclick="window.waitFromDrawer()" style="flex:1; padding:10px; cursor:pointer; background:#f1c40f; border:none; color:#000; font-weight:bold; border-radius:6px;">
-                  ⏳ En Espera
-                </button>
-                <button type="button" id="drawer-delete-btn" class="btn btn-danger-sm" onclick="window.deleteFromDrawer()" style="flex:1; padding:10px; cursor:pointer; background:#e74c3c; border:none; color:#fff; font-weight:bold; border-radius:6px;">
-                  🗑️ Eliminar
-                </button>
-              </div>
+                  <!-- Buscador e Ingestor de Torrents/Fuentes -->
+                  <div class="drawer-advanced-block">
+                    <button type="button" class="btn" style="width:100%; background:#ff571a; color:#fff; font-weight:bold; font-size:0.75rem; padding:8px; border-radius:6px; cursor:pointer; border:none; display:flex; align-items:center; justify-content:center; gap:6px;" onclick="window.runAdminScraper()">
+                      <span class="material-symbols-outlined" style="font-size:16px;">search</span> Buscar Torrents / Enlaces en la Red
+                    </button>
+                  </div>
+
+                  <!-- Enlaces Encontrados / Scrapeados (Debrid / Automáticos) -->
+                  <div id="drawer-scraped-links-section" class="drawer-advanced-block" style="display:none;">
+                    <label class="drawer-advanced-label">🍿 Enlaces Autodetectados (Torrents / Directos)</label>
+                    <div id="drawer-scraped-links-list" style="display:flex; flex-direction:column; gap:6px; max-height:180px; overflow-y:auto; padding-right:4px; margin-top:4px;">
+                      <!-- Inyectado dinámicamente -->
+                    </div>
+                  </div>
+
+                  <!-- Enlace Prioritario (Fijar Enlace) -->
+                  <div class="drawer-advanced-block">
+                    <label class="drawer-advanced-label" style="color:#00f2ff;">🔒 Enlace Prioritario Manual (Admin Override)</label>
+                    <div style="display:flex; gap:8px; margin-top:6px;">
+                      <input type="url" id="detail-admin-manual-link-input" class="form-control" placeholder="Pegar enlace manual aquí...">
+                      <button type="button" class="btn" style="background:#00f2ff; color:#000; font-weight:900; white-space:nowrap; font-size:0.75rem; cursor:pointer; border:none; padding:8px 12px; border-radius:6px;"
+                        onclick="window.setAdminPriorityFromDrawer()">
+                        Fijar Enlace
+                      </button>
+                    </div>
+                  </div>
+
+                </div>
+              </details>
+
             </div>
 
             <!-- Acciones finales -->
@@ -1775,6 +1765,11 @@
                   ⏹️ Detener
                 </button>
               </div>
+              <button type="button" onclick="window.previewVimeusAuto()" style="width:100%; margin-top:8px; font-size:0.75rem; padding:8px 12px; font-weight:700; background:rgba(46,204,113,0.1); border:1px solid rgba(46,204,113,0.3); color:#2ecc71; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
+                <span class="material-symbols-outlined" style="font-size:16px;">travel_explore</span> Probar como la ve un usuario real (todas las fuentes)
+              </button>
+              <p id="vimeus-auto-status" style="font-size:0.72rem; color:#666; text-align:center; margin:8px 0 0;"></p>
+              <div id="vimeus-auto-sources-list" style="display:flex; flex-direction:column; gap:4px; margin-top:8px;"></div>
             </div>
 
             <!-- Póster Principal -->
@@ -1836,6 +1831,23 @@
 
         </div><!-- /drawer-two-col-body -->
       </div><!-- /#admin-form-drawer -->
+
+      <!-- Confirmación de borrado (reemplaza el confirm() nativo del navegador) -->
+      <div id="confirm-delete-modal" class="modal-overlay" style="display:none; z-index:29000; background:rgba(0,0,0,0.85); align-items:center; justify-content:center;">
+        <div style="background:#111; padding:30px; border-radius:20px; max-width:380px; width:90%; text-align:center; border:1px solid rgba(231,76,60,0.25);">
+          <div style="width:56px; height:56px; margin:0 auto 16px; border-radius:50%; background:rgba(231,76,60,0.12); display:flex; align-items:center; justify-content:center;">
+            <span class="material-symbols-outlined" style="font-size:28px; color:#e74c3c;">delete</span>
+          </div>
+          <h2 style="color:white; margin-bottom:8px; font-size:1.2rem;">¿Eliminar película?</h2>
+          <p style="color:#999; font-size:0.85rem; margin-bottom:24px;">
+            "<span id="confirm-delete-title" style="color:#fff; font-weight:600;"></span>" se borrará para siempre. Esta acción no se puede deshacer.
+          </p>
+          <div style="display:flex; gap:10px;">
+            <button onclick="document.getElementById('confirm-delete-modal').style.display='none'" class="btn btn-secondary" style="flex:1;">Cancelar</button>
+            <button id="btn-confirm-delete" class="btn" style="flex:1; background:#e74c3c; color:#fff; border:none; font-weight:700; border-radius:8px; cursor:pointer;">🗑️ Sí, Eliminar</button>
+          </div>
+        </div>
+      </div>
 
 
 
@@ -1914,7 +1926,7 @@
       <div id="avatar-options-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; padding: 10px;">
         <!-- Avatares inyectados por JS -->
       </div>
-      <button onclick="document.getElementById('avatar-selector-modal').style.display='none'" class="btn btn-secondary" style="margin-top: 25px; width: 100%;">Volver</button>
+      <button id="btn-avatar-back" onclick="document.getElementById('avatar-selector-modal').style.display='none'" class="btn btn-secondary" style="margin-top: 25px; width: 100%;">Volver</button>
     </div>
   </div>
 

@@ -3731,11 +3731,7 @@ window.searchTMDB = async function (query, isSuggestion = false) {
       disponibleEnVimeus = await Promise.all(candidatos.map(async (m) => {
         if (!m.id) return false;
         const tipoVimeus = m.media_type === 'tv' ? 'serie' : 'movie';
-        try {
-          const r = await fetch(`https://vimeus.com/e/${tipoVimeus}?tmdb=${m.id}&view_key=${SelvaStream.VIMEUS_VIEW_KEY}`);
-          const html = await r.text();
-          return r.ok && !/not found/i.test(html);
-        } catch (e) { return false; }
+        return vimeusTieneTitulo(m.id, null, tipoVimeus);
       }));
 
       if (!fuentesExternasOn) {
@@ -3841,6 +3837,11 @@ window.selectTMDBMovie = async (index) => {
   const preview = document.getElementById('m-img-preview');
   if (preview) {
     preview.src = m.poster_path ? (TMDB_IMG_URL + m.poster_path) : 'https://via.placeholder.com/150x220?text=Previsualización';
+  }
+
+  const backdropPreview = document.getElementById('m-backdrop-preview');
+  if (backdropPreview) {
+    backdropPreview.src = m.backdrop_path ? (TMDB_IMG_URL + m.backdrop_path) : 'https://via.placeholder.com/600x338/111/555?text=Sin+Banner';
   }
 
   alert(`Cosechada info de: ${title} 🥥🍹 (Metadatos Pro Activos)`);
@@ -5457,8 +5458,8 @@ window.detailShareMovie = async () => {
     }
 };
 
-window.deleteMovie = async (id) => {
-  if (confirm("¿Seguro que quieres eliminar esta joya de la selva? 🥥?")) {
+window.deleteMovie = async (id, skipConfirm = false) => {
+  if (skipConfirm || confirm("¿Seguro que quieres eliminar esta joya de la selva? 🥥?")) {
     try {
       await deleteDoc(doc(db, "movies", id));
       sessionStorage.removeItem('selvaflix_full_database');
@@ -5767,16 +5768,12 @@ async function rescatarTituloLatino(rawTitle, endpoint, tmdbId) {
   return rawTitle;
 }
 
-// Vimeus tiene CORS abierto, se chequea directo desde el navegador (mismo
-// truco que fetchVimeusSource en el player y el buscador de "Importar desde
-// TMDb"). Se usa acá para el distintivo de la Carga Masiva.
+// Se usa para el distintivo de la Carga Masiva. Reutiliza vimeusEstadoTitulo
+// (mismo chequeo que usa el player real) en vez de un fetch propio, para no
+// repetir la lógica y para detectar también el caso "Vimeus Fantasma".
 async function chequearVimeusDisponible(tmdbId, tipo) {
   const tipoVimeus = tipo === 'anime' ? 'anime' : ((tipo === 'series' || tipo === 'tv') ? 'serie' : 'movie');
-  try {
-    const r = await fetch(`https://vimeus.com/e/${tipoVimeus}?tmdb=${tmdbId}&view_key=${SelvaStream.VIMEUS_VIEW_KEY}`);
-    const html = await r.text();
-    return r.ok && !/not found/i.test(html);
-  } catch (e) { return false; }
+  return vimeusTieneTitulo(tmdbId, null, tipoVimeus);
 }
 
 // Completa s.disponibleVimeus para los items de pendingSeeds que todavia no
@@ -6814,35 +6811,21 @@ window.clearEmbedLink = () => {
 };
 
 // Quick admin actions from drawer
-window.approveFromDrawer = async () => {
-  const id = document.getElementById('m-db-id').value;
-  if (!id) return;
-  try {
-    await updateDoc(doc(db, "movies", id), { status: 'healthy', updatedAt: Date.now() });
-    document.getElementById('m-status').value = 'healthy';
-    window.showToast('✅ Aprobado como Healthy', 'success');
-  } catch(e) { window.showToast('Error: ' + e.message, 'error'); }
-};
-
-window.waitFromDrawer = async () => {
-  const id = document.getElementById('m-db-id').value;
-  if (!id) return;
-  try {
-    await updateDoc(doc(db, "movies", id), { status: 'waiting', updatedAt: Date.now() });
-    document.getElementById('m-status').value = 'waiting';
-    window.showToast('⏳ Puesto en Waiting', 'success');
-  } catch(e) { window.showToast('Error: ' + e.message, 'error'); }
-};
-
-window.deleteFromDrawer = async () => {
+window.deleteFromDrawer = () => {
   const id = document.getElementById('m-db-id').value;
   const title = document.getElementById('m-title').value;
   if (!id) return;
-  if (!confirm(`¿Borrar "${title}"? Esto no se puede deshacer.`)) return;
-  try {
-    await window.deleteMovie(id);
-    window.closeUploadDrawer();
-  } catch(e) { window.showToast('Error: ' + e.message, 'error'); }
+
+  document.getElementById('confirm-delete-title').textContent = title || 'esta película';
+  const modal = document.getElementById('confirm-delete-modal');
+  document.getElementById('btn-confirm-delete').onclick = async () => {
+    modal.style.display = 'none';
+    try {
+      await window.deleteMovie(id, true);
+      window.closeUploadDrawer();
+    } catch(e) { window.showToast('Error: ' + e.message, 'error'); }
+  };
+  modal.style.display = 'flex';
 };
 
 window.setAdminPriorityFromDrawer = async () => {
@@ -7217,17 +7200,17 @@ window.loadProfiles = async (uid) => {
     snap.forEach(d => profiles.push({ id: d.id, ...d.data() }));
 
     if (profiles.length === 0) {
-        const defaultProfile = { name: auth.currentUser.displayName.split(' ')[0], avatar: '🐯', isChild: false, isPrimary: true };
-        const docRef = await addDoc(profilesCol, defaultProfile);
-        profiles.push({ id: docRef.id, ...defaultProfile });
-    } else {
-        // Retrocompatibilidad: Si ningún perfil es primario, establecer el primero
-        const hasPrimary = profiles.some(p => p.isPrimary);
-        if (!hasPrimary && profiles.length > 0) {
-            profiles[0].isPrimary = true;
-            const profileRef = doc(db, "users", uid, "profiles", profiles[0].id);
-            await updateDoc(profileRef, { isPrimary: true }).catch(e => console.warn("No se pudo marcar perfil principal:", e));
-        }
+        // No adivinamos nombre/avatar: el usuario elige su primer perfil a mano (como Netflix).
+        window.startFirstProfileOnboarding(uid);
+        return;
+    }
+
+    // Retrocompatibilidad: Si ningún perfil es primario, establecer el primero
+    const hasPrimary = profiles.some(p => p.isPrimary);
+    if (!hasPrimary && profiles.length > 0) {
+        profiles[0].isPrimary = true;
+        const profileRef = doc(db, "users", uid, "profiles", profiles[0].id);
+        await updateDoc(profileRef, { isPrimary: true }).catch(e => console.warn("No se pudo marcar perfil principal:", e));
     }
 
     window._allProfiles = profiles; // Guardar caché local
@@ -7629,12 +7612,13 @@ window.executeProfileDeletion = async (id, name, isPrimary = false) => {
     }
 };
 
-window.openAvatarPicker = () => {
+window.openAvatarPicker = (isOnboarding = false) => {
     console.log("🐾 Abriendo Selector de Personajes...");
     const modal = document.getElementById('avatar-selector-modal');
     const grid = document.getElementById('avatar-options-grid');
+    const backBtn = document.getElementById('btn-avatar-back');
     const avatars = ['🦁', '🐯', '🦒', '🐘', '🐊', '🦜', '🦥', '🐺', '🦊', '🐶', '🐱', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵'];
-    
+
     if (grid) {
         grid.innerHTML = avatars.map(a => `
             <div onclick="window.finalizeProfileUpdate('${a}')" style="font-size: 3rem; cursor: pointer; padding: 10px; border-radius: 10px; transition: background 0.2s; display: flex; align-items: center; justify-content: center;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='none'">
@@ -7642,7 +7626,9 @@ window.openAvatarPicker = () => {
             </div>
         `).join('');
     }
-    
+
+    if (backBtn) backBtn.style.display = isOnboarding ? 'none' : 'block';
+
     if (modal) {
         modal.style.display = 'flex';
         modal.style.zIndex = '30000'; // Asegurar que esté por encima de todo
@@ -7660,11 +7646,12 @@ window.finalizeProfileUpdate = async (avatar) => {
     } else {
         // Crear nuevo
         const profilesCol = collection(db, "users", uid, "profiles");
-        await addDoc(profilesCol, { 
-            name: window._tempProfileToUpdate.name, 
-            avatar, 
+        await addDoc(profilesCol, {
+            name: window._tempProfileToUpdate.name,
+            avatar,
             pin: window._tempProfileToUpdate.pin || '',
             isChild: false,
+            isPrimary: window._tempProfileToUpdate.isPrimary || false,
             createdAt: Date.now(),
             lastLogin: Date.now()
         });
@@ -7680,6 +7667,40 @@ window.finalizeProfileUpdate = async (avatar) => {
         sessionStorage.setItem('selva_active_profile', JSON.stringify(_currentProfile));
         window.applyProfile(_currentProfile);
     }
+};
+
+// Primer perfil de la cuenta: el usuario elige nombre + avatar en vez de que
+// el código adivine (antes ponía el primer nombre de Google + 🐯 fijo, y si
+// esta lógica corría dos veces por algún hipo de conexión, terminaba creando
+// un segundo perfil "principal" fantasma).
+window.startFirstProfileOnboarding = (uid) => {
+    window.updateSettingsAccountInfo();
+    const input = document.getElementById('edit-profile-name-input');
+    const pinInput = document.getElementById('edit-profile-pin-input');
+    const modal = document.getElementById('profile-edit-name-modal');
+    const saveBtn = document.getElementById('btn-save-profile-name');
+    const deleteBtn = document.getElementById('btn-delete-profile');
+    const cancelBtn = document.getElementById('btn-cancel-profile-name');
+    const title = document.getElementById('profile-edit-modal-title');
+
+    const suggestedName = (auth.currentUser?.displayName || '').split(' ')[0] || '';
+    if (input) input.value = suggestedName;
+    if (pinInput) pinInput.value = "";
+    if (title) title.textContent = '¡Bienvenido! Crea tu primer perfil 🌴';
+    if (modal) modal.style.display = 'flex';
+    if (deleteBtn) deleteBtn.style.display = 'none';
+    if (cancelBtn) cancelBtn.style.display = 'none'; // no hay a dónde volver: todavía no tiene perfiles
+
+    saveBtn.onclick = () => {
+        const name = input.value.trim();
+        const pin = pinInput.value.trim();
+        if (!name) { if (window.showToast) window.showToast("Dinos un nombre. 🐯", "warning"); return; }
+        if (pin && pin.length !== 4) { if (window.showToast) window.showToast("El PIN debe ser de 4 dígitos. 🔒", "warning"); return; }
+
+        window._tempProfileToUpdate = { name, pin, isPrimary: true };
+        modal.style.display = 'none';
+        window.openAvatarPicker(true);
+    };
 };
 
 window.showAddProfile = async () => {
@@ -7915,47 +7936,109 @@ window.stopMiniPlayer = () => {
   }
 };
 
-window.generateSource = (serverType) => {
+// Prueba la fuente automatica tal como la resuelve el home para un usuario
+// real: sigue la MISMA cadena de prioridad que el reproductor real (ver
+// Player.js: Vimeus -> DiPelis -> RepelisHD -> FlixLatam), revisando las 4
+// SIEMPRE (no se corta en la primera que funciona) para poder mostrar la
+// lista completa de que servidores tiene, en vez de solo cargar el primero.
+window.previewVimeusAuto = async () => {
   const tmdbId = document.getElementById('m-tmdb-id').value.trim();
   const imdbId = document.getElementById('m-imdb-id').value.trim();
+  const title = document.getElementById('m-title').value.trim();
   const type = document.getElementById('m-type').value;
+  const statusEl = document.getElementById('vimeus-auto-status');
+  const listEl = document.getElementById('vimeus-auto-sources-list');
+  const isTv = (type === 'series' || type === 'tv' || type === 'anime');
 
   if (!tmdbId && !imdbId) {
-    alert("¡Necesitas primero buscar y seleccionar la película en TMDb para obtener el ID! 🐒");
+    if (window.showToast) window.showToast('Necesitas un ID de TMDb o IMDB primero (importa desde TMDb arriba).', 'warning');
     return;
   }
 
-  let generatedUrl = "";
-  const isTV = (type === 'series' || type === 'tv' || type === 'anime');
+  if (listEl) listEl.innerHTML = '';
+  if (statusEl) statusEl.textContent = '🔍 Revisando las 4 fuentes (mismo orden que el reproductor real)...';
 
-  if (serverType === 'vidsrc_to') {
-    if (isTV) {
-      generatedUrl = `https://vidsrc.to/embed/tv/${tmdbId}/1/1`;
-      alert("Se generó el enlace para la Temporada 1, Episodio 1. Puedes editar los números de temporada y episodio en la URL si lo deseas. 🍿");
+  const workerCheck = (params) => fetch(`${SelvaStream.MASTER_WORKER_URL}/flix/check?${params}`, {
+    headers: { 'x-selva-auth': SelvaStream.AUTH_TOKEN }
+  }).then(r => r.json()).then(d => !!d.available).catch(() => false);
+
+  const resultados = []; // { name, ok, url, nota }
+
+  // 1) Vimeus
+  const tipoVimeus = type === 'anime' ? 'anime' : (isTv ? 'serie' : 'movie');
+  const estadoVimeus = await vimeusEstadoTitulo(tmdbId, imdbId, tipoVimeus);
+  const idParam = tmdbId ? `tmdb=${tmdbId}` : `imdb=${imdbId}`;
+  resultados.push({
+    name: 'Vimeus',
+    ok: estadoVimeus === 'ok',
+    url: estadoVimeus === 'ok' ? `https://vimeus.com/e/${tipoVimeus}?${idParam}&view_key=${SelvaStream.VIMEUS_VIEW_KEY}` : null,
+    nota: estadoVimeus === 'fantasma' ? 'fantasma (matchea pero sin video real)' : null
+  });
+
+  if (isTv) {
+    // Series: el reproductor real solo tiene Vimeus + FlixLatam como respaldo.
+    if (imdbId) {
+      const flixOk = await workerCheck(`provider=flixlatam&imdb=${imdbId}`);
+      resultados.push({ name: 'FlixLatam', ok: flixOk, url: flixOk ? `https://flixlatam.com/vidurl/${imdbId}/` : null });
     } else {
-      generatedUrl = `https://vidsrc.to/embed/movie/${tmdbId}`;
+      resultados.push({ name: 'FlixLatam', ok: false, url: null, nota: 'sin IMDB ID' });
     }
-  } else if (serverType === 'vidsrc_me') {
-    if (isTV) {
-      generatedUrl = `https://vidsrc.xyz/embed/tv/${tmdbId}/1-1`;
+  } else {
+    // Peliculas: DiPelis -> RepelisHD -> FlixLatam (mismo orden que el player real)
+    const slug = title ? title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '') : '';
+
+    let dipelisUrl = null;
+    if (slug) {
+      try {
+        const d = await fetch(`${SelvaStream.MASTER_WORKER_URL}/flix/dipelis?slug=${encodeURIComponent(slug)}`, {
+          headers: { 'x-selva-auth': SelvaStream.AUTH_TOKEN }
+        }).then(r => r.json());
+        if (d && d.url) dipelisUrl = d.url;
+      } catch (e) { /* se cuenta como no disponible */ }
+    }
+    resultados.push({ name: 'DiPelis', ok: !!dipelisUrl, url: dipelisUrl });
+
+    if (imdbId) {
+      const repelisOk = await workerCheck(`provider=repelishd&imdb=${imdbId}`);
+      resultados.push({ name: 'RepelisHD', ok: repelisOk, url: repelisOk ? `https://verhdlink.cam/movie/${imdbId}` : null });
+
+      const flixOk = await workerCheck(`provider=flixlatam&imdb=${imdbId}`);
+      resultados.push({ name: 'FlixLatam', ok: flixOk, url: flixOk ? `https://flixlatam.com/vidurl/${imdbId}/` : null });
     } else {
-      generatedUrl = `https://vidsrc.xyz/embed/movie/${tmdbId}`;
+      resultados.push({ name: 'RepelisHD', ok: false, url: null, nota: 'sin IMDB ID' });
+      resultados.push({ name: 'FlixLatam', ok: false, url: null, nota: 'sin IMDB ID' });
     }
-  } else if (serverType === 'vidsrc_pro') {
-    if (isTV) {
-      generatedUrl = `https://vidsrc.pro/embed/tv/${tmdbId}/1/1`;
-    } else {
-      generatedUrl = `https://vidsrc.pro/embed/movie/${tmdbId}`;
-    }
-  } else if (serverType === 'superembed') {
-    const id = imdbId || tmdbId;
-    generatedUrl = `https://multiembed.to/imdb.php?video_id=${id}`;
   }
 
-  if (generatedUrl) {
-    document.getElementById('m-embed').value = generatedUrl;
-    window.updateMiniPlayer();
-    window.showToast("Fuente generada con éxito 🔌", "success");
+  // Cargar en la vista previa la de mayor prioridad que si tenga fuente
+  const placeholder = document.getElementById('mini-player-placeholder');
+  const iframe = document.getElementById('mini-player-iframe');
+  const primeraDisponible = resultados.find(r => r.ok && r.url);
+  if (primeraDisponible) {
+    if (placeholder) placeholder.style.display = 'none';
+    if (iframe) { iframe.style.display = 'block'; iframe.src = primeraDisponible.url; }
+  }
+
+  if (statusEl) {
+    statusEl.textContent = primeraDisponible
+      ? `Cargando la vista previa desde ${primeraDisponible.name} (la de mayor prioridad disponible).`
+      : 'Ninguna de las fuentes tiene esta pelicula todavia.';
+  }
+
+  if (listEl) {
+    listEl.innerHTML = resultados.map((r, i) => {
+      const esFantasma = r.nota && r.nota.indexOf('fantasma') !== -1;
+      const icono = r.ok ? '✅' : (esFantasma ? '👻' : '❌');
+      const color = r.ok ? '#2ecc71' : (esFantasma ? '#9b59b6' : '#666');
+      const esLaCargada = primeraDisponible && r === primeraDisponible;
+      return `
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 10px; border-radius:6px; background:${esLaCargada ? 'rgba(46,204,113,0.08)' : 'rgba(255,255,255,0.03)'}; border:1px solid ${esLaCargada ? 'rgba(46,204,113,0.25)' : 'rgba(255,255,255,0.06)'};">
+          <span style="font-size:0.75rem; color:#ccc;">#${i + 1} ${r.name}${esLaCargada ? ' (mostrando esta)' : ''}</span>
+          <span style="font-size:0.75rem; color:${color}; font-weight:700;">${icono} ${r.nota || (r.ok ? 'Disponible' : 'No disponible')}</span>
+        </div>
+      `;
+    }).join('');
   }
 };
 

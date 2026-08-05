@@ -1172,6 +1172,23 @@ export const SelvaStream = {
                 // título — se prueba el siguiente antes de rendirse.
                 if (!res.ok || /not found/i.test(html)) continue;
 
+                // "Vimeus Fantasma": responde 200 (no es un "not found" real)
+                // pero matchea contra un título sin contenido cargado del otro
+                // lado (temporadas/embeds vacíos) — mismo chequeo que ya usa
+                // la auditoría del admin (vimeusEstadoTitulo). Sin esto,
+                // Vimeus se quedaba con la prioridad #1 y nunca dejaba pasar
+                // a DiPelis/RepelisHD/FlixLatam aunque no fuera a reproducir nada.
+                const dataMatch = html.match(/<script type="text\/json" id="data">([\s\S]*?)<\/script>/);
+                if (dataMatch) {
+                    try {
+                        const data = JSON.parse(dataMatch[1]);
+                        const sinContenido = !data.title
+                            || (Array.isArray(data.seasons) && data.seasons.length === 0)
+                            || (Array.isArray(data.embeds) && data.embeds.length === 0);
+                        if (sinContenido) continue;
+                    } catch (e) { /* si no se puede parsear, se sigue como antes (con contenido) */ }
+                }
+
                 if (this.currentPlayerMovie !== tituloAlPedir) return;
                 if ((this.lastScrapedStreams || []).some(s => s.providerName === 'Vimeus')) return;
 

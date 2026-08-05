@@ -250,7 +250,7 @@
         <a class="nav-link-cinepulse" href="#movies" onclick="window.setFilter('movies'); return false;">Películas</a>
         <a class="nav-link-cinepulse" href="#series" onclick="window.setFilter('series'); return false;">Series</a>
         <a class="nav-link-cinepulse" href="#anime" onclick="window.setFilter('anime'); return false;">Anime</a>
-        <a class="nav-link-cinepulse" href="#" onclick="window.toggleMyListModal(); return false;">Mi Selva</a>
+        <a class="nav-link-cinepulse" href="#" onclick="window.toggleMyListModal(); return false;">Mi Lista</a>
       </div>
     </div>
 
@@ -334,7 +334,7 @@
     </button>
     <button id="btn-nav-mylist" onclick="window.goToMyList()" class="nav-item nav-item-cinepulse">
       <span class="material-symbols-outlined">bookmark</span>
-      <span>Mi Selva</span>
+      <span>Mi Lista</span>
     </button>
   </nav>
 
@@ -417,7 +417,7 @@
         </div>
       </section>
 
-      <!-- FASE 3: Mi Selva Row -->
+      <!-- FASE 3: Mi Lista Row -->
       <div id="my-list-row" style="display: none;"></div>
 
       <!-- Main Content -->
@@ -453,12 +453,12 @@
       </footer>
     </main>
 
-    <!-- PESTAÑA MI SELVA (Vista completa, no modal) -->
+    <!-- PESTAÑA MI LISTA (Vista completa, no modal) -->
     <section id="my-list-view" style="display: none; min-height: 100vh; background: #0e0e0e; padding: 80px 0 120px;">
       <div style="max-width: 1200px; margin: 0 auto; padding: 0 16px;">
         <div style="display: flex; align-items: center; justify-content: space-between; padding: 24px 0 20px;">
           <div style="display: flex; align-items: center; gap: 12px;">
-            <h2 style="font-family: 'Sora', sans-serif; font-size: 1.6rem; font-weight: 700; color: #fff; margin: 0;">Mi Selva</h2>
+            <h2 style="font-family: 'Sora', sans-serif; font-size: 1.6rem; font-weight: 700; color: #fff; margin: 0;">Mi Lista</h2>
             <span id="mylist-tab-count" style="font-family: 'Inter', sans-serif; font-size: 0.75rem; font-weight: 600; color: #ffb59e; background: #353534; border-radius: 9999px; padding: 4px 12px;">0 títulos</span>
           </div>
           <button onclick="window.goToHome()" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); border-radius: 8px; padding: 8px 14px; cursor: pointer; font-size: 0.8rem; display: flex; align-items: center; gap: 6px;">
@@ -1896,7 +1896,7 @@
       <div class="modal-content-premium" style="max-width: 1100px; background: #131313; border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 30px;">
         <div class="flex items-center justify-between mb-6" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 15px;">
           <div style="display: flex; align-items: center; gap: 12px;">
-            <h2 class="text-2xl font-bold text-on-background m-0" style="font-family: 'Sora', sans-serif; color: #fff; margin: 0;">Mi Selva</h2>
+            <h2 class="text-2xl font-bold text-on-background m-0" style="font-family: 'Sora', sans-serif; color: #fff; margin: 0;">Mi Lista</h2>
             <span id="modal-fav-count" class="text-xs font-semibold px-3 py-1 rounded-full" style="font-size: 0.75rem; color: #ffb59e; background: #353534; border-radius: 9999px;">0 Títulos</span>
           </div>
           <button class="text-white hover:text-primary transition-colors cursor-pointer bg-transparent border-none p-0 flex items-center justify-center" onclick="window.toggleMyListModal()" title="Cerrar" style="background: none; border: none; color: #fff; cursor: pointer;">

@@ -492,6 +492,11 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  /* El contenedor es mucho más ancho y bajo que la imagen original (16:9),
+     así que cover recorta bastante arriba/abajo. Sin esto, el recorte
+     centrado cortaba cabezas — las caras suelen estar en la mitad superior
+     de estas imágenes promocionales, no en el centro exacto. */
+  object-position: center 20%;
 }
 
 .cinepulse-hero-gradient {
@@ -3247,7 +3252,7 @@ body {
   display: none;
 }
 
-/* Botón Mi Selva (Favoritos) */
+/* Botón Mi Lista (Favoritos) */
 .btn-add-list {
   position: absolute;
   top: 10px;

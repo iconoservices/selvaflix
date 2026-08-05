@@ -818,7 +818,7 @@ window.goToHome = () => {
   handleRouting();
 };
 
-// Navega a la pestaña Mi Selva
+// Navega a la pestaña Mi Lista
 window.goToMyList = async () => {
   history.pushState(null, '', '#mylist');
   // pushState no dispara hashchange, así que handleRouting no corre: cerramos aquí
@@ -6393,7 +6393,7 @@ async function updateHeroCarousel() {
     
     const isFav = window._myListIds && window._myListIds.has(item.id);
     heroList.innerHTML = isFav 
-      ? '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 1;">check</span> En Mi Selva'
+      ? '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 1;">check</span> En Mi Lista'
       : '<span class="material-symbols-outlined">add</span> Mi Lista';
   }
 }
@@ -7932,6 +7932,7 @@ window.syncPlaybackProgress = async (movie, lastTime, duration, episodeId = null
         movieId: movie.id,
         title: movie.title || movie.name,
         poster: movie.img || movie.poster_path,
+        backdrop: movie.backdrop || movie.backdrop_path || movie.img || movie.poster_path,
         type: movie.type,
         lastTime,
         duration,
@@ -7955,6 +7956,7 @@ window.markWatchingEpisode = (movie, season, episode, episodeLabel) => {
         movieId: movie.id,
         title: movie.title || movie.name,
         poster: movie.img || movie.poster_path,
+        backdrop: movie.backdrop || movie.backdrop_path || movie.img || movie.poster_path,
         type: movie.type,
         season,
         episode,
@@ -7992,11 +7994,19 @@ window.loadContinueWatching = async () => {
         // pretender saber en qué minuto quedó (eso solo es fiable con el
         // <video> nativo, que es la minoría de las reproducciones reales).
         grid.innerHTML = history.map(h => {
-            const poster = (h.poster && h.poster.startsWith('http')) ? h.poster : 'https://image.tmdb.org/t/p/w300' + (h.poster || h.poster_path);
+            // La tarjeta es horizontal (card-horizontal-*), así que le pega mejor
+            // el banner (16:9) que el póster (2:3) — antes usaba el póster siempre
+            // y quedaba recortado/forzado. Para entradas viejas que se guardaron
+            // antes de este cambio (sin "backdrop" en el historial), se busca el
+            // dato actual en el catálogo ya cargado en memoria en vez de esperar
+            // a que el usuario vea algo de nuevo para que se "autorepare".
+            const movieActual = movieDatabase.trending.find(m => m.id === h.movieId);
+            const raw = h.backdrop || movieActual?.backdrop || h.poster || movieActual?.img;
+            const img = (raw && raw.startsWith('http')) ? raw : 'https://image.tmdb.org/t/p/w300' + (raw || h.poster_path);
             return `
                 <div class="card-horizontal-container" onclick="window.handleCardClick('${h.movieId}')">
                     <div class="card-horizontal-media">
-                        <img src="${poster}" alt="${h.title}" loading="lazy" onerror="this.src='/icon_192.png'">
+                        <img src="${img}" alt="${h.title}" loading="lazy" onerror="this.src='/icon_192.png'">
                     </div>
                     <div class="card-horizontal-title">${h.title}</div>
                     <div class="card-horizontal-subtitle">${h.episodeLabel || ''}</div>

@@ -3029,14 +3029,107 @@ async function tieneAlgunaFuente(m) {
 //   rescatarTituloLatino (misma lógica que cleanupCJKTitles).
 // Dos confirm(): uno antes de arrancar (avisa que tarda) y otro con los
 // números exactos antes de tocar la base de datos.
+//
+// Tarda varios minutos (215 títulos × hasta 5 fuentes cada uno). Si el
+// navegador manda la pestaña a segundo plano (Memory Saver de Chrome, o el
+// SO al cambiar de app en el celular) puede matar el script a mitad de
+// camino sin avisar — todo lo que solo vivía en memoria se perdía en
+// silencio: se volvía y no había resumen, ni cambios, ni rastro de que
+// corrió. Por eso el progreso se guarda en localStorage en cada título:
+// si se corta, la próxima vez que se abra "Auditar Vimeus" se puede
+// retomar donde quedó en vez de arrancar de cero.
+const AUDIT_PROGRESS_KEY = 'selvaflix_audit_progress';
+function guardarProgresoAuditoria(data) {
+    try { localStorage.setItem(AUDIT_PROGRESS_KEY, JSON.stringify({ ...data, savedAt: Date.now() })); } catch (e) { /* localStorage lleno o bloqueado: no es crítico, se sigue sin checkpoint */ }
+}
+function cargarProgresoAuditoria() {
+    try {
+        const raw = localStorage.getItem(AUDIT_PROGRESS_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+}
+function borrarProgresoAuditoria() {
+    try { localStorage.removeItem(AUDIT_PROGRESS_KEY); } catch (e) { /* no-op */ }
+}
+
+// Reemplaza el confirm() nativo del navegador (gris, sin estilo, "sale de otro
+// sistema" — a pedido) por un modal con la misma estética que ya usa el resto
+// del admin (overlay oscuro + tarjeta #111 + acento var(--primary), igual que
+// #delete-progress-overlay). Devuelve una Promise<boolean> para poder seguir
+// usando `if (await mostrarConfirmBonito(...))` en vez de `if (confirm(...))`.
+function mostrarConfirmBonito({ titulo, mensaje, textoOk = 'Continuar', textoCancelar = 'Cancelar', tipo = 'info' }) {
+    return new Promise((resolve) => {
+        const acento = tipo === 'danger' ? '#FF5252' : 'var(--primary)';
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:10020; display:flex; align-items:center; justify-content:center; padding:20px;';
+        overlay.innerHTML = `
+          <div style="width:min(480px, 92vw); max-height:85vh; overflow:auto; background:#111; padding:26px; border-radius:15px; border:1px solid var(--glass-border); box-shadow:0 20px 60px rgba(0,0,0,0.6); font-family:'Outfit', sans-serif;">
+            <h3 style="color:white; margin:0 0 14px; font-size:1.05rem;">${titulo}</h3>
+            <div style="color:rgba(255,255,255,0.85); font-size:0.88rem; line-height:1.65; white-space:pre-line;">${mensaje}</div>
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:22px;">
+              <button data-accion="cancelar" style="padding:9px 18px; border-radius:8px; border:1px solid var(--glass-border); background:transparent; color:#ccc; cursor:pointer; font-family:inherit; font-size:0.85rem;">${textoCancelar}</button>
+              <button data-accion="ok" style="padding:9px 18px; border-radius:8px; border:none; background:${acento}; color:#111; font-weight:600; cursor:pointer; font-family:inherit; font-size:0.85rem;">${textoOk}</button>
+            </div>
+          </div>`;
+        document.body.appendChild(overlay);
+        const cerrar = (resultado) => { overlay.remove(); resolve(resultado); };
+        overlay.querySelector('[data-accion="cancelar"]').onclick = () => cerrar(false);
+        overlay.querySelector('[data-accion="ok"]').onclick = () => cerrar(true);
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) cerrar(false); });
+    });
+}
+
 window.auditarCatalogoCompleto = async () => {
-    const total = movieDatabase.trending.filter(m => m.imdbId || m.tmdbId);
-    if (total.length === 0) {
+    const buscarPorId = (id) => movieDatabase.trending.find(m => m.id === id);
+
+    let totalOrdenado = movieDatabase.trending.filter(m => m.imdbId || m.tmdbId);
+    if (totalOrdenado.length === 0) {
         if (window.showToast) window.showToast('No hay títulos con imdbId/tmdbId para auditar.', 'info');
         return;
     }
 
-    if (!confirm(`Esto va a revisar ${total.length} títulos contra las 5 fuentes (puede tardar varios minutos, hay una pausa chica entre cada uno para no saturar los sitios). ¿Continuar?`)) return;
+    let startIndex = 0;
+    let paraBorrar = [];
+    let paraMarcarRoto = [];
+    let paraArreglarTitulo = [];
+    let paraActualizarVimeus = []; // { m, vimeusDisponible, vimeusFantasma } -- se guarda siempre que cambió algo
+    let fantasmasEncontrados = 0;
+    let fallosDeTitulo = 0;
+    let yaTerminadaPendienteDeConfirmar = false;
+
+    const progreso = cargarProgresoAuditoria();
+    if (progreso && Array.isArray(progreso.ids) && progreso.ids.length) {
+        const minutos = Math.max(1, Math.round((Date.now() - progreso.savedAt) / 60000));
+        const titulo = progreso.done ? '📋 Auditoría pendiente de confirmar' : '🔄 Auditoría interrumpida';
+        const mensaje = progreso.done
+            ? `Ya había terminado de revisar todo (guardada hace ${minutos} min) pero se quedó sin confirmar los cambios.\n\nCancelar para descartarla y empezar de cero.`
+            : `Se cortó al ${Math.round((progreso.index / progreso.ids.length) * 100)}% (${progreso.index}/${progreso.ids.length}), guardada hace ${minutos} min — probablemente por cambiar de pestaña/app.\n\nCancelar para empezar una auditoría nueva desde cero (se descarta el progreso guardado).`;
+
+        if (await mostrarConfirmBonito({ titulo, mensaje, textoOk: progreso.done ? 'Ver resumen' : 'Retomar', textoCancelar: 'Empezar de cero' })) {
+            totalOrdenado = progreso.ids.map(buscarPorId).filter(Boolean);
+            startIndex = progreso.done ? totalOrdenado.length : Math.min(progreso.index, totalOrdenado.length);
+            paraBorrar = progreso.paraBorrar.map(buscarPorId).filter(Boolean);
+            paraMarcarRoto = progreso.paraMarcarRoto.map(buscarPorId).filter(Boolean);
+            paraArreglarTitulo = progreso.paraArreglarTitulo.map(buscarPorId).filter(Boolean);
+            paraActualizarVimeus = progreso.paraActualizarVimeus
+                .map(({ id, vimeusDisponible, vimeusFantasma }) => { const m = buscarPorId(id); return m ? { m, vimeusDisponible, vimeusFantasma } : null; })
+                .filter(Boolean);
+            fantasmasEncontrados = progreso.fantasmasEncontrados || 0;
+            fallosDeTitulo = progreso.fallosDeTitulo || 0;
+            yaTerminadaPendienteDeConfirmar = !!progreso.done;
+        } else {
+            borrarProgresoAuditoria();
+        }
+    }
+
+    if (startIndex === 0 && !yaTerminadaPendienteDeConfirmar) {
+        const arrancar = await mostrarConfirmBonito({
+            titulo: '👻 Auditar Vimeus y demás fuentes',
+            mensaje: `Esto va a revisar ${totalOrdenado.length} títulos contra las 5 fuentes (puede tardar varios minutos, hay una pausa chica entre cada uno para no saturar los sitios).\n\nNo cambies de pestaña ni de app mientras corre — si el navegador la manda a segundo plano puede cortarse (igual queda guardado el progreso para retomar).`,
+            textoOk: 'Auditar'
+        });
+        if (!arrancar) return;
+    }
 
     // Misma barra de progreso que usa "Revisar Enlaces" (runBotHealthCheck):
     // sin esto la auditoría corría en silencio varios minutos y parecía
@@ -3045,69 +3138,91 @@ window.auditarCatalogoCompleto = async () => {
     const bar = document.getElementById('progress-bar-fill');
     const percentText = document.getElementById('progress-percent');
     const statusText = document.getElementById('progress-text');
-    if (statusText) statusText.innerText = '👻 Auditando Vimeus y demás fuentes... 🔎🌴';
-    if (overlay) overlay.style.display = 'flex';
 
-    const paraBorrar = [];
-    const paraMarcarRoto = [];
-    const paraArreglarTitulo = [];
-    const paraActualizarVimeus = []; // { m, vimeusDisponible, vimeusFantasma } -- se guarda siempre que cambió algo
-    let fantasmasEncontrados = 0;
+    if (!yaTerminadaPendienteDeConfirmar) {
+        if (statusText) statusText.innerText = '👻 Auditando Vimeus y demás fuentes... 🔎🌴';
+        if (overlay) overlay.style.display = 'flex';
 
-    let fallosDeTitulo = 0;
-    for (let i = 0; i < total.length; i++) {
-        const m = total[i];
-        console.log(`🔎 [${i + 1}/${total.length}] Revisando: ${m.title}`);
+        for (let i = startIndex; i < totalOrdenado.length; i++) {
+            const m = totalOrdenado[i];
+            console.log(`🔎 [${i + 1}/${totalOrdenado.length}] Revisando: ${m.title}`);
 
-        // Si UN título falla de forma rara (ej. la laptop se suspende a
-        // mitad de la auditoría, o el navegador pausa la pestaña en segundo
-        // plano y algún fetch queda en un estado raro al despertar), esto
-        // evita que se corte TODO el proceso en silencio sin llegar nunca al
-        // resumen final — reportado como "dejé la laptop sola auditando y
-        // al volver no había pasado nada, ni el popup de confirmar cambios".
-        // Se saltea ese título (queda como estaba) y se sigue con el resto.
-        let resultado;
-        try {
-            resultado = await tieneAlgunaFuente(m);
-        } catch (e) {
-            console.error(`❌ Falló el chequeo de "${m.title}", se saltea:`, e);
-            fallosDeTitulo++;
-            const percent = Math.round(((i + 1) / total.length) * 100);
+            // Si UN título falla de forma rara (ej. la laptop se suspende a
+            // mitad de la auditoría, o el navegador pausa la pestaña en segundo
+            // plano y algún fetch queda en un estado raro al despertar), esto
+            // evita que se corte TODO el proceso en silencio sin llegar nunca al
+            // resumen final — reportado como "dejé la laptop sola auditando y
+            // al volver no había pasado nada, ni el popup de confirmar cambios".
+            // Se saltea ese título (queda como estaba) y se sigue con el resto.
+            let resultado;
+            try {
+                resultado = await tieneAlgunaFuente(m);
+            } catch (e) {
+                console.error(`❌ Falló el chequeo de "${m.title}", se saltea:`, e);
+                fallosDeTitulo++;
+                const percent = Math.round(((i + 1) / totalOrdenado.length) * 100);
+                if (bar) bar.style.width = `${percent}%`;
+                if (percentText) percentText.innerText = `${percent}% (${i + 1}/${totalOrdenado.length}) — ${m.title} (falló, saltado)`;
+                guardarProgresoAuditoria({
+                    ids: totalOrdenado.map(x => x.id), index: i + 1,
+                    paraBorrar: paraBorrar.map(x => x.id), paraMarcarRoto: paraMarcarRoto.map(x => x.id),
+                    paraArreglarTitulo: paraArreglarTitulo.map(x => x.id),
+                    paraActualizarVimeus: paraActualizarVimeus.map(({ m: x, vimeusDisponible, vimeusFantasma }) => ({ id: x.id, vimeusDisponible, vimeusFantasma })),
+                    fantasmasEncontrados, fallosDeTitulo, done: false
+                });
+                await new Promise(r => setTimeout(r, 400));
+                continue;
+            }
+            const { tieneFuente, vimeusDisponible, vimeusFantasma } = resultado;
+            const esCJK = m.title && CJK_REGEX.test(m.title);
+
+            if (esCJK) {
+                if (tieneFuente) paraArreglarTitulo.push(m);
+                else paraBorrar.push(m);
+            } else if (!tieneFuente && m.status !== 'broken') {
+                paraMarcarRoto.push(m);
+            }
+
+            if (vimeusFantasma) {
+                fantasmasEncontrados++;
+                console.warn(`👻 Vimeus Fantasma (matchea pero sin contenido): ${m.title}`);
+            }
+
+            // El distintivo del home lee esto; se guarda para todos, no solo los
+            // que ya iban a cambiar de status, porque puede cambiar sin que el
+            // resto del título cambie (ej. Vimeus suma un titulo que ya tenia otra fuente).
+            if (m.vimeusDisponible !== vimeusDisponible || m.vimeusFantasma !== vimeusFantasma) {
+                paraActualizarVimeus.push({ m, vimeusDisponible, vimeusFantasma });
+            }
+
+            const percent = Math.round(((i + 1) / totalOrdenado.length) * 100);
             if (bar) bar.style.width = `${percent}%`;
-            if (percentText) percentText.innerText = `${percent}% (${i + 1}/${total.length}) — ${m.title} (falló, saltado)`;
-            await new Promise(r => setTimeout(r, 400));
-            continue;
-        }
-        const { tieneFuente, vimeusDisponible, vimeusFantasma } = resultado;
-        const esCJK = m.title && CJK_REGEX.test(m.title);
+            if (percentText) percentText.innerText = `${percent}% (${i + 1}/${totalOrdenado.length}) — ${m.title}`;
 
-        if (esCJK) {
-            if (tieneFuente) paraArreglarTitulo.push(m);
-            else paraBorrar.push(m);
-        } else if (!tieneFuente && m.status !== 'broken') {
-            paraMarcarRoto.push(m);
-        }
+            guardarProgresoAuditoria({
+                ids: totalOrdenado.map(x => x.id), index: i + 1,
+                paraBorrar: paraBorrar.map(x => x.id), paraMarcarRoto: paraMarcarRoto.map(x => x.id),
+                paraArreglarTitulo: paraArreglarTitulo.map(x => x.id),
+                paraActualizarVimeus: paraActualizarVimeus.map(({ m: x, vimeusDisponible, vimeusFantasma }) => ({ id: x.id, vimeusDisponible, vimeusFantasma })),
+                fantasmasEncontrados, fallosDeTitulo, done: false
+            });
 
-        if (vimeusFantasma) {
-            fantasmasEncontrados++;
-            console.warn(`👻 Vimeus Fantasma (matchea pero sin contenido): ${m.title}`);
+            await new Promise(r => setTimeout(r, 400)); // no bombardear los sitios de golpe
         }
 
-        // El distintivo del home lee esto; se guarda para todos, no solo los
-        // que ya iban a cambiar de status, porque puede cambiar sin que el
-        // resto del título cambie (ej. Vimeus suma un titulo que ya tenia otra fuente).
-        if (m.vimeusDisponible !== vimeusDisponible || m.vimeusFantasma !== vimeusFantasma) {
-            paraActualizarVimeus.push({ m, vimeusDisponible, vimeusFantasma });
-        }
+        if (overlay) overlay.style.display = 'none';
 
-        const percent = Math.round(((i + 1) / total.length) * 100);
-        if (bar) bar.style.width = `${percent}%`;
-        if (percentText) percentText.innerText = `${percent}% (${i + 1}/${total.length}) — ${m.title}`;
-
-        await new Promise(r => setTimeout(r, 400)); // no bombardear los sitios de golpe
+        // Se marca "done" ANTES del confirm final: si la pestaña se corta justo
+        // acá (esperando que el confirm() nativo del navegador vuelva a foco),
+        // la próxima vez se salta directo al resumen en vez de re-escanear todo.
+        guardarProgresoAuditoria({
+            ids: totalOrdenado.map(x => x.id), index: totalOrdenado.length,
+            paraBorrar: paraBorrar.map(x => x.id), paraMarcarRoto: paraMarcarRoto.map(x => x.id),
+            paraArreglarTitulo: paraArreglarTitulo.map(x => x.id),
+            paraActualizarVimeus: paraActualizarVimeus.map(({ m: x, vimeusDisponible, vimeusFantasma }) => ({ id: x.id, vimeusDisponible, vimeusFantasma })),
+            fantasmasEncontrados, fallosDeTitulo, done: true
+        });
     }
-
-    if (overlay) overlay.style.display = 'none';
 
     const resumen = `Resultado de la auditoría:\n\n`
         + `🗑️ ${paraBorrar.length} sin fuente y con título en chino/japonés → se BORRAN\n`
@@ -3115,13 +3230,27 @@ window.auditarCatalogoCompleto = async () => {
         + `✏️ ${paraArreglarTitulo.length} con título chino/japonés pero SÍ tienen fuente → se traduce el título\n`
         + `👻 ${fantasmasEncontrados} "Vimeus Fantasma" (matchean por ID pero sin contenido real) → filtrables en Catálogo como "Vimeus Fantasma"\n`
         + `🎬 ${paraActualizarVimeus.length} título(s) cambian su distintivo de Vimeus (para el home y el filtro)\n`
-        + (fallosDeTitulo > 0 ? `⚠️ ${fallosDeTitulo} título(s) no se pudieron chequear (fallo de red) y quedaron como estaban — se pueden reintentar corriendo la auditoría de nuevo.\n` : '')
-        + `\n¿Aplicar estos cambios?`;
+        + (fallosDeTitulo > 0 ? `⚠️ ${fallosDeTitulo} título(s) no se pudieron chequear (fallo de red) y quedaron como estaban — se pueden reintentar corriendo la auditoría de nuevo.\n` : '');
 
-    if (!confirm(resumen)) {
+    const aplicar = await mostrarConfirmBonito({
+        titulo: '✅ Resultado de la auditoría',
+        mensaje: resumen + '\n¿Aplicar estos cambios?',
+        textoOk: 'Aplicar cambios',
+        tipo: paraBorrar.length > 0 ? 'danger' : 'info'
+    });
+    if (!aplicar) {
         if (window.showToast) window.showToast('Auditoría cancelada, no se aplicó ningún cambio.', 'info');
+        borrarProgresoAuditoria();
         return { paraBorrar, paraMarcarRoto, paraArreglarTitulo };
     }
+
+    // Los catch de abajo antes solo hacían console.error: si Firestore rechazaba
+    // un updateDoc puntual (doc borrado por otra vía, regla de permisos, etc.)
+    // el título se quedaba "Sin Verificar"/roto para siempre sin que nadie se
+    // enterara — reportado como "sigo viendo que muchos quedan sin verificar".
+    // Ahora se juntan los fallos y salen en el mensaje final para poder
+    // identificar cuáles son y por qué.
+    const fallosAplicar = [];
 
     let borrados = 0, marcados = 0, arreglados = 0;
 
@@ -3131,7 +3260,7 @@ window.auditarCatalogoCompleto = async () => {
             movieDatabase.trending = movieDatabase.trending.filter(x => x.id !== m.id);
             console.log(`🗑️ Borrado (sin fuente + CJK): ${m.title}`);
             borrados++;
-        } catch (e) { console.error('Error borrando', m.title, e); }
+        } catch (e) { console.error('Error borrando', m.title, e); fallosAplicar.push(`${m.title} (borrar: ${e.message || e})`); }
     }
 
     for (const m of paraMarcarRoto) {
@@ -3140,7 +3269,7 @@ window.auditarCatalogoCompleto = async () => {
             m.status = 'broken';
             console.log(`🔴 Marcado sin fuentes: ${m.title}`);
             marcados++;
-        } catch (e) { console.error('Error marcando', m.title, e); }
+        } catch (e) { console.error('Error marcando', m.title, e); fallosAplicar.push(`${m.title} (marcar: ${e.message || e})`); }
     }
 
     for (const m of paraArreglarTitulo) {
@@ -3153,7 +3282,7 @@ window.auditarCatalogoCompleto = async () => {
                 m.title = newTitle;
                 arreglados++;
             }
-        } catch (e) { console.error('Error arreglando título', m.title, e); }
+        } catch (e) { console.error('Error arreglando título', m.title, e); fallosAplicar.push(`${m.title} (traducir título: ${e.message || e})`); }
     }
 
     let vimeusActualizados = 0;
@@ -3163,7 +3292,7 @@ window.auditarCatalogoCompleto = async () => {
             m.vimeusDisponible = vimeusDisponible;
             m.vimeusFantasma = vimeusFantasma;
             vimeusActualizados++;
-        } catch (e) { console.error('Error actualizando vimeusDisponible', m.title, e); }
+        } catch (e) { console.error('Error actualizando vimeusDisponible', m.title, e); fallosAplicar.push(`${m.title} (distintivo Vimeus: ${e.message || e})`); }
     }
 
     sessionStorage.removeItem('selvaflix_full_database');
@@ -3188,9 +3317,21 @@ window.auditarCatalogoCompleto = async () => {
 
     const msg = `✅ Auditoría completa: ${borrados} borrados, ${marcados} marcados sin fuentes, ${arreglados} títulos traducidos, ${vimeusActualizados} distintivos de Vimeus actualizados (${fantasmasEncontrados} Vimeus Fantasma). Filtro "Salud" ya te muestra el resultado.`;
     console.log(msg);
-    if (window.showToast) window.showToast(msg, 'success');
 
-    return { borrados, marcados, arreglados, vimeusActualizados, fantasmasEncontrados };
+    if (fallosAplicar.length > 0) {
+        console.error(`⚠️ ${fallosAplicar.length} título(s) no se pudieron guardar en la base:`, fallosAplicar);
+        await mostrarConfirmBonito({
+            titulo: '⚠️ Algunos cambios no se guardaron',
+            mensaje: `${msg}\n\nPero ${fallosAplicar.length} título(s) fallaron al guardar en la base (por eso pueden seguir viéndose "Sin Verificar" o sin actualizar):\n\n${fallosAplicar.join('\n')}\n\nSe pueden reintentar corriendo la auditoría de nuevo.`,
+            textoOk: 'Entendido', textoCancelar: 'Cerrar', tipo: 'danger'
+        });
+        if (window.showToast) window.showToast(`⚠️ Auditoría completa con ${fallosAplicar.length} error(es) al guardar — ver detalle.`, 'warning');
+    } else {
+        if (window.showToast) window.showToast(msg, 'success');
+    }
+
+    borrarProgresoAuditoria();
+    return { borrados, marcados, arreglados, vimeusActualizados, fantasmasEncontrados, fallosAplicar };
 };
 
 // Trae el catálogo que Vimeus YA tiene confirmado (via su API Key, server-only

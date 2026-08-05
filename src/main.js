@@ -8214,17 +8214,20 @@ window.previewVimeusAuto = async () => {
   });
 
   // A pedido: si esto es sobre una película ya guardada, de paso se guarda
-  // el resultado real de Vimeus (no solo se muestra en la vista previa) —
-  // así el admin no necesita un botón aparte de "rechequear": usar "Probar
-  // las Fuentes" sobre un título ya confirmado también refresca su badge
-  // en el Home, sin esperar a la próxima auditoría completa del catálogo.
+  // el resultado en la base — PERO solo para mejorar (confirmar que SÍ
+  // tiene Vimeus), nunca para empeorar. Un solo chequeo en vivo, aunque
+  // tenga reintentos, puede fallar por un hipo pasajero de red — si eso
+  // pasara y sobreescribiéramos un "sí" ya confirmado con un "no", se
+  // desmarcarían títulos que en realidad funcionan bien (esto realmente
+  // pasó: se reportaron películas con Vimeus real que perdieron el badge
+  // ÓPTIMO después de probarlas acá). Bajar a "no disponible"/"fantasma"
+  // queda reservado para la auditoría completa (auditarCatalogoCompleto),
+  // que es una acción deliberada y ya tiene su propio manejo de reintentos.
   const dbIdActual = document.getElementById('m-db-id').value.trim();
-  if (dbIdActual) {
-    const vimeusDisponible = estadoVimeus === 'ok';
-    const vimeusFantasma = estadoVimeus === 'fantasma';
-    updateDoc(doc(db, "movies", dbIdActual), { vimeusDisponible, vimeusFantasma }).then(() => {
+  if (dbIdActual && estadoVimeus === 'ok') {
+    updateDoc(doc(db, "movies", dbIdActual), { vimeusDisponible: true, vimeusFantasma: false }).then(() => {
       const movieActual = movieDatabase.trending.find(m => m.id === dbIdActual);
-      if (movieActual) { movieActual.vimeusDisponible = vimeusDisponible; movieActual.vimeusFantasma = vimeusFantasma; }
+      if (movieActual) { movieActual.vimeusDisponible = true; movieActual.vimeusFantasma = false; }
       sessionStorage.removeItem('selvaflix_full_database');
       sessionStorage.removeItem('selvaflix_cache_timestamp');
     }).catch(e => console.warn('No se pudo guardar el estado de Vimeus:', e));

@@ -3054,10 +3054,31 @@ window.auditarCatalogoCompleto = async () => {
     const paraActualizarVimeus = []; // { m, vimeusDisponible, vimeusFantasma } -- se guarda siempre que cambió algo
     let fantasmasEncontrados = 0;
 
+    let fallosDeTitulo = 0;
     for (let i = 0; i < total.length; i++) {
         const m = total[i];
         console.log(`🔎 [${i + 1}/${total.length}] Revisando: ${m.title}`);
-        const { tieneFuente, vimeusDisponible, vimeusFantasma } = await tieneAlgunaFuente(m);
+
+        // Si UN título falla de forma rara (ej. la laptop se suspende a
+        // mitad de la auditoría, o el navegador pausa la pestaña en segundo
+        // plano y algún fetch queda en un estado raro al despertar), esto
+        // evita que se corte TODO el proceso en silencio sin llegar nunca al
+        // resumen final — reportado como "dejé la laptop sola auditando y
+        // al volver no había pasado nada, ni el popup de confirmar cambios".
+        // Se saltea ese título (queda como estaba) y se sigue con el resto.
+        let resultado;
+        try {
+            resultado = await tieneAlgunaFuente(m);
+        } catch (e) {
+            console.error(`❌ Falló el chequeo de "${m.title}", se saltea:`, e);
+            fallosDeTitulo++;
+            const percent = Math.round(((i + 1) / total.length) * 100);
+            if (bar) bar.style.width = `${percent}%`;
+            if (percentText) percentText.innerText = `${percent}% (${i + 1}/${total.length}) — ${m.title} (falló, saltado)`;
+            await new Promise(r => setTimeout(r, 400));
+            continue;
+        }
+        const { tieneFuente, vimeusDisponible, vimeusFantasma } = resultado;
         const esCJK = m.title && CJK_REGEX.test(m.title);
 
         if (esCJK) {
@@ -3093,8 +3114,9 @@ window.auditarCatalogoCompleto = async () => {
         + `🔴 ${paraMarcarRoto.length} sin ninguna fuente → se marcan "Sin Fuentes"\n`
         + `✏️ ${paraArreglarTitulo.length} con título chino/japonés pero SÍ tienen fuente → se traduce el título\n`
         + `👻 ${fantasmasEncontrados} "Vimeus Fantasma" (matchean por ID pero sin contenido real) → filtrables en Catálogo como "Vimeus Fantasma"\n`
-        + `🎬 ${paraActualizarVimeus.length} título(s) cambian su distintivo de Vimeus (para el home y el filtro)\n\n`
-        + `¿Aplicar estos cambios?`;
+        + `🎬 ${paraActualizarVimeus.length} título(s) cambian su distintivo de Vimeus (para el home y el filtro)\n`
+        + (fallosDeTitulo > 0 ? `⚠️ ${fallosDeTitulo} título(s) no se pudieron chequear (fallo de red) y quedaron como estaban — se pueden reintentar corriendo la auditoría de nuevo.\n` : '')
+        + `\n¿Aplicar estos cambios?`;
 
     if (!confirm(resumen)) {
         if (window.showToast) window.showToast('Auditoría cancelada, no se aplicó ningún cambio.', 'info');

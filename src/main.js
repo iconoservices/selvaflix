@@ -2929,19 +2929,38 @@ window.cleanupCJKTitles = async () => {
 // (sin ejecutar su JS): title vacio, o seasons/embeds vacios = fantasma.
 async function vimeusEstadoTitulo(tmdbId, imdbId, tipo) {
     const build = (idParam) => `https://vimeus.com/e/${tipo}?${idParam}&view_key=${SelvaStream.VIMEUS_VIEW_KEY}`;
-    const probar = async (idParam) => {
+
+    // Un intento suelto. Distingue "Vimeus respondió y dijo que no" (texto
+    // "not found" con 200 — negativo real, no hace falta reintentar) de
+    // "el pedido en sí falló" (fetch tiró excepción, o un status no-2xx tipo
+    // 503 por sobrecarga momentánea — un hipo de red, no una respuesta real
+    // de Vimeus). Sin esta distinción, un solo hipo pasajero durante la
+    // auditoría marcaba para siempre "Sin Vimeus" a un título que sí lo
+    // tiene (caso real: Rick y Morty — reproducía bien a mano, pero el
+    // audit lo había marcado como no disponible).
+    const intentar = async (idParam) => {
         try {
             const r = await fetch(build(idParam));
+            if (!r.ok) return { resultado: 'no-match', transitorio: true };
             const html = await r.text();
-            if (!r.ok || /not found/i.test(html)) return 'no-match';
+            if (/not found/i.test(html)) return { resultado: 'no-match', transitorio: false };
             const m = html.match(/<script type="text\/json" id="data">([\s\S]*?)<\/script>/);
-            if (!m) return 'no-match';
+            if (!m) return { resultado: 'no-match', transitorio: false };
             const data = JSON.parse(m[1]);
             const sinContenido = !data.title
                 || (Array.isArray(data.seasons) && data.seasons.length === 0)
                 || (Array.isArray(data.embeds) && data.embeds.length === 0);
-            return sinContenido ? 'fantasma' : 'ok';
-        } catch (e) { return 'no-match'; }
+            return { resultado: sinContenido ? 'fantasma' : 'ok', transitorio: false };
+        } catch (e) { return { resultado: 'no-match', transitorio: true }; }
+    };
+
+    const probar = async (idParam) => {
+        for (let intento = 1; intento <= 3; intento++) {
+            const { resultado, transitorio } = await intentar(idParam);
+            if (resultado !== 'no-match' || !transitorio) return resultado;
+            if (intento < 3) await new Promise(r => setTimeout(r, 800));
+        }
+        return 'no-match';
     };
 
     if (tmdbId) {
@@ -6897,9 +6916,36 @@ window.submitMovieForm = async () => {
 
   try {
     if (dbId) {
+      // Si este título todavía nunca se verificó (Sin Verificar), aprovechamos
+      // el guardado para chequearlo también acá — así no depende de que el
+      // admin se acuerde de correr la auditoría completa o el botón de
+      // "Probar las Fuentes" a mano. Si ya tiene un estado confirmado de
+      // antes, no se vuelve a chequear solo por editar un campo cualquiera
+      // (para eso está "Probar las Fuentes" si sospechan que algo cambió).
+      const movieActual = movieDatabase.trending.find(m => m.id === dbId);
+      if (movieActual && movieActual.vimeusDisponible === undefined && (movieData.tmdbId || movieData.imdbId)) {
+        if (submitBtn) submitBtn.innerHTML = '<span class="material-symbols-outlined">hourglass_empty</span> Verificando Vimeus...';
+        const tipoVimeus = movieData.type === 'anime' ? 'anime' : ((movieData.type === 'series' || movieData.type === 'tv') ? 'serie' : 'movie');
+        const estado = await vimeusEstadoTitulo(movieData.tmdbId, movieData.imdbId, tipoVimeus);
+        movieData.vimeusDisponible = estado === 'ok';
+        movieData.vimeusFantasma = estado === 'fantasma';
+      }
       await updateDoc(doc(db, "movies", dbId), movieData);
       window.showToast('¡Título actualizado! 🌴🔄', 'success');
     } else {
+      // Chequear Vimeus acá, al crear, tal como ya hace la Carga Masiva
+      // (ver comentario en selvaExecuteExportToHosting/mData más abajo) —
+      // sin esto, un título nuevo agregado por este formulario individual
+      // se quedaba "Sin Verificar" para siempre hasta la próxima auditoría
+      // completa del catálogo, a diferencia de la Carga Masiva que sí
+      // verifica cada título al sembrarlo.
+      if (movieData.tmdbId || movieData.imdbId) {
+        if (submitBtn) submitBtn.innerHTML = '<span class="material-symbols-outlined">hourglass_empty</span> Verificando Vimeus...';
+        const tipoVimeus = movieData.type === 'anime' ? 'anime' : ((movieData.type === 'series' || movieData.type === 'tv') ? 'serie' : 'movie');
+        const estado = await vimeusEstadoTitulo(movieData.tmdbId, movieData.imdbId, tipoVimeus);
+        movieData.vimeusDisponible = estado === 'ok';
+        movieData.vimeusFantasma = estado === 'fantasma';
+      }
       movieData.createdAt = Date.now();
       await addDoc(moviesCol, movieData);
       window.showToast('¡Título añadido exitosamente! 🌴🍿', 'success');
@@ -8166,6 +8212,23 @@ window.previewVimeusAuto = async () => {
     url: estadoVimeus === 'ok' ? `https://vimeus.com/e/${tipoVimeus}?${idParam}&view_key=${SelvaStream.VIMEUS_VIEW_KEY}` : null,
     nota: estadoVimeus === 'fantasma' ? 'fantasma (matchea pero sin video real)' : null
   });
+
+  // A pedido: si esto es sobre una película ya guardada, de paso se guarda
+  // el resultado real de Vimeus (no solo se muestra en la vista previa) —
+  // así el admin no necesita un botón aparte de "rechequear": usar "Probar
+  // las Fuentes" sobre un título ya confirmado también refresca su badge
+  // en el Home, sin esperar a la próxima auditoría completa del catálogo.
+  const dbIdActual = document.getElementById('m-db-id').value.trim();
+  if (dbIdActual) {
+    const vimeusDisponible = estadoVimeus === 'ok';
+    const vimeusFantasma = estadoVimeus === 'fantasma';
+    updateDoc(doc(db, "movies", dbIdActual), { vimeusDisponible, vimeusFantasma }).then(() => {
+      const movieActual = movieDatabase.trending.find(m => m.id === dbIdActual);
+      if (movieActual) { movieActual.vimeusDisponible = vimeusDisponible; movieActual.vimeusFantasma = vimeusFantasma; }
+      sessionStorage.removeItem('selvaflix_full_database');
+      sessionStorage.removeItem('selvaflix_cache_timestamp');
+    }).catch(e => console.warn('No se pudo guardar el estado de Vimeus:', e));
+  }
 
   if (isTv) {
     // Series: el reproductor real solo tiene Vimeus + FlixLatam como respaldo.

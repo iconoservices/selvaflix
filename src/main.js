@@ -3477,14 +3477,18 @@ window.loadRegisteredUsers = async () => {
         );
         const loginSnap = await getDocs(loginQuery);
         const loginsByUid = {};
+        const visitorIdsConCuenta = new Set(); // quién ya se logueó alguna vez, para no contarlo como "invitado"
         loginSnap.forEach(d => {
             const data = d.data();
+            if (data.visitorId) visitorIdsConCuenta.add(data.visitorId);
             if (!data.uid) return;
             if (!loginsByUid[data.uid]) loginsByUid[data.uid] = { count: 0, platforms: new Set(), last: 0 };
             loginsByUid[data.uid].count++;
             if (data.platform) loginsByUid[data.uid].platforms.add(data.platform);
             if (data.timestamp > loginsByUid[data.uid].last) loginsByUid[data.uid].last = data.timestamp;
         });
+
+        window.loadVisitorInsights(visitorIdsConCuenta);
 
         if (countEl) countEl.innerText = `${accounts.length} cuenta(s) registrada(s)`;
 
@@ -3530,6 +3534,46 @@ window.loadRegisteredUsers = async () => {
     } catch (e) {
         console.error("Error cargando usuarios registrados:", e);
         tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:#E74C3C;">Fallo cargando usuarios: ${e.message}</td></tr>`;
+    }
+};
+
+// Pills de "Visitantes / Invitados / App instalada" arriba de la tabla de
+// cuentas. Se arma con "analytics_geo" (que ya guarda 1 visita por
+// dispositivo cada 24h, ver trackUserGeo) — desde que se le agregaron los
+// campos visitorId/isPwa se puede separar invitados de cuentas (cruzando
+// contra quién ya logueó alguna vez, recibido de loadRegisteredUsers) y
+// navegador de PWA instalada. No hay forma de reconstruir esto para visitas
+// de antes de ese cambio, así que arranca en 0 y crece desde ahí.
+window.loadVisitorInsights = async (visitorIdsConCuenta = new Set()) => {
+    const elVisitantes = document.getElementById('ustat-visitantes');
+    const elInvitados = document.getElementById('ustat-invitados');
+    const elPwa = document.getElementById('ustat-pwa');
+    const elNavegador = document.getElementById('ustat-navegador');
+    if (!elVisitantes) return;
+
+    try {
+        const desde30dias = Date.now() - 30 * 24 * 60 * 60 * 1000;
+        const visitasQuery = query(collection(db, "analytics_geo"), where("ts", ">=", desde30dias));
+        const visitasSnap = await getDocs(visitasQuery);
+
+        const porVisitante = {};
+        visitasSnap.forEach(d => {
+            const data = d.data();
+            if (!data.visitorId) return; // visita de antes de agregar este campo
+            if (!porVisitante[data.visitorId]) porVisitante[data.visitorId] = { isPwa: false };
+            if (data.isPwa) porVisitante[data.visitorId].isPwa = true;
+        });
+
+        const ids = Object.keys(porVisitante);
+        const invitados = ids.filter(vid => !visitorIdsConCuenta.has(vid)).length;
+        const conPwa = ids.filter(vid => porVisitante[vid].isPwa).length;
+
+        elVisitantes.innerText = ids.length;
+        if (elInvitados) elInvitados.innerText = invitados;
+        if (elPwa) elPwa.innerText = conPwa;
+        if (elNavegador) elNavegador.innerText = ids.length - conPwa;
+    } catch (e) {
+        console.error('Error cargando insights de visitantes:', e);
     }
 };
 
@@ -4397,7 +4441,14 @@ window.trackUserGeo = async () => {
         if (!lastTrack || (Date.now() - parseInt(lastTrack) > 86400000)) {
             await addDoc(collection(db, "analytics_geo"), {
                 type: 'visit',
-                ...geoInfo
+                ...geoInfo,
+                // visitorId + isPwa: para el panel de Usuarios poder distinguir
+                // invitados de cuentas reales, y navegador vs app instalada
+                // (PWA). Arranca a contar desde que se agregó esto — no hay
+                // forma de reconstruir esta info para visitas viejas.
+                visitorId: getVisitorId(),
+                uid: auth.currentUser ? auth.currentUser.uid : null,
+                isPwa: window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
             });
             localStorage.setItem('selva_last_geo_track', Date.now());
         }

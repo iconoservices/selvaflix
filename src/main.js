@@ -3548,7 +3548,8 @@ window.loadVisitorInsights = async (visitorIdsConCuenta = new Set()) => {
     const elVisitantes = document.getElementById('ustat-visitantes');
     const elInvitados = document.getElementById('ustat-invitados');
     const elPwa = document.getElementById('ustat-pwa');
-    const elNavegador = document.getElementById('ustat-navegador');
+    const elCelular = document.getElementById('ustat-celular');
+    const elEscritorio = document.getElementById('ustat-escritorio');
     if (!elVisitantes) return;
 
     try {
@@ -3560,18 +3561,25 @@ window.loadVisitorInsights = async (visitorIdsConCuenta = new Set()) => {
         visitasSnap.forEach(d => {
             const data = d.data();
             if (!data.visitorId) return; // visita de antes de agregar este campo
-            if (!porVisitante[data.visitorId]) porVisitante[data.visitorId] = { isPwa: false };
+            if (!porVisitante[data.visitorId]) porVisitante[data.visitorId] = { isPwa: false, isMobile: false };
             if (data.isPwa) porVisitante[data.visitorId].isPwa = true;
+            if (data.isMobile) porVisitante[data.visitorId].isMobile = true;
         });
 
         const ids = Object.keys(porVisitante);
         const invitados = ids.filter(vid => !visitorIdsConCuenta.has(vid)).length;
         const conPwa = ids.filter(vid => porVisitante[vid].isPwa).length;
+        // "Celular sin instalar" y "Escritorio" son ambos "solo navegador" (no
+        // instalaron la app), separados por si entraron desde el celu o la PC —
+        // separado de conPwa arriba, que ya cubre "instalada" sin importar el dispositivo.
+        const celularSinInstalar = ids.filter(vid => !porVisitante[vid].isPwa && porVisitante[vid].isMobile).length;
+        const escritorio = ids.filter(vid => !porVisitante[vid].isPwa && !porVisitante[vid].isMobile).length;
 
         elVisitantes.innerText = ids.length;
         if (elInvitados) elInvitados.innerText = invitados;
         if (elPwa) elPwa.innerText = conPwa;
-        if (elNavegador) elNavegador.innerText = ids.length - conPwa;
+        if (elCelular) elCelular.innerText = celularSinInstalar;
+        if (elEscritorio) elEscritorio.innerText = escritorio;
     } catch (e) {
         console.error('Error cargando insights de visitantes:', e);
     }
@@ -4448,7 +4456,8 @@ window.trackUserGeo = async () => {
                 // forma de reconstruir esta info para visitas viejas.
                 visitorId: getVisitorId(),
                 uid: auth.currentUser ? auth.currentUser.uid : null,
-                isPwa: window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true
+                isPwa: window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true,
+                isMobile: /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
             });
             localStorage.setItem('selva_last_geo_track', Date.now());
         }
@@ -7413,6 +7422,24 @@ window.setAdminPriorityFromDrawer = async () => {
     localStorage.setItem('pwa_installed', 'true');
     if (installBtn) installBtn.style.display = 'none';
   });
+
+  // iOS (Safari/Chrome-en-iOS) nunca dispara "beforeinstallprompt" — Apple no
+  // lo soporta, así que el botón de arriba se queda escondido para siempre y
+  // esos usuarios no tienen forma de enterarse de que se puede instalar.
+  // Se les muestra en cambio un banner con los pasos manuales (Compartir →
+  // Agregar a inicio). Se guarda si lo cerraron para no insistir cada visita.
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  const iosBanner = document.getElementById('ios-install-banner');
+  const iosDismissBtn = document.getElementById('ios-install-dismiss');
+  if (isIOS && !isStandalone && iosBanner && localStorage.getItem('selva_ios_install_dismissed') !== 'true') {
+    setTimeout(() => { iosBanner.style.display = 'block'; }, 4000);
+  }
+  if (iosDismissBtn) {
+    iosDismissBtn.addEventListener('click', () => {
+      if (iosBanner) iosBanner.style.display = 'none';
+      localStorage.setItem('selva_ios_install_dismissed', 'true');
+    });
+  }
 });
 
 // --- SISTEMA DE USUARIOS & PERFILES (Fase 6) ---

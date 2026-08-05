@@ -1554,15 +1554,20 @@ function _renderInventoryRows(items) {
     const releaseDate = m.year ? `Dec 05, ${m.year}` : 'Unknown';
 
     // A pedido: marca a la vista cuáles títulos no tienen Vimeus (nunca
-    // matcheó) o son "Fantasma" (matcheó por tmdb/imdb pero sin contenido
-    // real cargado del otro lado — ver vimeusEstadoTitulo). Solo se pinta si
-    // ya se corrió la auditoría al menos una vez para este título
-    // (vimeusDisponible/vimeusFantasma vienen undefined si nunca se chequeó).
+    // matcheó), son "Fantasma" (matcheó por tmdb/imdb pero sin contenido
+    // real cargado del otro lado — ver vimeusEstadoTitulo), o directamente
+    // nunca pasaron por la auditoría todavía (vimeusDisponible === undefined).
+    // Antes ese último caso no mostraba ningún badge, indistinguible de un
+    // título realmente confirmado — por eso títulos como "El polígamo" o
+    // "Spider-Noir" parecían estar bien cuando en realidad solo faltaba
+    // correr "Auditar Vimeus" sobre ellos.
     let vimeusBadge = '';
     if (m.vimeusFantasma) {
       vimeusBadge = `<span class="genre-badge" style="background:rgba(155,89,182,0.15); color:#9b59b6; border:1px solid rgba(155,89,182,0.35);" title="Vimeus matchea el título pero no tiene contenido cargado (temporadas/embeds vacíos)">👻 Fantasma</span>`;
     } else if (m.vimeusDisponible === false) {
       vimeusBadge = `<span class="genre-badge" style="background:rgba(255,82,82,0.12); color:#FF5252; border:1px solid rgba(255,82,82,0.3);" title="Vimeus no tiene este título">🚫 Sin Vimeus</span>`;
+    } else if (m.vimeusDisponible === undefined && (m.imdbId || m.tmdbId)) {
+      vimeusBadge = `<span class="genre-badge" style="background:rgba(255,255,255,0.06); color:#888; border:1px solid rgba(255,255,255,0.12);" title="Todavía no pasó por 'Auditar Vimeus' — no se sabe si tiene fuente real o no">❔ Sin Verificar</span>`;
     }
 
     return `
@@ -1694,6 +1699,53 @@ window.openUploadDrawer = () => {
   if (formTitle) formTitle.textContent = 'Agregar Nuevo Título';
   if (breadcrumb) breadcrumb.textContent = 'Agregar Película';
   if (editingId) editingId.value = '';
+
+  // Limpiar TODOS los campos del formulario: antes solo se reseteaban el
+  // título/breadcrumb y las previsualizaciones de imagen, así que si venías
+  // de editar una película "Sana" y apretabas "+ Agregar Título", el estado
+  // (y el resto de los campos) se quedaban pegados con el valor anterior.
+  const clearField = (id, val = '') => { const el = document.getElementById(id); if (el) el.value = val; };
+  ['m-db-id', 'm-imdb-id', 'm-original-title', 'm-alternative-titles', 'm-title', 'm-tmdb-id',
+   'm-synopsis', 'm-director', 'm-cast', 'm-genres', 'm-embed', 'm-img', 'm-backdrop',
+   'm-release-date', 'detail-admin-manual-link-input'].forEach(id => clearField(id));
+
+  clearField('m-status', 'review');
+  clearField('m-type', 'movie');
+  clearField('m-rating', '4.8');
+  clearField('m-lang', 'es-MX');
+
+  const pinned = document.getElementById('m-pinned'); if (pinned) pinned.checked = false;
+  const isVip = document.getElementById('m-is-vip'); if (isVip) isVip.checked = false;
+  const vipOptions = document.getElementById('m-vip-options'); if (vipOptions) vipOptions.style.display = 'none';
+  const showCountdown = document.getElementById('m-show-countdown'); if (showCountdown) showCountdown.checked = true;
+
+  const genreTagsContainer = document.getElementById('genre-tags-container');
+  if (genreTagsContainer) genreTagsContainer.innerHTML = '<button type="button" onclick="window.addGenreTag()" class="add-tag-btn">+ Agregar</button>';
+
+  const submitBtn = document.getElementById('submit-btn');
+  const cancelEditBtn = document.getElementById('cancel-edit');
+  if (submitBtn) submitBtn.innerHTML = '<span class="material-symbols-outlined">save</span> Guardar Cambios';
+  if (cancelEditBtn) cancelEditBtn.style.display = 'none';
+
+  const tmdbSearchInput = document.getElementById('tmdb-search-input');
+  const tmdbResults = document.getElementById('tmdb-results');
+  const tmdbImgSuggestions = document.getElementById('tmdb-img-suggestions');
+  if (tmdbSearchInput) tmdbSearchInput.value = '';
+  if (tmdbResults) tmdbResults.innerHTML = '';
+  if (tmdbImgSuggestions) tmdbImgSuggestions.innerHTML = '';
+
+  const scrapedSection = document.getElementById('drawer-scraped-links-section');
+  const scrapedList = document.getElementById('drawer-scraped-links-list');
+  if (scrapedSection) scrapedSection.style.display = 'none';
+  if (scrapedList) scrapedList.innerHTML = '';
+
+  const embedPreview = document.getElementById('admin-embed-preview');
+  if (embedPreview) embedPreview.style.display = 'none';
+
+  const vimeusStatus = document.getElementById('vimeus-auto-status');
+  const vimeusList = document.getElementById('vimeus-auto-sources-list');
+  if (vimeusStatus) vimeusStatus.textContent = '';
+  if (vimeusList) vimeusList.innerHTML = '';
 
   // Reset media previews
   const imgPrev = document.getElementById('m-img-preview');
@@ -3285,12 +3337,121 @@ window.loadRegisteredUsers = async () => {
                     <td style="text-align:center; font-weight:800; color:var(--admin-accent-orange);">${stats.count}</td>
                     <td style="font-size:0.75rem;">${devices}</td>
                     <td style="font-size:0.78rem;">${lastSeen}</td>
+                    <td style="text-align:center;">
+                        <button onclick="window.viewAccountProfiles('${acc.uid}', '${(acc.displayName || acc.email || '').replace(/'/g, "\\'")}')" style="background:rgba(0,242,255,0.1); border:1px solid rgba(0,242,255,0.3); color:#00f2ff; font-size:0.7rem; font-weight:700; padding:6px 10px; border-radius:6px; cursor:pointer; white-space:nowrap;">
+                            👤 Ver Perfiles
+                        </button>
+                    </td>
                 </tr>
             `;
         }).join('');
     } catch (e) {
         console.error("Error cargando usuarios registrados:", e);
-        tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:30px; color:#E74C3C;">Fallo cargando usuarios: ${e.message}</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:#E74C3C;">Fallo cargando usuarios: ${e.message}</td></tr>`;
+    }
+};
+
+// Soporte: ver los perfiles de una cuenta y poder quitarle el PIN a uno
+// puntual sin tocar los demás (caso real: un chico se traba en su perfil
+// principal porque olvidó el PIN y termina creando otro perfil sin PIN para
+// poder entrar, dejando su historial/favoritos abandonados en el original).
+// No se muestra el PIN en texto plano — solo si tiene uno puesto o no.
+window.viewAccountProfiles = async (uid, displayName) => {
+    const modal = document.getElementById('account-profiles-modal');
+    const title = document.getElementById('account-profiles-modal-title');
+    const list = document.getElementById('account-profiles-list');
+    if (!modal || !list) return;
+
+    if (title) title.textContent = `Perfiles de ${displayName || 'esta cuenta'}`;
+    list.innerHTML = '<p style="color:#888; text-align:center; font-size:0.8rem;">Cargando perfiles... 📡</p>';
+    modal.style.display = 'flex';
+
+    try {
+        const snap = await getDocs(collection(db, "users", uid, "profiles"));
+        const profiles = [];
+        snap.forEach(d => profiles.push({ id: d.id, ...d.data() }));
+
+        if (profiles.length === 0) {
+            list.innerHTML = '<p style="color:#888; text-align:center; font-size:0.8rem;">Esta cuenta no tiene perfiles todavía.</p>';
+            return;
+        }
+
+        const cantidadPrincipales = profiles.filter(p => p.isPrimary).length;
+
+        list.innerHTML = profiles.map(p => {
+            const tienePin = p.pin && p.pin.trim() !== '';
+            const nombreEscapado = (p.name || '').replace(/'/g, "\\'");
+            return `
+                <div style="display:flex; flex-direction:column; gap:8px; padding:10px 12px; background:rgba(255,255,255,0.03); border:1px solid ${p.isPrimary && cantidadPrincipales > 1 ? 'rgba(241,196,15,0.4)' : 'rgba(255,255,255,0.08)'}; border-radius:10px;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span style="font-size:1.5rem;">${p.avatar || '🐯'}</span>
+                            <div>
+                                <div style="color:#fff; font-weight:700; font-size:0.85rem;">${p.name || 'Sin nombre'}${p.isPrimary ? ' 👑' : ''}</div>
+                                <div style="color:${tienePin ? '#f1c40f' : '#666'}; font-size:0.7rem;">${tienePin ? '🔒 Con PIN' : '🔓 Sin PIN'}</div>
+                            </div>
+                        </div>
+                    </div>
+                    ${p.isPrimary && cantidadPrincipales > 1 ? `<p style="margin:0; font-size:0.65rem; color:#f1c40f;">⚠️ Hay ${cantidadPrincipales} perfiles "principales" en esta cuenta — debería haber solo uno.</p>` : ''}
+                    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                        ${tienePin
+                            ? `<button onclick="window.adminResetProfilePin('${uid}', '${p.id}', '${nombreEscapado}')" style="background:rgba(241,196,15,0.1); border:1px solid rgba(241,196,15,0.3); color:#f1c40f; font-size:0.68rem; font-weight:700; padding:5px 9px; border-radius:6px; cursor:pointer; white-space:nowrap;">Quitar PIN</button>`
+                            : ''}
+                        ${p.isPrimary
+                            ? `<button onclick="window.adminUnsetPrimary('${uid}', '${p.id}', '${nombreEscapado}')" style="background:rgba(0,242,255,0.1); border:1px solid rgba(0,242,255,0.3); color:#00f2ff; font-size:0.68rem; font-weight:700; padding:5px 9px; border-radius:6px; cursor:pointer; white-space:nowrap;">Quitar Corona</button>`
+                            : ''}
+                        <button onclick="window.adminDeleteProfile('${uid}', '${p.id}', '${nombreEscapado}')" style="background:rgba(231,76,60,0.1); border:1px solid rgba(231,76,60,0.3); color:#e74c3c; font-size:0.68rem; font-weight:700; padding:5px 9px; border-radius:6px; cursor:pointer; white-space:nowrap;">🗑️ Eliminar Perfil</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (e) {
+        console.error('Error cargando perfiles de la cuenta:', e);
+        list.innerHTML = `<p style="color:#e74c3c; text-align:center; font-size:0.8rem;">Error cargando perfiles: ${e.message}</p>`;
+    }
+};
+
+window.adminResetProfilePin = async (uid, profileId, profileName) => {
+    if (!confirm(`¿Quitarle el PIN al perfil "${profileName}"? Va a poder entrar sin PIN hasta que le pongan uno nuevo.`)) return;
+    try {
+        await updateDoc(doc(db, "users", uid, "profiles", profileId), { pin: "" });
+        if (window.showToast) window.showToast(`🔓 PIN de "${profileName}" eliminado.`, 'success');
+        window.viewAccountProfiles(uid, document.getElementById('account-profiles-modal-title').textContent.replace('Perfiles de ', ''));
+    } catch (e) {
+        console.error('Error quitando PIN:', e);
+        if (window.showToast) window.showToast('Error al quitar el PIN: ' + e.message, 'error');
+    }
+};
+
+// Quitar la marca de "principal" de un perfil (para arreglar el caso de
+// varios perfiles fantasma que quedaron con isPrimary:true a la vez — solo
+// debería haber uno). No requiere confirmación porque no borra nada, solo
+// destraba para poder eliminar el perfil después con el botón normal.
+window.adminUnsetPrimary = async (uid, profileId, profileName) => {
+    try {
+        await updateDoc(doc(db, "users", uid, "profiles", profileId), { isPrimary: false });
+        if (window.showToast) window.showToast(`👑 "${profileName}" ya no es principal.`, 'success');
+        window.viewAccountProfiles(uid, document.getElementById('account-profiles-modal-title').textContent.replace('Perfiles de ', ''));
+    } catch (e) {
+        console.error('Error quitando marca de principal:', e);
+        if (window.showToast) window.showToast('Error: ' + e.message, 'error');
+    }
+};
+
+// Borrado de perfil desde el admin: a diferencia de window.deleteProfile
+// (la versión que usa el propio usuario, que bloquea borrar el principal),
+// esta es una acción de soporte de confianza y no tiene esa traba — sirve
+// justamente para limpiar perfiles fantasma marcados como principales por
+// error, que el usuario no podría borrar por su cuenta.
+window.adminDeleteProfile = async (uid, profileId, profileName) => {
+    if (!confirm(`¿Eliminar el perfil "${profileName}"? Esto borra su historial y favoritos. No se puede deshacer.`)) return;
+    try {
+        await deleteDoc(doc(db, "users", uid, "profiles", profileId));
+        if (window.showToast) window.showToast(`🗑️ Perfil "${profileName}" eliminado.`, 'success');
+        window.viewAccountProfiles(uid, document.getElementById('account-profiles-modal-title').textContent.replace('Perfiles de ', ''));
+    } catch (e) {
+        console.error('Error eliminando perfil:', e);
+        if (window.showToast) window.showToast('Error al eliminar el perfil: ' + e.message, 'error');
     }
 };
 
@@ -5529,6 +5690,13 @@ window.editMovie = (id) => {
   const movie = movieDatabase.trending.find(m => m.id === id);
   if (!movie) return;
 
+  // openUploadDrawer() resetea el formulario entero (para que "Agregar
+  // Título" siempre arranque limpio) — por eso hay que abrirlo PRIMERO y
+  // recién después pisar esos valores por defecto con los datos reales de
+  // la película. Si se llama al final (como antes), el reset borra todo
+  // lo que se acababa de llenar acá abajo.
+  window.openUploadDrawer();
+
   // Llenar formulario
   document.getElementById('m-db-id').value = movie.id;
   document.getElementById('m-title').value = movie.title;
@@ -5541,7 +5709,12 @@ window.editMovie = (id) => {
   document.getElementById('m-year').value = (movie.year || '2024').toString().split('-')[0];
   document.getElementById('m-rating').value = movie.rating || '4.8';
   document.getElementById('m-type').value = movie.type || 'movie';
-  
+  document.getElementById('m-status').value = movie.status || 'review';
+  document.getElementById('m-lang').value = movie.lang || 'es-MX';
+  document.getElementById('m-synopsis').value = movie.synopsis || '';
+  document.getElementById('m-director').value = movie.director || '';
+  document.getElementById('m-cast').value = Array.isArray(movie.cast) ? movie.cast.join(', ') : (movie.cast || '');
+
   // VIP Fields
   const isVip = movie.isVIP || false;
   document.getElementById('m-is-vip').checked = isVip;
@@ -5551,7 +5724,9 @@ window.editMovie = (id) => {
 
   // Actualizar previsualizaciones
   document.getElementById('m-img-preview').src = movie.img;
-  document.getElementById('m-backdrop-preview').src = movie.backdrop || 'https://via.placeholder.com/600x338/111/555?text=Sin+Banner';
+  // Mismo fallback que usa el Home cuando falta el backdrop: cae al póster
+  // antes que al placeholder genérico (ver item.backdrop || item.img).
+  document.getElementById('m-backdrop-preview').src = movie.backdrop || movie.img || 'https://via.placeholder.com/600x338/111/555?text=Sin+Banner';
 
   // Cambiar botones del form
   const submitBtn = document.getElementById('submit-btn');
@@ -5569,8 +5744,6 @@ window.editMovie = (id) => {
   if (drawerTitle) drawerTitle.textContent = `Editando: ${movie.title}`;
   if (breadcrumb) breadcrumb.textContent = 'Editar Película';
   if (editingIdField) editingIdField.value = movie.id;
-  
-  window.openUploadDrawer();
 
   // Cargar previsualización del video al editar
   window.updateMiniPlayer();
@@ -7034,20 +7207,29 @@ window.updateSettingsAccountInfo = () => {
 window.showSettings = () => {
     window.updateSettingsAccountInfo();
     const input = document.getElementById('edit-profile-name-input');
+    const pinInput = document.getElementById('edit-profile-pin-input');
     const modal = document.getElementById('profile-edit-name-modal');
     const saveBtn = document.getElementById('btn-save-profile-name');
-    
+
     input.value = _currentProfile.name;
+    // El campo de PIN se mostraba vacío y, aunque el usuario escribiera algo
+    // ahí, el guardado lo ignoraba por completo (solo mandaba el nombre) —
+    // parecía que se podía cambiar el PIN desde Configuración pero no hacía
+    // nada de verdad.
+    if (pinInput) pinInput.value = _currentProfile.pin || '';
     modal.style.display = 'flex';
-    
+
     saveBtn.onclick = () => {
         const newName = input.value.trim();
+        const newPin = pinInput ? pinInput.value.trim() : '';
         if (!newName) return;
-        window._tempProfileToUpdate = { id: _currentProfile.id, name: newName };
+        if (newPin && newPin.length !== 4) { if (window.showToast) window.showToast('El PIN debe ser de 4 dígitos. 🔒', 'warning'); return; }
+
+        window._tempProfileToUpdate = { id: _currentProfile.id, name: newName, pin: newPin, isPrimary: _currentProfile.isPrimary || false };
         modal.style.display = 'none';
         window.openAvatarPicker();
     };
-    
+
     document.getElementById('user-dropdown').style.display = 'none';
 };
 

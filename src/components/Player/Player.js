@@ -377,13 +377,16 @@ export const SelvaStream = {
                 // Se le da un respiro para que termine de armarse antes de juzgarlo — pero SIN
                 // desactivar el chequeo del todo, porque un Vimeus realmente muerto (sin video de
                 // verdad detrás) también existe y tiene que poder saltar a otro servidor igual.
+                // El respiro tiene que ser más largo que los ~10s de publicidad que Vimeus mete
+                // antes del video real: con menos que eso, el body seguía viéndose "corto" durante
+                // el anuncio y el chequeo saltaba de servidor en plena publicidad, no por bloqueo.
                 if (this.streamActual?.providerName === 'Vimeus') {
                     const streamAlCargar = this.streamActual;
                     setTimeout(() => {
                         // Si para cuando pasó el respiro ya cambió de fuente (a mano, por auto-upgrade
                         // de otra, o por episodio), no tiene sentido juzgar un iframe que ya no es el activo.
                         if (this.streamActual === streamAlCargar) chequearBloqueo();
-                    }, 3000);
+                    }, 12000);
                 } else {
                     chequearBloqueo();
                 }

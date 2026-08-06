@@ -1,6 +1,6 @@
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
-console.log('🌴 SW Check: Script cargado (v2.57)');
+console.log('🌴 SW Check: Script cargado (v2.58)');
 
 const firebaseConfig = {
     apiKey: "AIzaSyCABaNkvUlMjBatNh0Giih01IDH4sNbt1Q",

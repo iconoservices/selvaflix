@@ -8417,8 +8417,8 @@ window.stopMiniPlayer = () => {
 
 // Prueba la fuente automatica tal como la resuelve el home para un usuario
 // real: sigue la MISMA cadena de prioridad que el reproductor real (ver
-// Player.js: Vimeus -> DiPelis -> RepelisHD -> FlixLatam), revisando las 4
-// SIEMPRE (no se corta en la primera que funciona) para poder mostrar la
+// Player.js: Vimeus -> DiPelis -> RepelisHD -> PelisMart -> FlixLatam), revisando
+// TODAS SIEMPRE (no se corta en la primera que funciona) para poder mostrar la
 // lista completa de que servidores tiene, en vez de solo cargar el primero.
 window.previewVimeusAuto = async () => {
   const tmdbId = document.getElementById('m-tmdb-id').value.trim();
@@ -8475,11 +8475,15 @@ window.previewVimeusAuto = async () => {
   }
 
   if (isTv) {
-    // Series: el reproductor real solo tiene Vimeus + FlixLatam como respaldo.
+    // Series: el reproductor real tiene Vimeus + PelisMart + FlixLatam como respaldo.
     if (imdbId) {
+      const pelismartOk = await workerCheck(`provider=pelismart&imdb=${imdbId}`);
+      resultados.push({ name: 'PelisMart', ok: pelismartOk, url: pelismartOk ? `https://pelismart.mov/vidurl/${imdbId}/` : null });
+
       const flixOk = await workerCheck(`provider=flixlatam&imdb=${imdbId}`);
       resultados.push({ name: 'FlixLatam', ok: flixOk, url: flixOk ? `https://flixlatam.com/vidurl/${imdbId}/` : null });
     } else {
+      resultados.push({ name: 'PelisMart', ok: false, url: null, nota: 'sin IMDB ID' });
       resultados.push({ name: 'FlixLatam', ok: false, url: null, nota: 'sin IMDB ID' });
     }
   } else {
@@ -8502,10 +8506,14 @@ window.previewVimeusAuto = async () => {
       const repelisOk = await workerCheck(`provider=repelishd&imdb=${imdbId}`);
       resultados.push({ name: 'RepelisHD', ok: repelisOk, url: repelisOk ? `https://verhdlink.cam/movie/${imdbId}` : null });
 
+      const pelismartOk = await workerCheck(`provider=pelismart&imdb=${imdbId}`);
+      resultados.push({ name: 'PelisMart', ok: pelismartOk, url: pelismartOk ? `https://pelismart.mov/vidurl/${imdbId}/` : null });
+
       const flixOk = await workerCheck(`provider=flixlatam&imdb=${imdbId}`);
       resultados.push({ name: 'FlixLatam', ok: flixOk, url: flixOk ? `https://flixlatam.com/vidurl/${imdbId}/` : null });
     } else {
       resultados.push({ name: 'RepelisHD', ok: false, url: null, nota: 'sin IMDB ID' });
+      resultados.push({ name: 'PelisMart', ok: false, url: null, nota: 'sin IMDB ID' });
       resultados.push({ name: 'FlixLatam', ok: false, url: null, nota: 'sin IMDB ID' });
     }
   }

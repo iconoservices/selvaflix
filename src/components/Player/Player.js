@@ -1099,7 +1099,7 @@ export const SelvaStream = {
 
         // 🇲🇽 DiPelis se inserta después de Vimeus por código (ver
         // fetchDiPelisSource), así que el orden real termina siendo
-        // Vimeus → DiPelis → RepelisHD → FlixLatam, como se pidió.
+        // Vimeus → DiPelis → RepelisHD → PelisMart → FlixLatam, como se pidió.
         if (slug && !isTv) {
             this.fetchDiPelisSource(slug, movieTitle);
         }
@@ -1111,6 +1111,19 @@ export const SelvaStream = {
         if (imdbId && !isTv) {
             defs.push({ lang: 'latino', name: "🎬 REPELISHD", providerName: "RepelisHD",
                 url: `https://verhdlink.cam/movie/${imdbId}` });
+        }
+
+        // 🍿 PelisMart: mismo backend que FlixLatam (mismo patrón /vidurl/ por
+        // IMDb y el iframe que devuelve corre sobre el mismo EMBED69) — es un
+        // dominio espejo, no un proveedor distinto. Va justo antes de FlixLatam
+        // porque a veces un ISP bloquea uno de los dos dominios y no el otro
+        // (ver Red bloquea dominios de streaming), así que sirve de respaldo
+        // real aunque el contenido detrás sea idéntico.
+        if (imdbId) {
+            defs.push({ lang: 'latino', name: "🍿 PELISMART · EMBED69", providerName: "PelisMart",
+                url: isTv
+                    ? `https://pelismart.mov/vidurl/${imdbId}-${s}x${e < 10 ? '0' + e : e}/`
+                    : `https://pelismart.mov/vidurl/${imdbId}/` });
         }
 
         // 🇲🇽 FlixLatam es un resolver por IMDb: la página que devuelve corre sobre

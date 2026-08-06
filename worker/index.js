@@ -122,6 +122,15 @@ export default {
                         const text = await r.text();
                         return new Response(JSON.stringify({ available: r.ok && !text.includes('No folders found') }), { headers: corsHeaders });
                     }
+                    // PelisMart es un dominio espejo del mismo backend que FlixLatam
+                    // (mismo /vidurl/, mismo EMBED69 detras, mismo error "No folders
+                    // found" con HTTP 200 cuando no tiene el titulo) — mismo chequeo.
+                    if (provider === 'pelismart') {
+                        if (!imdb) return new Response(JSON.stringify({ error: 'falta imdb' }), { status: 400, headers: corsHeaders });
+                        const r = await fetch(`https://pelismart.mov/vidurl/${imdb}/`, { headers: { 'User-Agent': UA } });
+                        const text = await r.text();
+                        return new Response(JSON.stringify({ available: r.ok && !text.includes('No folders found') }), { headers: corsHeaders });
+                    }
                     if (provider === 'pelisplus') {
                         if (!slug) return new Response(JSON.stringify({ error: 'falta slug' }), { status: 400, headers: corsHeaders });
                         const r = await fetch(`https://www.pelisplushd.la/pelicula/${slug}-${tmdb || ''}`, { headers: { 'User-Agent': UA } });

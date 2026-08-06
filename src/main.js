@@ -8802,8 +8802,11 @@ window.sendSupportMessage = async () => {
     try {
         await addDoc(collection(db, SUPPORT_COL), {
             uid: user.uid,
-            userName: (_currentProfile && _currentProfile.name) || user.displayName || 'Usuario',
+            // La cuenta es la dueña del hilo (uid), no el perfil activo: varios perfiles de
+            // una misma cuenta (familia) deben caer en la misma conversación con el admin.
+            userName: user.displayName || user.email || 'Usuario',
             userEmail: user.email || '',
+            profileName: (_currentProfile && _currentProfile.name) || '',
             sender: 'user',
             text,
             createdAt: Date.now(),
@@ -8903,7 +8906,10 @@ window.openAdminThread = async (uid) => {
 
 window._renderAdminThread = (thread) => {
     const header = document.getElementById('admin-messages-chat-header');
-    if (header) header.innerText = `${thread.userName || 'Usuario'} · ${thread.userEmail || 'sin email'}`;
+    if (header) {
+        const lastProfile = [...thread.messages].reverse().find(m => m.sender === 'user' && m.profileName)?.profileName;
+        header.innerText = `${thread.userName || 'Usuario'} · ${thread.userEmail || 'sin email'}${lastProfile ? ' · perfil: ' + lastProfile : ''}`;
+    }
     const body = document.getElementById('admin-messages-chat-body');
     if (body) {
         body.innerHTML = thread.messages.map(m => _renderSupportBubble(m.text, m.sender === 'admin')).join('');

@@ -7713,6 +7713,11 @@ window.loadProfiles = async (uid) => {
             if (window.showToast) {
                 window.showToast("❌ No pudimos conectar con la selva. Revisa tu internet.", "error");
             }
+            // Sin red no hay forma de confirmar los perfiles reales, pero si ya había uno activo
+            // en esta sesión lo restauramos desde caché para que la app siga usable offline
+            // (en vez de dejar la pantalla sin perfil ni selector).
+            const savedOffline = sessionStorage.getItem('selva_active_profile');
+            if (savedOffline) window.applyProfile(JSON.parse(savedOffline));
             return; // No asumir "sin perfiles" por un fallo de red
         }
     }
@@ -7721,8 +7726,10 @@ window.loadProfiles = async (uid) => {
 
     if (profiles.length === 0) {
         // Si ya había un perfil activo en esta sesión, una lectura vacía es un fallo de red/caché, no una cuenta nueva.
-        if (sessionStorage.getItem('selva_active_profile')) {
+        const savedEmpty = sessionStorage.getItem('selva_active_profile');
+        if (savedEmpty) {
             console.warn("Consulta de perfiles vacía pero hay un perfil activo en sesión; se omite el onboarding (probable fallo de red).");
+            window.applyProfile(JSON.parse(savedEmpty));
             return;
         }
         // No adivinamos nombre/avatar: el usuario elige su primer perfil a mano (como Netflix).

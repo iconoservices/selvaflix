@@ -350,26 +350,42 @@ export const SelvaStream = {
                 }
 
                 // Intento heurístico de detección de errores por Cross-Origin (Si el iframe está en blanco por bloqueo)
-                // OJO Vimeus: a diferencia de los demás proveedores, Vimeus tiene CORS habilitado
-                // a propósito (ver fetchVimeusSource), así que SIEMPRE se puede leer su HTML sin
-                // que salte la DOMException — y justo al terminar de cargar, antes de que inyecte
-                // el reproductor adentro, ese HTML inicial es corto. Este chequeo lo malinterpretaba
-                // como "bloqueado" y saltaba de servidor aunque Vimeus estuviera cargando bien (o ya
-                // reproduciendo) — reportado como "dice que no está disponible y cambia de servidor
-                // pese a que ya reproducía". Se salta este heurístico solo para Vimeus.
-                if (this.streamActual?.providerName !== 'Vimeus') try {
-                    // Si el servidor se niega a conectar por sandbox/x-frame-options, el título interno o el body estarán vacíos
-                    // Muchos navegadores modernos bloquean directamente el acceso y lanzan una DOMException
-                    // Atrapamos la DOMException en el catch como indicador de que el iframe CARGÓ, pero de un origen externo exitoso.
-                    // Si el iframe está "en blanco" por bloqueo del navegador (CORS/Sandbox estricto en la misma ventana), a veces no lanza error sino que queda accesible pero vacío.
-                    const iframeWindow = iframe.contentWindow;
-                    if (iframeWindow && iframeWindow.document && iframe.style.display !== 'none' && iframeWindow.document.body.innerHTML.length < 50) {
-                        // Sospechoso de bloqueo de Sandbox.
-                        this.handlePlayerError();
+                const chequearBloqueo = () => {
+                    try {
+                        // Si el servidor se niega a conectar por sandbox/x-frame-options, el título interno o el body estarán vacíos
+                        // Muchos navegadores modernos bloquean directamente el acceso y lanzan una DOMException
+                        // Atrapamos la DOMException en el catch como indicador de que el iframe CARGÓ, pero de un origen externo exitoso.
+                        // Si el iframe está "en blanco" por bloqueo del navegador (CORS/Sandbox estricto en la misma ventana), a veces no lanza error sino que queda accesible pero vacío.
+                        const iframeWindow = iframe.contentWindow;
+                        if (iframeWindow && iframeWindow.document && iframe.style.display !== 'none' && iframeWindow.document.body.innerHTML.length < 50) {
+                            // Sospechoso de bloqueo de Sandbox.
+                            this.handlePlayerError();
+                        }
+                    } catch (error) {
+                        // DOMException por Cross-Origin significa que el sitio externo cargó correctamente y protegió su DOM.
+                        // Esto es lo que queremos que pase. Significa que hay contenido.
                     }
-                } catch (error) {
-                    // DOMException por Cross-Origin significa que el sitio externo cargó correctamente y protegió su DOM.
-                    // Esto es lo que queremos que pase. Significa que hay contenido.
+                };
+
+                // OJO Vimeus: a diferencia de los demás proveedores, mete su reproductor adentro
+                // por JS DESPUÉS de que la página ya cargó (no viene armado desde el onload), y
+                // encima tiene CORS habilitado a propósito (ver fetchVimeusSource) — así que su
+                // HTML siempre se puede leer sin DOMException. Juzgarlo al toque del onload
+                // confundía "todavía no terminó de armarse" con "bloqueado", y saltaba de servidor
+                // pese a que Vimeus ya estaba cargando bien (o reproduciendo) — reportado como
+                // "dice que no está disponible y cambia de servidor pese a que ya reproducía".
+                // Se le da un respiro para que termine de armarse antes de juzgarlo — pero SIN
+                // desactivar el chequeo del todo, porque un Vimeus realmente muerto (sin video de
+                // verdad detrás) también existe y tiene que poder saltar a otro servidor igual.
+                if (this.streamActual?.providerName === 'Vimeus') {
+                    const streamAlCargar = this.streamActual;
+                    setTimeout(() => {
+                        // Si para cuando pasó el respiro ya cambió de fuente (a mano, por auto-upgrade
+                        // de otra, o por episodio), no tiene sentido juzgar un iframe que ya no es el activo.
+                        if (this.streamActual === streamAlCargar) chequearBloqueo();
+                    }, 3000);
+                } else {
+                    chequearBloqueo();
                 }
             };
 

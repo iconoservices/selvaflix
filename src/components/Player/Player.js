@@ -350,7 +350,14 @@ export const SelvaStream = {
                 }
 
                 // Intento heurístico de detección de errores por Cross-Origin (Si el iframe está en blanco por bloqueo)
-                try {
+                // OJO Vimeus: a diferencia de los demás proveedores, Vimeus tiene CORS habilitado
+                // a propósito (ver fetchVimeusSource), así que SIEMPRE se puede leer su HTML sin
+                // que salte la DOMException — y justo al terminar de cargar, antes de que inyecte
+                // el reproductor adentro, ese HTML inicial es corto. Este chequeo lo malinterpretaba
+                // como "bloqueado" y saltaba de servidor aunque Vimeus estuviera cargando bien (o ya
+                // reproduciendo) — reportado como "dice que no está disponible y cambia de servidor
+                // pese a que ya reproducía". Se salta este heurístico solo para Vimeus.
+                if (this.streamActual?.providerName !== 'Vimeus') try {
                     // Si el servidor se niega a conectar por sandbox/x-frame-options, el título interno o el body estarán vacíos
                     // Muchos navegadores modernos bloquean directamente el acceso y lanzan una DOMException
                     // Atrapamos la DOMException en el catch como indicador de que el iframe CARGÓ, pero de un origen externo exitoso.

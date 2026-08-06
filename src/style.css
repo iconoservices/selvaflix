@@ -1583,6 +1583,56 @@ h3,
   animation: pulse-primary 2s infinite;
 }
 
+/* Botón flotante de Soporte (chat usuario ⇄ admin) */
+#support-chat-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #000;
+  border: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  z-index: 4000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+#support-chat-fab:hover {
+  transform: scale(1.08);
+}
+
+#support-chat-fab .material-symbols-outlined {
+  font-size: 26px;
+}
+
+#support-chat-badge {
+  display: none;
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #e63946;
+  border: 2px solid #111;
+}
+
+@media (max-width: 768px) {
+  #support-chat-fab {
+    /* Encima de la barra de navegación móvil (70px + safe-area) */
+    bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+    right: 16px;
+    width: 50px;
+    height: 50px;
+  }
+}
+
 /* Smart PWA Banner */
 .pwa-banner {
   display: none;

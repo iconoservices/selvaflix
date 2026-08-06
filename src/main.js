@@ -766,6 +766,10 @@ function showView(active) {
   // Limpiar estado activo del nav mobile
   document.querySelectorAll('.nav-item-cinepulse').forEach(b => b.classList.remove('active'));
 
+  // El botón flotante de soporte es para usuarios navegando la selva, no para el admin
+  const supportFab = document.getElementById('support-chat-fab');
+  if (supportFab) supportFab.style.display = active === 'admin-view' ? 'none' : 'flex';
+
   if (active === 'admin-view') {
     if (adminEl) adminEl.style.display = 'block';
     if (navbar) navbar.style.display = '';
@@ -874,6 +878,7 @@ function handleRouting() {
     showView('admin-view');
     renderInventory();
     window.loadMetrics();
+    if (typeof window.loadAdminMessages === 'function') window.loadAdminMessages(); // refresca el punto de "sin leer" del sidebar
   } else if (hash === 'mylist') {
     showView('my-list-view');
     window.scrollTo(0, 0);
@@ -1632,7 +1637,7 @@ window.updateSelectedCount = () => {
 };
 
 // ─── Admin Tab Navigation (CinePulse Portal) ────────────────────────────────
-const ADMIN_TABS = ['dashboard', 'catalog', 'users', 'analytics', 'ads', 'actions'];
+const ADMIN_TABS = ['dashboard', 'catalog', 'users', 'analytics', 'ads', 'actions', 'messages'];
 
 window.switchAdminTab = (tab) => {
   // Hide all tab panes
@@ -1677,6 +1682,8 @@ window.switchAdminTab = (tab) => {
     if (typeof window.loadAdConfig === 'function') window.loadAdConfig();
   } else if (tab === 'users') {
     if (typeof window.loadRegisteredUsers === 'function') window.loadRegisteredUsers();
+  } else if (tab === 'messages') {
+    if (typeof window.loadAdminMessages === 'function') window.loadAdminMessages();
   } else if (tab === 'dashboard') {
     // Refresh dashboard stats using already-loaded inventory
     if (_allInventoryItems && _allInventoryItems.length > 0) {
@@ -7620,6 +7627,7 @@ onAuthStateChanged(auth, async (user) => {
         
         // Cargar perfiles
         await window.loadProfiles(user.uid);
+        if (typeof window.checkSupportUnread === 'function') window.checkSupportUnread(user.uid); // 💬 respuestas de soporte sin leer
         
         // Restaurar perfil activo si existe (aplica el animalito)
         const saved = sessionStorage.getItem('selva_active_profile');
@@ -8703,5 +8711,225 @@ window.useScrapedStream = (idx) => {
       }
     }
   });
+};
+
+// ─── Soporte: Chat de mensajes usuario ⇄ admin ─────────────────────────────
+// Un solo hilo por uid. Sin listeners en tiempo real (consistente con el resto
+// del proyecto, que usa getDocs puntuales): mientras el chat está abierto se
+// refresca con un poll cada 20s; al cerrarlo, se detiene.
+const SUPPORT_COL = 'support_messages';
+let _supportPollTimer = null;
+let _supportChatUid = null; // uid del hilo que el admin tiene abierto
+let _allSupportThreads = [];
+
+function _escapeHtml(str) {
+    return String(str ?? '').replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+}
+
+function _renderSupportBubble(text, mine) {
+    return `<div style="align-self:${mine ? 'flex-end' : 'flex-start'}; max-width:78%; background:${mine ? 'var(--primary,#FF6600)' : 'rgba(255,255,255,0.08)'}; color:${mine ? '#000' : '#fff'}; padding:8px 12px; border-radius:14px; font-size:0.82rem; word-break:break-word; white-space:pre-wrap;">${_escapeHtml(text)}</div>`;
+}
+
+// --- Lado usuario ---
+window.openSupportChat = async () => {
+    const user = auth.currentUser;
+    if (!user) {
+        if (window.showToast) window.showToast('Inicia sesión para escribirnos 🐒', 'primary');
+        return;
+    }
+    const modal = document.getElementById('support-chat-modal');
+    if (modal) modal.style.display = 'flex';
+    const badge = document.getElementById('support-chat-badge');
+    if (badge) badge.style.display = 'none';
+
+    await window._loadSupportMessages();
+    clearInterval(_supportPollTimer);
+    _supportPollTimer = setInterval(window._loadSupportMessages, 20000);
+};
+
+window.closeSupportChat = () => {
+    const modal = document.getElementById('support-chat-modal');
+    if (modal) modal.style.display = 'none';
+    clearInterval(_supportPollTimer);
+    _supportPollTimer = null;
+};
+
+window._loadSupportMessages = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+    const box = document.getElementById('support-chat-messages');
+    if (!box) return;
+    try {
+        // Sin orderBy en la consulta (evita exigir un índice compuesto): se ordena en cliente.
+        const snap = await getDocs(query(collection(db, SUPPORT_COL), where('uid', '==', user.uid)));
+        const msgs = [];
+        snap.forEach(d => msgs.push({ id: d.id, ...d.data() }));
+        msgs.sort((a, b) => a.createdAt - b.createdAt);
+
+        if (msgs.length === 0) {
+            box.innerHTML = '<p style="text-align:center; color:#666; font-size:0.75rem;">Cuéntanos qué pasó, te leemos pronto 🌴</p>';
+        } else {
+            box.innerHTML = msgs.map(m => _renderSupportBubble(m.text, m.sender === 'user')).join('');
+            box.scrollTop = box.scrollHeight;
+        }
+
+        const unread = msgs.filter(m => m.sender === 'admin' && !m.readByUser);
+        for (const m of unread) {
+            await updateDoc(doc(db, SUPPORT_COL, m.id), { readByUser: true }).catch(() => {});
+        }
+    } catch (e) {
+        console.warn('No se pudo cargar el chat de soporte:', e);
+    }
+};
+
+window.sendSupportMessage = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+    const input = document.getElementById('support-chat-input');
+    if (!input) return;
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    try {
+        await addDoc(collection(db, SUPPORT_COL), {
+            uid: user.uid,
+            userName: (_currentProfile && _currentProfile.name) || user.displayName || 'Usuario',
+            userEmail: user.email || '',
+            sender: 'user',
+            text,
+            createdAt: Date.now(),
+            readByAdmin: false,
+            readByUser: true
+        });
+        await window._loadSupportMessages();
+    } catch (e) {
+        console.error('Error enviando mensaje de soporte:', e);
+        if (window.showToast) window.showToast('No se pudo enviar el mensaje. Revisa tu internet.', 'error');
+    }
+};
+
+// Revisa si hay respuestas del admin sin leer, para el puntito del botón flotante
+window.checkSupportUnread = async (uid) => {
+    if (!uid) return;
+    try {
+        const snap = await getDocs(query(
+            collection(db, SUPPORT_COL),
+            where('uid', '==', uid),
+            where('sender', '==', 'admin'),
+            where('readByUser', '==', false)
+        ));
+        const badge = document.getElementById('support-chat-badge');
+        if (badge) badge.style.display = snap.empty ? 'none' : 'block';
+    } catch (e) { /* silencioso: no bloquear la carga de la app por esto */ }
+};
+
+// --- Lado admin ---
+window.loadAdminMessages = async () => {
+    const listEl = document.getElementById('admin-messages-threads');
+    if (!listEl) return;
+    listEl.innerHTML = '<p style="text-align:center; color:var(--admin-text-muted); padding:20px; font-size:0.8rem;">Cargando...</p>';
+    try {
+        const snap = await getDocs(collection(db, SUPPORT_COL));
+        const all = [];
+        snap.forEach(d => all.push({ id: d.id, ...d.data() }));
+
+        const byUid = {};
+        all.forEach(m => {
+            if (!byUid[m.uid]) byUid[m.uid] = { uid: m.uid, userName: m.userName, userEmail: m.userEmail, messages: [] };
+            byUid[m.uid].messages.push(m);
+        });
+        Object.values(byUid).forEach(t => t.messages.sort((a, b) => a.createdAt - b.createdAt));
+
+        _allSupportThreads = Object.values(byUid).sort((a, b) => {
+            const lastA = a.messages[a.messages.length - 1]?.createdAt || 0;
+            const lastB = b.messages[b.messages.length - 1]?.createdAt || 0;
+            return lastB - lastA;
+        });
+
+        if (_allSupportThreads.length === 0) {
+            listEl.innerHTML = '<p style="text-align:center; color:var(--admin-text-muted); padding:20px; font-size:0.8rem;">Sin mensajes todavía. 🌴</p>';
+        } else {
+            listEl.innerHTML = _allSupportThreads.map(t => {
+                const last = t.messages[t.messages.length - 1];
+                const unread = t.messages.some(m => m.sender === 'user' && !m.readByAdmin);
+                return `<div onclick="window.openAdminThread('${t.uid}')" style="cursor:pointer; padding:10px; border-radius:10px; background:${_supportChatUid === t.uid ? 'rgba(255,102,0,0.14)' : 'rgba(255,255,255,0.03)'}; border:1px solid var(--glass-border); margin-bottom:6px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
+                        <strong style="color:#fff; font-size:0.82rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${_escapeHtml(t.userName || 'Usuario')}</strong>
+                        ${unread ? '<span style="width:8px; height:8px; border-radius:50%; background:#e63946; flex-shrink:0;"></span>' : ''}
+                    </div>
+                    <div style="color:var(--admin-text-muted); font-size:0.72rem; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${_escapeHtml((last?.text || '').slice(0, 60))}</div>
+                </div>`;
+            }).join('');
+        }
+
+        const totalUnread = _allSupportThreads.filter(t => t.messages.some(m => m.sender === 'user' && !m.readByAdmin)).length;
+        const badge = document.getElementById('admin-messages-badge');
+        if (badge) {
+            badge.style.display = totalUnread > 0 ? 'inline-block' : 'none';
+            badge.innerText = totalUnread;
+        }
+
+        if (_supportChatUid) {
+            const openThread = byUid[_supportChatUid];
+            if (openThread) window._renderAdminThread(openThread);
+        }
+    } catch (e) {
+        listEl.innerHTML = '<p style="text-align:center; color:#e63946; padding:20px; font-size:0.8rem;">No se pudieron cargar los mensajes.</p>';
+        console.error('Error cargando mensajes de soporte:', e);
+    }
+};
+
+window.openAdminThread = async (uid) => {
+    _supportChatUid = uid;
+    const thread = _allSupportThreads.find(t => t.uid === uid);
+    if (!thread) return;
+    window._renderAdminThread(thread);
+
+    const unread = thread.messages.filter(m => m.sender === 'user' && !m.readByAdmin);
+    for (const m of unread) {
+        await updateDoc(doc(db, SUPPORT_COL, m.id), { readByAdmin: true }).catch(() => {});
+    }
+    if (unread.length > 0) window.loadAdminMessages(); // refresca la lista para quitar el punto de no-leído
+};
+
+window._renderAdminThread = (thread) => {
+    const header = document.getElementById('admin-messages-chat-header');
+    if (header) header.innerText = `${thread.userName || 'Usuario'} · ${thread.userEmail || 'sin email'}`;
+    const body = document.getElementById('admin-messages-chat-body');
+    if (body) {
+        body.innerHTML = thread.messages.map(m => _renderSupportBubble(m.text, m.sender === 'admin')).join('');
+        body.scrollTop = body.scrollHeight;
+    }
+    const replyRow = document.getElementById('admin-messages-reply-row');
+    if (replyRow) replyRow.style.display = 'flex';
+};
+
+window.sendAdminReply = async () => {
+    if (!_supportChatUid) return;
+    const input = document.getElementById('admin-messages-reply-input');
+    if (!input) return;
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    const thread = _allSupportThreads.find(t => t.uid === _supportChatUid);
+    try {
+        await addDoc(collection(db, SUPPORT_COL), {
+            uid: _supportChatUid,
+            userName: thread?.userName || '',
+            userEmail: thread?.userEmail || '',
+            sender: 'admin',
+            text,
+            createdAt: Date.now(),
+            readByAdmin: true,
+            readByUser: false
+        });
+        await window.loadAdminMessages();
+        window.openAdminThread(_supportChatUid);
+    } catch (e) {
+        console.error('Error enviando respuesta de soporte:', e);
+        if (window.showToast) window.showToast('No se pudo enviar la respuesta.', 'error');
+    }
 };
 

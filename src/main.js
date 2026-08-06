@@ -8747,8 +8747,11 @@ function _escapeHtml(str) {
     }[c]));
 }
 
-function _renderSupportBubble(text, mine) {
-    return `<div data-msg="1" style="align-self:${mine ? 'flex-end' : 'flex-start'}; max-width:78%; background:${mine ? 'var(--primary,#FF6600)' : 'rgba(255,255,255,0.08)'}; color:${mine ? '#000' : '#fff'}; padding:8px 12px; border-radius:14px; font-size:0.82rem; word-break:break-word; white-space:pre-wrap;">${_escapeHtml(text)}</div>`;
+function _renderSupportBubble(text, mine, statusLabel) {
+    const bubble = `<div data-msg="1" style="align-self:${mine ? 'flex-end' : 'flex-start'}; max-width:78%; background:${mine ? 'var(--primary,#FF6600)' : 'rgba(255,255,255,0.08)'}; color:${mine ? '#000' : '#fff'}; padding:8px 12px; border-radius:14px; font-size:0.82rem; word-break:break-word; white-space:pre-wrap;">${_escapeHtml(text)}</div>`;
+    if (!statusLabel) return bubble;
+    // Solo se pasa statusLabel para el último mensaje propio: es el "Enviado ✓ / Visto ✓✓" estilo WhatsApp.
+    return bubble + `<div data-status="1" style="align-self:flex-end; font-size:0.65rem; color:#888; margin-top:-4px;">${statusLabel}</div>`;
 }
 
 // --- Lado usuario ---
@@ -8790,7 +8793,11 @@ window._loadSupportMessages = async () => {
         if (msgs.length === 0) {
             box.innerHTML = '<p style="text-align:center; color:#666; font-size:0.75rem;">Cuéntanos qué pasó, te leemos pronto 🌴</p>';
         } else {
-            box.innerHTML = msgs.map(m => _renderSupportBubble(m.text, m.sender === 'user')).join('');
+            const lastMineIdx = msgs.map(m => m.sender).lastIndexOf('user');
+            box.innerHTML = msgs.map((m, i) => {
+                const status = (i === lastMineIdx) ? (m.readByAdmin ? 'Visto ✓✓' : 'Enviado ✓') : null;
+                return _renderSupportBubble(m.text, m.sender === 'user', status);
+            }).join('');
             box.scrollTop = box.scrollHeight;
         }
 
@@ -8816,7 +8823,8 @@ window.sendSupportMessage = async () => {
     const box = document.getElementById('support-chat-messages');
     if (box) {
         if (!box.querySelector('[data-msg]')) box.innerHTML = '';
-        box.insertAdjacentHTML('beforeend', _renderSupportBubble(text, true));
+        box.querySelectorAll('[data-status]').forEach(el => el.remove()); // el "Enviado" viejo ya no es el último
+        box.insertAdjacentHTML('beforeend', _renderSupportBubble(text, true, 'Enviado ✓'));
         box.scrollTop = box.scrollHeight;
     }
 
@@ -8934,7 +8942,11 @@ window._renderAdminThread = (thread) => {
     }
     const body = document.getElementById('admin-messages-chat-body');
     if (body) {
-        body.innerHTML = thread.messages.map(m => _renderSupportBubble(m.text, m.sender === 'admin')).join('');
+        const lastMineIdx = thread.messages.map(m => m.sender).lastIndexOf('admin');
+        body.innerHTML = thread.messages.map((m, i) => {
+            const status = (i === lastMineIdx) ? (m.readByUser ? 'Visto ✓✓' : 'Enviado ✓') : null;
+            return _renderSupportBubble(m.text, m.sender === 'admin', status);
+        }).join('');
         body.scrollTop = body.scrollHeight;
     }
     const replyRow = document.getElementById('admin-messages-reply-row');
@@ -8953,7 +8965,8 @@ window.sendAdminReply = async () => {
     // Optimista: se pinta al toque, sin esperar la ida y vuelta a Firestore para verse.
     const body = document.getElementById('admin-messages-chat-body');
     if (body) {
-        body.insertAdjacentHTML('beforeend', _renderSupportBubble(text, true));
+        body.querySelectorAll('[data-status]').forEach(el => el.remove()); // el "Enviado" viejo ya no es el último
+        body.insertAdjacentHTML('beforeend', _renderSupportBubble(text, true, 'Enviado ✓'));
         body.scrollTop = body.scrollHeight;
     }
 

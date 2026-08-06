@@ -216,8 +216,10 @@ async function loadSelvaFlixData() {
   const FIFTEEN_MINUTES = 15 * 60 * 1000;
 
   // 1. Revisar si hay un caché válido
-  const cachedStored = sessionStorage.getItem(CACHE_KEY);
-  const cacheTimestamp = sessionStorage.getItem(CACHE_TIME_KEY);
+  // localStorage (no sessionStorage): sobrevive a cerrar la pestaña, así una visita nueva
+  // no vuelve a leer las 215 películas si alguien ya las trajo hace menos de 15 min.
+  const cachedStored = localStorage.getItem(CACHE_KEY);
+  const cacheTimestamp = localStorage.getItem(CACHE_TIME_KEY);
   const now = Date.now();
 
   let hydratedObject = null;
@@ -242,8 +244,8 @@ async function loadSelvaFlixData() {
       }, 1500);
     } catch (e) {
       console.warn("⚠️ Fallo en rehidratación, limpiando búnker para fetch fresco...");
-      sessionStorage.removeItem(CACHE_KEY);
-      sessionStorage.removeItem(CACHE_TIME_KEY);
+      localStorage.removeItem(CACHE_KEY);
+      localStorage.removeItem(CACHE_TIME_KEY);
       hydratedObject = null;
     }
   }
@@ -259,8 +261,8 @@ async function loadSelvaFlixData() {
       movieDatabase.trending = moviesArray;
 
       // Guardar el Espejo Completo
-      sessionStorage.setItem(CACHE_KEY, JSON.stringify(movieDatabase));
-      sessionStorage.setItem(CACHE_TIME_KEY, now.toString());
+      localStorage.setItem(CACHE_KEY, JSON.stringify(movieDatabase));
+      localStorage.setItem(CACHE_TIME_KEY, now.toString());
 
       if(window.resumePendingExports) window.resumePendingExports();
     } catch (error) {
@@ -594,8 +596,8 @@ async function seedPopularSeries() {
         console.error(`Error eliminando duplicado ${dup.title}:`, err);
       }
     }
-    sessionStorage.removeItem('selvaflix_full_database');
-    sessionStorage.removeItem('selvaflix_cache_timestamp');
+    localStorage.removeItem('selvaflix_full_database');
+    localStorage.removeItem('selvaflix_cache_timestamp');
   }
 
   // Esta función se dispara en cada carga de datos y no se espera con await. Si dos
@@ -631,8 +633,8 @@ async function seedPopularSeries() {
     }
   }
   if (addedAny) {
-    sessionStorage.removeItem('selvaflix_full_database');
-    sessionStorage.removeItem('selvaflix_cache_timestamp');
+    localStorage.removeItem('selvaflix_full_database');
+    localStorage.removeItem('selvaflix_cache_timestamp');
     handleRouting();
   }
     localStorage.setItem(SEED_DONE_KEY, '1');
@@ -922,7 +924,7 @@ window.selvaExecuteCrownPromotion = async (movieId, sourceUrl) => {
         }
         
         // Limpiar caché para que otros vean el cambio
-        sessionStorage.removeItem('selvaflix_full_database');
+        localStorage.removeItem('selvaflix_full_database');
     } catch (e) {
         console.error("Error coronando fuente:", e);
         if (window.showToast) window.showToast("Error al coronar la fuente 🐒", "error");
@@ -2418,7 +2420,7 @@ window.uploadBannerArt = async (movieId, file) => {
 
         if (window.showToast) window.showToast("¡Banner actualizado! 🌈🌴", "success");
         window.renderAdminBannerList();
-        sessionStorage.removeItem('selvaflix_full_database');
+        localStorage.removeItem('selvaflix_full_database');
     } catch (e) {
         console.error("Error subiendo banner art:", e);
         if (window.showToast) window.showToast("Error al subir el arte. 🐒", "error");
@@ -2442,7 +2444,7 @@ window.toggleBannerPin = async (movieId, isPinned) => {
         document.getElementById('admin-banner-search').value = '';
         
         // Invalidar caché de BD para que se refleje globalmente si es necesario
-        sessionStorage.removeItem('selvaflix_full_database');
+        localStorage.removeItem('selvaflix_full_database');
     } catch (e) {
         console.error("Error al fijar banner:", e);
         if (window.showToast) window.showToast("No se pudo clavar la bandera en la selva. 🐒", "error");
@@ -2867,8 +2869,8 @@ window.cleanupNonLatinoLabels = async () => {
         }
     }
 
-    sessionStorage.removeItem('selvaflix_full_database');
-    sessionStorage.removeItem('selvaflix_cache_timestamp');
+    localStorage.removeItem('selvaflix_full_database');
+    localStorage.removeItem('selvaflix_cache_timestamp');
     if (document.getElementById('admin-view')?.style.display === 'block') renderInventory();
     if (window.showToast) window.showToast(`✅ ${fixed} etiqueta(s) corregida(s): ya no dicen "Latino" sin serlo.`, 'success');
 
@@ -2904,8 +2906,8 @@ window.cleanupCJKTitles = async () => {
         }
     }
 
-    sessionStorage.removeItem('selvaflix_full_database');
-    sessionStorage.removeItem('selvaflix_cache_timestamp');
+    localStorage.removeItem('selvaflix_full_database');
+    localStorage.removeItem('selvaflix_cache_timestamp');
     if (document.getElementById('admin-view')?.style.display === 'block') renderInventory();
     if (window.showToast) window.showToast(`✅ ${fixed} título(s) traducido(s), ${skipped} sin versión en inglés disponible.`, 'success');
 
@@ -3331,8 +3333,8 @@ window.auditarCatalogoCompleto = async () => {
         } catch (e) { console.error('Error actualizando vimeusDisponible', m.title, e); fallosAplicar.push(`${m.title} (distintivo Vimeus: ${e.message || e})`); }
     }
 
-    sessionStorage.removeItem('selvaflix_full_database');
-    sessionStorage.removeItem('selvaflix_cache_timestamp');
+    localStorage.removeItem('selvaflix_full_database');
+    localStorage.removeItem('selvaflix_cache_timestamp');
     // Sin condicionar a "¿admin-view está en display:block ahora mismo?":
     // ese chequeo podía fallar (otra sub-pestaña, timing) y entonces
     // _allInventoryItems se quedaba con los datos de ANTES de auditar —
@@ -3477,8 +3479,8 @@ window.sincronizarCatalogoVimeus = async (tipos = ['movies', 'series', 'animes']
         await new Promise(r => setTimeout(r, 300));
     }
 
-    sessionStorage.removeItem('selvaflix_full_database');
-    sessionStorage.removeItem('selvaflix_cache_timestamp');
+    localStorage.removeItem('selvaflix_full_database');
+    localStorage.removeItem('selvaflix_cache_timestamp');
     if (document.getElementById('admin-view')?.style.display === 'block') renderInventory();
 
     const msg = `✅ Sincronización completa: ${agregados} título(s) agregados desde Vimeus${fallidos ? `, ${fallidos} fallaron` : ''}.`;
@@ -3918,8 +3920,8 @@ window.bulkDeleteMovies = async (toDelete) => {
   if (overlay) overlay.style.display = 'none';
 
   // 🔥 Parche de Sincronización Real (v4.5.5): Limpiamos caché para evitar "Fantasmas"
-  sessionStorage.removeItem('selvaflix_full_database');
-  sessionStorage.removeItem('selvaflix_cache_timestamp');
+  localStorage.removeItem('selvaflix_full_database');
+  localStorage.removeItem('selvaflix_cache_timestamp');
 
   // Recargamos los datos para que la vista refleje la realidad de Firebase inmediatamente
   await loadSelvaFlixData();
@@ -3968,8 +3970,8 @@ window.deleteSelectedCoconas = async () => {
   }
 
   if (overlay) overlay.style.display = 'none';
-  sessionStorage.removeItem('selvaflix_full_database');
-  sessionStorage.removeItem('selvaflix_cache_timestamp');
+  localStorage.removeItem('selvaflix_full_database');
+  localStorage.removeItem('selvaflix_cache_timestamp');
   await loadSelvaFlixData();
   if (window.filterInventoryByCategory) window.filterInventoryByCategory();
   alert(`¡Limpieza completada! ${count} elementos eliminados. 🧹🌴`);
@@ -4004,8 +4006,8 @@ window.approveSelectedCoconas = async () => {
     }
 
     if (overlay) overlay.style.display = 'none';
-    sessionStorage.removeItem('selvaflix_full_database');
-    sessionStorage.removeItem('selvaflix_cache_timestamp');
+    localStorage.removeItem('selvaflix_full_database');
+    localStorage.removeItem('selvaflix_cache_timestamp');
     await loadSelvaFlixData();
     if (window.filterInventoryByCategory) window.filterInventoryByCategory();
     alert(`¡Éxito! ${count} títulos aprobados. 🥥🍹`);
@@ -4040,8 +4042,8 @@ window.waitSelectedCoconas = async () => {
     }
 
     if (overlay) overlay.style.display = 'none';
-    sessionStorage.removeItem('selvaflix_full_database');
-    sessionStorage.removeItem('selvaflix_cache_timestamp');
+    localStorage.removeItem('selvaflix_full_database');
+    localStorage.removeItem('selvaflix_cache_timestamp');
     await loadSelvaFlixData();
     if (window.filterInventoryByCategory) window.filterInventoryByCategory();
     alert(`¡Completado! ${count} títulos en espera. 🪵🌴`);
@@ -4370,8 +4372,8 @@ window.selvaExecuteCrownPromotion = async (movieId, hash) => {
     
     // Update local cache directly to avoid immediate reload requirement
     movie.suggestedVipHashes = newHashes;
-    sessionStorage.removeItem('selvaflix_full_database');
-    sessionStorage.removeItem('selvaflix_cache_timestamp');
+    localStorage.removeItem('selvaflix_full_database');
+    localStorage.removeItem('selvaflix_cache_timestamp');
     
     // Re-render the UI smoothly!
     import('./components/Player/Player.js').then(({ SelvaStream }) => {
@@ -5750,8 +5752,8 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
                             const { getFirestore, doc, deleteDoc } = await import("firebase/firestore");
                             const db = getFirestore();
                             await deleteDoc(doc(db, "movies", movieId));
-                            sessionStorage.removeItem('selvaflix_full_database');
-                            sessionStorage.removeItem('selvaflix_cache_timestamp');
+                            localStorage.removeItem('selvaflix_full_database');
+                            localStorage.removeItem('selvaflix_cache_timestamp');
                             movieDatabase.trending = movieDatabase.trending.filter(m => m.id !== movieId);
                             if (window.showToast) window.showToast("¡Película eliminada de la selva! 🗑️", "success");
                             history.back(); // Volver atrás a la home
@@ -5801,8 +5803,8 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
                             if (window.showToast) {
                                 window.showToast(`✅ VIP ${newVipStatus ? 'ACTIVADO' : 'DESACTIVADO'} para "${movie.title}"`, "success");
                             }
-                            sessionStorage.removeItem('selvaflix_full_database');
-                            sessionStorage.removeItem('selvaflix_cache_timestamp');
+                            localStorage.removeItem('selvaflix_full_database');
+                            localStorage.removeItem('selvaflix_cache_timestamp');
                             window.openMovieDetail(movieId); // Refrescar
                         } catch (e) {
                             console.error("Error actualizando VIP:", e);
@@ -5901,8 +5903,8 @@ window.deleteMovie = async (id, skipConfirm = false) => {
   if (skipConfirm || confirm("¿Seguro que quieres eliminar esta joya de la selva? 🥥?")) {
     try {
       await deleteDoc(doc(db, "movies", id));
-      sessionStorage.removeItem('selvaflix_full_database');
-      sessionStorage.removeItem('selvaflix_cache_timestamp');
+      localStorage.removeItem('selvaflix_full_database');
+      localStorage.removeItem('selvaflix_cache_timestamp');
       movieDatabase.trending = movieDatabase.trending.filter(m => m.id !== id);
       if (window.showToast) window.showToast("¡Película eliminada de la selva! 🗑️", "success");
       if (document.getElementById('admin-view')?.style.display === 'block') renderInventory();
@@ -5915,8 +5917,8 @@ window.deleteMovie = async (id, skipConfirm = false) => {
 window.approveMovie = async (id) => {
   try {
     await updateDoc(doc(db, "movies", id), { status: 'healthy', updatedAt: Date.now() });
-    sessionStorage.removeItem('selvaflix_full_database');
-    sessionStorage.removeItem('selvaflix_cache_timestamp');
+    localStorage.removeItem('selvaflix_full_database');
+    localStorage.removeItem('selvaflix_cache_timestamp');
     const movie = movieDatabase.trending.find(m => m.id === id);
     if (movie) movie.status = 'healthy';
     if (window.showToast) window.showToast("¡Aprobada y movida a la selva principal! ✅🌴", "success");
@@ -5932,8 +5934,8 @@ window.approveMovie = async (id) => {
 window.moveToWaiting = async (id) => {
   try {
     await updateDoc(doc(db, "movies", id), { status: 'waiting', updatedAt: Date.now() });
-    sessionStorage.removeItem('selvaflix_full_database');
-    sessionStorage.removeItem('selvaflix_cache_timestamp');
+    localStorage.removeItem('selvaflix_full_database');
+    localStorage.removeItem('selvaflix_cache_timestamp');
     const movie = movieDatabase.trending.find(m => m.id === id);
     if (movie) movie.status = 'waiting';
     if (window.showToast) window.showToast("Movida a 'En Espera' correctamente. ⏳🌴", "success");
@@ -6182,8 +6184,8 @@ window.quickSeedContent = async (s, type) => {
     createdAt: Date.now()
   };
   await addDoc(moviesCol, data);
-  sessionStorage.removeItem('selvaflix_full_database');
-  sessionStorage.removeItem('selvaflix_cache_timestamp');
+  localStorage.removeItem('selvaflix_full_database');
+  localStorage.removeItem('selvaflix_cache_timestamp');
   alert("¡Sembrado con éxito! 🌴");
 };
 
@@ -6587,8 +6589,8 @@ window.confirmBatchSeed = async () => {
     }
   }
 
-  sessionStorage.removeItem('selvaflix_full_database');
-  sessionStorage.removeItem('selvaflix_cache_timestamp');
+  localStorage.removeItem('selvaflix_full_database');
+  localStorage.removeItem('selvaflix_cache_timestamp');
 
   if (overlay) overlay.style.display = 'none';
   if (window.showToast) {
@@ -7004,7 +7006,7 @@ window.quickSeedManual = async (data, type = 'movie') => {
   try {
     await addDoc(collection(db, "movies"), mData);
     if (window.showToast) window.showToast(`✅ "${finalTitle}" agregado con éxito.`, "success");
-    sessionStorage.removeItem('selvaflix_full_database');
+    localStorage.removeItem('selvaflix_full_database');
   } catch (e) {
     console.error("Error en quickSeed:", e);
     if (window.showToast) window.showToast("❌ No se pudo agregar a la selva.", "error");
@@ -7211,8 +7213,8 @@ window.submitMovieForm = async () => {
     }
 
     window.closeUploadDrawer();
-    sessionStorage.removeItem('selvaflix_full_database');
-    sessionStorage.removeItem('selvaflix_cache_timestamp');
+    localStorage.removeItem('selvaflix_full_database');
+    localStorage.removeItem('selvaflix_cache_timestamp');
     await loadSelvaFlixData();
     if (window.filterInventoryByCategory) window.filterInventoryByCategory();
   } catch (error) {
@@ -7380,8 +7382,8 @@ window.setAdminPriorityFromDrawer = async () => {
       document.getElementById('tmdb-results').innerHTML = '';
 
       // --- Sincronización Silenciosa ---
-      sessionStorage.removeItem('selvaflix_full_database');
-      sessionStorage.removeItem('selvaflix_cache_timestamp');
+      localStorage.removeItem('selvaflix_full_database');
+      localStorage.removeItem('selvaflix_cache_timestamp');
       await loadSelvaFlixData();
       if (window.filterInventoryByCategory) window.filterInventoryByCategory();
 
@@ -8532,8 +8534,8 @@ window.previewVimeusAuto = async () => {
     updateDoc(doc(db, "movies", dbIdActual), { vimeusDisponible: true, vimeusFantasma: false }).then(() => {
       const movieActual = movieDatabase.trending.find(m => m.id === dbIdActual);
       if (movieActual) { movieActual.vimeusDisponible = true; movieActual.vimeusFantasma = false; }
-      sessionStorage.removeItem('selvaflix_full_database');
-      sessionStorage.removeItem('selvaflix_cache_timestamp');
+      localStorage.removeItem('selvaflix_full_database');
+      localStorage.removeItem('selvaflix_cache_timestamp');
     }).catch(e => console.warn('No se pudo guardar el estado de Vimeus:', e));
   }
 
@@ -8736,7 +8738,7 @@ function _escapeHtml(str) {
 }
 
 function _renderSupportBubble(text, mine) {
-    return `<div style="align-self:${mine ? 'flex-end' : 'flex-start'}; max-width:78%; background:${mine ? 'var(--primary,#FF6600)' : 'rgba(255,255,255,0.08)'}; color:${mine ? '#000' : '#fff'}; padding:8px 12px; border-radius:14px; font-size:0.82rem; word-break:break-word; white-space:pre-wrap;">${_escapeHtml(text)}</div>`;
+    return `<div data-msg="1" style="align-self:${mine ? 'flex-end' : 'flex-start'}; max-width:78%; background:${mine ? 'var(--primary,#FF6600)' : 'rgba(255,255,255,0.08)'}; color:${mine ? '#000' : '#fff'}; padding:8px 12px; border-radius:14px; font-size:0.82rem; word-break:break-word; white-space:pre-wrap;">${_escapeHtml(text)}</div>`;
 }
 
 // --- Lado usuario ---
@@ -8799,6 +8801,15 @@ window.sendSupportMessage = async () => {
     const text = input.value.trim();
     if (!text) return;
     input.value = '';
+
+    // Optimista: se pinta al toque, sin esperar la ida y vuelta a Firestore para verse.
+    const box = document.getElementById('support-chat-messages');
+    if (box) {
+        if (!box.querySelector('[data-msg]')) box.innerHTML = '';
+        box.insertAdjacentHTML('beforeend', _renderSupportBubble(text, true));
+        box.scrollTop = box.scrollHeight;
+    }
+
     try {
         await addDoc(collection(db, SUPPORT_COL), {
             uid: user.uid,
@@ -8813,10 +8824,11 @@ window.sendSupportMessage = async () => {
             readByAdmin: false,
             readByUser: true
         });
-        await window._loadSupportMessages();
+        await window._loadSupportMessages(); // reconcilia con la copia real del servidor
     } catch (e) {
         console.error('Error enviando mensaje de soporte:', e);
         if (window.showToast) window.showToast('No se pudo enviar el mensaje. Revisa tu internet.', 'error');
+        await window._loadSupportMessages(); // por si el mensaje optimista quedó desincronizado
     }
 };
 
@@ -8927,6 +8939,14 @@ window.sendAdminReply = async () => {
     if (!text) return;
     input.value = '';
     const thread = _allSupportThreads.find(t => t.uid === _supportChatUid);
+
+    // Optimista: se pinta al toque, sin esperar la ida y vuelta a Firestore para verse.
+    const body = document.getElementById('admin-messages-chat-body');
+    if (body) {
+        body.insertAdjacentHTML('beforeend', _renderSupportBubble(text, true));
+        body.scrollTop = body.scrollHeight;
+    }
+
     try {
         await addDoc(collection(db, SUPPORT_COL), {
             uid: _supportChatUid,
@@ -8943,6 +8963,8 @@ window.sendAdminReply = async () => {
     } catch (e) {
         console.error('Error enviando respuesta de soporte:', e);
         if (window.showToast) window.showToast('No se pudo enviar la respuesta.', 'error');
+        await window.loadAdminMessages();
+        window.openAdminThread(_supportChatUid);
     }
 };
 

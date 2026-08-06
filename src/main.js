@@ -756,8 +756,10 @@ function showView(active) {
   const homeEl = document.getElementById('home-view');
   const detailEl = document.getElementById('detail-view');
   const myListEl = document.getElementById('my-list-view');
-  const navbar = document.querySelector('.navbar');
-  const bottomNav = document.querySelector('.bottom-nav');
+  // OJO: las clases reales son .navbar-cinepulse / .mobile-nav-cinepulse (no .navbar / .bottom-nav,
+  // que no existen en el DOM). Con el selector viejo esto nunca ocultaba nada en ninguna vista.
+  const navbar = document.querySelector('.navbar-cinepulse');
+  const bottomNav = document.querySelector('.mobile-nav-cinepulse');
 
   // Ocultar todo primero
   if (adminEl) adminEl.style.display = 'none';
@@ -772,10 +774,18 @@ function showView(active) {
   const supportFab = document.getElementById('support-chat-fab');
   if (supportFab) supportFab.style.display = active === 'admin-view' ? 'none' : 'flex';
 
+  // Candado anti-scroll: el panel admin ya maneja su propio scroll interno
+  // (.admin-portal-content-body). Si el <body> también puede desplazarse, cualquier
+  // elemento que sobre unos px de alto deja ver el fondo negro debajo del panel.
+  document.body.classList.toggle('admin-locked', active === 'admin-view');
+
   if (active === 'admin-view') {
     if (adminEl) adminEl.style.display = 'block';
-    if (navbar) navbar.style.display = '';
-    if (bottomNav) bottomNav.style.display = '';
+    // El admin tiene su propio header (logo, buscador, avatar): mostrar también la navbar del
+    // sitio sumaba ~70px por encima del panel (que ya ocupa 100vh), forzando scroll en toda la
+    // página y dejando ver el fondo negro debajo del panel al desplazarse.
+    if (navbar) navbar.style.display = 'none';
+    if (bottomNav) bottomNav.style.display = 'none';
   } else if (active === 'detail-view') {
     if (detailEl) detailEl.style.display = 'block';
     if (navbar) navbar.style.display = 'none';

@@ -7693,11 +7693,30 @@ window.applyProfile = async (p) => {
 
 window.loadProfiles = async (uid) => {
     const profilesCol = collection(db, "users", uid, "profiles");
-    const snap = await getDocs(profilesCol);
+    let snap;
+    try {
+        snap = await getDocs(profilesCol);
+    } catch (e) {
+        console.warn("Fallo al cargar perfiles, reintentando:", e);
+        try {
+            snap = await getDocs(profilesCol);
+        } catch (e2) {
+            console.error("Reintento de carga de perfiles también falló, se aborta sin tocar la UI:", e2);
+            if (window.showToast) {
+                window.showToast("❌ No pudimos conectar con la selva. Revisa tu internet.", "error");
+            }
+            return; // No asumir "sin perfiles" por un fallo de red
+        }
+    }
     const profiles = [];
     snap.forEach(d => profiles.push({ id: d.id, ...d.data() }));
 
     if (profiles.length === 0) {
+        // Si ya había un perfil activo en esta sesión, una lectura vacía es un fallo de red/caché, no una cuenta nueva.
+        if (sessionStorage.getItem('selva_active_profile')) {
+            console.warn("Consulta de perfiles vacía pero hay un perfil activo en sesión; se omite el onboarding (probable fallo de red).");
+            return;
+        }
         // No adivinamos nombre/avatar: el usuario elige su primer perfil a mano (como Netflix).
         window.startFirstProfileOnboarding(uid);
         return;

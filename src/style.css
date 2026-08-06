@@ -3264,12 +3264,41 @@ body {
   animation: fadeIn 0.4s ease;
 }
 
+.profile-item {
+  width: 150px;
+}
+
+.profile-item-avatar {
+  width: 120px;
+  height: 120px;
+  border-radius: 8px;
+}
+
 .profile-item:hover {
   transform: scale(1.1);
 }
 
 .profile-item div {
   transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* En pantallas angostas 150px×2 + el gap de 30px no entraban en una fila y
+   los perfiles se apilaban en una sola columna larguísima. Se achican para
+   que sigan entrando 2 por fila. */
+@media (max-width: 420px) {
+  #profiles-grid {
+    gap: 16px;
+  }
+  .profile-item {
+    width: 42vw;
+    max-width: 130px;
+  }
+  .profile-item-avatar {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+    font-size: 2.6rem !important;
+  }
 }
 
 .auth-card {

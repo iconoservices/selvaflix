@@ -7859,6 +7859,8 @@ window.executeCleanup = async () => {
     window.loadProfiles(auth.currentUser.uid);
 };
 
+const MAX_PROFILES_POR_CUENTA = 3;
+
 window.renderProfiles = (profiles) => {
     const grid = document.getElementById('profiles-grid');
     if (!grid) return;
@@ -7871,8 +7873,8 @@ window.renderProfiles = (profiles) => {
         const primaryBadge = p.isPrimary ? `<span style="position: absolute; top: -10px; left: -10px; font-size: 1.5rem; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.5)); z-index: 5;" title="Perfil Principal">👑</span>` : '';
 
         return `
-            <div class="profile-item" style="width: 150px; position: relative;">
-                <div onclick="${action}" style="cursor:pointer; transition: transform 0.2s; width: 120px; height: 120px; background: #222; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 3.5rem; margin: 0 auto 10px; border: 3px solid transparent; box-shadow: 0 10px 20px rgba(0,0,0,0.3); position: relative;" onmouseover="this.style.borderColor='white';" onmouseout="this.style.borderColor='transparent';">
+            <div class="profile-item" style="position: relative;">
+                <div class="profile-item-avatar" onclick="${action}" style="cursor:pointer; transition: transform 0.2s; background: #222; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 3.5rem; margin: 0 auto 10px; border: 3px solid transparent; box-shadow: 0 10px 20px rgba(0,0,0,0.3); position: relative;" onmouseover="this.style.borderColor='white';" onmouseout="this.style.borderColor='transparent';">
                     ${primaryBadge}
                     ${p.avatar || '🐯'}
                     ${_isManagingProfiles ? `
@@ -7889,14 +7891,16 @@ window.renderProfiles = (profiles) => {
                 <p style="text-align: center; color: #eee; font-size: 1.1rem; font-weight: 500;">${p.name}</p>
             </div>
         `;
-    }).join('') + `
-        <div class="profile-item" onclick="window.showAddProfile()" style="cursor:pointer; width: 150px;">
-            <div style="width: 120px; height: 120px; background: none; border: 2px dashed #444; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 3rem; margin: 0 auto 10px; color: #444;" onmouseover="this.style.borderColor='#888'; this.style.color='#888';" onmouseout="this.style.borderColor='#444'; this.style.color='#444';">
+    }).join('') + (profiles.length < MAX_PROFILES_POR_CUENTA ? `
+        <div class="profile-item" onclick="window.showAddProfile()" style="cursor:pointer;">
+            <div class="profile-item-avatar" style="background: none; border: 2px dashed #444; display: flex; align-items: center; justify-content: center; font-size: 3rem; margin: 0 auto 10px; color: #444;" onmouseover="this.style.borderColor='#888'; this.style.color='#888';" onmouseout="this.style.borderColor='#444'; this.style.color='#444';">
                 <span style="font-size: 3rem;">+</span>
             </div>
             <p style="color: #444; font-size: 1.1rem;">Añadir</p>
         </div>
-    `;
+    ` : `
+        <p style="width:100%; text-align:center; color:#555; font-size:0.85rem; margin-top:10px;">Máximo ${MAX_PROFILES_POR_CUENTA} perfiles por cuenta 🙈</p>
+    `);
 };
 
 window.showProfileSelector = () => {
@@ -8253,6 +8257,10 @@ window.startFirstProfileOnboarding = (uid) => {
 };
 
 window.showAddProfile = async () => {
+    if ((window._allProfiles?.length || 0) >= MAX_PROFILES_POR_CUENTA) {
+        if (window.showToast) window.showToast(`Máximo ${MAX_PROFILES_POR_CUENTA} perfiles por cuenta. Elimina uno para crear otro. 🙈`, 'warning');
+        return;
+    }
     window.updateSettingsAccountInfo();
     const input = document.getElementById('edit-profile-name-input');
     const pinInput = document.getElementById('edit-profile-pin-input');

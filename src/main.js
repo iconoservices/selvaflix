@@ -1563,7 +1563,7 @@ function _renderInventoryRows(items) {
     // correr "Auditar Vimeus" sobre ellos.
     let vimeusBadge = '';
     if (m.vimeusFantasma) {
-      vimeusBadge = `<span class="genre-badge" style="background:rgba(155,89,182,0.15); color:#9b59b6; border:1px solid rgba(155,89,182,0.35);" title="Vimeus matchea el título pero no tiene contenido cargado (temporadas/embeds vacíos)">👻 Fantasma</span>`;
+      vimeusBadge = `<span class="genre-badge" style="background:rgba(155,89,182,0.15); color:#9b59b6; border:1px solid rgba(155,89,182,0.35);" title="Vimeus matchea el título pero no hay video real: temporadas/embeds vacíos, o el host de video detrás del embed está caído">👻 Fantasma</span>`;
     } else if (m.vimeusDisponible === false) {
       vimeusBadge = `<span class="genre-badge" style="background:rgba(255,82,82,0.12); color:#FF5252; border:1px solid rgba(255,82,82,0.3);" title="Vimeus no tiene este título">🚫 Sin Vimeus</span>`;
     } else if (m.vimeusDisponible === undefined && (m.imdbId || m.tmdbId)) {
@@ -2927,8 +2927,32 @@ window.cleanupCJKTitles = async () => {
 // asi que se chequea con !title, no solo !== null).
 // Se detecta leyendo el `<script id="data">` que Vimeus manda server-side
 // (sin ejecutar su JS): title vacio, o seasons/embeds vacios = fantasma.
+// Un embed de Vimeus puede "existir" (el JSON no viene vacío) pero apuntar a
+// un host de video de terceros que lleva años caído -- confirmado con
+// Friends T1E1: Vimeus lista un embed en fembed.com, pero fembed.com hoy es
+// solo una pagina "Redirecting..." con detector de adblock, sin reproductor
+// real detras. El chequeo de "tiene embeds" por sí solo no lo detecta. Si
+// este chequeo en sí falla (host lento, worker caído), no se penaliza al
+// título por un hipo nuestro -- se asume vivo.
+async function embedDeVimeusEstaMuerto(embedUrl) {
+    if (!embedUrl) return false;
+    try {
+        const r = await fetch(`${SelvaStream.MASTER_WORKER_URL}/flix/check-embed?url=${encodeURIComponent(embedUrl)}`, {
+            headers: { 'x-selva-auth': SelvaStream.AUTH_TOKEN }
+        });
+        const d = await r.json();
+        return !!d.muerto;
+    } catch (e) { return false; }
+}
+
 async function vimeusEstadoTitulo(tmdbId, imdbId, tipo) {
-    const build = (idParam) => `https://vimeus.com/e/${tipo}?${idParam}&view_key=${SelvaStream.VIMEUS_VIEW_KEY}`;
+    // Para series/anime, sin especificar episodio Vimeus solo devuelve la
+    // lista de temporadas -- el JSON nunca trae `embeds`, así que el chequeo
+    // de contenido vacío no puede pescar nada ahí. Se pide T1E1 (mismo
+    // default que usa la previsualización del admin) para que sí venga.
+    const esSerie = tipo !== 'movie';
+    const epParams = esSerie ? '&se=1&ep=1' : '';
+    const build = (idParam) => `https://vimeus.com/e/${tipo}?${idParam}${epParams}&view_key=${SelvaStream.VIMEUS_VIEW_KEY}`;
 
     // Un intento suelto. Distingue "Vimeus respondió y dijo que no" (texto
     // "not found" con 200 — negativo real, no hace falta reintentar) de
@@ -2950,7 +2974,12 @@ async function vimeusEstadoTitulo(tmdbId, imdbId, tipo) {
             const sinContenido = !data.title
                 || (Array.isArray(data.seasons) && data.seasons.length === 0)
                 || (Array.isArray(data.embeds) && data.embeds.length === 0);
-            return { resultado: sinContenido ? 'fantasma' : 'ok', transitorio: false };
+            if (sinContenido) return { resultado: 'fantasma', transitorio: false };
+
+            if (await embedDeVimeusEstaMuerto(data.embeds?.[0]?.url)) {
+                return { resultado: 'fantasma', transitorio: false };
+            }
+            return { resultado: 'ok', transitorio: false };
         } catch (e) { return { resultado: 'no-match', transitorio: true }; }
     };
 

@@ -150,6 +150,31 @@ export default {
                 }
             }
 
+            // --- 🔎 RUTA: CHECK-EMBED (¿el link de video detrás de un embed sigue vivo?) ---
+            // Vimeus puede decir que un episodio "tiene embed" (su JSON no viene
+            // vacío) pero el host de video de terceros al que apunta (fembed,
+            // streamtape, etc.) puede llevar años caído. Caso confirmado: Friends
+            // T1E1 apunta a fembed.com, que hoy devuelve HTTP 200 pero con una
+            // pagina "Redirecting..." que en realidad es puro detector de adblock
+            // para forzar publicidad -- no hay reproductor de video ahi. Sin esto,
+            // el chequeo de "tiene embed" da un falso positivo.
+            if (url.pathname === '/flix/check-embed') {
+                const embedUrl = url.searchParams.get('url');
+                if (!embedUrl) return new Response(JSON.stringify({ error: 'falta url' }), { status: 400, headers: corsHeaders });
+                const UA2 = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+                try {
+                    const r = await fetch(embedUrl, { headers: { 'User-Agent': UA2 } });
+                    const text = await r.text();
+                    const esPaginaDeAnuncios = /<title>\s*Redirecting\.\.\.\s*<\/title>/i.test(text)
+                        && /ad-overlay|prebid-wrapper|dfp-ad-container/i.test(text);
+                    return new Response(JSON.stringify({ muerto: !r.ok || esPaginaDeAnuncios }), { headers: corsHeaders });
+                } catch (e) {
+                    // Si el chequeo en si falla (host lento, etc.), no se penaliza
+                    // al titulo por un hipo nuestro -- se asume vivo.
+                    return new Response(JSON.stringify({ muerto: false, error: e.message }), { headers: corsHeaders });
+                }
+            }
+
             // --- 📚 RUTA: CATALOGO DE VIMEUS (para sembrar SelvaFlix) ---
             // La API Key de Vimeus (ak_..., distinta del view_key que va en los
             // embeds) es server-only segun su propia doc ("nunca en el

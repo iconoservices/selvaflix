@@ -7643,11 +7643,7 @@ onAuthStateChanged(auth, async (user) => {
         
         // Cargar perfiles
         await window.loadProfiles(user.uid);
-        if (typeof window.checkSupportUnread === 'function') {
-            window.checkSupportUnread(user.uid); // 💬 respuestas de soporte sin leer
-            clearInterval(_userUnreadPollTimer);
-            _userUnreadPollTimer = setInterval(() => window.checkSupportUnread(user.uid), 60000);
-        }
+        if (typeof window.watchSupportUnread === 'function') window.watchSupportUnread(user.uid); // 💬 respuestas de soporte sin leer
         
         // Restaurar perfil activo si existe (aplica el animalito)
         const saved = sessionStorage.getItem('selva_active_profile');
@@ -7661,6 +7657,7 @@ onAuthStateChanged(auth, async (user) => {
         }
     } else {
         console.log("👻 Modo Invitado");
+        if (typeof window.watchSupportUnread === 'function') window.watchSupportUnread(null); // corta el listener al cerrar sesión
         const userNameEl = document.getElementById('user-name');
         if (userNameEl) userNameEl.innerText = "Login";
         document.getElementById('user-initials').innerText = "G";
@@ -8746,7 +8743,7 @@ window.useScrapedStream = (idx) => {
 // refresca con un poll cada 20s; al cerrarlo, se detiene.
 const SUPPORT_COL = 'support_messages';
 let _supportPollTimer = null;
-let _userUnreadPollTimer = null; // puntito del FAB: revisa cada rato aunque el chat esté cerrado
+let _userUnreadUnsub = null; // cancela el listener de "mensajes nuevos" del FAB (uno por sesión)
 let _supportChatUid = null; // uid del hilo que el admin tiene abierto
 let _allSupportThreads = [];
 
@@ -8860,18 +8857,23 @@ window.sendSupportMessage = async () => {
 };
 
 // Revisa si hay respuestas del admin sin leer, para el puntito del botón flotante
-window.checkSupportUnread = async (uid) => {
+// Puntito del FAB con listener en vivo en vez de poll: a diferencia de preguntar
+// cada 60s pase lo que pase, onSnapshot solo cobra una lectura la primera vez
+// y despues nada más hasta que de verdad llegue una respuesta nueva del admin
+// — más instantáneo Y más barato que el poll que tenía antes.
+window.watchSupportUnread = (uid) => {
+    if (_userUnreadUnsub) { _userUnreadUnsub(); _userUnreadUnsub = null; }
     if (!uid) return;
-    try {
-        const snap = await getDocs(query(
-            collection(db, SUPPORT_COL),
-            where('uid', '==', uid),
-            where('sender', '==', 'admin'),
-            where('readByUser', '==', false)
-        ));
+    const q = query(
+        collection(db, SUPPORT_COL),
+        where('uid', '==', uid),
+        where('sender', '==', 'admin'),
+        where('readByUser', '==', false)
+    );
+    _userUnreadUnsub = onSnapshot(q, (snap) => {
         const badge = document.getElementById('support-chat-badge');
         if (badge) badge.style.display = snap.empty ? 'none' : 'block';
-    } catch (e) { /* silencioso: no bloquear la carga de la app por esto */ }
+    }, (e) => console.warn('No se pudo escuchar mensajes de soporte:', e));
 };
 
 // --- Lado admin ---

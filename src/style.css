@@ -1621,6 +1621,12 @@ h3,
   border-radius: 50%;
   background: #e63946;
   border: 2px solid #111;
+  animation: support-badge-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes support-badge-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(230, 57, 70, 0.6); }
+  50% { box-shadow: 0 0 0 5px rgba(230, 57, 70, 0); }
 }
 
 @media (max-width: 768px) {

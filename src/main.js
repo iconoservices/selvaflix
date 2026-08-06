@@ -7643,7 +7643,11 @@ onAuthStateChanged(auth, async (user) => {
         
         // Cargar perfiles
         await window.loadProfiles(user.uid);
-        if (typeof window.checkSupportUnread === 'function') window.checkSupportUnread(user.uid); // 💬 respuestas de soporte sin leer
+        if (typeof window.checkSupportUnread === 'function') {
+            window.checkSupportUnread(user.uid); // 💬 respuestas de soporte sin leer
+            clearInterval(_userUnreadPollTimer);
+            _userUnreadPollTimer = setInterval(() => window.checkSupportUnread(user.uid), 60000);
+        }
         
         // Restaurar perfil activo si existe (aplica el animalito)
         const saved = sessionStorage.getItem('selva_active_profile');
@@ -8742,6 +8746,7 @@ window.useScrapedStream = (idx) => {
 // refresca con un poll cada 20s; al cerrarlo, se detiene.
 const SUPPORT_COL = 'support_messages';
 let _supportPollTimer = null;
+let _userUnreadPollTimer = null; // puntito del FAB: revisa cada rato aunque el chat esté cerrado
 let _supportChatUid = null; // uid del hilo que el admin tiene abierto
 let _allSupportThreads = [];
 

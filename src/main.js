@@ -3049,6 +3049,10 @@ async function tieneAlgunaFuente(m) {
 
     if (imdbId) {
         checks.push(workerCheck(`provider=flixlatam&imdb=${imdbId}`));
+        // PelisMart es espejo de FlixLatam (mismo backend EMBED69) pero puede tener
+        // catálogo distinto — el reproductor real y "Revisar Enlaces" ya lo chequean,
+        // acá faltaba: la auditoría marcaba "Sin Fuentes" títulos que sí tenían PelisMart.
+        checks.push(workerCheck(`provider=pelismart&imdb=${imdbId}`));
         if (!isTv) checks.push(workerCheck(`provider=repelishd&imdb=${imdbId}`));
     }
     if (slug) {

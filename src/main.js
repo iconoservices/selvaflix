@@ -175,7 +175,7 @@ window.hideSplashScreen = (force = false) => {
   const splash = document.getElementById('splash-screen');
   if (splash) {
     // 🚀 DESBLOQUEO INTELIGENTE:
-    const isProfileActive = sessionStorage.getItem('selva_active_profile');
+    const isProfileActive = localStorage.getItem('selva_active_profile');
     const isAuthModalOpen = document.getElementById('auth-modal')?.style.display === 'flex';
     const isProfileModalOpen = document.getElementById('profile-selector-modal')?.style.display === 'flex';
 
@@ -7349,7 +7349,7 @@ window.toggleUserMenu = () => {
 window.handleLogout = async () => {
     if (confirm("¿Quieres salir de la selva? 🚪🌴")) {
         await signOut(auth);
-        sessionStorage.removeItem('selva_active_profile');
+        localStorage.removeItem('selva_active_profile');
         window.location.reload();
     }
 };
@@ -7485,7 +7485,7 @@ onAuthStateChanged(auth, async (user) => {
         if (typeof window.watchSupportUnread === 'function') window.watchSupportUnread(user.uid); // 💬 respuestas de soporte sin leer
         
         // Restaurar perfil activo si existe (aplica el animalito)
-        const saved = sessionStorage.getItem('selva_active_profile');
+        const saved = localStorage.getItem('selva_active_profile');
         if (saved) {
             await window.applyProfile(JSON.parse(saved));
         }
@@ -7572,7 +7572,7 @@ window.loadProfiles = async (uid) => {
             // Sin red no hay forma de confirmar los perfiles reales, pero si ya había uno activo
             // en esta sesión lo restauramos desde caché para que la app siga usable offline
             // (en vez de dejar la pantalla sin perfil ni selector).
-            const savedOffline = sessionStorage.getItem('selva_active_profile');
+            const savedOffline = localStorage.getItem('selva_active_profile');
             if (savedOffline) window.applyProfile(JSON.parse(savedOffline));
             return; // No asumir "sin perfiles" por un fallo de red
         }
@@ -7582,7 +7582,7 @@ window.loadProfiles = async (uid) => {
 
     if (profiles.length === 0) {
         // Si ya había un perfil activo en esta sesión, una lectura vacía es un fallo de red/caché, no una cuenta nueva.
-        const savedEmpty = sessionStorage.getItem('selva_active_profile');
+        const savedEmpty = localStorage.getItem('selva_active_profile');
         if (savedEmpty) {
             console.warn("Consulta de perfiles vacía pero hay un perfil activo en sesión; se omite el onboarding (probable fallo de red).");
             window.applyProfile(JSON.parse(savedEmpty));
@@ -7604,7 +7604,7 @@ window.loadProfiles = async (uid) => {
     window._allProfiles = profiles; // Guardar caché local
     window.renderProfiles(profiles);
     
-    const saved = sessionStorage.getItem('selva_active_profile');
+    const saved = localStorage.getItem('selva_active_profile');
     if (!saved) {
         window.showProfileSelector();
     } else {
@@ -7759,7 +7759,7 @@ window.selectProfile = (id, name, avatar, pin) => {
         document.querySelectorAll('.pin-dot').forEach(i => i.value = '');
         document.getElementById('pin-1').focus();
     } else {
-        sessionStorage.setItem('selva_active_profile', JSON.stringify(p));
+        localStorage.setItem('selva_active_profile', JSON.stringify(p));
         window.applyProfile(p);
         document.getElementById('profile-selector-modal').style.display = 'none';
         window.hideSplashScreen(); // 🚀 Perfil listo, fuera splash!
@@ -7797,7 +7797,7 @@ window.validatePinEntry = async (el) => {
                 delete p.action;
                 delete p.mainPinToVerify;
                 window.closePinModal();
-                sessionStorage.setItem('selva_active_profile', JSON.stringify(p));
+                localStorage.setItem('selva_active_profile', JSON.stringify(p));
                 window.applyProfile(p);
                 document.getElementById('profile-selector-modal').style.display = 'none';
                 window.hideSplashScreen();
@@ -7825,7 +7825,7 @@ window.validatePinEntry = async (el) => {
             const p = { ...pendingProfile };
             delete p.pin; // Seguridad mínima
             delete p.action;
-            sessionStorage.setItem('selva_active_profile', JSON.stringify(p));
+            localStorage.setItem('selva_active_profile', JSON.stringify(p));
             window.applyProfile(p);
             document.getElementById('profile-selector-modal').style.display = 'none';
             window.hideSplashScreen();
@@ -7859,7 +7859,7 @@ window.forgotPin = async () => {
                 delete p.pin;
                 delete p.action;
                 window.closePinModal();
-                sessionStorage.setItem('selva_active_profile', JSON.stringify(p));
+                localStorage.setItem('selva_active_profile', JSON.stringify(p));
                 window.applyProfile(p);
                 document.getElementById('profile-selector-modal').style.display = 'none';
                 window.hideSplashScreen();
@@ -7893,7 +7893,7 @@ window.forgotPin = async () => {
                 delete p.pin;
                 delete p.action;
                 window.closePinModal();
-                sessionStorage.setItem('selva_active_profile', JSON.stringify(p));
+                localStorage.setItem('selva_active_profile', JSON.stringify(p));
                 window.applyProfile(p);
                 document.getElementById('profile-selector-modal').style.display = 'none';
                 window.hideSplashScreen();
@@ -7994,7 +7994,7 @@ window.executeProfileDeletion = async (id, name, isPrimary = false) => {
         window.loadProfiles(uid);
 
         if (_currentProfile && _currentProfile.id === id) {
-            sessionStorage.removeItem('selva_active_profile');
+            localStorage.removeItem('selva_active_profile');
             _currentProfile = null;
             window.showProfileSelector();
         }
@@ -8056,7 +8056,7 @@ window.finalizeProfileUpdate = async (avatar) => {
     if (_currentProfile && _currentProfile.id === id) {
         _currentProfile.name = name;
         _currentProfile.avatar = avatar;
-        sessionStorage.setItem('selva_active_profile', JSON.stringify(_currentProfile));
+        localStorage.setItem('selva_active_profile', JSON.stringify(_currentProfile));
         window.applyProfile(_currentProfile);
     }
 };

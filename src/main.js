@@ -213,18 +213,21 @@ if (yearSelect || mYearSelect) {
 async function loadSelvaFlixData() {
   const CACHE_KEY = 'selvaflix_full_database';
   const CACHE_TIME_KEY = 'selvaflix_cache_timestamp';
-  const FIFTEEN_MINUTES = 15 * 60 * 1000;
+  // Bajado de 15 a 5 min: con localStorage (dura entre visitas) un admin
+  // borrando/editando en una pestaña podía tardar hasta 15 min en verse
+  // reflejado en cualquier otra pestaña/dispositivo con copia vieja.
+  const CACHE_DURATION_MS = 5 * 60 * 1000;
 
   // 1. Revisar si hay un caché válido
   // localStorage (no sessionStorage): sobrevive a cerrar la pestaña, así una visita nueva
-  // no vuelve a leer las 215 películas si alguien ya las trajo hace menos de 15 min.
+  // no vuelve a leer las 215 películas si alguien ya las trajo hace menos de 5 min.
   const cachedStored = localStorage.getItem(CACHE_KEY);
   const cacheTimestamp = localStorage.getItem(CACHE_TIME_KEY);
   const now = Date.now();
 
   let hydratedObject = null;
 
-  if (cachedStored && cacheTimestamp && (now - parseInt(cacheTimestamp) < FIFTEEN_MINUTES)) {
+  if (cachedStored && cacheTimestamp && (now - parseInt(cacheTimestamp) < CACHE_DURATION_MS)) {
     try {
       hydratedObject = JSON.parse(cachedStored);
 

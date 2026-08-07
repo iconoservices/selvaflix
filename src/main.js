@@ -322,7 +322,7 @@ async function loadSelvaFlixData() {
     _updateDetailedStats(movieDatabase.trending);
   }
 
-  seedPopularSeries();
+  limpiarDuplicadosDeCatalogo();
 
   // Nota: handleRouting ya sabe si es la primera vez al revisar el DOM
   // ✅ Disparar anuncios automáticos si corresponde
@@ -351,241 +351,13 @@ window.updateAdminUI = () => {
   const dot = document.getElementById('admin-status-dot');
   if (dot) dot.style.display = isAdmin ? 'block' : 'none';
 };
-let _seedInFlight = false;
-const SEED_DONE_KEY = 'selvaflix_seed_done_v2';
-
-async function seedPopularSeries() {
-  const FAMOUS_CONTENT = [
-    {
-      title: "Rick y Morty",
-      tmdbId: 60625,
-      imdbId: "tt2861424",
-      type: "series",
-      img: "https://image.tmdb.org/t/p/w500/5Yiep9EwcQgLolg013ETBVqHxuD.jpg",
-      description: "Comedia animada que narra las aventuras del científico loco Rick Sánchez y su nieto Morty.",
-      genres: ["Animación", "Comedia", "Ciencia Ficción"],
-      rating: "8.7",
-      year: 2013,
-      status: "healthy"
-    },
-    {
-      title: "Los Simpson",
-      tmdbId: 456,
-      imdbId: "tt0096697",
-      type: "series",
-      img: "https://image.tmdb.org/t/p/w500/9hmoEmntaYrrlb4HKSFisWUQnqy.jpg",
-      description: "Las divertidas y caóticas aventuras de la familia Simpson en la ciudad de Springfield.",
-      genres: ["Animación", "Comedia"],
-      rating: "8.0",
-      year: 1989,
-      status: "healthy"
-    },
-    {
-      title: "Juego de Tronos",
-      tmdbId: 1399,
-      imdbId: "tt0944947",
-      type: "series",
-      img: "https://image.tmdb.org/t/p/w500/3hDtRuwTfQQYRst3kjhvp4Cogjw.jpg",
-      description: "Varias familias nobles luchan por el control de la mítica tierra de Poniente.",
-      genres: ["Drama", "Fantasía"],
-      rating: "8.4",
-      year: 2011,
-      status: "healthy"
-    },
-    {
-      title: "The Walking Dead",
-      tmdbId: 1402,
-      imdbId: "tt1520211",
-      type: "series",
-      img: "https://image.tmdb.org/t/p/w500/hUblG1KZCTRpHc3wqqoU0DW98Q3.jpg",
-      description: "Un grupo de supervivientes lucha por mantenerse con vida en un mundo apocalíptico infectado por zombis.",
-      genres: ["Drama", "Terror"],
-      rating: "8.1",
-      year: 2010,
-      status: "healthy"
-    },
-    {
-      title: "Breaking Bad",
-      tmdbId: 1396,
-      imdbId: "tt0903747",
-      type: "series",
-      img: "https://image.tmdb.org/t/p/w500/ztkUQFLlC19CCMYHW9o1zWhJRNq.jpg",
-      description: "Un profesor de química de secundaria diagnosticado con cáncer terminal recurre al crimen.",
-      genres: ["Drama", "Crimen"],
-      rating: "8.9",
-      year: 2008,
-      status: "healthy"
-    },
-    {
-      title: "Stranger Things",
-      tmdbId: 66732,
-      imdbId: "tt4574334",
-      type: "series",
-      img: "https://image.tmdb.org/t/p/w500/1sRJ8D1vpXE5WQBGrUBky3uUwvX.jpg",
-      description: "Cuando un niño desaparece, un pequeño pueblo desvela un misterio que involucra experimentos secretos.",
-      genres: ["Ciencia Ficción", "Drama"],
-      rating: "8.6",
-      year: 2016,
-      status: "healthy"
-    },
-    {
-      title: "La Casa de Papel",
-      tmdbId: 71446,
-      imdbId: "tt6468322",
-      type: "series",
-      img: "https://image.tmdb.org/t/p/w500/z01Dc0Ly2GmCpLe6Scx4d3dPP1S.jpg",
-      description: "Un misterioso hombre conocido como 'El Profesor' planea el mayor atraco de la historia.",
-      genres: ["Crimen", "Drama"],
-      rating: "8.2",
-      year: 2017,
-      status: "healthy"
-    },
-    {
-      title: "Friends",
-      tmdbId: 1668,
-      imdbId: "tt0108778",
-      type: "series",
-      img: "https://image.tmdb.org/t/p/w500/f4961mQUNv2mOZNuACGZvnND79R.jpg",
-      description: "Las aventuras y desventuras amorosas, profesionales y afectivas de un grupo de seis jóvenes amigos en Nueva York.",
-      genres: ["Comedia"],
-      rating: "8.4",
-      year: 1994,
-      status: "healthy"
-    },
-    {
-      title: "The Office",
-      tmdbId: 2316,
-      imdbId: "tt0386676",
-      type: "series",
-      img: "https://image.tmdb.org/t/p/w500/dg4xJb3D4L6PjXgPryuSjXhNCSv.jpg",
-      description: "Un falso documental sobre el día a día de una oficina de venta de papel.",
-      genres: ["Comedia"],
-      rating: "8.6",
-      year: 2005,
-      status: "healthy"
-    },
-    {
-      title: "The Last of Us",
-      tmdbId: 100088,
-      imdbId: "tt3581920",
-      type: "series",
-      img: "https://image.tmdb.org/t/p/w500/uKVw3NYSuxmgHG42n6r8mTACHPT.jpg",
-      description: "Veinte años después de que la civilización moderna haya sido destruida, Joel es contratado para sacar de contrabando a Ellie.",
-      genres: ["Drama", "Action & Adventure", "Sci-Fi & Fantasy"],
-      rating: "8.6",
-      year: 2023,
-      status: "healthy"
-    },
-    {
-      title: "Avatar: El sentido del agua",
-      tmdbId: 76600,
-      imdbId: "tt1630029",
-      type: "movie",
-      img: "https://image.tmdb.org/t/p/w500/ckeTumMS4G31UQ9NNkmtW2QhfMF.jpg",
-      description: "Jake Sully vive con su nueva familia en el planeta de Pandora. Cuando una amenaza regresa, Jake debe trabajar con Neytiri.",
-      genres: ["Ciencia Ficción", "Aventura", "Acción"],
-      rating: "7.6",
-      year: 2022,
-      status: "healthy"
-    },
-    {
-      title: "Gladiator",
-      tmdbId: 98,
-      imdbId: "tt0172495",
-      type: "movie",
-      img: "https://image.tmdb.org/t/p/w500/90QFOG5zSN4cbrIVs4DL4ePAuA5.jpg",
-      description: "Un ex general romano jura venganza contra el corrupto emperador que asesinó a su familia y lo condenó a la esclavitud.",
-      genres: ["Acción", "Drama", "Aventura"],
-      rating: "8.2",
-      year: 2000,
-      status: "healthy"
-    },
-    {
-      title: "Del revés 2 (Inside Out 2)",
-      tmdbId: 1022789,
-      imdbId: "tt22022452",
-      type: "movie",
-      img: "https://image.tmdb.org/t/p/w500/lE3DCRI7bQgHSiIuEPcFiXpiuGV.jpg",
-      description: "Riley es ahora una adolescente y su mente experimenta cambios repentinos, introduciendo nuevas emociones.",
-      genres: ["Animación", "Aventura", "Familia", "Comedia"],
-      rating: "7.7",
-      year: 2024,
-      status: "healthy"
-    },
-    {
-      title: "Dune: Parte dos",
-      tmdbId: 693134,
-      imdbId: "tt15239678",
-      type: "movie",
-      img: "https://image.tmdb.org/t/p/w500/xCHmhHeO7aOCMlzcNukGH6Q7EiD.jpg",
-      description: "Paul Atreides se une a Chani y a los Fremen mientras busca venganza contra los conspiradores que destruyeron a su familia.",
-      genres: ["Ciencia Ficción", "Aventura"],
-      rating: "8.3",
-      year: 2024,
-      status: "healthy"
-    },
-    {
-      title: "Spider-Man: No Way Home",
-      tmdbId: 634649,
-      imdbId: "tt10872600",
-      type: "movie",
-      img: "https://image.tmdb.org/t/p/w500/miZFgV81xG324rpUknQX8dtXuBl.jpg",
-      description: "Peter Parker pide ayuda al Doctor Strange para hacer que el mundo olvide su identidad secreta, desatando el multiverso.",
-      genres: ["Acción", "Aventura", "Ciencia Ficción"],
-      rating: "8.0",
-      year: 2021,
-      status: "healthy"
-    },
-    {
-      title: "Origen (Inception)",
-      tmdbId: 27205,
-      imdbId: "tt1375666",
-      type: "movie",
-      img: "https://image.tmdb.org/t/p/w500/9gk7adHYe3Fo4C1206O6SbFIe75.jpg",
-      description: "Dom Cobb es un ladrón experto en el arte de la extracción, robando secretos del subconsciente durante el sueño.",
-      genres: ["Acción", "Ciencia Ficción", "Aventura"],
-      rating: "8.4",
-      year: 2010,
-      status: "healthy"
-    },
-    {
-      title: "Interstellar",
-      tmdbId: 157336,
-      imdbId: "tt0816692",
-      type: "movie",
-      img: "https://image.tmdb.org/t/p/w500/gEU2QvHOmzaz1v75vGuxj703mZ.jpg",
-      description: "Un grupo de exploradores viaja más allá de esta galaxia para descubrir si la humanidad tiene un futuro entre las estrellas.",
-      genres: ["Aventura", "Drama", "Ciencia Ficción"],
-      rating: "8.4",
-      year: 2014,
-      status: "healthy"
-    },
-    {
-      title: "Oppenheimer",
-      tmdbId: 872585,
-      imdbId: "tt15398776",
-      type: "movie",
-      img: "https://image.tmdb.org/t/p/w500/8Gxv2wS6nJyxjbgjZy1v7m75ZzG.jpg",
-      description: "La historia del físico teórico estadounidense J. Robert Oppenheimer, director del Proyecto Manhattan.",
-      genres: ["Drama", "Historia"],
-      rating: "8.1",
-      year: 2023,
-      status: "healthy"
-    },
-    {
-      title: "Deadpool y Lobezno (Deadpool & Wolverine)",
-      tmdbId: 533535,
-      imdbId: "tt6263850",
-      type: "movie",
-      img: "https://image.tmdb.org/t/p/w500/8cdWv6Arwyp1u5821y61tK05ffz.jpg",
-      description: "Deadpool y Wolverine se unen en una aventura multiversal para salvar su línea de tiempo.",
-      genres: ["Acción", "Comedia", "Ciencia Ficción"],
-      rating: "7.8",
-      year: 2024,
-      status: "healthy"
-    }
-  ];
-
+// Ya no siembra títulos "famosos" automáticamente: se agregaban solos sin que
+// el admin lo pidiera, y si alguno se borraba a propósito (ej. "Friends"),
+// cualquier cosa que limpiara el localStorage (como borrar datos del sitio)
+// hacía que se volviera a crear solo, porque la función no podía distinguir
+// "nunca existió" de "lo borraron adrede". Se mantiene SOLO la limpieza de
+// duplicados reales (que no agrega nada nuevo, solo saca copias repetidas).
+async function limpiarDuplicadosDeCatalogo() {
   if (!Array.isArray(movieDatabase.trending)) return;
 
   // --- AUTOMATIC DUPLICATE CLEANER ---
@@ -644,51 +416,9 @@ async function seedPopularSeries() {
     localStorage.removeItem('selvaflix_full_database');
     localStorage.removeItem('selvaflix_cache_timestamp');
   }
-
-  // Esta función se dispara en cada carga de datos y no se espera con await. Si dos
-  // cargas se solapan, ambas ven el catálogo sin sembrar y siembran por duplicado
-  // (así aparecieron 2 copias de cada serie). El cerrojo lo impide.
-  if (_seedInFlight) return;
-
-  // Y como el patrón es leer-y-luego-escribir contra Firestore desde el navegador,
-  // una recarga rápida puede no ver todavía lo recién escrito y volver a sembrar.
-  // Con la marca, cada navegador siembra como mucho una vez.
-  if (localStorage.getItem(SEED_DONE_KEY) === '1') return;
-
-  _seedInFlight = true;
-
-  try {
-  let addedAny = false;
-  for (const s of FAMOUS_CONTENT) {
-    // tmdbId se guarda como número en el seed pero como texto en el resto del
-    // catálogo, así que hay que comparar normalizado o el duplicado se cuela.
-    const exists = movieDatabase.trending.some(m =>
-      (m.tmdbId && String(m.tmdbId) === String(s.tmdbId)) ||
-      (m.title && m.title.toLowerCase() === s.title.toLowerCase())
-    );
-    if (!exists) {
-      try {
-        const docRef = await addDoc(collection(db, "movies"), { ...s, createdAt: Date.now() });
-        movieDatabase.trending.push({ id: docRef.id, ...s });
-        addedAny = true;
-        console.log(`🌴 Contenido sembrado automáticamente: ${s.title}`);
-      } catch (err) {
-        console.error(`Error sembrando ${s.title}:`, err);
-      }
-    }
-  }
-  if (addedAny) {
-    localStorage.removeItem('selvaflix_full_database');
-    localStorage.removeItem('selvaflix_cache_timestamp');
-    handleRouting();
-  }
-    localStorage.setItem(SEED_DONE_KEY, '1');
-  } finally {
-    _seedInFlight = false;
-  }
 }
 
-window.updateAdminUI(); 
+window.updateAdminUI();
 loadSelvaFlixData();
 
 

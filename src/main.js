@@ -1643,10 +1643,13 @@ window.toggleAdCampaignQuick = async (id) => {
     camp.active = !camp.active;
     window.renderAdCampaignList();
     if (editingCampaignId === id) {
-        document.getElementById('ad-edit-active').checked = camp.active;
+        const activeCheck = document.getElementById('ad-edit-active');
+        if (activeCheck) activeCheck.checked = camp.active;
         const toggleLabel = document.getElementById('campaign-status-toggle');
-        toggleLabel.innerText = camp.active ? 'CAMPAÑA ON' : 'CAMPAÑA OFF';
-        toggleLabel.style.color = camp.active ? '#2ecc71' : '#555';
+        if (toggleLabel) {
+            toggleLabel.innerText = camp.active ? 'CAMPAÑA ON' : 'CAMPAÑA OFF';
+            toggleLabel.style.color = camp.active ? '#2ecc71' : '#555';
+        }
     }
     // No guardamos a Firestore en cada click para evitar cuota, el usuario debe dar a GUARDAR TODO
 };
@@ -1850,23 +1853,31 @@ window.setAdContentType = (type) => {
     
     // Estilos botones
     if (type === 'script') {
-        scriptBtn.style.background = 'rgba(0,242,255,0.1)';
-        scriptBtn.style.color = '#00f2ff';
-        scriptBtn.style.border = '1px solid rgba(0,242,255,0.2)';
-        mediaBtn.style.background = 'transparent';
-        mediaBtn.style.color = '#555';
-        mediaBtn.style.border = 'none';
-        
+        if (scriptBtn) {
+            scriptBtn.style.background = 'rgba(0,242,255,0.1)';
+            scriptBtn.style.color = '#00f2ff';
+            scriptBtn.style.border = '1px solid rgba(0,242,255,0.2)';
+        }
+        if (mediaBtn) {
+            mediaBtn.style.background = 'transparent';
+            mediaBtn.style.color = '#555';
+            mediaBtn.style.border = 'none';
+        }
+
         if (mediaLabel) mediaLabel.innerText = "⚡ Código del Script (Red)";
         if (mediaHint) mediaHint.innerHTML = "* Pega el script de Adsterra, AdMob, etc.";
     } else {
-        mediaBtn.style.background = 'rgba(255,122,0,0.1)';
-        mediaBtn.style.color = 'var(--primary)';
-        mediaBtn.style.border = '1px solid rgba(255,122,0,0.2)';
-        scriptBtn.style.background = 'transparent';
-        scriptBtn.style.color = '#555';
-        scriptBtn.style.border = 'none';
-        
+        if (mediaBtn) {
+            mediaBtn.style.background = 'rgba(255,122,0,0.1)';
+            mediaBtn.style.color = 'var(--primary)';
+            mediaBtn.style.border = '1px solid rgba(255,122,0,0.2)';
+        }
+        if (scriptBtn) {
+            scriptBtn.style.background = 'transparent';
+            scriptBtn.style.color = '#555';
+            scriptBtn.style.border = 'none';
+        }
+
         if (mediaLabel) mediaLabel.innerText = "🖼️ URL del Medio (Imagen/Video)";
         if (mediaHint) mediaHint.innerHTML = "* URL directa de un archivo .jpg, .png o .mp4";
     }
@@ -1970,19 +1981,27 @@ window.setPlacementMode = (mode) => {
     const autoBtn = document.getElementById('placement-mode-auto');
     
     if (mode === 'auto') {
-        autoBtn.style.background = 'rgba(0,242,255,0.1)';
-        autoBtn.style.color = '#00f2ff';
-        autoBtn.style.border = '1px solid rgba(0,242,255,0.2)';
-        manualBtn.style.background = 'transparent';
-        manualBtn.style.color = '#555';
-        manualBtn.style.border = 'none';
+        if (autoBtn) {
+            autoBtn.style.background = 'rgba(0,242,255,0.1)';
+            autoBtn.style.color = '#00f2ff';
+            autoBtn.style.border = '1px solid rgba(0,242,255,0.2)';
+        }
+        if (manualBtn) {
+            manualBtn.style.background = 'transparent';
+            manualBtn.style.color = '#555';
+            manualBtn.style.border = 'none';
+        }
     } else {
-        manualBtn.style.background = 'rgba(255,122,0,0.1)';
-        manualBtn.style.color = 'var(--primary)';
-        manualBtn.style.border = '1px solid rgba(255,122,0,0.2)';
-        autoBtn.style.background = 'transparent';
-        autoBtn.style.color = '#555';
-        autoBtn.style.border = 'none';
+        if (manualBtn) {
+            manualBtn.style.background = 'rgba(255,122,0,0.1)';
+            manualBtn.style.color = 'var(--primary)';
+            manualBtn.style.border = '1px solid rgba(255,122,0,0.2)';
+        }
+        if (autoBtn) {
+            autoBtn.style.background = 'transparent';
+            autoBtn.style.color = '#555';
+            autoBtn.style.border = 'none';
+        }
     }
     
     const editor = document.getElementById('ad-campaign-editor');
@@ -2008,26 +2027,28 @@ window.setPlacementMode = (mode) => {
 };
 
 window.updateFreqFields = () => {
-    const mode = document.getElementById('ad-edit-freq-mode').value;
+    const modeEl = document.getElementById('ad-edit-freq-mode');
+    if (!modeEl) return;
+    const mode = modeEl.value;
     const group = document.getElementById('freq-value-group');
     const timesOnly = document.getElementById('freq-times-only-group'); // Nuevo contenedor para cuando solo queremos veces
-    
+    const freqLabel = document.getElementById('freq-value-label');
+    const freqInput = document.getElementById('ad-edit-freq');
+
     if (group) {
         group.style.display = mode === 'interval' ? 'grid' : 'none';
     }
-    
-    // Si es diario por peli, mostramos solo el campo de "Veces"
-    const timesInput = document.getElementById('ad-edit-freq-times').closest('.form-group');
+
     if (mode === 'unlimited') {
         if (group) group.style.display = 'none';
         if (timesOnly) timesOnly.style.display = 'none';
     } else if (mode === 'per_movie_daily') {
         if (group) group.style.display = 'grid';
-        document.getElementById('freq-value-label').parentElement.style.opacity = '0.3';
-        document.getElementById('ad-edit-freq').disabled = true;
+        if (freqLabel?.parentElement) freqLabel.parentElement.style.opacity = '0.3';
+        if (freqInput) freqInput.disabled = true;
     } else if (mode === 'interval') {
-        document.getElementById('freq-value-label').parentElement.style.opacity = '1';
-        document.getElementById('ad-edit-freq').disabled = false;
+        if (freqLabel?.parentElement) freqLabel.parentElement.style.opacity = '1';
+        if (freqInput) freqInput.disabled = false;
     }
 };
 
@@ -2047,21 +2068,22 @@ window.updateAdPlacementFields = () => {
     const isPreroll = p.length === 1 && p[0] === 'video_preroll';
 
     // Tipo de Contenido Actual
-    const contentType = document.getElementById('ad-campaign-editor').dataset.currentContentType || 'media';
+    const contentType = document.getElementById('ad-campaign-editor')?.dataset.currentContentType || 'media';
+    const linkContainer = document.getElementById('ad-edit-link-container');
 
     if (contentType === 'script') {
-        label.innerText = "⚡ Código del Script (Red Externa)";
-        hint.innerHTML = "* Pega el código de Adsterra, AdMob, etc.";
-        layoutGroup.style.display = 'none';
+        if (label) label.innerText = "⚡ Código del Script (Red Externa)";
+        if (hint) hint.innerHTML = "* Pega el código de Adsterra, AdMob, etc.";
+        if (layoutGroup) layoutGroup.style.display = 'none';
         if (cardFields) cardFields.style.display = 'none';
         // En modo Script, usualmente no quieres link manual a menos que lo fuerces
-        document.getElementById('ad-edit-link-container').parentElement.style.opacity = '1';
+        if (linkContainer?.parentElement) linkContainer.parentElement.style.opacity = '1';
     } else {
-        label.innerText = isPreroll ? "🎬 URL del Video / VAST Tag" : "🖼️ URL del Medio (Imagen/Video)";
-        hint.innerHTML = isPreroll ? "* URL directa a .mp4 o link de VAST." : "* URL de la imagen/video que verá el usuario.";
-        layoutGroup.style.display = needsCard ? 'block' : 'none';
+        if (label) label.innerText = isPreroll ? "🎬 URL del Video / VAST Tag" : "🖼️ URL del Medio (Imagen/Video)";
+        if (hint) hint.innerHTML = isPreroll ? "* URL directa a .mp4 o link de VAST." : "* URL de la imagen/video que verá el usuario.";
+        if (layoutGroup) layoutGroup.style.display = needsCard ? 'block' : 'none';
         if (cardFields) cardFields.style.display = needsCard ? 'block' : 'none';
-        document.getElementById('ad-edit-link-container').parentElement.style.opacity = '1';
+        if (linkContainer?.parentElement) linkContainer.parentElement.style.opacity = '1';
     }
 
     if (window.refreshAdHelpMessage) window.refreshAdHelpMessage();
@@ -2097,22 +2119,22 @@ window.saveAdsCampaigns = async () => {
             camp.endHour = parseInt(document.getElementById('ad-edit-end').value);
             camp.startDate = document.getElementById('ad-edit-start-date')?.value || '';
             camp.endDate = document.getElementById('ad-edit-end-date')?.value || '';
-            
+
             // Placements (Array)
             const selectedPlacements = [];
             document.querySelectorAll('.placement-btn.active').forEach(b => selectedPlacements.push(b.dataset.placement));
             camp.placements = selectedPlacements;
-            camp.coexistence = document.getElementById('ad-edit-coexistence').value;
+            camp.coexistence = document.getElementById('ad-edit-coexistence')?.value || camp.coexistence || 'respect_global';
 
             camp.message = document.getElementById('ad-edit-message').value;
             camp.media = document.getElementById('ad-edit-media').value;
-            camp.timer = parseInt(document.getElementById('ad-edit-timer').value);
-            camp.priority = parseInt(document.getElementById('ad-edit-priority').value);
-            camp.layout = document.getElementById('ad-edit-layout').value;
-            camp.canSkip = document.getElementById('ad-edit-can-skip').checked;
-            camp.freqMode = document.getElementById('ad-edit-freq-mode').value;
-            camp.freqTimes = parseInt(document.getElementById('ad-edit-freq-times').value);
-            camp.freqValue = parseInt(document.getElementById('ad-edit-freq').value);
+            camp.timer = parseInt(document.getElementById('ad-edit-timer')?.value) || camp.timer || 5;
+            camp.priority = parseInt(document.getElementById('ad-edit-priority')?.value) || camp.priority || 2;
+            camp.layout = document.getElementById('ad-edit-layout')?.value || camp.layout || 'glass';
+            camp.canSkip = document.getElementById('ad-edit-can-skip')?.checked || false;
+            camp.freqMode = document.getElementById('ad-edit-freq-mode')?.value || camp.freqMode || 'interval';
+            camp.freqTimes = parseInt(document.getElementById('ad-edit-freq-times')?.value) || camp.freqTimes || 1;
+            camp.freqValue = parseInt(document.getElementById('ad-edit-freq')?.value) || camp.freqValue || 60;
             camp.link = document.getElementById('ad-edit-link').value;
             camp.linkType = document.getElementById('ad-campaign-editor').dataset.currentLinkType || 'manual';
             camp.contentType = document.getElementById('ad-campaign-editor').dataset.currentContentType || 'media';
@@ -3604,9 +3626,9 @@ window.reportBrokenLink = async (movieId, movieTitle) => {
       userAgent: navigator.userAgent.substring(0, 100),
       status: 'pending'
     });
-    alert('¡Gracias por reportar! Lo revisaremos pronto 🌴');
   } catch (e) {
     console.error('Error guardando reporte:', e);
+    throw e;
   }
 };
 
@@ -5468,6 +5490,20 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
         };
     }
 
+    // 7b. Botón DESCARGAR: usa el link manual de descarga si el admin ya lo
+    // cargó para este título; si no, avisa que está en camino (aún no hay
+    // fuente que entregue archivos propios, solo embeds de terceros).
+    const downloadBtn = document.getElementById('detail-btn-download');
+    if (downloadBtn) {
+        downloadBtn.onclick = () => {
+            if (movie.downloadUrl) {
+                window.open(movie.downloadUrl, '_blank', 'noopener');
+            } else if (window.showToast) {
+                window.showToast('📥 Descarga disponible pronto para este título 🌴', 'info');
+            }
+        };
+    }
+
     // 8. VIP badge en el header si aplica
     const detailHeader = document.getElementById('detail-header');
     if (detailHeader) {
@@ -5661,21 +5697,25 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
     }
 };
 
-window.detailReportMovie = () => {
+window.detailReportMovie = async () => {
     const hash = window.location.hash;
-    const movieId = hash.split('detail/')[1];
-    const movie = movieDatabase.trending.find(m => m.id === movieId);
+    const slugOrId = hash.split('detail/')[1];
+    const movie = findMovieBySlugOrId(slugOrId);
     if (!movie) return;
-    const msg = `🚨 Reporte de contenido:\nPelícula: ${movie.title}\nID: ${movieId}\nMotivo: (describe el problema)`;
-    window.showToast("¡Gracias por reportar! Revisaremos este contenido. 🛡️", "success");
+    try {
+        await window.reportBrokenLink(movie.id, movie.title);
+        window.showToast(`🚩 Reportaste "${movie.title}". ¡Gracias, lo revisaremos pronto! 🛡️`, "success");
+    } catch (e) {
+        window.showToast("No se pudo enviar el reporte. Intenta de nuevo. ", "error");
+    }
 };
 
 window.detailShareMovie = async () => {
     const hash = window.location.hash;
-    const movieId = hash.split('detail/')[1];
-    const movie = movieDatabase.trending.find(m => m.id === movieId);
+    const slugOrId = hash.split('detail/')[1];
+    const movie = findMovieBySlugOrId(slugOrId);
     if (!movie) return;
-    const shareUrl = `${window.location.origin}${window.location.pathname}#detail/${movieId}`;
+    const shareUrl = `${window.location.origin}${window.location.pathname}#detail/${slugify(movie.title, movie.year)}`;
     if (navigator.share) {
         try {
             await navigator.share({ title: movie.title, text: `Mira ${movie.title} en SelvaFlix! 🌴🍿`, url: shareUrl });

@@ -254,20 +254,62 @@ async function loadSelvaFlixData() {
   }
 
   if (!hydratedObject) {
-    // 2. Si no hay caché o caducó, pedir a Firebase
+    // 2. Si no hay caché o caducó, pedir a Firebase — y quedarse escuchando en
+    // vivo el resto de la sesión en vez de solo pedir una vez. La primera
+    // entrega cuesta igual que un fetch normal (las 215 completas), pero de
+    // ahí en más, si alguien borra/edita algo en el admin, llega solo y solo
+    // se cobra por lo que cambió (no por releer todo el catálogo de nuevo) —
+    // reemplaza el "revisar cada 5 min por si acaso" por "avisame apenas
+    // cambia algo de verdad". A pedido, para que un borrado en una pestaña se
+    // vea reflejado al toque en cualquier otra sin esperar el vencimiento del caché.
     console.log("🔥 Haciendo expedición a Firebase (Solicitando datos frescos)");
     try {
-      const snapshot = await getDocs(moviesCol);
-      const moviesArray = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      await new Promise((resolve, reject) => {
+        let esPrimeraEntrega = true;
+        onSnapshot(moviesCol, (snapshot) => {
+          if (esPrimeraEntrega) {
+            esPrimeraEntrega = false;
+            const moviesArray = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+            movieDatabase.trending = moviesArray;
+            localStorage.setItem(CACHE_KEY, JSON.stringify(movieDatabase));
+            localStorage.setItem(CACHE_TIME_KEY, Date.now().toString());
+            if (window.resumePendingExports) window.resumePendingExports();
+            resolve();
+            return;
+          }
 
-      // Actualizamos el organismo
-      movieDatabase.trending = moviesArray;
+          // Cambios en vivo (no la carga inicial): parchea en memoria en vez
+          // de releer las 215 de nuevo, y refresca solo lo que esté a la vista.
+          snapshot.docChanges().forEach((change) => {
+            const data = { id: change.doc.id, ...change.doc.data() };
+            const idx = movieDatabase.trending.findIndex(m => m.id === data.id);
+            if (change.type === 'removed') {
+              if (idx !== -1) movieDatabase.trending.splice(idx, 1);
+            } else if (idx !== -1) {
+              movieDatabase.trending[idx] = data;
+            } else {
+              movieDatabase.trending.push(data);
+            }
+          });
+          localStorage.setItem(CACHE_KEY, JSON.stringify(movieDatabase));
+          localStorage.setItem(CACHE_TIME_KEY, Date.now().toString());
 
-      // Guardar el Espejo Completo
-      localStorage.setItem(CACHE_KEY, JSON.stringify(movieDatabase));
-      localStorage.setItem(CACHE_TIME_KEY, now.toString());
-
-      if(window.resumePendingExports) window.resumePendingExports();
+          if (document.getElementById('admin-view')?.style.display === 'block') {
+            _updateDetailedStats(movieDatabase.trending);
+            if (window.filterInventoryByCategory) window.filterInventoryByCategory();
+            else renderInventory();
+          } else if (document.getElementById('home-view')?.style.display === 'block' && typeof initApp === 'function') {
+            initApp();
+          }
+        }, (error) => {
+          // Si falla ANTES de la primera entrega, es un error real de carga (se
+          // maneja como antes). Si falla después (se cortó la conexión a mitad
+          // de la sesión), no hay nada que "devolver": solo se deja de escuchar
+          // hasta el próximo reload, que vuelve a intentar desde cero.
+          if (esPrimeraEntrega) reject(error);
+          else console.warn('Se perdió el listener en vivo del catálogo:', error);
+        });
+      });
     } catch (error) {
       console.error("❌ Error en la expedición de datos:", error);
       if (window.showToast) window.showToast("⚠️ Error cargando la selva: " + error.message, "error");

@@ -5035,7 +5035,14 @@ window.injectGlobalAdScripts = (contentArray, slotId = 'ad-global-container') =>
 
         // 🕵️ MODO SOCIAL BAR
         if (item.startsWith('SOCIAL_BAR|') && slotId === 'ad-global-container') {
-            const [_, mediaUrl, linkUrl] = item.split('|');
+            // Partido con cuidado: si la URL de la imagen trae un '|' suelto,
+            // tomamos el ULTIMO '|' como separador del link, no el primero.
+            const rest = item.slice('SOCIAL_BAR|'.length);
+            const lastPipe = rest.lastIndexOf('|');
+            const mediaUrl = (lastPipe >= 0 ? rest.slice(0, lastPipe) : rest).trim();
+            const linkUrl = (lastPipe >= 0 ? rest.slice(lastPipe + 1) : '').trim() || '#';
+            if (!mediaUrl) return;
+
             const barWrapper = document.createElement('div');
             barWrapper.style.position = 'fixed';
             barWrapper.style.bottom = '15px';
@@ -5044,14 +5051,31 @@ window.injectGlobalAdScripts = (contentArray, slotId = 'ad-global-container') =>
             barWrapper.style.zIndex = '10000';
             barWrapper.style.maxWidth = '90%';
             barWrapper.style.pointerEvents = 'auto';
-            barWrapper.innerHTML = `
-                <div style="position: relative; background: #111; border: 1px solid var(--primary); border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.8); animation: socialSlideUp 0.5s ease;">
-                    <button onclick="this.parentElement.parentElement.style.display='none'" style="position: absolute; top: 5px; right: 5px; background: rgba(0,0,0,0.5); border: none; color: white; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; z-index: 10; display:flex; align-items:center; justify-content:center; font-size:12px;">&times;</button>
-                    <a href="${linkUrl !== '#' ? linkUrl : 'javascript:void(0)'}" target="${linkUrl !== '#' ? '_blank' : '_self'}" style="text-decoration: none; display: block;">
-                        <img src="${mediaUrl}" style="display: block; width: 100%; max-height: 80px; object-fit: cover;">
-                    </a>
-                </div>
-            `;
+
+            const card = document.createElement('div');
+            card.style.cssText = 'position: relative; background: #111; border: 1px solid var(--primary); border-radius: 12px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.8); animation: socialSlideUp 0.5s ease;';
+
+            const closeBtn = document.createElement('button');
+            closeBtn.innerHTML = '&times;';
+            closeBtn.style.cssText = 'position: absolute; top: 5px; right: 5px; background: rgba(0,0,0,0.5); border: none; color: white; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; z-index: 10; display:flex; align-items:center; justify-content:center; font-size:12px;';
+            closeBtn.onclick = () => { barWrapper.style.display = 'none'; };
+
+            const link = document.createElement('a');
+            link.href = linkUrl !== '#' ? linkUrl : 'javascript:void(0)';
+            link.target = linkUrl !== '#' ? '_blank' : '_self';
+            link.style.cssText = 'text-decoration: none; display: block;';
+
+            // Asignado como propiedad (no interpolado en un string de HTML),
+            // asi el valor no puede "romper" la etiqueta aunque traiga
+            // comillas o texto de mas pegado por error.
+            const img = document.createElement('img');
+            img.src = mediaUrl;
+            img.style.cssText = 'display: block; width: 100%; max-height: 80px; object-fit: cover;';
+
+            link.appendChild(img);
+            card.appendChild(closeBtn);
+            card.appendChild(link);
+            barWrapper.appendChild(card);
             container.appendChild(barWrapper);
             return;
         }

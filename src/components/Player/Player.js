@@ -415,16 +415,11 @@ export const SelvaStream = {
 
     vigilarCarga(iframe, stream) {
         clearTimeout(this._vigilante);
-        // Se resetea acá (no solo al abrir el player): cada fuente nueva —
-        // incluido un auto-upgrade de Vimeus/DiPelis — tiene su propia ventana
-        // de "todavía cargando" antes de considerarse la que el usuario ya vio.
-        this._streamCargado = false;
         if (!iframe) return;
 
         let cargo = false;
         iframe.onload = () => {
             cargo = true;
-            this._streamCargado = true;
             clearTimeout(this._vigilante);
             const loader = document.getElementById('player-loader');
             if (loader) {
@@ -1247,14 +1242,16 @@ export const SelvaStream = {
 
                 // Primera de la lista a pedido, y toma el control de la
                 // reproducción (auto-upgrade) — pero solo si el usuario no
-                // eligió nada a mano Y la fuente que está sonando todavía no
-                // terminó de cargar. Sin el segundo chequeo, un Vimeus lento
-                // (varios candidatos, hasta 8s c/u) podía "resolver" varios
-                // segundos después de que el usuario ya estaba viendo otra
-                // cosa tranquilo, y le pisaba la reproducción sin avisar —
-                // reportado como "cambia de servidor pese a que ya reprodujo".
+                // eligió nada a mano mientras se confirmaba (~lo que tarde el
+                // fetch, normalmente rápido al tener CORS y no pasar por worker).
+                // REVERTIDO: se probó frenar este auto-upgrade una vez que la
+                // fuente rápida ya hubiera cargado, pero eso hacía que Vimeus
+                // (la mejor fuente) nunca tomara el control si RepelisHD/etc.
+                // arrancaban primero — se veía Vimeus listado como "Mejor
+                // Calidad" pero nunca se reproducía. El bug real (Vimeus
+                // marcado como bloqueado en pleno anuncio) va por otro lado.
                 this.lastScrapedStreams = [nuevaFuente, ...(this.lastScrapedStreams || [])];
-                if (!this._fuenteElegidaAMano && !this._streamCargado) {
+                if (!this._fuenteElegidaAMano) {
                     this.handleExternalStream(nuevaFuente);
                 }
                 this.renderControls();
@@ -1308,7 +1305,7 @@ export const SelvaStream = {
             lista.splice(idxVimeus === -1 ? 0 : idxVimeus + 1, 0, nuevaFuente);
             this.lastScrapedStreams = lista;
 
-            if (!this._fuenteElegidaAMano && !this._streamCargado && this.streamActual?.providerName !== 'Vimeus') {
+            if (!this._fuenteElegidaAMano && this.streamActual?.providerName !== 'Vimeus') {
                 this.handleExternalStream(nuevaFuente);
             }
 

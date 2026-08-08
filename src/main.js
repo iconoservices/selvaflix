@@ -985,9 +985,10 @@ function _renderCardsInto(container, data, isTrending = false) {
         const favIcon = isFavorite ? '❤️' : '🤍';
         const rank = currentIndex + idx + 1;
         
-        // Obtener género
-        const genre = item.genres ? (Array.isArray(item.genres) ? item.genres[0] : item.genres) : 'Action';
-        
+        // Obtener género (traducido: TMDB da IDs numéricos, no nombres)
+        const genreId = item.genres ? (Array.isArray(item.genres) ? item.genres[0] : item.genres) : '';
+        const genre = GENRE_MAP[String(genreId)] || 'Película';
+
         const isBroken = item.status === 'broken' || (window._brokenIds && window._brokenIds.has(item.id));
         let statusBadgeHtml = '';
         if (isBroken) {
@@ -1145,7 +1146,8 @@ function renderGallery(title, groups) {
         const isFavorite = window._myListIds && window._myListIds.has(item.id);
         const favClass = isFavorite ? 'active' : '';
         const favIcon = isFavorite ? '❤️' : '🤍';
-        const genre = item.genres ? (Array.isArray(item.genres) ? item.genres[0] : item.genres) : 'Action';
+        const genreId = item.genres ? (Array.isArray(item.genres) ? item.genres[0] : item.genres) : '';
+        const genre = GENRE_MAP[String(genreId)] || 'Película';
 
         const isBroken = item.status === 'broken' || (window._brokenIds && window._brokenIds.has(item.id));
         let statusBadgeHtml = '';
@@ -1318,11 +1320,14 @@ window.loadMoreInventory = () => {
 };
 
 // Mapea IDs de género a nombres amigables
+// Mismos nombres en español que usan las chips de género públicas
+// (Acción, Comedia, etc.) para que la tarjeta y el filtro digan lo mismo,
+// en vez del ID crudo de TMDB ("16") que se mostraba antes.
 const GENRE_MAP = {
-  "28": "Action", "12": "Adventure", "16": "Sci-Fi", "35": "Comedy", "80": "Thriller",
-  "99": "Doc", "18": "Drama", "10751": "Family", "14": "Fantasy", "36": "History",
-  "27": "Horror", "10402": "Music", "9648": "Mystery", "10749": "Romance", "878": "Sci-Fi",
-  "10770": "TV Movie", "53": "Thriller", "10752": "War", "37": "Western", "10759": "Action"
+  "28": "Acción", "12": "Aventura", "16": "Animación", "35": "Comedia", "80": "Crimen",
+  "99": "Documental", "18": "Drama", "10751": "Familiar", "14": "Fantasía", "36": "Historia",
+  "27": "Terror", "10402": "Música", "9648": "Misterio", "10749": "Romance", "878": "Sci-Fi",
+  "10770": "TV Movie", "53": "Suspenso", "10752": "Bélica", "37": "Western", "10759": "Acción"
 };
 
 function _renderInventoryRows(items) {

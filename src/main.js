@@ -6128,12 +6128,48 @@ async function rescatarTituloLatino(rawTitle, endpoint, tmdbId) {
   return rawTitle;
 }
 
+// Caché SOLO para el descubrimiento de Carga Masiva (candidatos nuevos de
+// TMDB, no del catálogo ya sembrado): "Solo Vimeus" vuelve a preguntar por
+// los mismos títulos populares en cada búsqueda porque TMDB casi siempre
+// devuelve el mismo top. Con esto, la 2da búsqueda no repregunta lo que ya
+// se sabe. Ojo: esto NO se usa en la auditoría de enlaces del catálogo
+// existente (vimeusTieneTitulo / tieneAlgunaFuente) — esa necesita siempre
+// el estado real y en vivo para detectar enlaces rotos o recién arreglados.
+const VIMEUS_DISCOVERY_CACHE_KEY = 'selva_vimeus_discovery_cache';
+const VIMEUS_DISCOVERY_CACHE_TTL = 48 * 60 * 60 * 1000; // 48hs
+
+function _leerCacheVimeusDiscovery() {
+  try { return JSON.parse(localStorage.getItem(VIMEUS_DISCOVERY_CACHE_KEY) || '{}'); }
+  catch (e) { return {}; }
+}
+
+function _guardarCacheVimeusDiscovery(cache) {
+  // Poda entradas viejas para que esto no crezca sin límite en localStorage.
+  const limite = Date.now() - (VIMEUS_DISCOVERY_CACHE_TTL * 2);
+  for (const key in cache) {
+    if (cache[key].ts < limite) delete cache[key];
+  }
+  try { localStorage.setItem(VIMEUS_DISCOVERY_CACHE_KEY, JSON.stringify(cache)); }
+  catch (e) { /* localStorage lleno o bloqueado: no es crítico, sigue sin cachear */ }
+}
+
 // Se usa para el distintivo de la Carga Masiva. Reutiliza vimeusEstadoTitulo
 // (mismo chequeo que usa el player real) en vez de un fetch propio, para no
 // repetir la lógica y para detectar también el caso "Vimeus Fantasma".
 async function chequearVimeusDisponible(tmdbId, tipo) {
   const tipoVimeus = tipo === 'anime' ? 'anime' : ((tipo === 'series' || tipo === 'tv') ? 'serie' : 'movie');
-  return vimeusTieneTitulo(tmdbId, null, tipoVimeus);
+  const key = `${tipoVimeus}:${tmdbId}`;
+
+  const cache = _leerCacheVimeusDiscovery();
+  const cacheado = cache[key];
+  if (cacheado && (Date.now() - cacheado.ts) < VIMEUS_DISCOVERY_CACHE_TTL) {
+    return cacheado.disponible;
+  }
+
+  const disponible = await vimeusTieneTitulo(tmdbId, null, tipoVimeus);
+  cache[key] = { disponible, ts: Date.now() };
+  _guardarCacheVimeusDiscovery(cache);
+  return disponible;
 }
 
 // Completa s.disponibleVimeus para los items de pendingSeeds que todavia no

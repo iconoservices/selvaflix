@@ -262,6 +262,9 @@
         <span class="material-symbols-outlined search-icon-cinepulse" onclick="this.parentElement.classList.toggle('open')">search</span>
         <input type="text" placeholder="Buscar..." class="search-bar search-bar-cinepulse" id="global-search">
       </div>
+      <select class="year-filter-select cinepulse-year-select" onchange="window.setYear(this.value)">
+        <option value="">Año: Todos</option>
+      </select>
 
       <!-- Profile Button -->
       <div id="user-profile-container" style="position: relative;">
@@ -343,6 +346,9 @@
   <div id="mobile-search-bar">
     <span class="material-symbols-outlined" style="color: var(--primary); font-size: 22px;">search</span>
     <input type="text" id="mobile-search-input" placeholder="Buscar películas, series..." autocomplete="off" spellcheck="false">
+    <select class="year-filter-select cinepulse-year-select year-filter-mobile" onchange="window.setYear(this.value)">
+      <option value="">Año</option>
+    </select>
     <button id="mobile-search-close" onclick="window.closeMobileSearch()" aria-label="Cerrar búsqueda">
       <span class="material-symbols-outlined">close</span>
     </button>
@@ -975,6 +981,7 @@
                     <option value="broken">🔴 Sin Fuentes</option>
                     <option value="no-vimeus">🚫 Sin Vimeus</option>
                     <option value="vimeus-fantasma">👻 Vimeus Fantasma</option>
+                    <option value="no-download">⬇️ Sin Descarga</option>
                   </select>
                   <select id="inventory-lang-filter" class="form-control" onchange="window.filterInventoryByCategory()">
                     <option value="all">Idiomas: Todos</option>

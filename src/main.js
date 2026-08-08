@@ -419,12 +419,17 @@ async function limpiarDuplicadosDeCatalogo() {
 }
 
 window.updateAdminUI();
-loadSelvaFlixData();
+// Se guarda la promesa para que la Carga Masiva pueda esperarla antes de
+// armar "existingIds": si el admin abre el modal apenas entra, sin esto
+// movieDatabase.trending todavía está vacío y todo lo ya sembrado parece
+// nuevo (se vuelve a ofrecer / se duplica al confirmar).
+window.selvaFlixDataReady = loadSelvaFlixData();
 
 
 // ─── Filter / Routing ────────────────────────────────────────────
 let _currentFilter = '';   // 'movies' | 'series' | 'live' | ''
 let _currentGenre = '';   // TMDB genre id string or ''
+let _currentYear = '';    // año como string, o '' para todos
 
 // Los enlaces de escritorio (Home / Películas / Series) llevan su propia clase
 // y nadie los actualizaba: "Home" se quedaba naranja aunque estuvieras en Series.
@@ -461,6 +466,8 @@ function sincronizarContinuarViendo(tipo) {
 window.setFilter = (type) => {
   _currentFilter = type;
   _currentGenre = '';   // reset genre on main filter change
+  _currentYear = '';    // reset año on main filter change
+
   marcarNavEscritorio(type);
   sincronizarContinuarViendo(type);
   marcarNavMovil(type);
@@ -481,13 +488,18 @@ window.setFilter = (type) => {
   const genreBar = document.getElementById('genre-bar');
   if (genreBar) {
     genreBar.style.display = (type === 'movies' || type === 'series' || type === 'anime') ? 'flex' : 'none';
-    genreBar.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    // Ojo: las chips son .cinepulse-genre-chip, no .filter-btn (esa clase no
+    // existe en el HTML) — con el selector viejo esto nunca sacaba el
+    // "active" de la chip anterior al cambiar de género.
+    genreBar.querySelectorAll('.cinepulse-genre-chip').forEach(b => b.classList.remove('active'));
     document.getElementById('genre-all')?.classList.add('active');
   }
+  poblarFiltroAnios();
+  document.querySelectorAll('.year-filter-select').forEach(sel => { sel.value = ''; });
 
   history.replaceState(null, '', type ? `#${type}` : '#');
-  initApp(type, '');
-  
+  initApp(type, '', '');
+
   // 🚀 Splash Screen: Ocultar si es la primera carga y ya tenemos los datos
   window.hideSplashScreen();
 
@@ -502,16 +514,46 @@ window.setGenre = (genreId) => {
   // Update genre pill active state
   const genreBar = document.getElementById('genre-bar');
   if (genreBar) {
-    genreBar.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    genreBar.querySelectorAll('.cinepulse-genre-chip').forEach(b => b.classList.remove('active'));
     // Find clicked button (match by onclick attr genreId)
-    genreBar.querySelectorAll('.filter-btn').forEach(b => {
+    genreBar.querySelectorAll('.cinepulse-genre-chip').forEach(b => {
       const oc = b.getAttribute('onclick') || '';
       if (oc.includes(`'${genreId}'`) || (genreId === '' && b.id === 'genre-all')) {
         b.classList.add('active');
       }
     });
   }
-  initApp(_currentFilter, genreId);
+  initApp(_currentFilter, genreId, _currentYear);
+};
+
+// Filtro por año: hay un <select class="year-filter-select"> junto al
+// buscador de escritorio y otro junto al buscador móvil (dos lugares, mismo
+// filtro) — se llenan solos con los años que de verdad existen en el
+// catálogo (no un rango fijo 1980-2026 que mayormente daría "sin resultados").
+function poblarFiltroAnios() {
+  const selects = document.querySelectorAll('.year-filter-select');
+  if (!selects.length || !movieDatabase.trending.length) return;
+
+  const years = [...new Set(
+    movieDatabase.trending.map(c => String(c.year || '')).filter(y => y.length === 4)
+  )].sort((a, b) => b - a);
+
+  selects.forEach(sel => {
+    if (sel.dataset.poblado === String(movieDatabase.trending.length)) return; // ya está al día
+    const seleccionActual = sel.value;
+    const etiquetaTodos = sel.querySelector('option[value=""]')?.textContent || 'Año: Todos';
+    sel.innerHTML = `<option value="">${etiquetaTodos}</option>` +
+      years.map(y => `<option value="${y}">${y}</option>`).join('');
+    sel.value = years.includes(seleccionActual) ? seleccionActual : '';
+    sel.dataset.poblado = String(movieDatabase.trending.length);
+  });
+}
+
+window.setYear = (year) => {
+  _currentYear = year;
+  // Los dos selects (escritorio/móvil) se mantienen sincronizados entre sí.
+  document.querySelectorAll('.year-filter-select').forEach(sel => { sel.value = year; });
+  initApp(_currentFilter, _currentGenre, year);
 };
 
 
@@ -989,12 +1031,14 @@ function _renderCardsInto(container, data, isTrending = false) {
               <div class="cinepulse-card-content">
                 <h3 class="cinepulse-card-title">${item.title}</h3>
                 <div class="cinepulse-card-meta">
+                  ${item.year ? `<span class="cinepulse-card-year">${item.year}</span>` : ''}
                   <span class="cinepulse-card-genre">${genre}</span>
                   ${streamBadge}
+                  ${item.rating ? `
                   <span class="cinepulse-card-rating">
                     <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1; font-size: 12px;">star</span>
-                    ${item.rating || '8.9'}
-                  </span>
+                    ${item.rating}
+                  </span>` : ''}
                 </div>
               </div>
             </div>
@@ -1146,18 +1190,13 @@ function renderGallery(title, groups) {
             <div class="cinepulse-card-content">
               <h3 class="cinepulse-card-title">${item.title}</h3>
               <div class="cinepulse-card-meta">
+                ${item.year ? `<span class="cinepulse-card-year">${item.year}</span>` : ''}
                 <span class="cinepulse-card-genre">${genre}</span>
+                ${item.rating ? `
                 <span class="cinepulse-card-rating">
                   <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1; font-size: 12px;">star</span>
-                  ${item.rating || '8.9'}
-                </span>
-              </div>
-            </div>
-                <span class="cinepulse-card-genre">${genre}</span>
-                <span class="cinepulse-card-rating">
-                  <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1; font-size: 12px;">star</span>
-                  ${item.rating || '8.9'}
-                </span>
+                  ${item.rating}
+                </span>` : ''}
               </div>
             </div>
           </div>
@@ -1362,6 +1401,15 @@ function _renderInventoryRows(items) {
       vimeusBadge = `<span class="genre-badge" style="background:rgba(255,255,255,0.06); color:#888; border:1px solid rgba(255,255,255,0.12);" title="Todavía no pasó por 'Auditar Vimeus' — no se sabe si tiene fuente real o no">❔ Sin Verificar</span>`;
     }
 
+    // A diferencia del resto de badges (que marcan la excepción con problema),
+    // acá casi ningún título tiene downloadUrl todavía, así que remarcar
+    // "Sin Descarga" en cada fila sería puro ruido — se marca solo la
+    // excepción positiva (los que ya tienen link) y el resto se ve con el
+    // filtro "⬇️ Sin Descarga" del combo de arriba.
+    const downloadBadge = m.downloadUrl
+      ? `<span class="genre-badge" style="background:rgba(46,204,113,0.12); color:#2ecc71; border:1px solid rgba(46,204,113,0.3);" title="Tiene link de descarga cargado">⬇️ Con Descarga</span>`
+      : '';
+
     return `
       <tr data-id="${m.id}">
         <td style="text-align: center;">
@@ -1380,7 +1428,7 @@ function _renderInventoryRows(items) {
         </td>
         <td>
           <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-            ${genres}${vimeusBadge}
+            ${genres}${vimeusBadge}${downloadBadge}
           </div>
         </td>
         <td>
@@ -3682,6 +3730,7 @@ window.filterInventoryByCategory = () => {
     // confirmado que no lo tiene.
     if (category === 'no-vimeus') matchHealth = m.vimeusDisponible === false && !m.vimeusFantasma;
     if (category === 'vimeus-fantasma') matchHealth = !!m.vimeusFantasma;
+    if (category === 'no-download') matchHealth = !m.downloadUrl;
     // En el admin panel 'all' = TODOS (sin exclusiones por estado)
 
     return matchSearch && matchType && matchLang && matchGenre && matchHealth;
@@ -6160,19 +6209,43 @@ window.loadRecommendedMix = async () => {
   status.innerText = '🔍 Cargando recomendados (películas, series y anime)...';
   pendingSeeds = [];
 
+  // Si el admin entra y abre el modal apenas carga la página, esperar a que
+  // termine la carga real del catálogo: si no, movieDatabase.trending puede
+  // estar vacío todavía y todo lo ya sembrado se ofrece de nuevo como "nuevo".
+  if (window.selvaFlixDataReady) { try { await window.selvaFlixDataReady; } catch (e) {} }
+
   const existingIds = new Set(
     movieDatabase.trending.filter(m => m.tmdbId != null).map(m => String(m.tmdbId))
   );
   const lang = document.getElementById('discover-lang')?.value || 'es-MX';
+  // Página fija (siempre la 1) hacía que, una vez sembrados los ~20 títulos
+  // más populares de cada tipo, la lista de recomendados quedara seca para
+  // siempre ("no trae nada nuevo"). Rotar entre las páginas 1-5 en cada
+  // apertura del modal da variedad real en vez de repetir el mismo tope.
+  const randomPage = () => 1 + Math.floor(Math.random() * 5);
+  // Antes siempre era "más populares" (popularity.desc), que con el tiempo
+  // termina siendo siempre lo mismo taquillero. Alternamos con "aclamados
+  // por la crítica" (vote_average.desc) para traer variedad real. Sin un
+  // piso de votos, vote_average.desc de TMDB devuelve rarezas con 2 votos y
+  // 10.0 de nota en vez de películas realmente bien calificadas.
+  const randomSort = (endpoint) => {
+    const porCritica = Math.random() < 0.5;
+    if (!porCritica) return { sortBy: 'popularity.desc', extra: '' };
+    const minVotos = endpoint === 'movie' ? 200 : 50; // series/anime acumulan menos votos en TMDB
+    return { sortBy: 'vote_average.desc', extra: `&vote_count.gte=${minVotos}` };
+  };
   const sources = [
-    { type: 'movie', endpoint: 'movie', extra: '' },
-    { type: 'series', endpoint: 'tv', extra: '' },
-    { type: 'anime', endpoint: 'tv', extra: '&with_genres=16&with_original_language=ja' },
-  ];
+    { type: 'movie', endpoint: 'movie', extra: '', page: randomPage() },
+    { type: 'series', endpoint: 'tv', extra: '', page: randomPage() },
+    { type: 'anime', endpoint: 'tv', extra: '&with_genres=16&with_original_language=ja', page: randomPage() },
+  ].map(src => {
+    const { sortBy, extra: sortExtra } = randomSort(src.endpoint);
+    return { ...src, sortBy, extra: src.extra + sortExtra };
+  });
 
   try {
     for (const src of sources) {
-      const url = `${TMDB_URL}/discover/${src.endpoint}?api_key=${TMDB_API_KEY}&language=${lang}&sort_by=popularity.desc&page=1${src.extra}`;
+      const url = `${TMDB_URL}/discover/${src.endpoint}?api_key=${TMDB_API_KEY}&language=${lang}&sort_by=${src.sortBy}&page=${src.page}${src.extra}`;
       const res = await fetch(url);
       if (!res.ok) continue;
       const data = await res.json();
@@ -6249,6 +6322,11 @@ window.massSeedMovies = async (contentType) => {
   confirmBtn.style.display = 'none';
   pendingSeeds = [];
 
+  // Mismo caso que en los recomendados: si el catálogo real todavía no
+  // terminó de cargar, existingIds sale incompleto y lo ya sembrado se
+  // vuelve a ofrecer como si fuera nuevo.
+  if (window.selvaFlixDataReady) { try { await window.selvaFlixDataReady; } catch (e) {} }
+
   // Comparación robusta: acepta tmdbId como string o number
   const existingIds = new Set(
     movieDatabase.trending
@@ -6285,6 +6363,9 @@ window.massSeedMovies = async (contentType) => {
 
       const sortBy = document.getElementById('discover-sort')?.value || 'popularity.desc';
       let url = `${TMDB_URL}/discover/${endpoint}?api_key=${TMDB_API_KEY}&language=${lang}&sort_by=${sortBy}&page=${pageNum}`;
+      // Sin piso de votos, "Mejor calificadas" de TMDB trae rarezas con 1-2
+      // votos y nota 10.0 en vez de títulos realmente aclamados por la crítica.
+      if (sortBy === 'vote_average.desc') url += `&vote_count.gte=${isTv ? 50 : 200}`;
       if (year && year !== '') url += `&${isTv ? 'first_air_date_year' : 'primary_release_year'}=${year}`;
 
       // 🇯🇵 "Anime" no existe como tipo en TMDB: sin este filtro devuelve las mismas
@@ -6325,6 +6406,12 @@ window.massSeedMovies = async (contentType) => {
           pendingSeeds.push(seed);
           nuevosDeEstaPagina.push(seed);
           foundNew++;
+          // TMDB "discover" puede repetir el mismo título en dos páginas
+          // distintas (empates de popularidad, orden que se corre entre
+          // pedidos). Sin marcarlo acá, existingIds solo sabía de lo que ya
+          // estaba en Firebase y la misma peli se agregaba dos veces a
+          // pendingSeeds -> dos checkboxes -> dos docs duplicados al sembrar.
+          existingIds.add(tmdbIdStr);
         }
       }
 
@@ -6567,7 +6654,7 @@ function renderSkeletons() {
   `;
 }
 
-function initApp(filterType = '', genreId = '') {
+function initApp(filterType = '', genreId = '', year = '') {
   if (!movieDatabase.trending.length) return;
 
   const container = document.getElementById('main-content');
@@ -6575,6 +6662,7 @@ function initApp(filterType = '', genreId = '') {
     container.innerHTML = '';
     renderSkeletons(); // Flash visual instantáneo
   }
+  poblarFiltroAnios();
 
   // --- NUCLEAR CLEANUP (v2.29) ---
   // Hacemos desaparecer lo que el cache del HTML se niega a soltar
@@ -6635,6 +6723,11 @@ function initApp(filterType = '', genreId = '') {
       const genreList = Array.isArray(g) ? g.map(String) : [String(g)];
       return genreList.includes(String(genreId));
     });
+  }
+
+  // Apply year filter if set
+  if (year && year !== '') {
+    allContent = allContent.filter(c => String(c.year) === String(year));
   }
 
   // --- Motor Hero Elite Algorithm v2.40 ---

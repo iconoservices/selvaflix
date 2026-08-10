@@ -3993,7 +3993,13 @@ window.searchTMDB = async function (query, isSuggestion = false) {
     ? document.getElementById('tmdb-img-suggestions') 
     : document.getElementById('tmdb-results');
   if (!resultsDiv) return;
-  if (!isSuggestion) resultsDiv.innerHTML = '<p style="color: var(--primary);">Buscando en Hollywood... 📡</p>';
+  if (!isSuggestion) {
+    resultsDiv.innerHTML = '<p style="color: var(--primary);">Buscando en Hollywood... 📡</p>';
+    const bulkToolbar = document.getElementById('tmdb-bulk-toolbar');
+    const selectAllChk = document.getElementById('chk-tmdb-select-all');
+    if (bulkToolbar) bulkToolbar.style.display = 'none';
+    if (selectAllChk) selectAllChk.checked = false;
+  }
 
   try {
     let data;
@@ -4069,16 +4075,28 @@ window.searchTMDB = async function (query, isSuggestion = false) {
         const distintivo = esVimeus
           ? `<span style="display:inline-block; margin-top:2px; padding:1px 6px; border-radius:4px; background:rgba(46,204,113,0.15); color:#2ECC71; font-size:0.58rem; font-weight:700;">✅ VIMEUS</span>`
           : `<span style="display:inline-block; margin-top:2px; padding:1px 6px; border-radius:4px; background:rgba(0,242,255,0.12); color:#00f2ff; font-size:0.58rem; font-weight:700;">🔗 RESPALDO</span>`;
+        // A pedido: en sagas divididas en partes (Crepúsculo, Amanecer 1/2,
+        // etc.) antes no había forma de saber de un vistazo si esa parte ya
+        // estaba en el catálogo, así que era fácil re-agregarla duplicada.
+        const yaEnCatalogo = window._tmdbYaEnCatalogo(m.id);
+        const yaBadge = yaEnCatalogo
+          ? `<span style="display:inline-block; margin-top:2px; padding:1px 6px; border-radius:4px; background:rgba(231,76,60,0.18); color:#E74C3C; font-size:0.58rem; font-weight:700;">📼 YA AGREGADA</span>`
+          : '';
 
         return `
-          <div class="tmdb-item" onclick="window.selectTMDBMovie(${index})" style="cursor:pointer; min-width:100px; text-align:center;">
-            <img src="${imgUrl}" alt="${title}" style="height:150px; border-radius:8px; object-fit:cover; margin-bottom:5px;" onerror="this.src='https://via.placeholder.com/150x225'">
-            <p style="font-size:0.65rem; color:var(--primary); font-weight:bold;">[${type === 'series' ? 'Serie' : 'Peli'}]</p>
-            <p style="font-size:0.7rem; color:white; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${title}</p>
-            ${distintivo}
+          <div class="tmdb-item" style="cursor:pointer; min-width:100px; text-align:center; position:relative; ${yaEnCatalogo ? 'opacity:0.55;' : ''}">
+            <input type="checkbox" class="tmdb-bulk-check" data-index="${index}" ${yaEnCatalogo ? 'disabled title="Ya está en el catálogo"' : ''} onclick="event.stopPropagation(); window.updateTMDBBulkBar();" style="position:absolute; top:2px; left:2px; width:16px; height:16px; z-index:2; cursor:pointer;">
+            <div onclick="window.selectTMDBMovie(${index})">
+              <img src="${imgUrl}" alt="${title}" style="height:150px; border-radius:8px; object-fit:cover; margin-bottom:5px;" onerror="this.src='https://via.placeholder.com/150x225'">
+              <p style="font-size:0.65rem; color:var(--primary); font-weight:bold;">[${type === 'series' ? 'Serie' : 'Peli'}]</p>
+              <p style="font-size:0.7rem; color:white; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${title}</p>
+              ${distintivo}
+              ${yaBadge}
+            </div>
           </div>
         `;
       }).join('');
+      window.updateTMDBBulkBar();
     }
 
   } catch (err) {
@@ -4143,6 +4161,135 @@ window.selectTMDBMovie = async (index) => {
   }
 
   alert(`Cosechada info de: ${title} 🥥🍹 (Metadatos Pro Activos)`);
+};
+
+// ¿Ya tenemos este tmdbId en el catálogo? Se usa para marcar "YA AGREGADA"
+// en los resultados de búsqueda y así no duplicar partes de una saga.
+window._tmdbYaEnCatalogo = (tmdbId) => {
+  if (!tmdbId || !movieDatabase?.trending?.length) return false;
+  return movieDatabase.trending.some(mv => String(mv.tmdbId) === String(tmdbId));
+};
+
+window.updateTMDBBulkBar = () => {
+  const toolbar = document.getElementById('tmdb-bulk-toolbar');
+  const countEl = document.getElementById('tmdb-bulk-count');
+  if (!toolbar) return;
+  const checks = document.querySelectorAll('.tmdb-bulk-check:checked');
+  if (checks.length > 0) {
+    toolbar.style.display = 'flex';
+    if (countEl) countEl.textContent = `${checks.length} seleccionada${checks.length > 1 ? 's' : ''}`;
+  } else {
+    toolbar.style.display = 'none';
+  }
+};
+
+window.toggleAllTMDBCheckboxes = (checked) => {
+  document.querySelectorAll('.tmdb-bulk-check:not(:disabled)').forEach(cb => { cb.checked = checked; });
+  window.updateTMDBBulkBar();
+};
+
+// Carga masiva desde la búsqueda de TMDb: pensada para sagas partidas en
+// varios títulos (Crepúsculo, Amanecer Parte 1/2, etc.) donde antes había
+// que repetir el flujo completo "buscar → click → completar → guardar" una
+// vez por cada parte. Trae los mismos metadatos extra que selectTMDBMovie
+// (IMDB id, títulos alternativos, director) y guarda cada una directo en
+// Firestore con estado "review", igual que hace el alta manual.
+window.addSelectedTMDBMovies = async () => {
+  const checks = Array.from(document.querySelectorAll('.tmdb-bulk-check:checked'));
+  if (checks.length === 0) return;
+  const indices = checks.map(cb => parseInt(cb.dataset.index, 10));
+  const btn = document.querySelector('#tmdb-bulk-toolbar button.btn-add-selected');
+  if (btn) btn.disabled = true;
+
+  let ok = 0, fail = 0;
+  for (let i = 0; i < indices.length; i++) {
+    const m = _tmdbLastResults[indices[i]];
+    if (!m) continue;
+    if (btn) btn.textContent = `Agregando ${i + 1}/${indices.length}...`;
+
+    try {
+      const title = m.title || m.name;
+      const date = m.release_date || m.first_air_date || "2024";
+      const type = m.media_type === 'tv' ? 'series' : 'movie';
+      const detailType = type === 'series' ? 'tv' : 'movie';
+      const imgUrl = m.poster_path ? (TMDB_IMG_URL + m.poster_path) : '';
+      if (!imgUrl) throw new Error('sin póster');
+
+      let director = '', imdbId = '', altTitles = [];
+      try {
+        const [extResp, altResp, credResp] = await Promise.all([
+          fetch(`${TMDB_URL}/${detailType}/${m.id}/external_ids?api_key=${TMDB_API_KEY}`),
+          fetch(`${TMDB_URL}/${detailType}/${m.id}/alternative_titles?api_key=${TMDB_API_KEY}`),
+          fetch(`${TMDB_URL}/${detailType}/${m.id}/credits?api_key=${TMDB_API_KEY}`)
+        ]);
+        const extData = await extResp.json();
+        imdbId = extData.imdb_id || '';
+        const altData = await altResp.json();
+        altTitles = (altData.titles || altData.results || []).map(t => t.title);
+        const credData = await credResp.json();
+        director = credData.crew?.find(c => c.job === 'Director')?.name || '';
+      } catch (e) {
+        console.warn('Metadatos extra fallaron para', title, e);
+      }
+
+      const tipoVimeus = type === 'anime' ? 'anime' : (type === 'series' ? 'serie' : 'movie');
+      let vimeusDisponible = false, vimeusFantasma = false;
+      try {
+        const estado = await vimeusEstadoTitulo(String(m.id), imdbId, tipoVimeus);
+        vimeusDisponible = estado === 'ok';
+        vimeusFantasma = estado === 'fantasma';
+      } catch (e) { /* se queda sin verificar, igual que si fallara en el alta manual */ }
+
+      const movieData = {
+        title,
+        original_title: m.original_title || m.original_name || '',
+        director,
+        synopsis: m.overview || '',
+        cast: '',
+        alternative_titles: altTitles,
+        img: imgUrl,
+        backdrop: m.backdrop_path ? (TMDB_IMG_URL + m.backdrop_path) : '',
+        pinned: false,
+        tmdbId: String(m.id),
+        imdbId,
+        embed: '',
+        year: date.split('-')[0],
+        rating: m.vote_average || '8.0',
+        type,
+        lang: document.getElementById('discover-lang')?.value || 'es-MX',
+        status: 'review',
+        isVIP: false,
+        releaseDate: null,
+        showCountdown: true,
+        vimeusDisponible,
+        vimeusFantasma,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
+
+      await addDoc(moviesCol, movieData);
+      ok++;
+    } catch (e) {
+      console.error('Error agregando', m?.title || m?.name, e);
+      fail++;
+    }
+  }
+
+  if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px; vertical-align:middle;">playlist_add</span> Agregar seleccionadas'; }
+
+  localStorage.removeItem('selvaflix_full_database');
+  localStorage.removeItem('selvaflix_cache_timestamp');
+  await loadSelvaFlixData();
+  if (window.filterInventoryByCategory) window.filterInventoryByCategory();
+
+  const msg = `${ok} título${ok === 1 ? '' : 's'} agregado${ok === 1 ? '' : 's'} a Revisión${fail ? ` (${fail} fallaron)` : ''} 🌴`;
+  if (window.showToast) window.showToast(msg, fail ? 'warning' : 'success');
+  else alert(msg);
+
+  // Re-renderiza la búsqueda para que las tarjetas recién agregadas
+  // queden marcadas como "YA AGREGADA" y no se puedan volver a tildar.
+  const query = document.getElementById('tmdb-search-input')?.value?.trim();
+  if (query) window.searchTMDB(query);
 };
 
 // --- SISTEMA DE VISITANTE UNICO (UUID Anonimo) ---

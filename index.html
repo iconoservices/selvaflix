@@ -1626,6 +1626,16 @@
                 Fuentes externas (mostrar títulos aunque no estén en Vimeus)
               </label>
               <div id="tmdb-results" style="display:flex; gap:8px; overflow-x:auto; padding-bottom:6px;"></div>
+              <div id="tmdb-bulk-toolbar" style="display:none; align-items:center; justify-content:space-between; gap:8px; margin-top:8px; padding:8px 10px; background:rgba(255,255,255,0.03); border-radius:6px;">
+                <label style="display:flex; align-items:center; gap:6px; font-size:0.78rem; color:var(--text-muted); cursor:pointer; white-space:nowrap;">
+                  <input type="checkbox" id="chk-tmdb-select-all" onclick="window.toggleAllTMDBCheckboxes(this.checked)">
+                  Todo
+                </label>
+                <span id="tmdb-bulk-count" style="font-size:0.78rem; color:var(--text-muted); flex:1;"></span>
+                <button type="button" class="btn btn-primary btn-add-selected" style="padding:4px 14px; font-size:0.78rem; white-space:nowrap;" onclick="window.addSelectedTMDBMovies()">
+                  <span class="material-symbols-outlined" style="font-size:16px; vertical-align:middle;">playlist_add</span> Agregar seleccionadas
+                </button>
+              </div>
             </div>
 
             <!-- General Information + Cast & Crew: lado a lado en escritorio -->

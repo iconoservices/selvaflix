@@ -1674,7 +1674,12 @@ window.renderAdCampaignList = () => {
                     ${(c.placements || [c.placement]).includes('video_preroll') ? '🎬' : ((c.placements || [c.placement]).includes('in_player') ? '🕹️' : '🃏')}
                 </div>
                 <div style="overflow: hidden; flex: 1;">
-                    <p style="color: white; font-size: 0.75rem; font-weight: 800; margin: 0; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">${c.name || 'Sin Nombre'}</p>
+                    <p style="color: white; font-size: 0.75rem; font-weight: 800; margin: 0; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; display:flex; align-items:center; gap:6px;">
+                        ${c.name || 'Sin Nombre'}
+                        ${c.source === 'code'
+                            ? '<span style="background:rgba(155,89,182,0.15); color:#9b59b6; border:1px solid rgba(155,89,182,0.35); font-size:0.5rem; font-weight:900; padding:1px 6px; border-radius:4px; white-space:nowrap;">🖥️ CÓDIGO</span>'
+                            : '<span style="background:rgba(255,122,0,0.12); color:var(--primary); border:1px solid rgba(255,122,0,0.3); font-size:0.5rem; font-weight:900; padding:1px 6px; border-radius:4px; white-space:nowrap;">✋ MANUAL</span>'}
+                    </p>
                     <p style="color: ${c.active ? '#2ecc71' : '#666'}; font-size: 0.55rem; margin: 0; font-weight: bold; text-transform: uppercase; display: flex; align-items: center; gap: 4px;">
                         <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: ${c.active ? '#2ecc71' : '#666'};"></span>
                         ${c.active ? 'ACTIVA' : 'INACTIVA'} • ${Array.isArray(c.placements) ? c.placements.join(', ') : (c.placement || 'global')}
@@ -1709,32 +1714,39 @@ window.toggleAdCampaignQuick = async (id) => {
     // No guardamos a Firestore en cada click para evitar cuota, el usuario debe dar a GUARDAR TODO
 };
 
-// Crea las campañas de Monetag como campañas normales (tipo Script,
-// global_script) si todavía no existen — así quedan con el mismo
+// Catálogo de scripts de red conocidos (Monetag y lo que se sume después).
+// Para agregar una red nueva alcanza con sumar un objeto acá — el mismo
+// botón "Importar Scripts de Red" los crea a todos de una, sin duplicar
+// los que ya estén importados.
+window.KNOWN_NETWORK_SCRIPTS = [
+  {
+    id: 'monetag-vignette-11548083',
+    name: 'Monetag · Viñeta (11548083)',
+    media: `<script>(function(s){s.dataset.zone='11548083',s.src='https://n6wxm.com/vignette.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script>`
+  },
+  {
+    id: 'monetag-tag-11549958',
+    name: 'Monetag · Tag (11549958)',
+    media: `<script src="https://5gvci.com/act/files/tag.min.js?z=11549958" data-cfasync="false" async></script>`
+  }
+];
+
+// Crea las campañas de la lista de arriba como campañas normales (tipo
+// Script, global_script) si todavía no existen — así quedan con el mismo
 // interruptor ON/OFF que cualquier otra campaña, en vez de hardcodeadas
-// en el <head>. Idempotente: si ya se importaron, no las duplica.
-window.seedMonetagCampaigns = async () => {
+// en el <head>. Se marcan con source:'code' para distinguirlas en la lista
+// de las que el admin arma a mano. Idempotente: si ya se importaron, no
+// las duplica.
+window.seedNetworkScripts = async () => {
   if (!window.adCampaigns) window.adCampaigns = [];
 
-  const scripts = [
-    {
-      id: 'monetag-vignette-11548083',
-      name: 'Monetag · Viñeta (11548083)',
-      media: `<script>(function(s){s.dataset.zone='11548083',s.src='https://n6wxm.com/vignette.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script>`
-    },
-    {
-      id: 'monetag-tag-11549958',
-      name: 'Monetag · Tag (11549958)',
-      media: `<script src="https://5gvci.com/act/files/tag.min.js?z=11549958" data-cfasync="false" async></script>`
-    }
-  ];
-
   let added = 0;
-  scripts.forEach(s => {
+  window.KNOWN_NETWORK_SCRIPTS.forEach(s => {
     if (window.adCampaigns.some(c => c.id === s.id)) return; // ya importada
     window.adCampaigns.push({
       id: s.id,
       name: s.name,
+      source: 'code',
       active: true,
       contentType: 'script',
       linkType: 'manual',
@@ -1760,12 +1772,12 @@ window.seedMonetagCampaigns = async () => {
   window.renderAdCampaignList();
 
   if (added === 0) {
-    if (window.showToast) window.showToast('Los scripts de Monetag ya estaban importados.', 'info');
+    if (window.showToast) window.showToast('Los scripts de red ya estaban todos importados.', 'info');
     return;
   }
 
   await window.saveAdsCampaigns();
-  if (window.showToast) window.showToast(`⭐ ${added} campaña(s) de Monetag importadas. Ya podés prenderlas/apagarlas desde acá.`, 'success');
+  if (window.showToast) window.showToast(`⭐ ${added} campaña(s) importadas. Ya podés prenderlas/apagarlas desde acá.`, 'success');
 };
 
 window.createNewAdCampaign = () => {

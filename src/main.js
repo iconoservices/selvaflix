@@ -5538,11 +5538,16 @@ window.addEventListener('keydown', (e) => {
 // Cierra el player correctamente y vuelve al detalle de la película
 window.closePlayer = () => {
     if (typeof SelvaStream !== 'undefined') SelvaStream.close();
-    // Volvemos al detalle — hash sin /play
+    // Volvemos al detalle. IMPORTANTE: history.back(), no window.location.hash =
+    // — abrir el player ya empujó "detail/slug/play" al historial (ver
+    // SelvaStream.open), así que reescribir el hash acá EMPUJABA una entrada
+    // nueva "detail/slug" encima, duplicándola. Con esa pila, el botón atrás
+    // FÍSICO del teléfono retrocedía un paso y caía otra vez en
+    // "detail/slug/play" — el player se reabría en vez de seguir para atrás
+    // (loop reportado en PWA instalada). history.back() consume la entrada de
+    // /play en vez de apilar una nueva, así que no queda duplicado.
     const currentHash = window.location.hash.substring(1);
-    if (currentHash.includes('/play')) {
-        window.location.hash = currentHash.replace('/play', '');
-    } else if (!currentHash.startsWith('detail/')) {
+    if (currentHash.includes('/play') || !currentHash.startsWith('detail/')) {
         history.back();
     }
 };

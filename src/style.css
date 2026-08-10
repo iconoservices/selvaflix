@@ -5803,7 +5803,10 @@ body.admin-locked {
   }
   .player-modal.player-acoplado.player-expandido .player-back-arrow,
   .player-modal.player-acoplado.player-expandido .player-top-controls {
-    top: 10px !important;
+    /* Sin var(--safe-top) esto quedaba pegado al borde y, en PWA instalada
+       (status bar propio), demasiado arriba / tapado por la barra del
+       sistema — mismo criterio que ya usa el dock sticky más arriba. */
+    top: calc(10px + var(--safe-top, 0px)) !important;
   }
   .player-modal.player-acoplado .player-back-arrow { left: 10px !important; }
   .player-modal.player-acoplado .player-top-controls { right: 10px !important; }

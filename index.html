@@ -1283,9 +1283,14 @@
                   <h1 class="portal-pane-title">Ads Manager</h1>
                   <p class="portal-pane-desc">Monetización y gestión de campañas publicitarias.</p>
                 </div>
-                <button onclick="window.createNewAdCampaign()" class="btn btn-upload-orange">
-                  + Nueva Campaña
-                </button>
+                <div style="display:flex; gap:8px;">
+                  <button onclick="window.seedMonetagCampaigns()" class="btn" style="background:rgba(46,204,113,0.12); color:#2ecc71; border:1px solid rgba(46,204,113,0.3); font-weight:800; font-size:0.8rem; padding:10px 16px; border-radius:8px; cursor:pointer;" title="Crea las campañas de Monetag si todavía no existen, sin duplicarlas">
+                    ⭐ Importar Scripts Monetag
+                  </button>
+                  <button onclick="window.createNewAdCampaign()" class="btn btn-upload-orange">
+                    + Nueva Campaña
+                  </button>
+                </div>
               </div>
 
               <!-- Coexistencia Global -->

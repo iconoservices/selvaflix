@@ -1709,6 +1709,65 @@ window.toggleAdCampaignQuick = async (id) => {
     // No guardamos a Firestore en cada click para evitar cuota, el usuario debe dar a GUARDAR TODO
 };
 
+// Crea las campañas de Monetag como campañas normales (tipo Script,
+// global_script) si todavía no existen — así quedan con el mismo
+// interruptor ON/OFF que cualquier otra campaña, en vez de hardcodeadas
+// en el <head>. Idempotente: si ya se importaron, no las duplica.
+window.seedMonetagCampaigns = async () => {
+  if (!window.adCampaigns) window.adCampaigns = [];
+
+  const scripts = [
+    {
+      id: 'monetag-vignette-11548083',
+      name: 'Monetag · Viñeta (11548083)',
+      media: `<script>(function(s){s.dataset.zone='11548083',s.src='https://n6wxm.com/vignette.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script>`
+    },
+    {
+      id: 'monetag-tag-11549958',
+      name: 'Monetag · Tag (11549958)',
+      media: `<script src="https://5gvci.com/act/files/tag.min.js?z=11549958" data-cfasync="false" async></script>`
+    }
+  ];
+
+  let added = 0;
+  scripts.forEach(s => {
+    if (window.adCampaigns.some(c => c.id === s.id)) return; // ya importada
+    window.adCampaigns.push({
+      id: s.id,
+      name: s.name,
+      active: true,
+      contentType: 'script',
+      linkType: 'manual',
+      link: '',
+      placements: ['global_script'],
+      coexistence: 'respect_global',
+      layout: 'glass',
+      canSkip: false,
+      days: [0, 1, 2, 3, 4, 5, 6],
+      startHour: 0,
+      endHour: 23,
+      message: '',
+      media: s.media,
+      timer: 5,
+      priority: 2,
+      freqMode: 'interval',
+      freqTimes: 1,
+      freqValue: 60
+    });
+    added++;
+  });
+
+  window.renderAdCampaignList();
+
+  if (added === 0) {
+    if (window.showToast) window.showToast('Los scripts de Monetag ya estaban importados.', 'info');
+    return;
+  }
+
+  await window.saveAdsCampaigns();
+  if (window.showToast) window.showToast(`⭐ ${added} campaña(s) de Monetag importadas. Ya podés prenderlas/apagarlas desde acá.`, 'success');
+};
+
 window.createNewAdCampaign = () => {
     const campaigns = window.adCampaigns || [];
     const newCamp = {

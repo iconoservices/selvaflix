@@ -1667,6 +1667,17 @@
                 </div>
               </div>
 
+              <div class="form-group">
+                <label>Enlace de Descarga (opcional, MP4/M3U8 directo)</label>
+                <div style="display:flex; gap:8px;">
+                  <input type="url" id="m-download-url" class="form-control" placeholder="https://... (archivo descargable directo)" style="flex:1;">
+                  <button type="button" class="btn btn-primary" onclick="window.open(document.getElementById('m-download-url').value.trim(), '_blank', 'noopener')" title="Abrir para probar">
+                    <span class="material-symbols-outlined" style="font-size:16px;">open_in_new</span>
+                  </button>
+                </div>
+                <p style="color:#888; font-size:0.65rem; margin:6px 0 0;">Alimenta el botón "DESCARGAR" que ve el usuario. Tiene que ser un archivo directo (no un iframe/embed), si no, al usuario no le va a descargar nada.</p>
+              </div>
+
               <!-- Admin Player Mini Preview (visible solo si hay embed activo) -->
               <div id="admin-embed-preview" class="admin-embed-preview" style="display:none;">
                 <div class="embed-preview-file">

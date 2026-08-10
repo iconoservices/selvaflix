@@ -1554,7 +1554,7 @@ window.openUploadDrawer = () => {
   const clearField = (id, val = '') => { const el = document.getElementById(id); if (el) el.value = val; };
   ['m-db-id', 'm-imdb-id', 'm-original-title', 'm-alternative-titles', 'm-title', 'm-tmdb-id',
    'm-synopsis', 'm-director', 'm-cast', 'm-genres', 'm-embed', 'm-img', 'm-backdrop',
-   'm-release-date', 'm-preferred-provider'].forEach(id => clearField(id));
+   'm-release-date', 'm-preferred-provider', 'm-download-url'].forEach(id => clearField(id));
 
   clearField('m-status', 'review');
   clearField('m-type', 'movie');
@@ -6118,6 +6118,7 @@ window.editMovie = (id) => {
   document.getElementById('m-tmdb-id').value = movie.tmdbId || "";
   document.getElementById('m-imdb-id').value = movie.imdbId || ""; // Operación IMDB-Latino
   document.getElementById('m-embed').value = movie.embed || "";
+  document.getElementById('m-download-url').value = movie.downloadUrl || "";
   document.getElementById('m-preferred-provider').value = movie.preferredProvider || "";
   document.getElementById('m-year').value = (movie.year || '2024').toString().split('-')[0];
   document.getElementById('m-rating').value = movie.rating || '4.8';
@@ -7377,6 +7378,7 @@ window.submitMovieForm = async () => {
     tmdbId: document.getElementById('m-tmdb-id').value.trim(),
     imdbId: document.getElementById('m-imdb-id').value.trim(),
     embed: document.getElementById('m-embed').value.trim(),
+    downloadUrl: document.getElementById('m-download-url')?.value.trim() || '',
     year: document.getElementById('m-year').value || new Date().getFullYear().toString(),
     rating: document.getElementById('m-rating').value || '7.0',
     type: document.getElementById('m-type').value || 'movie',
@@ -7556,14 +7558,21 @@ window.checkAdminPublicServers = () => {
   listEl.innerHTML = servers.map(srv => {
     const esActual = srv.providerName === actual;
     return `
-    <div style="background:${esActual ? 'rgba(46,204,113,0.1)' : 'rgba(255,255,255,0.02)'}; border:1px solid ${esActual ? '#2ecc71' : 'rgba(255,255,255,0.06)'}; padding:8px 10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; gap:10px; transition:background 0.3s, border-color 0.3s;">
-      <a href="${srv.url}" target="_blank" rel="noopener" style="font-size:0.7rem; font-weight:bold; color:#00f2ff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-decoration:none;" title="Abrir en pestaña nueva para revisarlo">${srv.name}</a>
+    <div style="background:${esActual ? 'rgba(46,204,113,0.1)' : 'rgba(255,255,255,0.02)'}; border:1px solid ${esActual ? '#2ecc71' : 'rgba(255,255,255,0.06)'}; padding:8px 10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; gap:8px; transition:background 0.3s, border-color 0.3s;">
+      <a href="${srv.url}" target="_blank" rel="noopener" style="font-size:0.7rem; font-weight:bold; color:#00f2ff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-decoration:none; flex:1; min-width:0;" title="Abrir en pestaña nueva para revisarlo / descargarlo">${srv.name}</a>
+      <button type="button" class="btn" style="font-size:0.65rem; padding:4px 6px; cursor:pointer; background:rgba(255,255,255,0.08); border:none; color:#ccc; font-weight:bold; border-radius:4px; flex-shrink:0;" onclick="window.copyServerLink('${srv.url}')" title="Copiar link">📋</button>
       ${esActual
         ? '<span style="font-size:0.65rem; padding:4px 8px; background:#2ecc71; color:#000; font-weight:900; border-radius:4px; flex-shrink:0;">✓ Actual</span>'
-        : `<button type="button" class="btn" style="font-size:0.65rem; padding:4px 8px; cursor:pointer; background:#00f2ff; border:none; color:#000; font-weight:bold; border-radius:4px; flex-shrink:0;" onclick="window.preferirServidorPublico('${srv.providerName}')">⭐ Preferir</button>`}
+        : `<button type="button" class="btn" style="font-size:0.65rem; padding:4px 8px; cursor:pointer; background:#00f2ff; border:none; color:#000; font-weight:bold; border-radius:4px; flex-shrink:0; white-space:nowrap;" onclick="window.preferirServidorPublico('${srv.providerName}')">⭐ Preferir</button>`}
     </div>
   `;
   }).join('') + (isTv ? '<p style="color:#aaa; font-size:0.65rem; margin:4px 0 0;">Nota: para series arma la URL con T1E1 por defecto, igual que el link manual.</p>' : '');
+};
+
+window.copyServerLink = (url) => {
+  navigator.clipboard.writeText(url)
+    .then(() => { if (window.showToast) window.showToast('📋 Link copiado — pégalo donde lo necesites.', 'success'); })
+    .catch(() => { if (window.showToast) window.showToast('No se pudo copiar. Copialo a mano desde la pestaña abierta.', 'error'); });
 };
 
 // "Preferir" NO toca el enlace propio (embed) — solo guarda cuál servidor
@@ -7617,6 +7626,7 @@ window.setAdminPriorityFromDrawer = async () => {
       tmdbId: document.getElementById('m-tmdb-id').value.trim(),
       imdbId: document.getElementById('m-imdb-id').value.trim(), // Operación IMDB-Latino
       embed: document.getElementById('m-embed').value.trim(),
+      downloadUrl: document.getElementById('m-download-url')?.value.trim() || '',
       year: document.getElementById('m-year').value || new Date().getFullYear().toString(),
       rating: document.getElementById('m-rating').value || '7.0',
       type: document.getElementById('m-type').value || 'movie',

@@ -6161,6 +6161,10 @@ window.editMovie = (id) => {
 
   // Cargar previsualización del video al editar
   window.updateMiniPlayer();
+
+  // Los servidores públicos ahora aparecen solos al editar, sin depender
+  // de que el admin apriete el botón primero.
+  if (movie.imdbId) window.checkAdminPublicServers();
 };
 
 
@@ -7559,7 +7563,8 @@ window.checkAdminPublicServers = () => {
     const esActual = srv.providerName === actual;
     return `
     <div style="background:${esActual ? 'rgba(46,204,113,0.1)' : 'rgba(255,255,255,0.02)'}; border:1px solid ${esActual ? '#2ecc71' : 'rgba(255,255,255,0.06)'}; padding:8px 10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; gap:8px; transition:background 0.3s, border-color 0.3s;">
-      <a href="${srv.url}" target="_blank" rel="noopener" style="font-size:0.7rem; font-weight:bold; color:#00f2ff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-decoration:none; flex:1; min-width:0;" title="Abrir en pestaña nueva para revisarlo / descargarlo">${srv.name}</a>
+      <span style="font-size:0.7rem; font-weight:bold; color:#00f2ff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0;">${srv.name}</span>
+      <button type="button" class="btn" style="font-size:0.65rem; padding:4px 6px; cursor:pointer; background:rgba(255,255,255,0.08); border:none; color:#ccc; font-weight:bold; border-radius:4px; flex-shrink:0;" onclick="window.previewServerLink('${srv.url}')" title="Vista previa (abre embebido, como lo ve el visitante — abrirlo en pestaña nueva falla en varios servidores por protección anti-hotlink)">👁️</button>
       <button type="button" class="btn" style="font-size:0.65rem; padding:4px 6px; cursor:pointer; background:rgba(255,255,255,0.08); border:none; color:#ccc; font-weight:bold; border-radius:4px; flex-shrink:0;" onclick="window.copyServerLink('${srv.url}')" title="Copiar link">📋</button>
       ${esActual
         ? '<span style="font-size:0.65rem; padding:4px 8px; background:#2ecc71; color:#000; font-weight:900; border-radius:4px; flex-shrink:0;">✓ Actual</span>'
@@ -7567,6 +7572,22 @@ window.checkAdminPublicServers = () => {
     </div>
   `;
   }).join('') + (isTv ? '<p style="color:#aaa; font-size:0.65rem; margin:4px 0 0;">Nota: para series arma la URL con T1E1 por defecto, igual que el link manual.</p>' : '');
+};
+
+// Vista previa embebida (no pestaña nueva): varios servidores (PelisMart,
+// FlixLatam) bloquean la navegación directa por protección anti-hotlink —
+// solo responden si el pedido llega embebido con el referer del sitio, que
+// es justo como los usa el reproductor real. Reutiliza el mini-player que
+// ya existe para "Enlace de Video".
+window.previewServerLink = (url) => {
+  const placeholder = document.getElementById('mini-player-placeholder');
+  const iframe = document.getElementById('mini-player-iframe');
+  if (placeholder) placeholder.style.display = 'none';
+  if (iframe) {
+    iframe.style.display = 'block';
+    iframe.src = url;
+  }
+  if (window.showToast) window.showToast('👁️ Vista previa cargada en el panel de la derecha.', 'info');
 };
 
 window.copyServerLink = (url) => {

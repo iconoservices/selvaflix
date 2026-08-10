@@ -7547,12 +7547,23 @@ window.checkAdminPublicServers = () => {
   // providerName tiene que ser IDÉNTICO al que usa Player.js/buildPublicStreams
   // (RepelisHD, PelisMart, FlixLatam) — es la clave con la que el reproductor
   // matchea this.preferredProvider contra la lista de fuentes públicas.
+  const title = document.getElementById('m-title').value.trim();
+  const searchQuery = encodeURIComponent(title);
+
   const servers = [];
   if (!isTv) {
     servers.push({ name: "🎬 REPELISHD", providerName: "RepelisHD", url: `https://verhdlink.cam/movie/${imdbId}` });
   }
-  servers.push({ name: "🍿 PELISMART · EMBED69", providerName: "PelisMart", url: isTv ? `https://pelismart.mov/vidurl/${imdbId}-1x01/` : `https://pelismart.mov/vidurl/${imdbId}/` });
-  servers.push({ name: "🇲🇽 FLIXLATAM · EMBED69", providerName: "FlixLatam", url: isTv ? `https://flixlatam.com/vidurl/${imdbId}-1x01/` : `https://flixlatam.com/vidurl/${imdbId}/` });
+  // El link /vidurl/ es un endpoint interno SOLO para embeber (por eso el
+  // 👁️ de acá abajo lo carga en el mini player). Abierto directo o pegado
+  // en una app de descarga, PelisMart/FlixLatam lo bloquean a propósito
+  // (revisan que la página esté "enmarcada", no solo el referer — probado
+  // en vivo el 2026-08-10). searchUrl SÍ es su página pública real
+  // (funciona directo, sin bloqueo): desde ahí el usuario llega al
+  // "/pelicula/slug" de verdad, donde una extensión de descarga normal
+  // (tipo Video DownloadHelper) sí detecta el archivo, como en PelisMart.
+  servers.push({ name: "🍿 PELISMART · EMBED69", providerName: "PelisMart", url: isTv ? `https://pelismart.mov/vidurl/${imdbId}-1x01/` : `https://pelismart.mov/vidurl/${imdbId}/`, searchUrl: `https://pelismart.mov/search?s=${searchQuery}` });
+  servers.push({ name: "🇲🇽 FLIXLATAM · EMBED69", providerName: "FlixLatam", url: isTv ? `https://flixlatam.com/vidurl/${imdbId}-1x01/` : `https://flixlatam.com/vidurl/${imdbId}/`, searchUrl: `https://flixlatam.com/search?s=${searchQuery}` });
 
   // El preferido actual sube al tope de la lista y queda marcado, para que
   // se vea de un vistazo cuál va a arrancar primero (sin admin.embed de por medio).
@@ -7566,6 +7577,7 @@ window.checkAdminPublicServers = () => {
       <span style="font-size:0.7rem; font-weight:bold; color:#00f2ff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0;">${srv.name}</span>
       <button type="button" class="btn" style="font-size:0.65rem; padding:4px 6px; cursor:pointer; background:rgba(255,255,255,0.08); border:none; color:#ccc; font-weight:bold; border-radius:4px; flex-shrink:0;" onclick="window.previewServerLink('${srv.url}')" title="Vista previa (abre embebido, como lo ve el visitante — abrirlo en pestaña nueva falla en varios servidores por protección anti-hotlink)">👁️</button>
       <button type="button" class="btn" style="font-size:0.65rem; padding:4px 6px; cursor:pointer; background:rgba(255,255,255,0.08); border:none; color:#ccc; font-weight:bold; border-radius:4px; flex-shrink:0;" onclick="window.copyServerLink('${srv.url}')" title="Copiar link">📋</button>
+      ${srv.searchUrl ? `<button type="button" class="btn" style="font-size:0.65rem; padding:4px 6px; cursor:pointer; background:rgba(255,255,255,0.08); border:none; color:#ccc; font-weight:bold; border-radius:4px; flex-shrink:0;" onclick="window.open('${srv.searchUrl}', '_blank', 'noopener')" title="Buscar en el sitio real (funciona directo, sin bloqueo — ahí sí detectan las extensiones de descarga)">🔍</button>` : ''}
       ${esActual
         ? '<span style="font-size:0.65rem; padding:4px 8px; background:#2ecc71; color:#000; font-weight:900; border-radius:4px; flex-shrink:0;">✓ Actual</span>'
         : `<button type="button" class="btn" style="font-size:0.65rem; padding:4px 8px; cursor:pointer; background:#00f2ff; border:none; color:#000; font-weight:bold; border-radius:4px; flex-shrink:0; white-space:nowrap;" onclick="window.preferirServidorPublico('${srv.providerName}')">⭐ Preferir</button>`}

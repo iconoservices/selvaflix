@@ -1644,6 +1644,67 @@
               <div id="tmdb-bulk-fuentes-result" style="display:none; flex-direction:column; gap:8px; margin-top:8px; max-height:280px; overflow-y:auto;"></div>
             </div>
 
+            <!-- Origen del Video y Enlaces -->
+            <div class="drawer-card source-file-card">
+              <h3 class="drawer-card-title">
+                <span class="material-symbols-outlined">play_circle</span> Origen de Video y Enlaces
+              </h3>
+
+              <div class="form-group">
+                <label>Enlace de Video (Embed / M3U8 / URL Directa)</label>
+                <div style="display:flex; gap:8px;">
+                  <input type="url" id="m-embed" class="form-control" placeholder="https://..." style="flex:1;">
+                  <button type="button" class="btn btn-primary" onclick="window.testEmbedLink()" title="Probar enlace">
+                    <span class="material-symbols-outlined" style="font-size:16px;">play_arrow</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Admin Player Mini Preview (visible solo si hay embed activo) -->
+              <div id="admin-embed-preview" class="admin-embed-preview" style="display:none;">
+                <div class="embed-preview-file">
+                  <span class="material-symbols-outlined" style="color:#ff571a;">movie</span>
+                  <span id="admin-embed-filename" class="embed-filename">enlace_embed</span>
+                </div>
+                <div class="embed-preview-actions">
+                  <button type="button" class="btn btn-success-sm" onclick="window.handleCardClick(document.getElementById('m-db-id').value)">
+                    <span class="material-symbols-outlined" style="font-size:14px;">play_arrow</span> Reproducir
+                  </button>
+                  <button type="button" class="btn btn-danger-sm" onclick="window.clearEmbedLink()">
+                    <span class="material-symbols-outlined" style="font-size:14px;">close</span> Limpiar
+                  </button>
+                </div>
+              </div>
+
+              <!-- Fuentes: las 3 acciones siempre visibles, en una misma fila (sin acordeón) -->
+              <label class="drawer-advanced-label" style="display:block; margin-top:10px; margin-bottom:6px;">
+                <span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle;">tune</span> Opciones de fuente
+              </label>
+              <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; align-items:start;">
+                <button type="button" class="btn" style="width:100%; background:#2ecc71; color:#000; font-weight:900; font-size:0.72rem; padding:8px 4px; border-radius:6px; cursor:pointer; border:none; display:flex; align-items:center; justify-content:center; gap:4px;" onclick="window.checkAdminPublicServers()">
+                  <span class="material-symbols-outlined" style="font-size:16px;">dns</span> Servidores Públicos
+                </button>
+                <button type="button" class="btn" style="width:100%; background:#ff571a; color:#fff; font-weight:bold; font-size:0.72rem; padding:8px 4px; border-radius:6px; cursor:pointer; border:none; display:flex; align-items:center; justify-content:center; gap:4px;" onclick="window.runAdminScraper()">
+                  <span class="material-symbols-outlined" style="font-size:16px;">search</span> Buscar Torrents
+                </button>
+                <button type="button" class="btn" style="width:100%; background:#00f2ff; color:#000; font-weight:900; font-size:0.72rem; cursor:pointer; border:none; padding:8px 4px; border-radius:6px;"
+                  onclick="window.setAdminPriorityFromDrawer()" title="Guarda ya mismo el enlace de arriba como prioritario">
+                  🔒 Fijar Enlace
+                </button>
+              </div>
+
+              <div id="drawer-public-servers-list" style="display:flex; flex-direction:column; gap:6px; max-height:200px; overflow-y:auto; padding-right:4px; margin-top:10px;"></div>
+
+              <!-- Enlaces Encontrados / Scrapeados (Debrid / Automáticos) -->
+              <div id="drawer-scraped-links-section" style="display:none; margin-top:10px;">
+                <label class="drawer-advanced-label">🍿 Enlaces Autodetectados (Torrents / Directos)</label>
+                <div id="drawer-scraped-links-list" style="display:flex; flex-direction:column; gap:6px; max-height:180px; overflow-y:auto; padding-right:4px; margin-top:4px;">
+                  <!-- Inyectado dinámicamente -->
+                </div>
+              </div>
+
+            </div>
+
             <!-- General Information + Cast & Crew: lado a lado en escritorio -->
             <div class="info-cast-grid">
             <div class="drawer-card">
@@ -1762,78 +1823,6 @@
                   <span style="font-size:0.78rem; color:#aaa;">Mostrar cuenta regresiva a los usuarios</span>
                 </div>
               </div>
-            </div>
-
-            <!-- Origen del Video y Enlaces -->
-            <div class="drawer-card source-file-card">
-              <h3 class="drawer-card-title">
-                <span class="material-symbols-outlined">play_circle</span> Origen de Video y Enlaces
-              </h3>
-
-              <div class="form-group">
-                <label>Enlace de Video (Embed / M3U8 / URL Directa)</label>
-                <div style="display:flex; gap:8px;">
-                  <input type="url" id="m-embed" class="form-control" placeholder="https://..." style="flex:1;">
-                  <button type="button" class="btn btn-primary" onclick="window.testEmbedLink()" title="Probar enlace">
-                    <span class="material-symbols-outlined" style="font-size:16px;">play_arrow</span>
-                  </button>
-                </div>
-              </div>
-
-              <!-- Admin Player Mini Preview (visible solo si hay embed activo) -->
-              <div id="admin-embed-preview" class="admin-embed-preview" style="display:none;">
-                <div class="embed-preview-file">
-                  <span class="material-symbols-outlined" style="color:#ff571a;">movie</span>
-                  <span id="admin-embed-filename" class="embed-filename">enlace_embed</span>
-                </div>
-                <div class="embed-preview-actions">
-                  <button type="button" class="btn btn-success-sm" onclick="window.handleCardClick(document.getElementById('m-db-id').value)">
-                    <span class="material-symbols-outlined" style="font-size:14px;">play_arrow</span> Reproducir
-                  </button>
-                  <button type="button" class="btn btn-danger-sm" onclick="window.clearEmbedLink()">
-                    <span class="material-symbols-outlined" style="font-size:14px;">close</span> Limpiar
-                  </button>
-                </div>
-              </div>
-
-              <!-- Opciones avanzadas: generador de servidores, scraper de torrents, enlace prioritario -->
-              <details class="drawer-advanced">
-                <summary class="drawer-advanced-summary">
-                  <span class="material-symbols-outlined">tune</span> Opciones avanzadas de fuente
-                  <span class="material-symbols-outlined drawer-advanced-chevron">expand_more</span>
-                </summary>
-                <div class="drawer-advanced-body">
-
-                  <!-- Buscador e Ingestor de Torrents/Fuentes -->
-                  <div class="drawer-advanced-block">
-                    <button type="button" class="btn" style="width:100%; background:#ff571a; color:#fff; font-weight:bold; font-size:0.75rem; padding:8px; border-radius:6px; cursor:pointer; border:none; display:flex; align-items:center; justify-content:center; gap:6px;" onclick="window.runAdminScraper()">
-                      <span class="material-symbols-outlined" style="font-size:16px;">search</span> Buscar Torrents / Enlaces en la Red
-                    </button>
-                  </div>
-
-                  <!-- Enlaces Encontrados / Scrapeados (Debrid / Automáticos) -->
-                  <div id="drawer-scraped-links-section" class="drawer-advanced-block" style="display:none;">
-                    <label class="drawer-advanced-label">🍿 Enlaces Autodetectados (Torrents / Directos)</label>
-                    <div id="drawer-scraped-links-list" style="display:flex; flex-direction:column; gap:6px; max-height:180px; overflow-y:auto; padding-right:4px; margin-top:4px;">
-                      <!-- Inyectado dinámicamente -->
-                    </div>
-                  </div>
-
-                  <!-- Enlace Prioritario (Fijar Enlace) -->
-                  <div class="drawer-advanced-block">
-                    <label class="drawer-advanced-label" style="color:#00f2ff;">🔒 Enlace Prioritario Manual (Admin Override)</label>
-                    <div style="display:flex; gap:8px; margin-top:6px;">
-                      <input type="url" id="detail-admin-manual-link-input" class="form-control" placeholder="Pegar enlace manual aquí...">
-                      <button type="button" class="btn" style="background:#00f2ff; color:#000; font-weight:900; white-space:nowrap; font-size:0.75rem; cursor:pointer; border:none; padding:8px 12px; border-radius:6px;"
-                        onclick="window.setAdminPriorityFromDrawer()">
-                        Fijar Enlace
-                      </button>
-                    </div>
-                  </div>
-
-                </div>
-              </details>
-
             </div>
 
             <!-- Acciones finales -->

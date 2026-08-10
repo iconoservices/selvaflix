@@ -1554,7 +1554,7 @@ window.openUploadDrawer = () => {
   const clearField = (id, val = '') => { const el = document.getElementById(id); if (el) el.value = val; };
   ['m-db-id', 'm-imdb-id', 'm-original-title', 'm-alternative-titles', 'm-title', 'm-tmdb-id',
    'm-synopsis', 'm-director', 'm-cast', 'm-genres', 'm-embed', 'm-img', 'm-backdrop',
-   'm-release-date', 'detail-admin-manual-link-input'].forEach(id => clearField(id));
+   'm-release-date'].forEach(id => clearField(id));
 
   clearField('m-status', 'review');
   clearField('m-type', 'movie');
@@ -7442,15 +7442,52 @@ window.deleteFromDrawer = () => {
   modal.style.display = 'flex';
 };
 
+// Arma la lista de servidores públicos candidatos para el título que se está
+// editando, usando las mismas plantillas de URL (por IMDb ID) que Player.js
+// (buildPublicStreams) — sin tocar ni llamar al reproductor en vivo, así no
+// hay riesgo de pisar una reproducción activa. Igual que ahí, no se
+// health-checkean: el admin las valida con "Reproducir" antes de fijar.
+window.checkAdminPublicServers = () => {
+  const imdbId = document.getElementById('m-imdb-id').value.trim();
+  const type = document.getElementById('m-type').value;
+  const isTv = ['series', 'tv', 'anime'].includes(type);
+  const listEl = document.getElementById('drawer-public-servers-list');
+  if (!listEl) return;
+
+  if (!imdbId) {
+    listEl.innerHTML = '<p style="color:#e74c3c; font-size:0.7rem; margin:0;">Necesitas el IMDb ID (búscalo/selecciónalo en TMDB arriba primero).</p>';
+    return;
+  }
+
+  const servers = [];
+  if (!isTv) {
+    servers.push({ name: "🎬 REPELISHD", url: `https://verhdlink.cam/movie/${imdbId}` });
+  }
+  servers.push({ name: "🍿 PELISMART · EMBED69", url: isTv ? `https://pelismart.mov/vidurl/${imdbId}-1x01/` : `https://pelismart.mov/vidurl/${imdbId}/` });
+  servers.push({ name: "🇲🇽 FLIXLATAM · EMBED69", url: isTv ? `https://flixlatam.com/vidurl/${imdbId}-1x01/` : `https://flixlatam.com/vidurl/${imdbId}/` });
+
+  listEl.innerHTML = servers.map(srv => `
+    <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); padding:8px 10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; gap:10px;">
+      <span style="font-size:0.7rem; font-weight:bold; color:#00f2ff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${srv.name}</span>
+      <button type="button" class="btn" style="font-size:0.65rem; padding:4px 8px; cursor:pointer; background:#00f2ff; border:none; color:#000; font-weight:bold; border-radius:4px; flex-shrink:0;" onclick="window.fijarServidorPublico('${srv.url}')">🔒 Fijar</button>
+    </div>
+  `).join('') + (isTv ? '<p style="color:#aaa; font-size:0.65rem; margin:4px 0 0;">Nota: para series arma la URL con T1E1 por defecto, igual que el link manual.</p>' : '');
+};
+
+window.fijarServidorPublico = (url) => {
+  const input = document.getElementById('m-embed');
+  if (input) input.value = url;
+  window.setAdminPriorityFromDrawer();
+};
+
 window.setAdminPriorityFromDrawer = async () => {
   const id = document.getElementById('m-db-id').value;
-  const url = document.getElementById('detail-admin-manual-link-input').value.trim();
-  if (!id || !url) { window.showToast('Necesitas un ID de película y una URL', 'error'); return; }
+  const url = document.getElementById('m-embed').value.trim();
+  if (!id || !url) { window.showToast('Necesitas un ID de película y un enlace en "Enlace de Video"', 'error'); return; }
   try {
     await updateDoc(doc(db, "movies", id), { embed: url, status: 'healthy', updatedAt: Date.now() });
-    document.getElementById('m-embed').value = url;
     document.getElementById('m-status').value = 'healthy';
-    window.showToast('🔒 Priority link set!', 'success');
+    window.showToast('🔒 Enlace fijado con éxito.', 'success');
   } catch(e) { window.showToast('Error: ' + e.message, 'error'); }
 };
 

@@ -1554,12 +1554,14 @@ window.openUploadDrawer = () => {
   const clearField = (id, val = '') => { const el = document.getElementById(id); if (el) el.value = val; };
   ['m-db-id', 'm-imdb-id', 'm-original-title', 'm-alternative-titles', 'm-title', 'm-tmdb-id',
    'm-synopsis', 'm-director', 'm-cast', 'm-genres', 'm-embed', 'm-img', 'm-backdrop',
-   'm-release-date'].forEach(id => clearField(id));
+   'm-release-date', 'm-preferred-provider'].forEach(id => clearField(id));
 
   clearField('m-status', 'review');
   clearField('m-type', 'movie');
   clearField('m-rating', '4.8');
   clearField('m-lang', 'es-MX');
+
+  const publicServersList = document.getElementById('drawer-public-servers-list'); if (publicServersList) publicServersList.innerHTML = '';
 
   const pinned = document.getElementById('m-pinned'); if (pinned) pinned.checked = false;
   const isVip = document.getElementById('m-is-vip'); if (isVip) isVip.checked = false;
@@ -6040,6 +6042,7 @@ window.editMovie = (id) => {
   document.getElementById('m-tmdb-id').value = movie.tmdbId || "";
   document.getElementById('m-imdb-id').value = movie.imdbId || ""; // Operación IMDB-Latino
   document.getElementById('m-embed').value = movie.embed || "";
+  document.getElementById('m-preferred-provider').value = movie.preferredProvider || "";
   document.getElementById('m-year').value = (movie.year || '2024').toString().split('-')[0];
   document.getElementById('m-rating').value = movie.rating || '4.8';
   document.getElementById('m-type').value = movie.type || 'movie';
@@ -7459,25 +7462,49 @@ window.checkAdminPublicServers = () => {
     return;
   }
 
+  // providerName tiene que ser IDÉNTICO al que usa Player.js/buildPublicStreams
+  // (RepelisHD, PelisMart, FlixLatam) — es la clave con la que el reproductor
+  // matchea this.preferredProvider contra la lista de fuentes públicas.
   const servers = [];
   if (!isTv) {
-    servers.push({ name: "🎬 REPELISHD", url: `https://verhdlink.cam/movie/${imdbId}` });
+    servers.push({ name: "🎬 REPELISHD", providerName: "RepelisHD", url: `https://verhdlink.cam/movie/${imdbId}` });
   }
-  servers.push({ name: "🍿 PELISMART · EMBED69", url: isTv ? `https://pelismart.mov/vidurl/${imdbId}-1x01/` : `https://pelismart.mov/vidurl/${imdbId}/` });
-  servers.push({ name: "🇲🇽 FLIXLATAM · EMBED69", url: isTv ? `https://flixlatam.com/vidurl/${imdbId}-1x01/` : `https://flixlatam.com/vidurl/${imdbId}/` });
+  servers.push({ name: "🍿 PELISMART · EMBED69", providerName: "PelisMart", url: isTv ? `https://pelismart.mov/vidurl/${imdbId}-1x01/` : `https://pelismart.mov/vidurl/${imdbId}/` });
+  servers.push({ name: "🇲🇽 FLIXLATAM · EMBED69", providerName: "FlixLatam", url: isTv ? `https://flixlatam.com/vidurl/${imdbId}-1x01/` : `https://flixlatam.com/vidurl/${imdbId}/` });
 
-  listEl.innerHTML = servers.map(srv => `
-    <div style="background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.06); padding:8px 10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; gap:10px;">
-      <span style="font-size:0.7rem; font-weight:bold; color:#00f2ff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${srv.name}</span>
-      <button type="button" class="btn" style="font-size:0.65rem; padding:4px 8px; cursor:pointer; background:#00f2ff; border:none; color:#000; font-weight:bold; border-radius:4px; flex-shrink:0;" onclick="window.fijarServidorPublico('${srv.url}')">🔒 Fijar</button>
+  // El preferido actual sube al tope de la lista y queda marcado, para que
+  // se vea de un vistazo cuál va a arrancar primero (sin admin.embed de por medio).
+  const actual = document.getElementById('m-preferred-provider').value.trim();
+  servers.sort((a, b) => (b.providerName === actual) - (a.providerName === actual));
+
+  listEl.innerHTML = servers.map(srv => {
+    const esActual = srv.providerName === actual;
+    return `
+    <div style="background:${esActual ? 'rgba(46,204,113,0.1)' : 'rgba(255,255,255,0.02)'}; border:1px solid ${esActual ? '#2ecc71' : 'rgba(255,255,255,0.06)'}; padding:8px 10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; gap:10px; transition:background 0.3s, border-color 0.3s;">
+      <a href="${srv.url}" target="_blank" rel="noopener" style="font-size:0.7rem; font-weight:bold; color:#00f2ff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-decoration:none;" title="Abrir en pestaña nueva para revisarlo">${srv.name}</a>
+      ${esActual
+        ? '<span style="font-size:0.65rem; padding:4px 8px; background:#2ecc71; color:#000; font-weight:900; border-radius:4px; flex-shrink:0;">✓ Actual</span>'
+        : `<button type="button" class="btn" style="font-size:0.65rem; padding:4px 8px; cursor:pointer; background:#00f2ff; border:none; color:#000; font-weight:bold; border-radius:4px; flex-shrink:0;" onclick="window.preferirServidorPublico('${srv.providerName}')">⭐ Preferir</button>`}
     </div>
-  `).join('') + (isTv ? '<p style="color:#aaa; font-size:0.65rem; margin:4px 0 0;">Nota: para series arma la URL con T1E1 por defecto, igual que el link manual.</p>' : '');
+  `;
+  }).join('') + (isTv ? '<p style="color:#aaa; font-size:0.65rem; margin:4px 0 0;">Nota: para series arma la URL con T1E1 por defecto, igual que el link manual.</p>' : '');
 };
 
-window.fijarServidorPublico = (url) => {
-  const input = document.getElementById('m-embed');
-  if (input) input.value = url;
-  window.setAdminPriorityFromDrawer();
+// "Preferir" NO toca el enlace propio (embed) — solo guarda cuál servidor
+// público debe arrancar primero (movie.preferredProvider). El orden
+// público-primero/enlace-propio-al-final (confirmado sin anuncios, ver
+// commit b559fed) queda intacto.
+window.preferirServidorPublico = async (providerName) => {
+  const id = document.getElementById('m-db-id').value;
+  if (!id) { window.showToast('Necesitas guardar la película primero (falta el ID).', 'error'); return; }
+  try {
+    await updateDoc(doc(db, "movies", id), { preferredProvider: providerName, updatedAt: Date.now() });
+    document.getElementById('m-preferred-provider').value = providerName;
+    window.checkAdminPublicServers(); // Re-renderiza: el elegido sube y se marca "✓ Actual"
+    window.showToast(`⭐ ${providerName} fijado como servidor preferido.`, 'success');
+  } catch (e) {
+    window.showToast('Error al preferir servidor: ' + e.message, 'error');
+  }
 };
 
 window.setAdminPriorityFromDrawer = async () => {

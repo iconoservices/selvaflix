@@ -226,6 +226,33 @@ export const SelvaStream = {
                     }
                 }
 
+                /* En escritorio con el reproductor ACOPLADO (junto a la ficha), el
+                   panel se superponía al video (mismo recuadro redondeado, se veía
+                   como un marco encima tapando la imagen). Acá deja de flotar
+                   encima: pasa a un bloque propio debajo del video, dentro del
+                   mismo modal (que ya es flex-column), empujando la página en vez
+                   de recortar la imagen. "order" lo reubica visualmente sin tocar
+                   el DOM. Pierde la animación de deslizado lateral en este caso
+                   puntual — trade-off aceptado a cambio de no tapar el video. En
+                   pantalla completa (no acoplado) sigue deslizando desde la
+                   derecha como siempre. */
+                @media (min-width: 601px) {
+                    .player-modal.player-acoplado #side-vip-menu.active {
+                        position: static;
+                        width: 100%;
+                        height: auto;
+                        max-height: 340px;
+                        order: 1;
+                        border-left: none;
+                        border-top: 1px solid #333;
+                        border-radius: 0 0 8px 8px;
+                        margin-top: 12px;
+                    }
+                    .player-modal.player-acoplado .video-layout {
+                        order: 0;
+                    }
+                }
+
                 /* ── Tarjetas de servidor (selector de fuentes) ── */
                 .stream-card-vip {
                     background: rgba(255,255,255,0.03);
@@ -466,9 +493,11 @@ export const SelvaStream = {
      * Abre el reproductor con el contenido seleccionado.
      */
     async open(movie) {
-        // Título nuevo = arrancamos otra vez por el mejor servidor, no por el último elegido
+        // Título nuevo = arrancamos otra vez por el mejor servidor, no por el último
+        // elegido — salvo que el admin haya fijado un servidor preferido para este
+        // título (movie.preferredProvider), en cuyo caso arrancamos por ese.
         if (this.currentPlayerMovie?.id !== movie?.id) {
-            this.preferredProvider = null;
+            this.preferredProvider = movie?.preferredProvider || null;
         }
         // Título nuevo = nadie eligió nada a mano todavía en ESTA película.
         this._fuenteElegidaAMano = false;
@@ -554,17 +583,16 @@ export const SelvaStream = {
                 lang: 'propio'
             };
 
-            // ⏪ Restaurado a como estaba en 52c1cb5 (versión que el usuario
-            // confirmó "limpia"): las fuentes públicas conocidas van primero y
-            // arrancan la reproducción; el enlace propio queda al final como
-            // alternativa. El reorden que las ponía después (dec7c62) fue el que
-            // introdujo la diferencia de comportamiento reportada.
+            // 👑 El enlace propio manda: arranca primero (a pedido explícito,
+            // 2026-08-10 — revierte b559fed). La vez anterior esto se revirtió
+            // porque el enlace propio metía anuncios encima del video; se
+            // reactiva sabiendo eso, ya que las fuentes públicas también los
+            // tienen. Quedan detrás como alternativa por si el enlace muere.
             const tipo = ['series', 'tv', 'anime'].includes(movie.type) ? 'series' : 'movie';
             const publicas = this.buildPublicStreams(tipo);
-            this.lastScrapedStreams = [...publicas, oficial];
+            this.lastScrapedStreams = [oficial, ...publicas];
 
-            const preferida = publicas.find(s => s.providerName === this.preferredProvider);
-            this.handleExternalStream(preferida || publicas[0] || oficial);
+            this.handleExternalStream(oficial);
             this.renderControls();
             return; // ✅ Reproducción directa — no interrumpir con scraping
         }

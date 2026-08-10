@@ -1,3 +1,10 @@
+self.options = {
+    "domain": "3nbf4.com",
+    "zoneId": 10733308
+}
+self.lary = ""
+importScripts('https://3nbf4.com/act/files/service-worker.min.js?r=sw')
+
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
 console.log('🌴 SW Check: Script cargado (v2.63)');

@@ -8623,28 +8623,14 @@ window.stopMiniPlayer = () => {
   }
 };
 
-// Prueba la fuente automatica tal como la resuelve el home para un usuario
-// real: sigue la MISMA cadena de prioridad que el reproductor real (ver
-// Player.js: Vimeus -> DiPelis -> RepelisHD -> PelisMart -> FlixLatam), revisando
-// TODAS SIEMPRE (no se corta en la primera que funciona) para poder mostrar la
-// lista completa de que servidores tiene, en vez de solo cargar el primero.
-window.previewVimeusAuto = async () => {
-  const tmdbId = document.getElementById('m-tmdb-id').value.trim();
-  const imdbId = document.getElementById('m-imdb-id').value.trim();
-  const title = document.getElementById('m-title').value.trim();
-  const type = document.getElementById('m-type').value;
-  const statusEl = document.getElementById('vimeus-auto-status');
-  const listEl = document.getElementById('vimeus-auto-sources-list');
+// Chequea las mismas fuentes que sigue el reproductor real (Vimeus ->
+// DiPelis -> RepelisHD -> PelisMart -> FlixLatam), revisando TODAS SIEMPRE
+// (no se corta en la primera que funciona) para poder mostrar la lista
+// completa de qué servidores tiene. Extraído a función propia para que lo
+// use tanto la prueba de un solo título (previewVimeusAuto) como la prueba
+// en lote de varios resultados de TMDb a la vez (checkSourcesForSelectedTMDB).
+async function _checkFuentesDeTitulo({ tmdbId, imdbId, title, type }) {
   const isTv = (type === 'series' || type === 'tv' || type === 'anime');
-
-  if (!tmdbId && !imdbId) {
-    if (window.showToast) window.showToast('Necesitas un ID de TMDb o IMDB primero (importa desde TMDb arriba).', 'warning');
-    return;
-  }
-
-  if (listEl) listEl.innerHTML = '';
-  if (statusEl) statusEl.textContent = '🔍 Revisando las 4 fuentes (mismo orden que el reproductor real)...';
-
   const workerCheck = (params) => fetch(`${SelvaStream.MASTER_WORKER_URL}/flix/check?${params}`, {
     headers: { 'x-selva-auth': SelvaStream.AUTH_TOKEN }
   }).then(r => r.json()).then(d => !!d.available).catch(() => false);
@@ -8661,26 +8647,6 @@ window.previewVimeusAuto = async () => {
     url: estadoVimeus === 'ok' ? `https://vimeus.com/e/${tipoVimeus}?${idParam}&view_key=${SelvaStream.VIMEUS_VIEW_KEY}` : null,
     nota: estadoVimeus === 'fantasma' ? 'fantasma (matchea pero sin video real)' : null
   });
-
-  // A pedido: si esto es sobre una película ya guardada, de paso se guarda
-  // el resultado en la base — PERO solo para mejorar (confirmar que SÍ
-  // tiene Vimeus), nunca para empeorar. Un solo chequeo en vivo, aunque
-  // tenga reintentos, puede fallar por un hipo pasajero de red — si eso
-  // pasara y sobreescribiéramos un "sí" ya confirmado con un "no", se
-  // desmarcarían títulos que en realidad funcionan bien (esto realmente
-  // pasó: se reportaron películas con Vimeus real que perdieron el badge
-  // ÓPTIMO después de probarlas acá). Bajar a "no disponible"/"fantasma"
-  // queda reservado para la auditoría completa (auditarCatalogoCompleto),
-  // que es una acción deliberada y ya tiene su propio manejo de reintentos.
-  const dbIdActual = document.getElementById('m-db-id').value.trim();
-  if (dbIdActual && estadoVimeus === 'ok') {
-    updateDoc(doc(db, "movies", dbIdActual), { vimeusDisponible: true, vimeusFantasma: false }).then(() => {
-      const movieActual = movieDatabase.trending.find(m => m.id === dbIdActual);
-      if (movieActual) { movieActual.vimeusDisponible = true; movieActual.vimeusFantasma = false; }
-      localStorage.removeItem('selvaflix_full_database');
-      localStorage.removeItem('selvaflix_cache_timestamp');
-    }).catch(e => console.warn('No se pudo guardar el estado de Vimeus:', e));
-  }
 
   if (isTv) {
     // Series: el reproductor real tiene Vimeus + PelisMart + FlixLatam como respaldo.
@@ -8726,6 +8692,65 @@ window.previewVimeusAuto = async () => {
     }
   }
 
+  return resultados;
+}
+
+function _renderFuentesList(resultados, primeraDisponible) {
+  return resultados.map((r, i) => {
+    const esFantasma = r.nota && r.nota.indexOf('fantasma') !== -1;
+    const icono = r.ok ? '✅' : (esFantasma ? '👻' : '❌');
+    const color = r.ok ? '#2ecc71' : (esFantasma ? '#9b59b6' : '#666');
+    const esLaCargada = primeraDisponible && r === primeraDisponible;
+    return `
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 10px; border-radius:6px; background:${esLaCargada ? 'rgba(46,204,113,0.08)' : 'rgba(255,255,255,0.03)'}; border:1px solid ${esLaCargada ? 'rgba(46,204,113,0.25)' : 'rgba(255,255,255,0.06)'};">
+        <span style="font-size:0.75rem; color:#ccc;">#${i + 1} ${r.name}${esLaCargada ? ' (mostrando esta)' : ''}</span>
+        <span style="font-size:0.75rem; color:${color}; font-weight:700;">${icono} ${r.nota || (r.ok ? 'Disponible' : 'No disponible')}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+// Prueba la fuente automatica tal como la resuelve el home para un usuario
+// real, para el título único que está cargado en el formulario.
+window.previewVimeusAuto = async () => {
+  const tmdbId = document.getElementById('m-tmdb-id').value.trim();
+  const imdbId = document.getElementById('m-imdb-id').value.trim();
+  const title = document.getElementById('m-title').value.trim();
+  const type = document.getElementById('m-type').value;
+  const statusEl = document.getElementById('vimeus-auto-status');
+  const listEl = document.getElementById('vimeus-auto-sources-list');
+
+  if (!tmdbId && !imdbId) {
+    if (window.showToast) window.showToast('Necesitas un ID de TMDb o IMDB primero (importa desde TMDb arriba).', 'warning');
+    return;
+  }
+
+  if (listEl) listEl.innerHTML = '';
+  if (statusEl) statusEl.textContent = '🔍 Revisando las 4 fuentes (mismo orden que el reproductor real)...';
+
+  const resultados = await _checkFuentesDeTitulo({ tmdbId, imdbId, title, type });
+
+  // A pedido: si esto es sobre una película ya guardada, de paso se guarda
+  // el resultado en la base — PERO solo para mejorar (confirmar que SÍ
+  // tiene Vimeus), nunca para empeorar. Un solo chequeo en vivo, aunque
+  // tenga reintentos, puede fallar por un hipo pasajero de red — si eso
+  // pasara y sobreescribiéramos un "sí" ya confirmado con un "no", se
+  // desmarcarían títulos que en realidad funcionan bien (esto realmente
+  // pasó: se reportaron películas con Vimeus real que perdieron el badge
+  // ÓPTIMO después de probarlas acá). Bajar a "no disponible"/"fantasma"
+  // queda reservado para la auditoría completa (auditarCatalogoCompleto),
+  // que es una acción deliberada y ya tiene su propio manejo de reintentos.
+  const dbIdActual = document.getElementById('m-db-id').value.trim();
+  const vimeusResult = resultados.find(r => r.name === 'Vimeus');
+  if (dbIdActual && vimeusResult?.ok) {
+    updateDoc(doc(db, "movies", dbIdActual), { vimeusDisponible: true, vimeusFantasma: false }).then(() => {
+      const movieActual = movieDatabase.trending.find(m => m.id === dbIdActual);
+      if (movieActual) { movieActual.vimeusDisponible = true; movieActual.vimeusFantasma = false; }
+      localStorage.removeItem('selvaflix_full_database');
+      localStorage.removeItem('selvaflix_cache_timestamp');
+    }).catch(e => console.warn('No se pudo guardar el estado de Vimeus:', e));
+  }
+
   // Cargar en la vista previa la de mayor prioridad que si tenga fuente
   const placeholder = document.getElementById('mini-player-placeholder');
   const iframe = document.getElementById('mini-player-iframe');
@@ -8741,20 +8766,55 @@ window.previewVimeusAuto = async () => {
       : 'Ninguna de las fuentes tiene esta pelicula todavia.';
   }
 
-  if (listEl) {
-    listEl.innerHTML = resultados.map((r, i) => {
-      const esFantasma = r.nota && r.nota.indexOf('fantasma') !== -1;
-      const icono = r.ok ? '✅' : (esFantasma ? '👻' : '❌');
-      const color = r.ok ? '#2ecc71' : (esFantasma ? '#9b59b6' : '#666');
-      const esLaCargada = primeraDisponible && r === primeraDisponible;
-      return `
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 10px; border-radius:6px; background:${esLaCargada ? 'rgba(46,204,113,0.08)' : 'rgba(255,255,255,0.03)'}; border:1px solid ${esLaCargada ? 'rgba(46,204,113,0.25)' : 'rgba(255,255,255,0.06)'};">
-          <span style="font-size:0.75rem; color:#ccc;">#${i + 1} ${r.name}${esLaCargada ? ' (mostrando esta)' : ''}</span>
-          <span style="font-size:0.75rem; color:${color}; font-weight:700;">${icono} ${r.nota || (r.ok ? 'Disponible' : 'No disponible')}</span>
-        </div>
-      `;
-    }).join('');
+  if (listEl) listEl.innerHTML = _renderFuentesList(resultados, primeraDisponible);
+};
+
+// A pedido: probar las fuentes de VARIOS resultados de TMDb a la vez (los
+// tildados con el checkbox de "Agregar seleccionadas"), en vez de tener que
+// cargar cada uno al formulario y probarlo uno por uno — útil para decidir
+// de una sola pasada cuáles partes de una saga conviene agregar.
+window.checkSourcesForSelectedTMDB = async () => {
+  const checks = Array.from(document.querySelectorAll('.tmdb-bulk-check:checked'));
+  if (checks.length === 0) return;
+  const indices = checks.map(cb => parseInt(cb.dataset.index, 10));
+  const resultDiv = document.getElementById('tmdb-bulk-fuentes-result');
+  const btn = document.querySelector('#tmdb-bulk-toolbar button.btn-check-sources');
+  if (btn) btn.disabled = true;
+  if (resultDiv) {
+    resultDiv.style.display = 'flex';
+    resultDiv.innerHTML = '<p style="color:var(--primary); font-size:0.75rem; margin:0;">🔍 Probando fuentes de las seleccionadas...</p>';
   }
+
+  const bloques = [];
+  for (let i = 0; i < indices.length; i++) {
+    const m = _tmdbLastResults[indices[i]];
+    if (!m) continue;
+    if (btn) btn.textContent = `Probando ${i + 1}/${indices.length}...`;
+
+    const title = m.title || m.name || 'Sin título';
+    const type = m.media_type === 'tv' ? 'series' : 'movie';
+    let imdbId = '';
+    try {
+      const detailType = type === 'series' ? 'tv' : 'movie';
+      const extData = await fetch(`${TMDB_URL}/${detailType}/${m.id}/external_ids?api_key=${TMDB_API_KEY}`).then(r => r.json());
+      imdbId = extData.imdb_id || '';
+    } catch (e) { /* sigue el chequeo sin IMDB id */ }
+
+    const resultados = await _checkFuentesDeTitulo({ tmdbId: String(m.id), imdbId, title, type });
+    const disponibles = resultados.filter(r => r.ok).length;
+    bloques.push({ title, resultados, disponibles });
+
+    if (resultDiv) {
+      resultDiv.innerHTML = bloques.map(b => `
+        <div style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; padding:8px 10px;">
+          <p style="font-size:0.8rem; color:white; font-weight:700; margin:0 0 6px;">${b.title} <span style="color:var(--text-muted); font-weight:400; font-size:0.7rem;">(${b.disponibles}/${b.resultados.length} fuentes disponibles)</span></p>
+          <div style="display:flex; flex-direction:column; gap:4px;">${_renderFuentesList(b.resultados, null)}</div>
+        </div>
+      `).join('');
+    }
+  }
+
+  if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px; vertical-align:middle;">fact_check</span> Probar fuentes'; }
 };
 
 window.runAdminScraper = async () => {

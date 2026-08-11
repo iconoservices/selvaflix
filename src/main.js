@@ -4714,10 +4714,10 @@ window.recordAdView = async (id) => {
     } catch (err) { }
 };
 
-async function startWarningOverlay(movie) {
+async function startWarningOverlay(movie, onComplete = () => startPlayer(movie)) {
   const overlay = document.getElementById('ad-overlay');
   if (!overlay) {
-    startPlayer(movie);
+    onComplete();
     return;
   }
 
@@ -4738,7 +4738,7 @@ async function startWarningOverlay(movie) {
 
     if (!globalActive && !forceAds) {
       console.log("🍹 Publicidad desactivada globalmente. Saltando...");
-      startPlayer(movie);
+      onComplete();
       return;
     }
 
@@ -4820,7 +4820,7 @@ async function startWarningOverlay(movie) {
 
     if (!activeCampaign) {
       console.log("🍹 No hay campañas elegibles (o frecuencia bloqueada). Saltando...");
-      startPlayer(movie);
+      onComplete();
       return;
     }
 
@@ -4828,21 +4828,21 @@ async function startWarningOverlay(movie) {
     if (activeCampaign.placement === 'video_preroll') {
         // Lógica de VAST / Video Directo (Próxima implementación refinada)
         // Por ahora lo manejamos como un overlay con video si no es VAST
-        window.showAdVideoPreroll(activeCampaign, movie);
+        window.showAdVideoPreroll(activeCampaign, movie, onComplete);
         return;
     }
 
     // Default: card_overlay
-    window.showWarningOverlayCard(activeCampaign, movie);
+    window.showWarningOverlayCard(activeCampaign, movie, false, onComplete);
 
   } catch (e) {
     console.error("Error al iniciar el puente de anuncios:", e);
-    startPlayer(movie);
+    onComplete();
   }
 }
 
 // 🃏 RENDERIZADO DE TARJETA (Reutilizable para Preview)
-window.showWarningOverlayCard = (activeCampaign, movie, isPreview = false) => {
+window.showWarningOverlayCard = (activeCampaign, movie, isPreview = false, onComplete = () => startPlayer(movie)) => {
     const overlay = document.getElementById('ad-overlay');
     if (!overlay) return;
 
@@ -4938,7 +4938,7 @@ window.showWarningOverlayCard = (activeCampaign, movie, isPreview = false) => {
     if (canSkipNow) {
         btn.onclick = () => {
             overlay.style.display = 'none';
-            if (!isPreview) window.finishAdFlow(activeCampaign, movie);
+            if (!isPreview) window.finishAdFlow(activeCampaign, movie, onComplete);
         };
     }
 
@@ -4955,7 +4955,7 @@ window.showWarningOverlayCard = (activeCampaign, movie, isPreview = false) => {
         btn.innerText = 'CONTINUAR A LA PELÍCULA 🍿';
         btn.onclick = () => {
           overlay.style.display = 'none';
-          if (!isPreview) window.finishAdFlow(activeCampaign, movie);
+          if (!isPreview) window.finishAdFlow(activeCampaign, movie, onComplete);
         };
       }
     }, 1000);
@@ -4991,7 +4991,7 @@ window.previewCurrentAd = () => {
     }
 };
 
-window.finishAdFlow = (activeCampaign, movie) => {
+window.finishAdFlow = (activeCampaign, movie, onComplete = () => startPlayer(movie)) => {
     const overlay = document.getElementById('ad-overlay');
     if (overlay) overlay.style.display = 'none';
     
@@ -5019,7 +5019,7 @@ window.finishAdFlow = (activeCampaign, movie) => {
     if (activeCampaign.link) {
        window.open(activeCampaign.link, '_blank');
     }
-    startPlayer(movie);
+    onComplete();
 };
 
 
@@ -5124,7 +5124,7 @@ window.toggleForceAds = (enabled) => {
 };
 
 // Auxiliar para Video Preroll (Básico por ahora)
-window.showAdVideoPreroll = (camp, movie) => {
+window.showAdVideoPreroll = (camp, movie, onComplete = () => startPlayer(movie)) => {
     const overlay = document.getElementById('ad-overlay');
     if (!overlay) return;
 
@@ -5232,7 +5232,7 @@ window.showAdVideoPreroll = (camp, movie) => {
         if (!history.movies) history.movies = {};
         history.movies[m.title || m.name || 'unknown'] = Date.now();
         localStorage.setItem(storageKey, JSON.stringify(history));
-        startPlayer(m);
+        onComplete();
     };
 };
 
@@ -5812,9 +5812,26 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
     // fuente que entregue archivos propios, solo embeds de terceros).
     const downloadBtn = document.getElementById('detail-btn-download');
     if (downloadBtn) {
+        // Se resetea el estilo en cada render (el botón se reusa entre
+        // fichas): si no, un título con link dejaba el botón en verde
+        // "pegado" al abrir el siguiente título que todavía no tiene uno.
+        if (movie.downloadUrl) {
+            downloadBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;">download_done</span> DISPONIBLE';
+            downloadBtn.style.backgroundColor = 'rgba(46,204,113,0.12)';
+            downloadBtn.style.borderColor = '#2ecc71';
+            downloadBtn.style.color = '#2ecc71';
+        } else {
+            downloadBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;">download</span> DESCARGAR';
+            downloadBtn.style.backgroundColor = '#2a2a2a';
+            downloadBtn.style.borderColor = '#5c4037';
+            downloadBtn.style.color = '#e5e2e1';
+        }
         downloadBtn.onclick = () => {
             if (movie.downloadUrl) {
-                window.open(movie.downloadUrl, '_blank', 'noopener');
+                // Mismo motor de anuncios que el botón PLAY (campañas configuradas
+                // en el admin) — así la descarga también monetiza, en vez de abrir
+                // el link directo sin pasar por ningún anuncio.
+                startWarningOverlay(movie, () => window.open(movie.downloadUrl, '_blank', 'noopener'));
             } else if (window.showToast) {
                 window.showToast('📥 Descarga disponible pronto para este título 🌴', 'info');
             }
@@ -7650,6 +7667,21 @@ window.setAdminPriorityFromDrawer = async () => {
     await updateDoc(doc(db, "movies", id), { embed: url, status: 'healthy', updatedAt: Date.now() });
     document.getElementById('m-status').value = 'healthy';
     window.showToast('🔒 Enlace fijado con éxito.', 'success');
+  } catch(e) { window.showToast('Error: ' + e.message, 'error'); }
+};
+
+// Igual que "Fijar Enlace" para el video, pero para el link de descarga:
+// guarda ya mismo solo ese campo en Firestore, sin pasar por todo el
+// formulario — así se puede pegar un link y probarlo al toque en la ficha
+// del usuario, sin tener que completar/guardar el resto de los campos.
+window.setDownloadUrlFromDrawer = async () => {
+  const id = document.getElementById('m-db-id').value;
+  const url = document.getElementById('m-download-url').value.trim();
+  if (!id) { window.showToast('Necesitas guardar la película primero (falta el ID).', 'error'); return; }
+  if (!url) { window.showToast('Pegá un link de descarga primero.', 'error'); return; }
+  try {
+    await updateDoc(doc(db, "movies", id), { downloadUrl: url, updatedAt: Date.now() });
+    window.showToast('⬇️ Link de descarga fijado con éxito.', 'success');
   } catch(e) { window.showToast('Error: ' + e.message, 'error'); }
 };
 

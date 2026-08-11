@@ -5607,13 +5607,17 @@ body.admin-locked {
     padding-bottom: 20px !important;
   }
 
-  /* El muelle ocupa la columna derecha y acompaña al hacer scroll */
+  /* El muelle ocupa la columna derecha y acompaña al hacer scroll.
+     top:0 (no 24px): con sticky, top aplica como offset permanente desde
+     su posición natural aunque no se haya scrolleado nada — con 24px
+     quedaba ese hueco vacío arriba, desalineado de la columna de info de
+     al lado (que no tiene ese offset). En 0 arranca a la misma altura. */
   #detail-view.con-player-acoplado #detail-player-dock {
     display: block;
     grid-column: 2;
     grid-row: 2 / span 20;
     position: sticky;
-    top: 24px;
+    top: 0;
     align-self: start;
   }
 

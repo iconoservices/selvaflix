@@ -253,26 +253,28 @@ export const SelvaStream = {
                     }
                 }
 
-                /* ── Tarjetas de servidor (selector de fuentes) ── */
+                /* ── Fila de servidor (selector de fuentes) ──
+                   A pedido: sin caja (sin fondo/borde/radio) — lista plana con
+                   solo una línea divisoria abajo. */
                 .stream-card-vip {
-                    background: rgba(255,255,255,0.03);
-                    border: 1px solid rgba(255,255,255,0.08);
-                    border-left: 3px solid var(--vip-accent, #2ECC71);
-                    border-radius: 10px;
-                    padding: 12px 14px;
-                    margin-bottom: 8px;
+                    background: transparent;
+                    border: none;
+                    border-bottom: 1px solid rgba(255,255,255,0.08);
+                    border-radius: 0;
+                    padding: 12px 4px;
+                    margin-bottom: 0;
                     cursor: pointer;
                     text-align: left;
-                    transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+                    transition: background 0.15s ease, transform 0.15s ease;
                 }
                 .stream-card-vip:hover {
-                    background: rgba(255,255,255,0.06);
-                    border-color: var(--vip-accent, #2ECC71);
-                    transform: translateX(2px);
+                    background: rgba(255,255,255,0.04);
                 }
                 .stream-card-vip.is-playing {
-                    background: rgba(46,204,113,0.08);
-                    border-color: rgba(46,204,113,0.5);
+                    background: rgba(46,204,113,0.06);
+                }
+                .stream-card-vip.is-playing .vip-provider {
+                    color: var(--vip-accent, #2ECC71);
                 }
                 .vip-card-head {
                     display: flex; align-items: center; justify-content: space-between;

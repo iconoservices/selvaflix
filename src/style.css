@@ -124,6 +124,15 @@
   }
 }
 
+/* El header de la ficha (flecha atrás + compartir) es fixed/top:0 igual que
+   la navbar de arriba, pero no sumaba --safe-top: en PWA instalada en iOS
+   el notch/status bar tapaba esos dos botones. Mismo criterio que la
+   navbar — max() para no achicar el padding normal en navegador (--safe-top
+   vale 0 ahí). */
+#detail-header {
+  padding-top: max(var(--safe-top), 12px) !important;
+}
+
 .navbar-cinepulse.scrolled {
   background: rgba(19, 19, 19, 0.95);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);

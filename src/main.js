@@ -1738,14 +1738,22 @@ window.KNOWN_NETWORK_SCRIPTS = [
 // Script, global_script) si todavía no existen — así quedan con el mismo
 // interruptor ON/OFF que cualquier otra campaña, en vez de hardcodeadas
 // en el <head>. Se marcan con source:'code' para distinguirlas en la lista
-// de las que el admin arma a mano. Idempotente: si ya se importaron, no
-// las duplica.
+// de las que el admin arma a mano. Las que ya existen NO se duplican, pero
+// sí se les actualiza el nombre si cambió en el catálogo (sin tocar active
+// ni nada que el admin haya ajustado a mano) — así, si se corrige un
+// nombre en el código, correr el mismo botón de nuevo alcanza para verlo
+// reflejado sin perder el ON/OFF que ya tenía cada una.
 window.seedNetworkScripts = async () => {
   if (!window.adCampaigns) window.adCampaigns = [];
 
   let added = 0;
+  let renamed = 0;
   window.KNOWN_NETWORK_SCRIPTS.forEach(s => {
-    if (window.adCampaigns.some(c => c.id === s.id)) return; // ya importada
+    const existing = window.adCampaigns.find(c => c.id === s.id);
+    if (existing) {
+      if (existing.name !== s.name) { existing.name = s.name; renamed++; }
+      return;
+    }
     window.adCampaigns.push({
       id: s.id,
       name: s.name,
@@ -1774,13 +1782,16 @@ window.seedNetworkScripts = async () => {
 
   window.renderAdCampaignList();
 
-  if (added === 0) {
-    if (window.showToast) window.showToast('Los scripts de red ya estaban todos importados.', 'info');
+  if (added === 0 && renamed === 0) {
+    if (window.showToast) window.showToast('Los scripts de red ya estaban al día.', 'info');
     return;
   }
 
   await window.saveAdsCampaigns();
-  if (window.showToast) window.showToast(`⭐ ${added} campaña(s) importadas. Ya podés prenderlas/apagarlas desde acá.`, 'success');
+  const partes = [];
+  if (added > 0) partes.push(`${added} nueva(s)`);
+  if (renamed > 0) partes.push(`${renamed} renombrada(s)`);
+  if (window.showToast) window.showToast(`⭐ ${partes.join(', ')}. Ya podés prenderlas/apagarlas desde acá.`, 'success');
 };
 
 window.createNewAdCampaign = () => {

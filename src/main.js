@@ -5853,10 +5853,10 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
         }
         downloadBtn.onclick = () => {
             if (movie.downloadUrl) {
-                // Mismo motor de anuncios que el botón PLAY (campañas configuradas
-                // en el admin) — así la descarga también monetiza, en vez de abrir
-                // el link directo sin pasar por ningún anuncio.
-                startWarningOverlay(movie, () => window.open(movie.downloadUrl, '_blank', 'noopener'));
+                // A diferencia de PLAY, DESCARGAR abre el link directo sin pasar
+                // por el motor de anuncios (startWarningOverlay hacía un getDoc a
+                // Firestore en cada click, lo que causaba la demora al presionar).
+                window.open(movie.downloadUrl, '_blank', 'noopener');
             } else if (window.showToast) {
                 window.showToast('📥 Descarga disponible pronto para este título 🌴', 'info');
             }

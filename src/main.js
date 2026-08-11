@@ -7176,11 +7176,19 @@ function initApp(filterType = '', genreId = '', year = '') {
       .sort((a, b) => b.plays - a.plays)
       .slice(0, 12);
 
-    if (popularity.length === 0) {
-      popularity = [...allContent]
-        .filter(c => c.type !== 'live')
-        .sort((a, b) => parseFloat(b.rating || 0) - parseFloat(a.rating || 0))
-        .slice(0, 12);
+    // selva_play_counts es solo de ESTE navegador — con pocas reproducciones
+    // locales (o recién instalado) la fila se quedaba con 1 o 2 títulos nada
+    // más. Se completa con los mejor puntuados del catálogo hasta llegar a
+    // 12, sin perder el orden real de lo más reproducido acá arriba.
+    if (popularity.length < 12) {
+      const yaIncluidos = new Set(popularity.map(c => c.id));
+      const relleno = [...allContent]
+        .filter(c => c.type !== 'live' && !yaIncluidos.has(c.id))
+        .sort((a, b) => parseFloat(b.rating || 0) - parseFloat(a.rating || 0));
+      for (const c of relleno) {
+        if (popularity.length >= 12) break;
+        popularity.push(c);
+      }
     }
     if (popularity.length > 0) renderRow('Tendencias en la Selva', popularity);
 

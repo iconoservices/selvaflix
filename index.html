@@ -1664,6 +1664,10 @@
                   <button type="button" class="btn btn-primary" onclick="window.testEmbedLink()" title="Probar enlace">
                     <span class="material-symbols-outlined" style="font-size:16px;">play_arrow</span>
                   </button>
+                  <button type="button" class="btn" style="background:#00f2ff; color:#000; font-weight:900; font-size:0.72rem; cursor:pointer; border:none; padding:0 14px; border-radius:6px; white-space:nowrap;"
+                    onclick="window.setAdminPriorityFromDrawer()" title="Guarda ya mismo este enlace como prioritario">
+                    🔒 Fijar Enlace
+                  </button>
                 </div>
               </div>
 
@@ -1698,16 +1702,12 @@
               <label class="drawer-advanced-label" style="display:block; margin-top:10px; margin-bottom:6px;">
                 <span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle;">tune</span> Opciones de fuente
               </label>
-              <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; align-items:start;">
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; align-items:start;">
                 <button type="button" class="btn" style="width:100%; background:#2ecc71; color:#000; font-weight:900; font-size:0.72rem; padding:8px 4px; border-radius:6px; cursor:pointer; border:none; display:flex; align-items:center; justify-content:center; gap:4px;" onclick="window.checkAdminPublicServers()">
                   <span class="material-symbols-outlined" style="font-size:16px;">dns</span> Servidores Públicos
                 </button>
                 <button type="button" class="btn" style="width:100%; background:#ff571a; color:#fff; font-weight:bold; font-size:0.72rem; padding:8px 4px; border-radius:6px; cursor:pointer; border:none; display:flex; align-items:center; justify-content:center; gap:4px;" onclick="window.runAdminScraper()">
                   <span class="material-symbols-outlined" style="font-size:16px;">search</span> Buscar Torrents
-                </button>
-                <button type="button" class="btn" style="width:100%; background:#00f2ff; color:#000; font-weight:900; font-size:0.72rem; cursor:pointer; border:none; padding:8px 4px; border-radius:6px;"
-                  onclick="window.setAdminPriorityFromDrawer()" title="Guarda ya mismo el enlace de arriba como prioritario">
-                  🔒 Fijar Enlace
                 </button>
               </div>
 

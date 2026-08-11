@@ -7514,7 +7514,10 @@ window.testEmbedLink = () => {
   const filename = document.getElementById('admin-embed-filename');
   if (preview) preview.style.display = 'flex';
   if (filename) filename.textContent = embedUrl.substring(0, 50) + (embedUrl.length > 50 ? '…' : '');
-  window.showToast('Link registered. Use Play to test.', 'info');
+  // Carga la vista previa en vivo (mini player), así se ve al toque si el
+  // enlace pegado realmente carga algo o no, sin tener que guardar primero.
+  window.updateMiniPlayer();
+  window.showToast('👁️ Vista previa cargada en el panel de la derecha.', 'info');
 };
 
 window.clearEmbedLink = () => {
@@ -8790,10 +8793,10 @@ window.addEventListener('click', (e) => {
 
 // ─── Previsualización del Reproductor y Generador de Fuentes ──────────────────
 window.updateMiniPlayer = () => {
-  const embedUrl = document.getElementById('m-embed').value.trim();
+  let embedUrl = document.getElementById('m-embed').value.trim();
   const placeholder = document.getElementById('mini-player-placeholder');
   const iframe = document.getElementById('mini-player-iframe');
-  
+
   if (!embedUrl) {
     if (placeholder) placeholder.style.display = 'flex';
     if (iframe) {
@@ -8801,6 +8804,15 @@ window.updateMiniPlayer = () => {
       iframe.src = 'about:blank';
     }
     return;
+  }
+
+  // El campo a veces trae el <iframe ...> completo pegado en vez de solo
+  // la URL — mismo criterio que Player.js/limpiarEmbed, para que la vista
+  // previa muestre lo mismo que va a ver el usuario real (antes intentaba
+  // usar el HTML entero como URL y no cargaba nada).
+  if (embedUrl.includes('<iframe')) {
+    const m = embedUrl.match(/src="([^"]+)"/);
+    if (m) embedUrl = m[1];
   }
 
   if (placeholder) placeholder.style.display = 'none';

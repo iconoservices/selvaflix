@@ -1698,17 +1698,19 @@
                 </div>
               </div>
 
-              <!-- Fuentes: las 3 acciones siempre visibles, en una misma fila (sin acordeón) -->
-              <label class="drawer-advanced-label" style="display:block; margin-top:10px; margin-bottom:6px;">
-                <span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle;">tune</span> Opciones de fuente
-              </label>
-              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; align-items:start;">
-                <button type="button" class="btn" style="width:100%; background:#2ecc71; color:#000; font-weight:900; font-size:0.72rem; padding:8px 4px; border-radius:6px; cursor:pointer; border:none; display:flex; align-items:center; justify-content:center; gap:4px;" onclick="window.checkAdminPublicServers()">
-                  <span class="material-symbols-outlined" style="font-size:16px;">dns</span> Servidores Públicos
-                </button>
-                <button type="button" class="btn" style="width:100%; background:#ff571a; color:#fff; font-weight:bold; font-size:0.72rem; padding:8px 4px; border-radius:6px; cursor:pointer; border:none; display:flex; align-items:center; justify-content:center; gap:4px;" onclick="window.runAdminScraper()">
-                  <span class="material-symbols-outlined" style="font-size:16px;">search</span> Buscar Torrents
-                </button>
+              <!-- Fuentes: etiqueta a la izquierda, botones a la derecha, todo en una fila -->
+              <div style="display:flex; align-items:center; gap:10px; margin-top:10px;">
+                <label class="drawer-advanced-label" style="white-space:nowrap; flex-shrink:0; margin:0;">
+                  <span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle;">tune</span> Opciones de fuente
+                </label>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; flex:1; min-width:0;">
+                  <button type="button" class="btn" style="width:100%; background:#2ecc71; color:#000; font-weight:900; font-size:0.72rem; padding:8px 4px; border-radius:6px; cursor:pointer; border:none; display:flex; align-items:center; justify-content:center; gap:4px;" onclick="window.checkAdminPublicServers()">
+                    <span class="material-symbols-outlined" style="font-size:16px;">dns</span> Servidores Públicos
+                  </button>
+                  <button type="button" class="btn" style="width:100%; background:#ff571a; color:#fff; font-weight:bold; font-size:0.72rem; padding:8px 4px; border-radius:6px; cursor:pointer; border:none; display:flex; align-items:center; justify-content:center; gap:4px;" onclick="window.runAdminScraper()">
+                    <span class="material-symbols-outlined" style="font-size:16px;">search</span> Buscar Torrents
+                  </button>
+                </div>
               </div>
 
               <div id="drawer-public-servers-list" style="display:flex; flex-direction:column; gap:6px; max-height:200px; overflow-y:auto; padding-right:4px; margin-top:10px;"></div>

@@ -938,30 +938,55 @@ window.closeMobileSearch = () => {
   if (bar) bar.style.display = 'none';
 };
 
+// Se apagan/prenden junto con la búsqueda — sin esto el banner (que además
+// se re-muestra solo cada 10s por startHeroAutoRotation) y las filas de
+// "Continuar viendo"/"Mi Lista" quedaban pisando los resultados en vez de
+// dejar solo la lista filtrada.
+const _searchExtraSectionIds = ['hero-section', 'genre-bar', 'continue-watching-row', 'my-list-row'];
+let _isSearchActive = false;
+let _preSearchDisplay = null;
+
 // Global Search (Filter)
 function handleGlobalSearch(query) {
   const normQuery = window.normalizeText(query);
   const allMovies = [...movieDatabase.trending].filter(m => m.status !== 'review');
-  
+
   const filtered = allMovies.filter(m => {
     const title = window.normalizeText(m.title);
     const origTitle = window.normalizeText(m.original_title || "");
     const director = window.normalizeText(m.director || "");
     const aliases = (m.alternative_titles || []).map(a => window.normalizeText(a));
 
-    return title.includes(normQuery) || 
-           origTitle.includes(normQuery) || 
-           director.includes(normQuery) || 
+    return title.includes(normQuery) ||
+           origTitle.includes(normQuery) ||
+           director.includes(normQuery) ||
            aliases.some(a => a.includes(normQuery));
   });
 
   const container = document.getElementById('main-content');
   container.innerHTML = '';
 
+  const extraSections = _searchExtraSectionIds.map(id => document.getElementById(id)).filter(Boolean);
+
   if (query) {
-    if (filtered.length > 0) renderRow(`Resultados para "${query}"`, filtered);
+    _isSearchActive = true;
+    if (!_preSearchDisplay) {
+      _preSearchDisplay = {};
+      extraSections.forEach(el => { _preSearchDisplay[el.id] = el.style.display; });
+    }
+    extraSections.forEach(el => { el.style.display = 'none'; });
+
+    // Grilla (2-3 por fila, hacia abajo) en vez de carrusel horizontal — con
+    // muchos resultados un carrusel de una sola fila obligaba a scrollear
+    // de costado para verlos todos, en vez de bajar como cualquier listado.
+    if (filtered.length > 0) renderGallery(`Resultados para "${query}"`, [{ label: `Resultados para "${query}"`, items: filtered }]);
     else container.insertAdjacentHTML('beforeend', `<p style="padding: 50px; text-align: center; color: var(--text-muted);">No se encontro nada en esta selva... 🕵️‍♂️🥥</p>`);
   } else {
+    _isSearchActive = false;
+    if (_preSearchDisplay) {
+      extraSections.forEach(el => { el.style.display = _preSearchDisplay[el.id] || ''; });
+      _preSearchDisplay = null;
+    }
     initApp();
   }
 }
@@ -5816,7 +5841,7 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
         // fichas): si no, un título con link dejaba el botón en verde
         // "pegado" al abrir el siguiente título que todavía no tiene uno.
         if (movie.downloadUrl) {
-            downloadBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;">download_done</span> DISPONIBLE';
+            downloadBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;">download</span> DISPONIBLE';
             downloadBtn.style.backgroundColor = 'rgba(46,204,113,0.12)';
             downloadBtn.style.borderColor = '#2ecc71';
             downloadBtn.style.color = '#2ecc71';
@@ -6848,6 +6873,7 @@ window.confirmBatchSeed = async () => {
 
 async function updateHeroCarousel() {
   if (!heroPool || heroPool.length === 0) return;
+  if (_isSearchActive) return; // no reaparecer el banner mientras hay una búsqueda activa
   const section = document.getElementById('hero-section');
   if (!section) return;
 
@@ -6924,6 +6950,7 @@ async function updateHeroCarousel() {
 function startHeroAutoRotation() {
   if (heroTimer) clearInterval(heroTimer);
   heroTimer = setInterval(() => {
+    if (_isSearchActive) return;
     if (heroPool.length > 3) {
       currentHeroIndex = (currentHeroIndex + 1) % heroPool.length;
       const section = document.getElementById('hero-section');

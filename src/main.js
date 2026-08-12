@@ -5768,12 +5768,16 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
     // 1. Backdrop / Hero Image
     const backdropEl = document.getElementById('detail-backdrop');
     if (backdropEl) {
-        let imgUrl = movie.backdrop || movie.img || '';
-        const esApaisado = !!movie.backdrop;
+        // En celular el hero es angosto: el backdrop horizontal recortado se ve
+        // mal. Ahí usamos el póster vertical (el mismo de la miniatura). En
+        // escritorio sí conviene el apaisado real.
+        const esMobil = window.innerWidth < 1024;
+        let imgUrl = esMobil ? (movie.img || movie.backdrop || '') : (movie.backdrop || movie.img || '');
+        const esApaisado = !esMobil && !!movie.backdrop;
 
         // En escritorio el hero mide ~1600px: una w500 de TMDB se ve borrosa estirada.
         // Solo tocamos URLs de TMDB, los backdrops subidos a mano se quedan igual.
-        if (window.innerWidth >= 1024 && imgUrl.includes('image.tmdb.org')) {
+        if (!esMobil && imgUrl.includes('image.tmdb.org')) {
             imgUrl = imgUrl.replace(/\/w(200|300|500|780)\//, '/w1280/');
         }
 
@@ -5784,8 +5788,9 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
         // es donde suele estar el sujeto.
         backdropEl.style.backgroundPosition = esApaisado ? 'center top' : 'center center';
 
-        // Y en paralelo pedimos a TMDB el backdrop apaisado de verdad.
-        if (!movie.backdrop && movie.tmdbId) fetchBackdropTMDB(movie, backdropEl);
+        // Y en paralelo pedimos a TMDB el backdrop apaisado de verdad, pero solo
+        // en escritorio: en celular ya elegimos a propósito el póster vertical.
+        if (!esMobil && !movie.backdrop && movie.tmdbId) fetchBackdropTMDB(movie, backdropEl);
     }
 
     // 2. Título
@@ -5835,32 +5840,50 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
     // 7b. Botón DESCARGAR: usa el link manual de descarga si el admin ya lo
     // cargó para este título; si no, avisa que está en camino (aún no hay
     // fuente que entregue archivos propios, solo embeds de terceros).
+    const handleDownloadClick = () => {
+        if (movie.downloadUrl) {
+            // A diferencia de PLAY, DESCARGAR abre el link directo sin pasar
+            // por el motor de anuncios (startWarningOverlay hacía un getDoc a
+            // Firestore en cada click, lo que causaba la demora al presionar).
+            // Igual puede venir con una pestaña de publicidad de por medio
+            // (mismo Adsterra que el resto del sitio), así que avisamos antes
+            // para que no sorprenda ni parezca un error.
+            window.open(movie.downloadUrl, '_blank', 'noopener');
+            if (window.showToast) window.showToast('⚠️ Puede abrirse una pestaña de publicidad antes de la descarga — cerrala y volvé a SelvaFlix, tu descarga sigue igual.', 'warning', 6000);
+        } else if (window.showToast) {
+            window.showToast('📥 Descarga disponible pronto para este título 🌴', 'info');
+        }
+    };
+
     const downloadBtn = document.getElementById('detail-btn-download');
     if (downloadBtn) {
         // Se resetea el estilo en cada render (el botón se reusa entre
         // fichas): si no, un título con link dejaba el botón en verde
         // "pegado" al abrir el siguiente título que todavía no tiene uno.
+        // El cuadro siempre dice solo "DESCARGAR".
+        downloadBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;">download</span> DESCARGAR';
         if (movie.downloadUrl) {
-            downloadBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;">download</span> DISPONIBLE';
             downloadBtn.style.backgroundColor = 'rgba(46,204,113,0.12)';
             downloadBtn.style.borderColor = '#2ecc71';
             downloadBtn.style.color = '#2ecc71';
+            downloadBtn.style.opacity = '1';
         } else {
-            downloadBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;">download</span> DESCARGAR';
-            downloadBtn.style.backgroundColor = '#2a2a2a';
-            downloadBtn.style.borderColor = '#5c4037';
-            downloadBtn.style.color = '#e5e2e1';
+            // Mismo botón, pero apagado: sin link cargado todavía no hay nada
+            // que descargar, y el gris tenue lo deja claro de un vistazo.
+            downloadBtn.style.backgroundColor = '#232323';
+            downloadBtn.style.borderColor = '#3a3a3a';
+            downloadBtn.style.color = '#7a7a7a';
+            downloadBtn.style.opacity = '0.65';
         }
-        downloadBtn.onclick = () => {
-            if (movie.downloadUrl) {
-                // A diferencia de PLAY, DESCARGAR abre el link directo sin pasar
-                // por el motor de anuncios (startWarningOverlay hacía un getDoc a
-                // Firestore en cada click, lo que causaba la demora al presionar).
-                window.open(movie.downloadUrl, '_blank', 'noopener');
-            } else if (window.showToast) {
-                window.showToast('📥 Descarga disponible pronto para este título 🌴', 'info');
-            }
-        };
+        downloadBtn.onclick = handleDownloadClick;
+    }
+
+    // Mismo botón de descarga, versión chica en el header (junto al de
+    // compartir): mismo comportamiento, apagado si todavía no hay link.
+    const downloadBtnHeader = document.getElementById('detail-btn-download-header');
+    if (downloadBtnHeader) {
+        downloadBtnHeader.style.color = movie.downloadUrl ? '#2ecc71' : 'rgba(255,255,255,0.4)';
+        downloadBtnHeader.onclick = handleDownloadClick;
     }
 
     // 8. VIP badge en el header si aplica

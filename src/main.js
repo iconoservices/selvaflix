@@ -7867,14 +7867,25 @@ window.setDownloadUrlFromDrawer = async () => {
   }
 
   // --- PWA INSTALLATION ICON FLOW ---
-  // Dos botones disparan el mismo instalador: el del navbar (siempre existió)
-  // y el flotante pegado al borde del hero (pedido para que se vea igual que
-  // el botón de compartir de al lado).
-  const installBtns = [document.getElementById('pwa-install-btn'), document.getElementById('hero-install-fab')].filter(Boolean);
+  // Un solo botón: el flotante pegado al borde del hero, justo debajo del de
+  // compartir (el del navbar se sacó para no duplicar el mismo acceso).
+  const installBtns = [document.getElementById('hero-install-fab')].filter(Boolean);
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+  // iOS (Safari/Chrome-en-iOS) nunca dispara "beforeinstallprompt" — Apple no
+  // lo soporta, así que ahí los botones no pueden esperar ese evento: se
+  // muestran directo, y al tocarlos aparece el banner con los pasos manuales
+  // (Compartir → Agregar a inicio) en vez del diálogo nativo de Android.
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  const iosBanner = document.getElementById('ios-install-banner');
+  const iosDismissBtn = document.getElementById('ios-install-dismiss');
 
   const showInstaller = async () => {
     if (isStandalone) return;
+    if (isIOS) {
+      if (iosBanner) iosBanner.style.display = 'block';
+      return;
+    }
     if (deferredPrompt) {
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
@@ -7903,16 +7914,14 @@ window.setDownloadUrlFromDrawer = async () => {
     installBtns.forEach(b => b.style.display = 'none');
   });
 
-  // iOS (Safari/Chrome-en-iOS) nunca dispara "beforeinstallprompt" — Apple no
-  // lo soporta, así que el botón de arriba se queda escondido para siempre y
-  // esos usuarios no tienen forma de enterarse de que se puede instalar.
-  // Se les muestra en cambio un banner con los pasos manuales (Compartir →
-  // Agregar a inicio). Se guarda si lo cerraron para no insistir cada visita.
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-  const iosBanner = document.getElementById('ios-install-banner');
-  const iosDismissBtn = document.getElementById('ios-install-dismiss');
-  if (isIOS && !isStandalone && iosBanner && localStorage.getItem('selva_ios_install_dismissed') !== 'true') {
-    setTimeout(() => { iosBanner.style.display = 'block'; }, 4000);
+  // En iOS los botones no esperan "beforeinstallprompt" (nunca llega): se
+  // muestran directo. El banner además sigue saliendo solo a los 4s la
+  // primera vez, salvo que el usuario ya lo haya cerrado antes.
+  if (isIOS && !isStandalone) {
+    installBtns.forEach(b => b.style.display = 'flex');
+    if (iosBanner && localStorage.getItem('selva_ios_install_dismissed') !== 'true') {
+      setTimeout(() => { iosBanner.style.display = 'block'; }, 4000);
+    }
   }
   if (iosDismissBtn) {
     iosDismissBtn.addEventListener('click', () => {

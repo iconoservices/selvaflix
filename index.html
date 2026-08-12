@@ -1193,7 +1193,13 @@
               <!-- Actividad por Día / Hora -->
               <div class="dashboard-widgets-grid">
                 <div class="admin-card">
-                  <h2 class="admin-title">📅 Actividad por Día</h2>
+                  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+                    <h2 class="admin-title" style="margin:0;">📅 Actividad (se agrupa por día/semana/mes según el rango)</h2>
+                    <div style="display:flex; gap:4px;">
+                      <button id="daychart-mode-bars" class="btn btn-secondary" style="padding:4px 8px; font-size:0.65rem; opacity:1; font-weight:800;" onclick="window.setDayChartMode('bars')">📊 Barras</button>
+                      <button id="daychart-mode-line" class="btn btn-secondary" style="padding:4px 8px; font-size:0.65rem; opacity:0.5;" onclick="window.setDayChartMode('line')">📈 Línea</button>
+                    </div>
+                  </div>
                   <div id="metrics-day-chart" style="display:flex; align-items:flex-end; gap:2px; height:150px; padding-top:10px;"></div>
                 </div>
                 <div class="admin-card">

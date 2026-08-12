@@ -167,6 +167,8 @@ let currentPlayerMovie = null;
 window._brokenIds = new Set();
 let pendingSeeds = [];
 let _lastMetricsData = []; // Eventos crudos del último rango cargado en Analíticas, para el detalle de visitantes
+let _dayChartMode = 'bars'; // 'bars' | 'line' — toggle de "Actividad por Día" en Analíticas
+let _dayChartBuckets = []; // Buckets (día/semana/mes según el rango) del último loadMetrics, para repintar sin re-consultar Firestore
 let deferredPrompt;
 
 // --- Splash Screen Engine v2.40 ---
@@ -2455,6 +2457,140 @@ window.handleSmartDate = (type) => {
   }
 };
 
+// Agrupa un rango de fechas en buckets de día/semana/mes según su duración,
+// para que "Actividad por Día" siga siendo legible en rangos largos (ej. "Este año"
+// no debería intentar pintar 365 barras/puntos).
+window._computeTimeBuckets = (start, end) => {
+  const spanDays = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+  const toISO = (d) => d.toISOString().split('T')[0];
+  const monthNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const buckets = [];
+  let granularity = 'day';
+
+  // Lista de días del rango en UTC (mismo criterio que byDay/toISOString en
+  // loadMetrics) — evita que las etiquetas se corran un día por zona horaria
+  // si se derivaran con getDate()/getMonth() locales en su lugar.
+  const allDayKeys = [];
+  let cursor = new Date(start);
+  while (cursor <= end) { allDayKeys.push(toISO(cursor)); cursor.setDate(cursor.getDate() + 1); }
+
+  if (spanDays > 92) {
+    granularity = 'month';
+    const byMonth = {};
+    allDayKeys.forEach(k => {
+      const monthKey = k.slice(0, 7); // YYYY-MM
+      if (!byMonth[monthKey]) byMonth[monthKey] = [];
+      byMonth[monthKey].push(k);
+    });
+    Object.keys(byMonth).sort().forEach(monthKey => {
+      const m = parseInt(monthKey.slice(5, 7), 10) - 1;
+      buckets.push({ label: monthNames[m], keys: byMonth[monthKey] });
+    });
+  } else if (spanDays > 31) {
+    granularity = 'week';
+    for (let i = 0; i < allDayKeys.length; i += 7) {
+      const weekKeys = allDayKeys.slice(i, i + 7);
+      const [, m, d] = weekKeys[0].split('-');
+      buckets.push({ label: `${d}/${m}`, keys: weekKeys });
+    }
+  } else {
+    allDayKeys.forEach(k => buckets.push({ label: k.split('-')[2], keys: [k] }));
+  }
+
+  return { granularity, buckets };
+};
+
+// Pinta metrics-day-chart con los buckets ya calculados (_dayChartBuckets), en
+// modo barras o línea según _dayChartMode. Separado de loadMetrics para poder
+// repintar al instante al tocar el toggle, sin re-consultar Firestore.
+window.renderDayChart = () => {
+  const dayChart = document.getElementById('metrics-day-chart');
+  if (!dayChart) return;
+  const buckets = _dayChartBuckets;
+  if (!buckets || buckets.length === 0) {
+    dayChart.innerHTML = '<div style="margin:auto; color:#555; font-size:0.7rem;">Sin datos.</div>';
+    return;
+  }
+
+  if (_dayChartMode === 'line') {
+    const maxEvents = Math.max(...buckets.map(b => b.total), 1);
+    const w = Math.max(buckets.length * 24, 100);
+    const h = 100;
+    const stepX = buckets.length > 1 ? w / (buckets.length - 1) : 0;
+    const pointsFor = (key) => buckets.map((b, i) => {
+      const x = buckets.length > 1 ? i * stepX : w / 2;
+      const y = h - (b[key] / maxEvents) * h;
+      return `${x},${y}`;
+    }).join(' ');
+    const dotsFor = (key, color) => buckets.map((b, i) => {
+      const x = buckets.length > 1 ? i * stepX : w / 2;
+      const y = h - (b[key] / maxEvents) * h;
+      return `<circle cx="${x}" cy="${y}" r="2.5" fill="${color}"><title>${b.label}: ${b[key]}</title></circle>`;
+    }).join('');
+
+    dayChart.innerHTML = `
+      <div style="display:flex; flex-direction:column; width:100%; height:100%;">
+        <div style="display:flex; gap:12px; margin-bottom:4px; flex-shrink:0;">
+          <span style="display:flex; align-items:center; gap:4px; font-size:0.55rem; color:#999;"><span style="width:8px; height:8px; border-radius:2px; background:#3498DB; display:inline-block;"></span>Visitas</span>
+          <span style="display:flex; align-items:center; gap:4px; font-size:0.55rem; color:#999;"><span style="width:8px; height:8px; border-radius:2px; background:#F1C40F; display:inline-block;"></span>Reproducciones</span>
+        </div>
+        <!-- El <svg> con viewBox tiene su propio aspect-ratio intrínseco (w:h del
+             viewBox), que en flexbox gana sobre flex:1 si el <svg> mismo es el
+             flex item — se estiraba a ~192px en vez de llenar los ~140px de la
+             tarjeta, empujando las etiquetas fuera de la vista. Envolverlo en un
+             <div> con flex:1 + min-height:0 (sin aspect-ratio propio) evita eso. -->
+        <div style="flex:1; min-height:0; position:relative;">
+          <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="width:100%; height:100%; display:block; overflow:visible;">
+            <line x1="0" y1="${h}" x2="${w}" y2="${h}" stroke="rgba(255,255,255,0.12)" stroke-width="1" vector-effect="non-scaling-stroke" />
+            <polyline points="${pointsFor('total')}" fill="none" stroke="#3498DB" stroke-width="2" vector-effect="non-scaling-stroke" />
+            <polyline points="${pointsFor('plays')}" fill="none" stroke="#F1C40F" stroke-width="2" vector-effect="non-scaling-stroke" />
+            ${dotsFor('total', '#3498DB')}${dotsFor('plays', '#F1C40F')}
+          </svg>
+        </div>
+        <div style="display:flex; margin-top:4px; flex-shrink:0;">
+          ${buckets.map(b => `<span style="flex:1; text-align:center; font-size:0.5rem; color:#777; overflow:hidden; white-space:nowrap;">${b.label}</span>`).join('')}
+        </div>
+      </div>
+    `;
+  } else {
+    const maxEvents = Math.max(...buckets.map(b => b.total), 1);
+    dayChart.innerHTML = buckets.map(b => {
+      const h1 = (b.total / maxEvents) * 100;
+      const h2 = (b.plays / maxEvents) * 100;
+      return `
+        <div style="flex:1; min-width:18px; display:flex; flex-direction:column; align-items:center; gap:4px; height:100%;">
+          <div style="flex:1; width:100%; display:flex; align-items:flex-end; gap:1px; position:relative; background:rgba(255,255,255,0.01); border-radius:1px;">
+            <div style="width:50%; height:${h1}%; background:#3498DB; opacity:0.8;" title="${b.label}: ${b.total} visitas"></div>
+            <div style="width:50%; height:${h2}%; background:#F1C40F; opacity:0.8;" title="${b.label}: ${b.plays} reproducciones"></div>
+          </div>
+          <span style="font-size:0.5rem; color:#777;">${b.label}</span>
+        </div>
+      `;
+    }).join('');
+  }
+};
+
+// Toggle barras/línea del gráfico "Actividad por Día" en Analíticas
+window.setDayChartMode = (mode) => {
+  _dayChartMode = mode;
+  window.renderDayChart();
+  const barsBtn = document.getElementById('daychart-mode-bars');
+  const lineBtn = document.getElementById('daychart-mode-line');
+  [barsBtn, lineBtn].forEach(b => { if (b) { b.style.opacity = '0.5'; b.style.fontWeight = 'normal'; } });
+  const activeBtn = mode === 'line' ? lineBtn : barsBtn;
+  if (activeBtn) { activeBtn.style.opacity = '1'; activeBtn.style.fontWeight = '800'; }
+};
+
+// Abre/cierra el desglose por día/semana/mes de un título en la tabla de Popularidad
+window.togglePopularDetail = (rowId, triggerRow) => {
+  const detailRow = document.getElementById(rowId);
+  if (!detailRow) return;
+  const isOpen = detailRow.style.display !== 'none';
+  detailRow.style.display = isOpen ? 'none' : 'table-row';
+  const arrow = triggerRow.querySelector('span');
+  if (arrow) arrow.textContent = isOpen ? '▸' : '▾';
+};
+
 window.initMetricsSelectors = () => {
   // Por defecto: Este Mes al abrir el tab
   const now = new Date();
@@ -2616,42 +2752,28 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
         peakEl.innerText = `${peakHour[0]}:00 hs`;
     }
 
-    // 📅 Actividad por Día (Garantizar rango completo)
-    const dayChart = document.getElementById('metrics-day-chart');
-    if (dayChart) {
-      const byDay = {};
-      data.forEach(d => {
-        const day = d.date || new Date(d.timestamp).toISOString().split('T')[0];
-        if (!byDay[day]) byDay[day] = { total: 0, plays: 0 };
-        byDay[day].total++;
-        if (d.action === 'play_start' || d.action === 'watch_attempt') byDay[day].plays++;
-      });
+    // 📅 Actividad por Día/Semana/Mes (agrupa según el largo del rango para que
+    // "Este año" no intente pintar 365 barras/puntos ilegibles) + modo línea.
+    const byDay = {};
+    data.forEach(d => {
+      const day = d.date || new Date(d.timestamp).toISOString().split('T')[0];
+      if (!byDay[day]) byDay[day] = { total: 0, plays: 0 };
+      byDay[day].total++;
+      if (d.action === 'play_start' || d.action === 'watch_attempt') byDay[day].plays++;
+    });
 
-      // Generar lista de días en el rango
-      const allDays = [];
-      let current = new Date(start);
-      while(current <= end) {
-        allDays.push(current.toISOString().split('T')[0]);
-        current.setDate(current.getDate() + 1);
-      }
+    const timeBuckets = window._computeTimeBuckets(start, end);
+    _dayChartBuckets = timeBuckets.buckets.map(b => {
+      let total = 0, plays = 0;
+      b.keys.forEach(k => { const v = byDay[k]; if (v) { total += v.total; plays += v.plays; } });
+      return { label: b.label, total, plays };
+    });
+    window.renderDayChart();
 
-      const maxEvents = Math.max(...Object.values(byDay).map(v => v.total), 1);
-      dayChart.innerHTML = allDays.map(day => {
-        const info = byDay[day] || { total: 0, plays: 0 };
-        const h1 = (info.total / maxEvents) * 100;
-        const h2 = (info.plays / maxEvents) * 100;
-        const shortDate = day.split('-')[2]; // Solo el número del día
-        return `
-          <div style="flex:1; min-width:18px; display:flex; flex-direction:column; align-items:center; gap:4px; height:100%;">
-            <div style="flex:1; width:100%; display:flex; align-items:flex-end; gap:1px; position:relative; background:rgba(255,255,255,0.01); border-radius:1px;">
-              <div style="width:50%; height:${h1}%; background:#3498DB; opacity:0.8;"></div>
-              <div style="width:50%; height:${h2}%; background:#F1C40F; opacity:0.8;"></div>
-            </div>
-            <span style="font-size:0.45rem; color:#444;">${shortDate}</span>
-          </div>
-        `;
-      }).join('');
-    }
+    // Mapa fecha -> índice de bucket, usado abajo para el desglose por título
+    // en la tabla de Popularidad (saber no solo el total sino CUÁNDO se dio).
+    const bucketIndexByDay = {};
+    timeBuckets.buckets.forEach((b, i) => b.keys.forEach(k => { bucketIndexByDay[k] = i; }));
 
     // 🕒 Actividad por Hora (Peak Map)
     const hourChart = document.getElementById('metrics-hour-chart');
@@ -2697,27 +2819,53 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
     if (log) log.innerHTML = data.slice(0, 30).map(buildLogRow).join('');
     if (logDash) logDash.innerHTML = data.slice(0, 8).map(buildLogRow).join('');
 
-    // Popularidad (Conteo por titulo)
+    // Popularidad (Conteo por título + desglose por día/semana/mes del rango
+    // elegido, para saber no solo el total sino CUÁNDO se dieron esas reproducciones)
     const counts = {};
     data.forEach(d => {
       if ((d.action === 'play_start' || d.action === 'watch_attempt') && d.details?.title) {
         const t = d.details.title;
-        if (!counts[t]) counts[t] = { count: 0, last: 0, action: 'Reproducido' };
+        if (!counts[t]) counts[t] = { count: 0, last: 0, byBucket: new Array(_dayChartBuckets.length).fill(0) };
         counts[t].count++;
         if (d.timestamp > counts[t].last) counts[t].last = d.timestamp;
+        const dayKey = d.date || new Date(d.timestamp).toISOString().split('T')[0];
+        const bIdx = bucketIndexByDay[dayKey];
+        if (bIdx !== undefined && counts[t].byBucket[bIdx] !== undefined) counts[t].byBucket[bIdx]++;
       }
     });
 
     const sortedPopularAll = Object.entries(counts).sort((a, b) => b[1].count - a[1].count);
-    const buildPopularRow = ([title, info]) => `
+
+    // Fila simple sin desglose, para el widget compacto del Panel (Dashboard)
+    const buildPopularRowSimple = ([title, info]) => `
             <tr>
                 <td style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;">${title}</td>
                 <td style="font-weight: bold; color:white; text-align:right;">${info.count}</td>
             </tr>
         `;
 
-    popularList.innerHTML = sortedPopularAll.slice(0, 10).map(buildPopularRow).join('') || '<tr><td colspan="2" style="text-align:center; padding: 20px;">No hay datos.</td></tr>';
-    if (popularListDash) popularListDash.innerHTML = sortedPopularAll.slice(0, 5).map(buildPopularRow).join('') || '<tr><td colspan="2" style="text-align:center; padding: 15px;">Sin datos.</td></tr>';
+    // Fila expandible (clic para ver el desglose) usada en la tabla completa de Analíticas
+    const buildPopularRowDetailed = ([title, info], idx) => {
+      const rowId = `pop-detail-${idx}`;
+      const breakdown = _dayChartBuckets
+        .map((b, i) => ({ label: b.label, count: info.byBucket[i] || 0 }))
+        .filter(x => x.count > 0);
+      const breakdownHtml = breakdown.length
+        ? breakdown.map(x => `<span style="display:inline-block; background:rgba(255,255,255,0.06); border-radius:4px; padding:2px 6px; margin:2px; font-size:0.6rem; color:#ccc;">${x.label}: <b style="color:#F1C40F;">${x.count}</b></span>`).join('')
+        : '<span style="color:#555; font-size:0.65rem;">Sin desglose disponible.</span>';
+      return `
+            <tr style="cursor:pointer;" onclick="window.togglePopularDetail('${rowId}', this)" title="Clic para ver el desglose por fecha">
+                <td style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px;"><span style="color:#666; font-size:0.6rem; margin-right:4px;">▸</span>${title}</td>
+                <td style="font-weight: bold; color:white; text-align:right;">${info.count}</td>
+            </tr>
+            <tr id="${rowId}" style="display:none; background:rgba(255,255,255,0.02);">
+                <td colspan="2" style="padding:8px 12px;">${breakdownHtml}</td>
+            </tr>
+        `;
+    };
+
+    popularList.innerHTML = sortedPopularAll.slice(0, 10).map(buildPopularRowDetailed).join('') || '<tr><td colspan="2" style="text-align:center; padding: 20px;">No hay datos.</td></tr>';
+    if (popularListDash) popularListDash.innerHTML = sortedPopularAll.slice(0, 5).map(buildPopularRowSimple).join('') || '<tr><td colspan="2" style="text-align:center; padding: 15px;">Sin datos.</td></tr>';
 
     // FCM Tokens counter
     try {

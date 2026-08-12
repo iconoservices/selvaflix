@@ -5878,14 +5878,6 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
         downloadBtn.onclick = handleDownloadClick;
     }
 
-    // Mismo botón de descarga, versión chica en el header (junto al de
-    // compartir): mismo comportamiento, apagado si todavía no hay link.
-    const downloadBtnHeader = document.getElementById('detail-btn-download-header');
-    if (downloadBtnHeader) {
-        downloadBtnHeader.style.color = movie.downloadUrl ? '#2ecc71' : 'rgba(255,255,255,0.4)';
-        downloadBtnHeader.onclick = handleDownloadClick;
-    }
-
     // 8. VIP badge en el header si aplica
     const detailHeader = document.getElementById('detail-header');
     if (detailHeader) {

@@ -19,6 +19,7 @@ export const SelvaStream = {
     STREAMTAPE_LOGIN: import.meta.env.VITE_STREAMTAPE_LOGIN || '',
     STREAMTAPE_KEY: import.meta.env.VITE_STREAMTAPE_KEY || '',
     DOODSTREAM_KEY: import.meta.env.VITE_DOODSTREAM_KEY || '',
+    VOE_API_KEY: import.meta.env.VITE_VOE_API_KEY || '',
 
     // 🎬 Vimeus (el reproductor real detrás de LaMovie): a diferencia de la
     // API Key (ak_..., server-only, NUNCA en el cliente), el view_key es fijo
@@ -843,25 +844,9 @@ export const SelvaStream = {
                     const isPlaying = this.currentPlayingHash && (s.infoHash === this.currentPlayingHash || s.url === this.currentPlayingHash);
                     const isPublicLink = movieRef.embed && (movieRef.embed === s.url || movieRef.embed === s.infoHash);
 
-                    const crownBtn = isAdmin ? `
-                        <div class="vip-admin-actions">
-                            <button class="vip-admin-btn crown-btn" style="--btn-color:${isSuggested ? '#E74C3C' : '#FF6600'};"
-                                    onclick="event.stopPropagation(); window.selvaExecuteCrownPromotion('${movieRef.id}', '${s.infoHash || s.url}')"
-                                    title="${isSuggested ? 'Quitar Corona' : 'Coronar esta fuente'}">
-                                ${isSuggested ? '🚫' : '👑'}
-                            </button>
-                            <button class="vip-admin-btn export-btn" style="--btn-color:#00f2ff;"
-                                    onclick="event.stopPropagation(); window.selvaExecuteExportToHosting('${movieRef.id}', ${realIndex}, false)"
-                                    title="Exportar a Hosting (🪄 Manual)">
-                                🪄
-                            </button>
-                            <button class="vip-admin-btn auto-export-btn" style="--btn-color:#2ecc71;"
-                                    onclick="event.stopPropagation(); window.selvaExecuteExportToHosting('${movieRef.id}', ${realIndex}, true)"
-                                    title="Auto-Exportar (⚡ Subir + Guardar)">
-                                ⚡
-                            </button>
-                        </div>
-                    ` : '';
+                    // ⚙️ Los botones de exportación y administración ahora están 100% en el Admin Panel Modal
+                    const crownBtn = '';
+
 
                     // Etiqueta de estado: una sola, en línea (antes eran banners
                     // diagonales rotados que se encimaban con el resto y ensuciaban).

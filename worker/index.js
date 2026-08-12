@@ -150,6 +150,158 @@ export default {
                 }
             }
 
+            // --- 🔗 RUTA: EXTRACT-LINKS (Extrae los links reales detrás de los iframes) ---
+            // Resuelve el POW de FlixLatam/PelisMart server-side y desencripta los links AES.
+            // Para Vimeus, parsea el JSON del embed directamente (sin POW, solo CORS lo blockeaba).
+            // Para RepelisHD, extrae los data-link="..." del HTML.
+            // Devuelve lista de { servername, link } — el cliente elige el mejor (VOE primero).
+            if (url.pathname === '/flix/extract-links') {
+                const provider = url.searchParams.get('provider');
+                const imdb = url.searchParams.get('imdb');
+                const tmdb = url.searchParams.get('tmdb');
+                const type = url.searchParams.get('type') || 'movie'; // movie | serie | anime
+                const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
+                try {
+                    // ── FlixLatam (y PelisMart) ──────────────────────────────────────────────
+                    if (provider === 'flixlatam' || provider === 'pelismart') {
+                        if (!imdb) return new Response(JSON.stringify({ error: 'falta imdb' }), { status: 400, headers: corsHeaders });
+                        const baseUrl = provider === 'pelismart'
+                            ? `https://pelismart.mov/vidurl/${imdb}/`
+                            : `https://flixlatam.com/vidurl/${imdb}/`;
+                        const pageRes = await fetch(baseUrl, { headers: { 'User-Agent': UA } });
+                        if (!pageRes.ok) return new Response(JSON.stringify({ error: `${provider} no respondio`, status: pageRes.status }), { status: 502, headers: corsHeaders });
+                        const html = await pageRes.text();
+                        if (html.includes('No folders found')) return new Response(JSON.stringify({ error: 'titulo no disponible en ' + provider }), { status: 404, headers: corsHeaders });
+
+                        // Extraer variables del HTML
+                        const challengeM = html.match(/const\s+POW_CHALLENGE\s*=\s*'([^']+)'/);
+                        const difficultyM = html.match(/const\s+POW_DIFFICULTY\s*=\s*(\d+)/);
+                        const saltM = html.match(/const\s+POW_SALT\s*=\s*'([^']+)'/);
+                        const dataLinkM = html.match(/let\s+dataLink\s*=\s*(\[[\s\S]*?\]);/);
+
+                        if (!challengeM || !difficultyM || !saltM || !dataLinkM) {
+                            return new Response(JSON.stringify({ error: provider + ' cambio su formato (no se encontraron variables POW o dataLink)' }), { status: 500, headers: corsHeaders });
+                        }
+
+                        const challenge = challengeM[1];
+                        const difficulty = parseInt(difficultyM[1], 10);
+                        const salt = saltM[1];
+                        const dataLink = JSON.parse(dataLinkM[1]);
+
+                        // Resolver POW: SHA-256(challenge + nonce).startsWith('0'.repeat(difficulty))
+                        // La dificultad es 3 = prefijo "000", se resuelve en ~5-50ms
+                        const enc = new TextEncoder();
+                        const prefix = '0'.repeat(difficulty);
+                        let nonce = 0;
+                        let aesKeyBytes = null;
+                        while (true) {
+                            const hashBuf = await crypto.subtle.digest('SHA-256', enc.encode(challenge + nonce));
+                            const hex = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+                            if (hex.startsWith(prefix)) {
+                                aesKeyBytes = new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode(challenge + nonce + salt)));
+                                break;
+                            }
+                            nonce++;
+                            if (nonce > 2000000) return new Response(JSON.stringify({ error: 'POW timeout — dificultad demasiado alta' }), { status: 500, headers: corsHeaders });
+                        }
+
+                        // Importar key AES-256-CBC
+                        const cryptoKey = await crypto.subtle.importKey('raw', aesKeyBytes.slice(0, 32), { name: 'AES-CBC' }, false, ['decrypt']);
+
+                        // Descifrar cada embed.link (AES-CBC, IV en los primeros 16 bytes del base64)
+                        const decryptLink = async (encB64) => {
+                            try {
+                                const raw = Uint8Array.from(atob(encB64), c => c.charCodeAt(0));
+                                const iv = raw.slice(0, 16);
+                                const ct = raw.slice(16);
+                                const pt = await crypto.subtle.decrypt({ name: 'AES-CBC', iv }, cryptoKey, ct);
+                                return new TextDecoder().decode(pt);
+                            } catch { return null; }
+                        };
+
+                        // Acumular links desencriptados de todos los "files" (idiomas)
+                        const SERVER_PRIORITY = ['voe', 'streamwish', 'vidhide', 'filemoon', 'doodstream', 'rapidvideo'];
+                        const results = [];
+                        for (const file of dataLink) {
+                            const label = file.video_language || file.label || 'N/A';
+                            const embeds = [...(file.sortedEmbeds || []), ...(file.downloadEmbeds || [])];
+                            for (const embed of embeds) {
+                                if (!embed.link) continue;
+                                const decrypted = await decryptLink(embed.link);
+                                if (decrypted) results.push({ servername: embed.servername, link: decrypted, lang: label });
+                            }
+                        }
+
+                        // Ordenar por prioridad de servidor
+                        results.sort((a, b) => {
+                            const pa = SERVER_PRIORITY.indexOf(a.servername);
+                            const pb = SERVER_PRIORITY.indexOf(b.servername);
+                            return (pa === -1 ? 999 : pa) - (pb === -1 ? 999 : pb);
+                        });
+
+                        return new Response(JSON.stringify({ links: results, nonce }), { headers: corsHeaders });
+                    }
+
+                    // ── Vimeus ───────────────────────────────────────────────────────────────
+                    if (provider === 'vimeus') {
+                        const viewKey = env.VIMEUS_VIEW_KEY || 'bVQEGHe-bF4PjDWQ5xbzE2SPoBnj3ofRi2pj0VXPYzk';
+                        const idParam = tmdb ? `tmdb=${tmdb}` : (imdb ? `imdb=${imdb}` : null);
+                        if (!idParam) return new Response(JSON.stringify({ error: 'falta tmdb o imdb' }), { status: 400, headers: corsHeaders });
+                        const vimeusType = type === 'anime' ? 'anime' : (type === 'serie' || type === 'series' ? 'serie' : 'movie');
+                        const vimeusUrl = `https://vimeus.com/e/${vimeusType}?${idParam}&view_key=${viewKey}`;
+                        const vRes = await fetch(vimeusUrl, { headers: { 'User-Agent': UA } });
+                        const vHtml = await vRes.text();
+                        const dataM = vHtml.match(/<script type="text\/json" id="data">([\s\S]*?)<\/script>/);
+                        if (!dataM) return new Response(JSON.stringify({ error: 'Vimeus no devolvio JSON de data' }), { status: 404, headers: corsHeaders });
+                        const data = JSON.parse(dataM[1]);
+                        if (!data.embeds || data.embeds.length === 0) return new Response(JSON.stringify({ error: 'Vimeus no tiene embeds para este titulo' }), { status: 404, headers: corsHeaders });
+
+                        // Filtrar por latino y priorizar VOE
+                        const SERVER_PRIORITY = ['voe', 'goodstream', 'vimeos', 'hlswish', 'filemoon', 'jawcloud', 'fembed'];
+                        const embeds = data.embeds.filter(e => e.lang === 'Latino');
+                        embeds.sort((a, b) => {
+                            const getDomain = u => { try { return new URL(u).hostname.replace('www.','').split('.')[0]; } catch { return u; } };
+                            const pa = SERVER_PRIORITY.indexOf(getDomain(a.url));
+                            const pb = SERVER_PRIORITY.indexOf(getDomain(b.url));
+                            return (pa === -1 ? 999 : pa) - (pb === -1 ? 999 : pb);
+                        });
+                        const links = embeds.map(e => {
+                            const domain = (() => { try { return new URL(e.url).hostname.replace('www.','').split('.')[0]; } catch { return 'unknown'; } })();
+                            return { servername: domain, link: e.url, lang: e.lang, quality: e.quality };
+                        });
+                        return new Response(JSON.stringify({ links, title: data.title }), { headers: corsHeaders });
+                    }
+
+                    // ── RepelisHD ────────────────────────────────────────────────────────────
+                    if (provider === 'repelishd') {
+                        if (!imdb) return new Response(JSON.stringify({ error: 'falta imdb' }), { status: 400, headers: corsHeaders });
+                        const rRes = await fetch(`https://verhdlink.cam/movie/${imdb}`, { headers: { 'User-Agent': UA } });
+                        if (!rRes.ok) return new Response(JSON.stringify({ error: 'RepelisHD no respondio', status: rRes.status }), { status: 502, headers: corsHeaders });
+                        const rHtml = await rRes.text();
+                        if (!rHtml.includes(imdb)) return new Response(JSON.stringify({ error: 'titulo no disponible en RepelisHD' }), { status: 404, headers: corsHeaders });
+
+                        const dataLinkRegex = /data-link="([^"]+)"/g;
+                        const links = [];
+                        let m;
+                        while ((m = dataLinkRegex.exec(rHtml)) !== null) {
+                            let link = m[1];
+                            if (link.startsWith('//')) link = 'https:' + link;
+                            const domain = (() => { try { return new URL(link).hostname.replace('www.','').split('.')[0]; } catch { return 'unknown'; } })();
+                            links.push({ servername: domain, link });
+                        }
+                        if (links.length === 0) return new Response(JSON.stringify({ error: 'RepelisHD no tiene links para este titulo' }), { status: 404, headers: corsHeaders });
+                        return new Response(JSON.stringify({ links }), { headers: corsHeaders });
+                    }
+
+                    return new Response(JSON.stringify({ error: 'provider desconocido: ' + provider + '. Válidos: flixlatam, pelismart, vimeus, repelishd' }), { status: 400, headers: corsHeaders });
+
+                } catch (e) {
+                    return new Response(JSON.stringify({ error: e.message, stack: e.stack?.slice(0, 500) }), { status: 500, headers: corsHeaders });
+                }
+            }
+
+
             // --- 🔎 RUTA: CHECK-EMBED (¿el link de video detrás de un embed sigue vivo?) ---
             // Vimeus puede decir que un episodio "tiene embed" (su JSON no viene
             // vacío) pero el host de video de terceros al que apunta (fembed,

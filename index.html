@@ -396,6 +396,17 @@
             </button>
           </div>
         </div>
+
+        <!-- Accesos flotantes pegados al borde derecho de la pantalla: compartir
+             la app y (si el navegador lo permite) instalarla como PWA. -->
+        <div style="position: absolute; top: 50%; right: 0; transform: translateY(-50%); z-index: 15; display: flex; flex-direction: column; gap: 10px;">
+          <button id="hero-share-fab" onclick="window.shareApp && window.shareApp()" title="Compartir SelvaFlix" style="width: 44px; height: 44px; border-radius: 50% 0 0 50%; border: none; cursor: pointer; background: #fff; color: #111; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(0,0,0,0.35);">
+            <span class="material-symbols-outlined" style="font-size: 22px;">share</span>
+          </button>
+          <button id="hero-install-fab" title="Instalar SelvaFlix" style="display: none; width: 44px; height: 44px; border-radius: 50% 0 0 50%; border: none; cursor: pointer; background: #fff; color: #c0392b; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(0,0,0,0.35);">
+            <span class="material-symbols-outlined" style="font-size: 22px;">download</span>
+          </button>
+        </div>
       </section>
 
       <!-- Genre Chips CinePulse Style -->

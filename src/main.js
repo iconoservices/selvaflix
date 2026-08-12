@@ -6110,6 +6110,22 @@ window.detailShareMovie = async () => {
     }
 };
 
+// Compartir la app en sí (no una peli puntual) — usado por el botón flotante
+// del hero en Home, para invitar a un amigo a SelvaFlix.
+window.shareApp = async () => {
+    const shareUrl = `${window.location.origin}${window.location.pathname}`;
+    if (navigator.share) {
+        try {
+            await navigator.share({ title: 'SelvaFlix', text: 'Mira películas y series gratis en SelvaFlix 🌴🍿', url: shareUrl });
+        } catch (e) {
+            if (e.name !== 'AbortError') console.warn('Share failed:', e);
+        }
+    } else {
+        await navigator.clipboard.writeText(shareUrl);
+        if (window.showToast) window.showToast("¡Enlace de SelvaFlix copiado al portapapeles! 📋", "success");
+    }
+};
+
 window.deleteMovie = async (id, skipConfirm = false) => {
   if (skipConfirm || confirm("¿Seguro que quieres eliminar esta joya de la selva? 🥥?")) {
     try {
@@ -7851,7 +7867,10 @@ window.setDownloadUrlFromDrawer = async () => {
   }
 
   // --- PWA INSTALLATION ICON FLOW ---
-  const installBtn = document.getElementById('pwa-install-btn');
+  // Dos botones disparan el mismo instalador: el del navbar (siempre existió)
+  // y el flotante pegado al borde del hero (pedido para que se vea igual que
+  // el botón de compartir de al lado).
+  const installBtns = [document.getElementById('pwa-install-btn'), document.getElementById('hero-install-fab')].filter(Boolean);
   const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
   const showInstaller = async () => {
@@ -7861,28 +7880,27 @@ window.setDownloadUrlFromDrawer = async () => {
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') {
         deferredPrompt = null;
-        if (installBtn) installBtn.style.display = 'none';
+        installBtns.forEach(b => b.style.display = 'none');
         localStorage.setItem('pwa_installed', 'true');
       }
+    } else if (window.showToast) {
+      window.showToast('📲 Para instalar, usá el menú de tu navegador y elegí "Agregar a pantalla de inicio".', 'info');
     }
   };
+  window.showInstaller = showInstaller;
 
   // Listeners
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
-    if (installBtn) {
-      installBtn.style.display = 'flex';
-    }
+    installBtns.forEach(b => b.style.display = 'flex');
   });
 
-  if (installBtn) {
-    installBtn.addEventListener('click', showInstaller);
-  }
+  installBtns.forEach(b => b.addEventListener('click', showInstaller));
 
   window.addEventListener('appinstalled', () => {
     localStorage.setItem('pwa_installed', 'true');
-    if (installBtn) installBtn.style.display = 'none';
+    installBtns.forEach(b => b.style.display = 'none');
   });
 
   // iOS (Safari/Chrome-en-iOS) nunca dispara "beforeinstallprompt" — Apple no

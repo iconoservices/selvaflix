@@ -562,6 +562,64 @@ function poblarListaFranquicias() {
   datalist.innerHTML = nombres.map(n => `<option value="${n.replace(/"/g, '&quot;')}"></option>`).join('');
 }
 
+// Recorre las películas ya cargadas (con tmdbId y sin franquicia puesta a mano)
+// y les pregunta a TMDB si pertenecen a una colección (Marvel, Star Wars, etc),
+// para no tener que ir título por título asignándola manualmente.
+window.detectarFranquiciasAutomatico = async () => {
+  const candidatos = movieDatabase.trending.filter(m =>
+    (m.type === 'movie' || !m.type) && m.tmdbId && !(m.franchise && m.franchise.trim())
+  );
+
+  if (candidatos.length === 0) {
+    if (window.showToast) window.showToast('No hay películas pendientes: o no tienen ID de TMDB, o ya tienen franquicia asignada. 🌴', 'info');
+    return;
+  }
+
+  if (!confirm(`🎬 DETECTAR FRANQUICIAS:\nVoy a revisar ${candidatos.length} película(s) contra TMDB para ver si pertenecen a una colección (Marvel, Star Wars, etc). Solo completa las que todavía no tengan franquicia — no pisa nada que ya hayas puesto a mano.\n\n¿Continuar? 🔍🌴`)) return;
+
+  const overlay = document.getElementById('delete-progress-overlay');
+  const bar = document.getElementById('progress-bar-fill');
+  const text = document.getElementById('progress-percent');
+  const statusText = document.getElementById('progress-text');
+
+  if (statusText) statusText.innerText = 'Buscando franquicias en TMDB... 🎬🔎';
+  if (overlay) overlay.style.display = 'flex';
+
+  let detectadas = 0, fallidas = 0;
+  for (let i = 0; i < candidatos.length; i++) {
+    const m = candidatos[i];
+    try {
+      const res = await fetch(`${TMDB_URL}/movie/${m.tmdbId}?api_key=${TMDB_API_KEY}`);
+      const details = await res.json();
+      const nombre = (details.belongs_to_collection?.name || '').replace(/\s*Collection\s*$/i, '').trim();
+      if (nombre) {
+        await updateDoc(doc(db, "movies", m.id), { franchise: nombre });
+        m.franchise = nombre;
+        detectadas++;
+      }
+    } catch (e) {
+      console.error('Error detectando franquicia:', m.title, e);
+      fallidas++;
+    }
+
+    const percent = Math.round(((i + 1) / candidatos.length) * 100);
+    if (bar) bar.style.width = `${percent}%`;
+    if (text) text.innerText = `${percent}% (${i + 1}/${candidatos.length})`;
+
+    await new Promise(r => setTimeout(r, 300)); // no saturar la API de TMDB
+  }
+
+  localStorage.removeItem('selvaflix_full_database');
+  localStorage.removeItem('selvaflix_cache_timestamp');
+
+  setTimeout(() => {
+    if (overlay) overlay.style.display = 'none';
+    alert(`🎬 DETECCIÓN DE FRANQUICIAS:\n- Revisadas: ${candidatos.length} película(s).\n- Franquicia encontrada: ${detectadas}.\n- Sin colección en TMDB o fallidas: ${candidatos.length - detectadas}.\n\nEntrá a la pestaña "Franquicias" para verlas agrupadas.`);
+    if (window.filterInventoryByCategory) window.filterInventoryByCategory();
+    poblarListaFranquicias();
+  }, 800);
+};
+
 window.setYear = (year) => {
   _currentYear = year;
   // Los dos selects (escritorio/móvil) se mantienen sincronizados entre sí.

@@ -251,6 +251,7 @@
         <a class="nav-link-cinepulse" href="#movies" onclick="window.setFilter('movies'); return false;">Películas</a>
         <a class="nav-link-cinepulse" href="#series" onclick="window.setFilter('series'); return false;">Series</a>
         <a class="nav-link-cinepulse" href="#anime" onclick="window.setFilter('anime'); return false;">Anime</a>
+        <a class="nav-link-cinepulse" href="#franquicias" onclick="window.setFilter('franquicias'); return false;">Franquicias</a>
         <a class="nav-link-cinepulse" href="#" onclick="window.toggleMyListModal(); return false;">Mi Lista</a>
       </div>
     </div>
@@ -323,6 +324,10 @@
     <button id="btn-nav-anime" onclick="window.setFilter('anime')" class="nav-item nav-item-cinepulse">
       <span class="material-symbols-outlined">bolt</span>
       <span>Anime</span>
+    </button>
+    <button id="btn-nav-franquicias" onclick="window.setFilter('franquicias')" class="nav-item nav-item-cinepulse">
+      <span class="material-symbols-outlined">collections_bookmark</span>
+      <span>Franquicias</span>
     </button>
     <button id="btn-nav-search" onclick="window.openMobileSearch()" class="nav-item nav-item-cinepulse">
       <span class="material-symbols-outlined">search</span>
@@ -1811,6 +1816,12 @@
                     <option value="es-PE">🇵🇪 Perú</option>
                   </select>
                 </div>
+              </div>
+
+              <div class="form-group" style="margin-top:14px;">
+                <label>Franquicia <small style="color:#666;">(opcional, ej: Marvel, Star Wars)</small></label>
+                <input type="text" id="m-franchise" class="form-control" list="franchise-datalist" placeholder="Nombre de la franquicia...">
+                <datalist id="franchise-datalist"></datalist>
               </div>
 
               <!-- Toggle VIP -->

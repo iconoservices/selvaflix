@@ -439,7 +439,7 @@ function marcarNavEscritorio(tipo) {
   const enlaces = document.querySelectorAll('.nav-desktop-links .nav-link-cinepulse');
   if (!enlaces.length) return;
 
-  const destino = { '': 'Home', 'movies': 'Películas', 'series': 'Series', 'anime': 'Anime' }[tipo || ''];
+  const destino = { '': 'Home', 'movies': 'Películas', 'series': 'Series', 'anime': 'Anime', 'franquicias': 'Franquicias' }[tipo || ''];
   enlaces.forEach(a => {
     a.classList.toggle('active', a.textContent.trim() === destino);
   });
@@ -448,7 +448,7 @@ function marcarNavEscritorio(tipo) {
 // La barra inferior de móvil solo se marcaba desde el enrutado, así que al
 // cambiar de pestaña con setFilter se quedaba siempre en "Inicio".
 function marcarNavMovil(tipo) {
-  const mapa = { '': 'btn-nav-home', 'movies': 'btn-nav-movies', 'series': 'btn-nav-series', 'anime': 'btn-nav-anime' };
+  const mapa = { '': 'btn-nav-home', 'movies': 'btn-nav-movies', 'series': 'btn-nav-series', 'anime': 'btn-nav-anime', 'franquicias': 'btn-nav-franquicias' };
   Object.values(mapa).forEach(id => document.getElementById(id)?.classList.remove('active'));
   document.getElementById(mapa[tipo || ''])?.classList.add('active');
 }
@@ -549,6 +549,17 @@ function poblarFiltroAnios() {
     sel.value = years.includes(seleccionActual) ? seleccionActual : '';
     sel.dataset.poblado = String(movieDatabase.trending.length);
   });
+}
+
+function poblarListaFranquicias() {
+  const datalist = document.getElementById('franchise-datalist');
+  if (!datalist) return;
+
+  const nombres = [...new Set(
+    movieDatabase.trending.map(c => (c.franchise || '').trim()).filter(Boolean)
+  )].sort((a, b) => a.localeCompare(b));
+
+  datalist.innerHTML = nombres.map(n => `<option value="${n.replace(/"/g, '&quot;')}"></option>`).join('');
 }
 
 window.setYear = (year) => {
@@ -1581,7 +1592,9 @@ window.openUploadDrawer = () => {
   const clearField = (id, val = '') => { const el = document.getElementById(id); if (el) el.value = val; };
   ['m-db-id', 'm-imdb-id', 'm-original-title', 'm-alternative-titles', 'm-title', 'm-tmdb-id',
    'm-synopsis', 'm-director', 'm-cast', 'm-genres', 'm-embed', 'm-img', 'm-backdrop',
-   'm-release-date', 'm-preferred-provider', 'm-download-url'].forEach(id => clearField(id));
+   'm-release-date', 'm-preferred-provider', 'm-download-url', 'm-franchise'].forEach(id => clearField(id));
+
+  poblarListaFranquicias();
 
   clearField('m-status', 'review');
   clearField('m-type', 'movie');
@@ -4389,10 +4402,12 @@ window.selectTMDBMovie = async (index) => {
   // Operación Búsqueda Pro: Obtener Títulos Alternativos, Director e ID IMDB
   try {
     const detailType = type === 'series' ? 'tv' : 'movie';
-    const [extResp, altResp, credResp] = await Promise.all([
+    const [extResp, altResp, credResp, fullResp] = await Promise.all([
       fetch(`${TMDB_URL}/${detailType}/${m.id}/external_ids?api_key=${TMDB_API_KEY}`),
       fetch(`${TMDB_URL}/${detailType}/${m.id}/alternative_titles?api_key=${TMDB_API_KEY}`),
-      fetch(`${TMDB_URL}/${detailType}/${m.id}/credits?api_key=${TMDB_API_KEY}`)
+      fetch(`${TMDB_URL}/${detailType}/${m.id}/credits?api_key=${TMDB_API_KEY}`),
+      // Los "collections" (franquicias) de TMDB solo existen para películas.
+      detailType === 'movie' ? fetch(`${TMDB_URL}/movie/${m.id}?api_key=${TMDB_API_KEY}`) : Promise.resolve(null)
     ]);
 
     const extData = await extResp.json();
@@ -4405,6 +4420,13 @@ window.selectTMDBMovie = async (index) => {
     const credData = await credResp.json();
     const director = credData.crew?.find(c => c.job === 'Director')?.name || "";
     document.getElementById('m-director').value = director;
+
+    if (fullResp) {
+      const fullData = await fullResp.json();
+      const nombreFranquicia = (fullData.belongs_to_collection?.name || '').replace(/\s*Collection\s*$/i, '').trim();
+      document.getElementById('m-franchise').value = nombreFranquicia;
+      poblarListaFranquicias();
+    }
 
   } catch (e) {
     console.warn("Fallo en recolección profunda de metadatos:", e);
@@ -6354,6 +6376,7 @@ window.editMovie = (id) => {
   document.getElementById('m-imdb-id').value = movie.imdbId || ""; // Operación IMDB-Latino
   document.getElementById('m-embed').value = movie.embed || "";
   document.getElementById('m-download-url').value = movie.downloadUrl || "";
+  document.getElementById('m-franchise').value = movie.franchise || "";
   document.getElementById('m-preferred-provider').value = movie.preferredProvider || "";
   document.getElementById('m-year').value = (movie.year || '2024').toString().split('-')[0];
   document.getElementById('m-rating').value = movie.rating || '4.8';
@@ -7329,6 +7352,19 @@ function initApp(filterType = '', genreId = '', year = '') {
       if (container) container.innerHTML = '<p style="padding:80px;text-align:center;color:var(--text-muted);">Todavía no hay anime en la selva. ⛩️🌴</p>';
     }
 
+  } else if (filterType === 'franquicias') {
+    const conFranquicia = allContent.filter(c => c.franchise && c.franchise.trim());
+    const nombres = [...new Set(conFranquicia.map(c => c.franchise.trim()))].sort((a, b) => a.localeCompare(b));
+    const groups = nombres.map(nombre => ({
+      label: nombre,
+      items: conFranquicia.filter(c => c.franchise.trim() === nombre)
+    }));
+    if (groups.length > 0) {
+      renderGallery('Franquicias', groups);
+    } else {
+      if (container) container.innerHTML = '<p style="padding:80px;text-align:center;color:var(--text-muted);">Todavía no hay franquicias armadas en la selva. 🌴</p>';
+    }
+
   } else if (filterType === 'live') {
     // Categoría eliminada
     window.goToHome();
@@ -7628,6 +7664,7 @@ window.submitMovieForm = async () => {
     imdbId: document.getElementById('m-imdb-id').value.trim(),
     embed: document.getElementById('m-embed').value.trim(),
     downloadUrl: document.getElementById('m-download-url')?.value.trim() || '',
+    franchise: document.getElementById('m-franchise')?.value.trim() || '',
     year: document.getElementById('m-year').value || new Date().getFullYear().toString(),
     rating: document.getElementById('m-rating').value || '7.0',
     type: document.getElementById('m-type').value || 'movie',

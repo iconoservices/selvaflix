@@ -820,6 +820,87 @@ function showView(active) {
   }
 }
 
+// ─── Navegación con control remoto / D-pad (Android TV) ────────────────────
+// Puramente aditiva: no toca el diseño, solo hace navegable con flechas+Enter
+// lo que ya se ve (tarjetas, chips de género, botones del hero). Un usuario
+// con mouse/touch no nota ninguna diferencia. Todo elemento marcado con
+// [data-tvnav] entra en el "mapa" de navegación.
+function _tvNavItems() {
+  return Array.from(document.querySelectorAll('[data-tvnav]'))
+    .filter(el => el.offsetParent !== null); // solo lo visible en pantalla
+}
+
+// Busca, entre los ítems navegables, el más cercano en la dirección pedida
+// (comparando centros de cada tarjeta/botón) — así funciona igual de bien
+// con filas de distinto largo, sin tener que llevar la cuenta de índices.
+function _tvNavMove(direction) {
+  const items = _tvNavItems();
+  if (items.length === 0) return;
+
+  const current = document.activeElement;
+  if (!items.includes(current)) {
+    items[0].focus();
+    items[0].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    return;
+  }
+
+  const curRect = current.getBoundingClientRect();
+  const curCx = curRect.left + curRect.width / 2;
+  const curCy = curRect.top + curRect.height / 2;
+
+  let best = null, bestScore = Infinity;
+  items.forEach(el => {
+    if (el === current) return;
+    const r = el.getBoundingClientRect();
+    const dx = (r.left + r.width / 2) - curCx;
+    const dy = (r.top + r.height / 2) - curCy;
+
+    let valid = false, score = 0;
+    if (direction === 'left' && dx < -5 && Math.abs(dy) < curRect.height * 0.6) { valid = true; score = Math.abs(dx) + Math.abs(dy) * 3; }
+    else if (direction === 'right' && dx > 5 && Math.abs(dy) < curRect.height * 0.6) { valid = true; score = Math.abs(dx) + Math.abs(dy) * 3; }
+    else if (direction === 'up' && dy < -5) { valid = true; score = Math.abs(dy) + Math.abs(dx) * 2; }
+    else if (direction === 'down' && dy > 5) { valid = true; score = Math.abs(dy) + Math.abs(dx) * 2; }
+
+    if (valid && score < bestScore) { bestScore = score; best = el; }
+  });
+
+  if (best) {
+    best.focus();
+    best.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+  }
+}
+
+document.addEventListener('keydown', (e) => {
+  const dirMap = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
+  const homeVisible = document.getElementById('home-view')?.style.display !== 'none';
+  const detailVisible = document.getElementById('detail-view')?.style.display !== 'none';
+  if (!homeVisible && !detailVisible) return; // por ahora, solo home + ficha (ver Analíticas/Catálogo para admin)
+
+  if (dirMap[e.key]) {
+    const active = document.activeElement;
+    const onTvItem = active?.matches?.('[data-tvnav]');
+    const nothingFocused = !active || active === document.body;
+    // No interceptar flechas si el foco está en el buscador u otro input:
+    // ahí las flechas deben mover el cursor de texto, no la selva.
+    const inTextInput = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
+    if ((onTvItem || nothingFocused) && !inTextInput) {
+      e.preventDefault();
+      _tvNavMove(dirMap[e.key]);
+    }
+    return;
+  }
+
+  if (e.key === 'Enter' || e.key === ' ') {
+    const active = document.activeElement;
+    // Los <button> ya activan con Enter/Space solos; esto es solo para las
+    // tarjetas, que son <div> por (mucho) más flexibles a nivel de layout.
+    if (active?.matches?.('[data-tvnav]') && active.tagName !== 'BUTTON' && active.tagName !== 'A') {
+      e.preventDefault();
+      active.click();
+    }
+  }
+});
+
 // 🐍 Convierte un título en slug URL-friendly: "Spider-Man: No Way Home" → "spider-man-no-way-home"
 function slugify(title, year) {
   const base = (title || '')
@@ -1315,7 +1396,7 @@ function _renderCardsInto(container, data, isTrending = false) {
         }
         
         const cardHtml = `
-            <div class="cinepulse-movie-card" data-id="${item.id}" onclick="window.handleCardClick('${item.id}')">
+            <div class="cinepulse-movie-card" data-id="${item.id}" tabindex="0" role="button" data-tvnav onclick="window.handleCardClick('${item.id}')">
               <img src="${item.img || ''}" alt="${item.title}" loading="lazy"
                 onerror="window.rescatarPoster(this, '${item.tmdbId || ''}', '${item.type || 'movie'}')">
               <div class="cinepulse-card-overlay"></div>
@@ -1384,7 +1465,7 @@ function renderRecommendedWide(data) {
     const genre = item.genres ? (Array.isArray(item.genres) ? item.genres[0] : item.genres) : '';
     const badge = item.isVIP ? '👑 Estreno VIP' : (item.pinned ? '🔥 Destacado' : '🍹 Favorito');
     return `
-      <div class="cinepulse-recommended-card" onclick="window.handleCardClick('${item.id}')">
+      <div class="cinepulse-recommended-card" tabindex="0" role="button" data-tvnav onclick="window.handleCardClick('${item.id}')">
         <img src="${item.backdrop || item.img}" alt="${item.title}" loading="lazy"
           onerror="this.src='https://via.placeholder.com/800x400/1a1a1a/FF6600?text=SelvaFlix';">
         <div class="rec-gradient"></div>
@@ -1475,7 +1556,7 @@ function renderGallery(title, groups) {
         }
 
         return `
-          <div class="cinepulse-movie-card gallery-card" data-id="${item.id}" onclick="window.handleCardClick('${item.id}')">
+          <div class="cinepulse-movie-card gallery-card" data-id="${item.id}" tabindex="0" role="button" data-tvnav onclick="window.handleCardClick('${item.id}')">
             <img src="${item.img || ''}" alt="${item.title}" loading="lazy"
               onerror="window.rescatarPoster(this, '${item.tmdbId || ''}', '${item.type || 'movie'}')">
             <div class="cinepulse-card-overlay"></div>
@@ -1827,6 +1908,7 @@ window.switchAdminTab = (tab) => {
     // Respeta el rango ya elegido (o el default que acaba de fijar initMetricsSelectors)
     // en lugar de resetearlo siempre al mes actual.
     if (typeof window.applyMetricsFilters === 'function') window.applyMetricsFilters();
+    if (typeof window._loadFcmSubsCount === 'function') window._loadFcmSubsCount();
   } else if (tab === 'ads') {
     if (typeof window.loadAdConfig === 'function') window.loadAdConfig();
   } else if (tab === 'users') {
@@ -2983,6 +3065,29 @@ window._updateMetricsRangeLabel = (preset, anchor, startStr, endStr) => {
   labelEl.innerText = text;
 };
 
+// Cuántos dispositivos tienen push activado. No depende del rango de fechas
+// de Analíticas, así que se cachea y solo se vuelve a pedir a Firestore si
+// pasaron más de 5 min o si se fuerza (force=true) — evita descargar TODA
+// la colección "users" cada vez que cambiás de Hoy a 7 días a Este mes, etc.
+let _fcmSubsCountCache = null;
+let _fcmSubsCountFetchedAt = 0;
+window._loadFcmSubsCount = async (force = false) => {
+  const subsEl = document.getElementById("push-subs-count");
+  const fresh = Date.now() - _fcmSubsCountFetchedAt < 5 * 60 * 1000;
+  if (_fcmSubsCountCache !== null && fresh && !force) {
+    if (subsEl) subsEl.innerText = `${_fcmSubsCountCache} dispositivos suscritos.`;
+    return;
+  }
+  try {
+    const usersSnap = await getDocs(collection(db, "users"));
+    let tokenCount = 0;
+    usersSnap.forEach(d => { if (d.data().fcmToken) tokenCount++; });
+    _fcmSubsCountCache = tokenCount;
+    _fcmSubsCountFetchedAt = Date.now();
+    if (subsEl) subsEl.innerText = `${tokenCount} dispositivos suscritos.`;
+  } catch (e) { console.error("Error cargando usuarios: ", e); }
+};
+
 window.loadMetrics = async (startDateStr, endDateStr) => {
   const log = document.getElementById('metrics-recent-log');
   const popularList = document.getElementById('metrics-popular-list');
@@ -3044,14 +3149,17 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
       where("ts", "<=", end.getTime())
     );
 
-    // Las 4 consultas de Firestore no dependen entre sí, así que van en paralelo
+    // Estas 3 consultas de Firestore no dependen entre sí, así que van en paralelo
     // (Promise.all) en vez de una atrás de la otra — antes cada .then() esperaba
-    // a que termine la anterior y el panel tardaba la SUMA de las 4, no el máximo.
-    const [snap, prevSnap, geoSnap, usersSnap] = await Promise.all([
+    // a que termine la anterior y el panel tardaba la SUMA de las 3, no el máximo.
+    // El conteo de tokens push (colección "users" completa) NO depende del rango
+    // de fechas, así que se pide aparte y una sola vez por apertura de pestaña
+    // (ver window._loadFcmSubsCount) en vez de re-descargar TODOS los usuarios
+    // cada vez que cambiás de Hoy a 7 días a Este mes, etc.
+    const [snap, prevSnap, geoSnap] = await Promise.all([
       getDocs(metricsQuery),
       getDocs(prevQuery).catch(e => { console.error("Error calculando crecimiento:", e); return null; }),
       getDocs(geoQuery).catch(e => { console.warn("Error cargando analíticas geo:", e); return null; }),
-      getDocs(collection(db, "users")).catch(e => { console.error("Error cargando usuarios: ", e); return null; }),
     ]);
 
     const rawData = [];
@@ -3221,16 +3329,6 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
 
     popularList.innerHTML = sortedPopularAll.slice(0, 10).map(buildPopularRowDetailed).join('') || '<tr><td colspan="2" style="text-align:center; padding: 20px;">No hay datos.</td></tr>';
     if (popularListDash) popularListDash.innerHTML = sortedPopularAll.slice(0, 5).map(buildPopularRowSimple).join('') || '<tr><td colspan="2" style="text-align:center; padding: 15px;">Sin datos.</td></tr>';
-
-    // FCM Tokens counter
-    if (usersSnap) {
-      let tokenCount = 0;
-      usersSnap.forEach(d => {
-          if (d.data().fcmToken) tokenCount++;
-      });
-      const subsEl = document.getElementById("push-subs-count");
-      if(subsEl) subsEl.innerText = `${tokenCount} dispositivos suscritos.`;
-    }
 
     // Dispositivos (Chart simple)
     if (deviceChart) {
@@ -9344,7 +9442,7 @@ window.loadContinueWatching = async () => {
             const raw = h.backdrop || movieActual?.backdrop || h.poster || movieActual?.img;
             const img = (raw && raw.startsWith('http')) ? raw : 'https://image.tmdb.org/t/p/w300' + (raw || h.poster_path);
             return `
-                <div class="card-horizontal-container" onclick="window.handleCardClick('${h.movieId}')">
+                <div class="card-horizontal-container" tabindex="0" role="button" data-tvnav onclick="window.handleCardClick('${h.movieId}')">
                     <div class="card-horizontal-media">
                         <img src="${img}" alt="${h.title}" loading="lazy" onerror="this.src='/icon_192.png'">
                     </div>

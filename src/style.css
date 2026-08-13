@@ -768,6 +768,16 @@
   z-index: 30;
 }
 
+/* Navegación con control remoto / D-pad (Android TV). Solo se ve cuando el
+   foco llega por teclado/control — con mouse o touch no aparece nunca. */
+[data-tvnav]:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 3px;
+  transform: scale(1.06);
+  z-index: 30;
+  transition: transform 0.15s ease, outline-color 0.15s ease;
+}
+
 .cinepulse-movie-card img {
   width: 100%;
   height: 100%;

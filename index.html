@@ -383,11 +383,11 @@
           </div>
           <p id="cinepulse-hero-desc" class="cinepulse-hero-description"></p>
           <div class="cinepulse-hero-buttons">
-            <button id="cinepulse-hero-play" class="cinepulse-btn-primary">
+            <button id="cinepulse-hero-play" class="cinepulse-btn-primary" data-tvnav>
               <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
               Reproducir
             </button>
-            <button id="cinepulse-hero-list" class="cinepulse-btn-secondary">
+            <button id="cinepulse-hero-list" class="cinepulse-btn-secondary" data-tvnav>
               <span class="material-symbols-outlined">add</span>
               Mi Lista
             </button>
@@ -398,16 +398,16 @@
       <!-- Genre Chips CinePulse Style -->
       <div class="cinepulse-genre-section" id="genre-bar">
         <div class="cinepulse-genre-chips">
-          <button class="cinepulse-genre-chip active" id="genre-all" onclick="window.setGenre('')">Todos</button>
-          <button class="cinepulse-genre-chip" onclick="window.setGenre('28')">Acción</button>
-          <button class="cinepulse-genre-chip" onclick="window.setGenre('35')">Comedia</button>
-          <button class="cinepulse-genre-chip" onclick="window.setGenre('18')">Drama</button>
-          <button class="cinepulse-genre-chip" onclick="window.setGenre('16')">Animación</button>
-          <button class="cinepulse-genre-chip" onclick="window.setGenre('27')">Terror</button>
-          <button class="cinepulse-genre-chip" onclick="window.setGenre('10749')">Romance</button>
-          <button class="cinepulse-genre-chip" onclick="window.setGenre('878')">Sci-Fi</button>
-          <button class="cinepulse-genre-chip" onclick="window.setGenre('9648')">Misterio</button>
-          <button class="cinepulse-genre-chip" onclick="window.setGenre('10402')">Música</button>
+          <button class="cinepulse-genre-chip active" id="genre-all" data-tvnav onclick="window.setGenre('')">Todos</button>
+          <button class="cinepulse-genre-chip" data-tvnav onclick="window.setGenre('28')">Acción</button>
+          <button class="cinepulse-genre-chip" data-tvnav onclick="window.setGenre('35')">Comedia</button>
+          <button class="cinepulse-genre-chip" data-tvnav onclick="window.setGenre('18')">Drama</button>
+          <button class="cinepulse-genre-chip" data-tvnav onclick="window.setGenre('16')">Animación</button>
+          <button class="cinepulse-genre-chip" data-tvnav onclick="window.setGenre('27')">Terror</button>
+          <button class="cinepulse-genre-chip" data-tvnav onclick="window.setGenre('10749')">Romance</button>
+          <button class="cinepulse-genre-chip" data-tvnav onclick="window.setGenre('878')">Sci-Fi</button>
+          <button class="cinepulse-genre-chip" data-tvnav onclick="window.setGenre('9648')">Misterio</button>
+          <button class="cinepulse-genre-chip" data-tvnav onclick="window.setGenre('10402')">Música</button>
         </div>
       </div>
 
@@ -599,16 +599,16 @@
 
         <!-- Actions -->
         <section id="detail-actions" class="px-margin-mobile py-md flex flex-col gap-sm" style="padding: 16px;">
-          <button id="detail-btn-play" class="w-full h-12 bg-primary-container text-on-primary-container rounded-lg font-label-md text-label-md flex items-center justify-center gap-sm active:scale-95 transition-transform bloom-effect" style="background-color: #ff571a; color: #521300; border-radius: 8px; height: 48px; border: none; cursor: pointer; font-weight: 600; width: 100%;">
+          <button id="detail-btn-play" data-tvnav class="w-full h-12 bg-primary-container text-on-primary-container rounded-lg font-label-md text-label-md flex items-center justify-center gap-sm active:scale-95 transition-transform bloom-effect" style="background-color: #ff571a; color: #521300; border-radius: 8px; height: 48px; border: none; cursor: pointer; font-weight: 600; width: 100%;">
             <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
             PLAY
           </button>
           <div style="display: flex; gap: 8px;">
-            <button id="detail-btn-list" class="flex-1 h-12 bg-surface-container-highest text-on-surface rounded-lg font-label-md text-label-md flex items-center justify-center gap-sm active:scale-95 transition-transform" style="background-color: #353534; color: #e5e2e1; border-radius: 8px; height: 48px; border: none; cursor: pointer; font-weight: 600;">
+            <button id="detail-btn-list" data-tvnav class="flex-1 h-12 bg-surface-container-highest text-on-surface rounded-lg font-label-md text-label-md flex items-center justify-center gap-sm active:scale-95 transition-transform" style="background-color: #353534; color: #e5e2e1; border-radius: 8px; height: 48px; border: none; cursor: pointer; font-weight: 600;">
               <span class="material-symbols-outlined">add</span>
               MI LISTA
             </button>
-            <button id="detail-btn-download" class="flex-1 h-12 text-on-surface rounded-lg font-label-md text-label-md flex items-center justify-center gap-sm active:scale-95 transition-transform" style="background-color: #2a2a2a; color: #e5e2e1; border-radius: 8px; height: 48px; border: 1px solid #5c4037; cursor: pointer; font-weight: 600;">
+            <button id="detail-btn-download" data-tvnav class="flex-1 h-12 text-on-surface rounded-lg font-label-md text-label-md flex items-center justify-center gap-sm active:scale-95 transition-transform" style="background-color: #2a2a2a; color: #e5e2e1; border-radius: 8px; height: 48px; border: 1px solid #5c4037; cursor: pointer; font-weight: 600;">
               <span class="material-symbols-outlined" style="font-size:18px;">download</span>
               DESCARGAR
             </button>
@@ -618,11 +618,11 @@
         <!-- Reportar / Compartir: mismo estilo que MI LISTA y DESCARGAR de arriba -->
         <section style="padding: 0 16px 16px;">
           <div style="display: flex; gap: 8px;">
-            <button id="detail-btn-report" onclick="window.detailReportMovie && window.detailReportMovie()" class="flex-1 h-12 rounded-lg font-label-md text-label-md flex items-center justify-center gap-sm active:scale-95 transition-transform" style="background-color: rgba(231,76,60,0.15); color: #ff6b6b; border-radius: 8px; height: 48px; border: 1px solid rgba(231,76,60,0.3); cursor: pointer; font-weight: 600;">
+            <button id="detail-btn-report" data-tvnav onclick="window.detailReportMovie && window.detailReportMovie()" class="flex-1 h-12 rounded-lg font-label-md text-label-md flex items-center justify-center gap-sm active:scale-95 transition-transform" style="background-color: rgba(231,76,60,0.15); color: #ff6b6b; border-radius: 8px; height: 48px; border: 1px solid rgba(231,76,60,0.3); cursor: pointer; font-weight: 600;">
               <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1; font-size:18px;">flag</span>
               REPORTAR
             </button>
-            <button id="detail-btn-share" onclick="window.detailShareMovie && window.detailShareMovie()" class="flex-1 h-12 rounded-lg font-label-md text-label-md flex items-center justify-center gap-sm active:scale-95 transition-transform" style="background-color: rgba(39,174,96,0.15); color: #4ecb82; border-radius: 8px; height: 48px; border: 1px solid rgba(39,174,96,0.3); cursor: pointer; font-weight: 600;">
+            <button id="detail-btn-share" data-tvnav onclick="window.detailShareMovie && window.detailShareMovie()" class="flex-1 h-12 rounded-lg font-label-md text-label-md flex items-center justify-center gap-sm active:scale-95 transition-transform" style="background-color: rgba(39,174,96,0.15); color: #4ecb82; border-radius: 8px; height: 48px; border: 1px solid rgba(39,174,96,0.3); cursor: pointer; font-weight: 600;">
               <span class="material-symbols-outlined" style="font-size:18px;">link</span>
               COMPARTIR
             </button>

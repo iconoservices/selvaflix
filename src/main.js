@@ -927,6 +927,9 @@ window.goToHome = () => {
   if (window.location.hash) {
     history.pushState(null, '', window.location.pathname + window.location.search);
   }
+  sessionStorage.removeItem('selva_admin_active');
+  const adGlobalContainer = document.getElementById('ad-global-container');
+  if (adGlobalContainer) adGlobalContainer.style.display = 'block';
   handleRouting();
 };
 
@@ -987,6 +990,12 @@ function handleRouting() {
     renderInventory();
     window.loadMetrics();
     if (typeof window.loadAdminMessages === 'function') window.loadAdminMessages(); // refresca el punto de "sin leer" del sidebar
+
+    // 🔒 Si ya se habían inyectado anuncios de red (navegando el sitio público
+    // antes de entrar al admin), ese contenedor queda fixed + z-index altísimo
+    // y puede tapar botones reales del portal. Se esconde mientras estemos acá.
+    const adGlobalContainer = document.getElementById('ad-global-container');
+    if (adGlobalContainer) adGlobalContainer.style.display = 'none';
   } else if (hash === 'mylist') {
     showView('my-list-view');
     window.scrollTo(0, 0);
@@ -1867,7 +1876,7 @@ window.updateSelectedCount = () => {
 };
 
 // ─── Admin Tab Navigation (CinePulse Portal) ────────────────────────────────
-const ADMIN_TABS = ['dashboard', 'catalog', 'users', 'analytics', 'ads', 'actions', 'messages'];
+const ADMIN_TABS = ['dashboard', 'catalog', 'users', 'analytics', 'ads', 'plans', 'actions', 'messages'];
 
 window.switchAdminTab = (tab) => {
   // Hide all tab panes
@@ -1911,6 +1920,8 @@ window.switchAdminTab = (tab) => {
     if (typeof window._loadFcmSubsCount === 'function') window._loadFcmSubsCount();
   } else if (tab === 'ads') {
     if (typeof window.loadAdConfig === 'function') window.loadAdConfig();
+  } else if (tab === 'plans') {
+    if (typeof window.loadPlansConfig === 'function') window.loadPlansConfig();
   } else if (tab === 'users') {
     if (typeof window.loadRegisteredUsers === 'function') window.loadRegisteredUsers();
   } else if (tab === 'messages') {
@@ -2698,6 +2709,306 @@ window.saveAdsCampaigns = async () => {
     } finally {
         if (btn) btn.innerHTML = '<span style="font-size: 0.9rem;">💾</span><span>GUARDAR CAMPAÑA</span>';
     }
+};
+
+// --- Planes Premium (Paquetes) 💎 ---
+// Guardados en el mismo documento que la config de monetización, pero bajo
+// su propia key ("plans") para no pisar las campañas de anuncios.
+window.plansConfig = [];
+let editingPlanId = null;
+
+const _escPlanHtml = (str) => String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+window.loadPlansConfig = async () => {
+    try {
+        const docRef = doc(db, "configs", "plans");
+        const docSnap = await getDoc(docRef);
+        window.plansConfig = (docSnap.exists() && docSnap.data().plans) || [];
+        window.renderPlansList();
+        if (typeof window.maybeShowPremiumPromo === 'function') window.maybeShowPremiumPromo();
+    } catch (e) {
+        console.error("❌ Error cargando planes premium:", e);
+    }
+};
+
+window.renderPlansList = () => {
+    const list = document.getElementById('plan-list');
+    if (!list) return;
+
+    const plans = window.plansConfig || [];
+
+    if (plans.length === 0) {
+        list.innerHTML = '<p style="font-size: 0.7rem; color: #444; text-align: center; padding: 20px;">No hay planes. Crea uno para empezar. 💎</p>';
+        return;
+    }
+
+    list.innerHTML = plans.map(p => `
+        <div class="plan-list-item ${editingPlanId === p.id ? 'active' : ''}" style="padding: 12px; border-radius: 12px; background: ${editingPlanId === p.id ? 'rgba(255,122,0,0.1)' : 'rgba(255,255,255,0.03)'}; border: 1px solid ${editingPlanId === p.id ? 'var(--primary)' : 'rgba(255,255,255,0.08)'}; cursor: pointer; transition: 0.3s; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+
+            <div onclick="window.editPlan('${p.id}')" style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;">
+                <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0;">
+                    ${p.highlighted ? '⭐' : '💎'}
+                </div>
+                <div style="overflow: hidden; flex: 1;">
+                    <p style="color: white; font-size: 0.75rem; font-weight: 800; margin: 0; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">
+                        ${_escPlanHtml(p.name || 'Sin Nombre')}
+                    </p>
+                    <p style="color: ${p.active ? '#2ecc71' : '#666'}; font-size: 0.55rem; margin: 0; font-weight: bold; text-transform: uppercase; display: flex; align-items: center; gap: 4px;">
+                        <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: ${p.active ? '#2ecc71' : '#666'};"></span>
+                        ${p.active ? 'ACTIVO' : 'INACTIVO'} • ${p.price ?? 0} ${_escPlanHtml(p.currency || 'USD')}
+                    </p>
+                </div>
+            </div>
+
+            <div onclick="window.togglePlanActiveQuick('${p.id}')" style="flex-shrink: 0; padding: 4px;">
+                <div style="width: 36px; height: 18px; background: ${p.active ? 'var(--primary)' : '#444'}; border-radius: 4px; position: relative; cursor: pointer; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); border: 1px solid rgba(255,255,255,0.05);">
+                    <div style="width: 14px; height: 14px; background: white; border-radius: 50%; position: absolute; top: 1px; ${p.active ? 'right: 2px' : 'left: 2px'}; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+};
+
+window.togglePlanActiveQuick = (id) => {
+    const plan = (window.plansConfig || []).find(p => p.id === id);
+    if (!plan) return;
+    plan.active = !plan.active;
+    window.renderPlansList();
+    if (editingPlanId === id) {
+        const activeCheck = document.getElementById('plan-edit-active');
+        if (activeCheck) activeCheck.checked = plan.active;
+    }
+    // No guardamos a Firestore en cada click, hay que darle a GUARDAR.
+};
+
+window.createNewPlan = () => {
+    const plans = window.plansConfig || [];
+    const newPlan = {
+        id: 'plan_' + Date.now().toString(36),
+        name: 'Nuevo Plan ' + (plans.length + 1),
+        price: 4.99,
+        currency: 'USD',
+        period: 'mes',
+        badge: '',
+        highlighted: false,
+        noAds: true,
+        features: ['Sin publicidad'],
+        active: true,
+        order: plans.length
+    };
+
+    if (!window.plansConfig) window.plansConfig = [];
+    window.plansConfig.push(newPlan);
+    window.renderPlansList();
+    window.editPlan(newPlan.id);
+};
+
+window.editPlan = (id) => {
+    editingPlanId = id;
+    const plan = (window.plansConfig || []).find(p => p.id === id);
+    if (!plan) return;
+
+    window.renderPlansList();
+
+    const emptyHint = document.getElementById('plan-editor-empty');
+    if (emptyHint) emptyHint.style.display = 'none';
+    const editor = document.getElementById('plan-editor');
+    if (editor) editor.style.display = 'block';
+
+    const setVal = (elId, val) => {
+        const el = document.getElementById(elId);
+        if (!el) return;
+        if (el.type === 'checkbox') el.checked = !!val;
+        else el.value = val;
+    };
+    const setTxt = (elId, txt) => {
+        const el = document.getElementById(elId);
+        if (el) el.innerText = txt;
+    };
+
+    setTxt('plan-edit-id', plan.id);
+    setVal('plan-edit-name', plan.name || '');
+    setVal('plan-edit-price', plan.price ?? 0);
+    setVal('plan-edit-currency', plan.currency || 'USD');
+    setVal('plan-edit-period', plan.period || 'mes');
+    setVal('plan-edit-badge', plan.badge || '');
+    setVal('plan-edit-highlighted', !!plan.highlighted);
+    setVal('plan-edit-noads', !!plan.noAds);
+    setVal('plan-edit-features', (plan.features || []).join('\n'));
+    setVal('plan-edit-active', !!plan.active);
+};
+
+window.deleteCurrentPlan = async () => {
+    if (!editingPlanId) return;
+    if (!confirm('¿Seguro que quieres borrar este plan? 💎🗑️')) return;
+
+    window.plansConfig = (window.plansConfig || []).filter(p => p.id !== editingPlanId);
+    editingPlanId = null;
+
+    await window.savePlansConfig();
+
+    const editor = document.getElementById('plan-editor');
+    if (editor) editor.style.display = 'none';
+    const emptyHint = document.getElementById('plan-editor-empty');
+    if (emptyHint) emptyHint.style.display = 'flex';
+    window.renderPlansList();
+};
+
+window.savePlansConfig = async () => {
+    const btn = document.getElementById('btn-save-plans');
+    if (btn) btn.innerText = "💾 GUARDANDO...";
+
+    if (editingPlanId) {
+        const plan = (window.plansConfig || []).find(p => p.id === editingPlanId);
+        if (plan) {
+            plan.name = document.getElementById('plan-edit-name')?.value || plan.name;
+            plan.price = parseFloat(document.getElementById('plan-edit-price')?.value) || 0;
+            plan.currency = document.getElementById('plan-edit-currency')?.value || 'USD';
+            plan.period = document.getElementById('plan-edit-period')?.value || 'mes';
+            plan.badge = document.getElementById('plan-edit-badge')?.value || '';
+            plan.highlighted = document.getElementById('plan-edit-highlighted')?.checked || false;
+            plan.noAds = document.getElementById('plan-edit-noads')?.checked || false;
+            plan.active = document.getElementById('plan-edit-active')?.checked || false;
+            plan.features = (document.getElementById('plan-edit-features')?.value || '')
+                .split('\n').map(f => f.trim()).filter(Boolean);
+        }
+    }
+
+    try {
+        await setDoc(doc(db, "configs", "plans"), { plans: window.plansConfig || [] });
+        if (window.showToast) window.showToast("✅ Planes actualizados en la selva.", "success");
+        window.renderPlansList();
+        if (typeof window.maybeShowPremiumPromo === 'function') window.maybeShowPremiumPromo();
+    } catch (e) {
+        console.error("Error guardando planes:", e);
+        if (window.showToast) window.showToast("❌ Error al guardar los planes.", "error");
+    } finally {
+        if (btn) btn.innerText = "💾 GUARDAR";
+    }
+};
+
+// --- Vitrina pública de Planes Premium (banner + modal) 🍿 ---
+window.openPremiumModal = (movie) => {
+    const subtitle = document.getElementById('premium-modal-subtitle');
+    if (subtitle) {
+        subtitle.innerText = (movie && movie.title)
+            ? `"${movie.title}" es contenido VIP — disponible para suscriptores Premium.`
+            : 'Sin publicidad, acceso VIP y más.';
+    }
+    window.renderPremiumPlansGrid();
+    const modal = document.getElementById('premium-plans-modal');
+    if (modal) modal.style.display = 'flex';
+};
+
+window.closePremiumModal = () => {
+    const modal = document.getElementById('premium-plans-modal');
+    if (modal) modal.style.display = 'none';
+};
+
+// El bloqueo VIP (openPlayer) llama a esta función al toparse con contenido
+// aún no liberado para usuarios free — reutiliza el mismo modal de planes.
+window.showVipLockModal = (movie) => {
+    window.openPremiumModal(movie);
+};
+
+window.renderPremiumPlansGrid = () => {
+    const grid = document.getElementById('premium-plans-grid');
+    if (!grid) return;
+
+    const plans = (window.plansConfig || [])
+        .filter(p => p.active)
+        .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+    if (plans.length === 0) {
+        grid.innerHTML = '<p style="text-align:center; color:#666; font-size:0.8rem; grid-column: 1/-1;">Todavía no hay planes disponibles. 🌴</p>';
+        return;
+    }
+
+    grid.innerHTML = plans.map(p => {
+        const periodTxt = p.period === 'unico' ? 'pago único' : `/ ${_escPlanHtml(p.period || 'mes')}`;
+        return `
+        <div style="background:rgba(255,255,255,0.03); border:2px solid ${p.highlighted ? 'var(--primary,#FF6600)' : 'rgba(255,255,255,0.08)'}; border-radius:14px; padding:20px; display:flex; flex-direction:column;">
+            ${p.badge ? `<span style="align-self:flex-start; background:rgba(255,122,0,0.15); color:var(--primary,#FF6600); font-size:0.6rem; font-weight:900; padding:3px 8px; border-radius:6px; margin-bottom:10px; text-transform:uppercase;">${_escPlanHtml(p.badge)}</span>` : ''}
+            <h3 style="color:#fff; margin:0 0 6px; font-size:1rem;">${_escPlanHtml(p.name || 'Plan')}</h3>
+            <p style="color:var(--primary,#FF6600); font-weight:800; font-size:1.3rem; margin:0 0 14px;">${p.price ?? 0} ${_escPlanHtml(p.currency || 'USD')} <span style="color:#888; font-size:0.7rem; font-weight:600;">${periodTxt}</span></p>
+            <ul style="list-style:none; padding:0; margin:0 0 16px; flex:1; display:flex; flex-direction:column; gap:8px;">
+                ${(p.features || []).map(f => `<li style="color:#ccc; font-size:0.78rem; display:flex; gap:6px;"><span>✅</span>${_escPlanHtml(f)}</li>`).join('')}
+            </ul>
+            <button onclick="window.requestPlanInterest('${p.id}')" style="background:${p.highlighted ? 'var(--primary,#FF6600)' : 'rgba(255,255,255,0.08)'}; color:${p.highlighted ? '#000' : '#fff'}; border:none; border-radius:10px; padding:10px; font-weight:800; font-size:0.8rem; cursor:pointer;">Quiero este plan</button>
+        </div>`;
+    }).join('');
+};
+
+// Todavía no hay pasarela de pago conectada: el CTA manda el pedido al chat
+// de soporte (ya existente) para que el admin lo cierre a mano mientras
+// tanto — así el botón hace algo real en vez de un "Próximamente" muerto.
+window.requestPlanInterest = async (planId) => {
+    const plan = (window.plansConfig || []).find(p => p.id === planId);
+    if (!plan) return;
+
+    const user = auth.currentUser;
+    if (!user) {
+        window.closePremiumModal();
+        if (window.showToast) window.showToast('Inicia sesión para contratar un plan 🐒', 'primary');
+        const authModal = document.getElementById('auth-modal');
+        if (authModal) authModal.style.display = 'flex';
+        return;
+    }
+
+    window.closePremiumModal();
+    await window.openSupportChat();
+
+    const periodTxt = plan.period === 'unico' ? 'pago único' : `/${plan.period}`;
+    const text = `Hola 👋 Quiero contratar el plan "${plan.name}" (${plan.price} ${plan.currency} ${periodTxt}). ¿Cómo sigo?`;
+
+    try {
+        await addDoc(collection(db, SUPPORT_COL), {
+            uid: user.uid,
+            userName: user.displayName || user.email || 'Usuario',
+            userEmail: user.email || '',
+            profileName: (_currentProfile && _currentProfile.name) || '',
+            sender: 'user',
+            text,
+            createdAt: Date.now(),
+            readByAdmin: false,
+            readByUser: true
+        });
+        await window._loadSupportMessages();
+        if (window.showToast) window.showToast('✅ Le avisamos al equipo, te responden por acá mismo.', 'success');
+    } catch (e) {
+        console.error('Error solicitando plan:', e);
+        if (window.showToast) window.showToast('No se pudo enviar la solicitud. Intenta de nuevo.', 'error');
+    }
+};
+
+// Ventanita "invitación a Premium" para usuarios free — aparece sola una vez
+// por día como máximo (respetando el dismiss) y solo si hay algún plan activo.
+window.maybeShowPremiumPromo = () => {
+    try {
+        const banner = document.getElementById('premium-promo-banner');
+        if (!banner) return;
+
+        const userTier = (auth.currentUser && auth.currentUser.customClaims?.tier) || 'free';
+        const isPremiumUser = userTier === 'premium' || userTier === 'admin';
+        if (isPremiumUser) { banner.style.display = 'none'; return; }
+
+        const activePlans = (window.plansConfig || []).filter(p => p.active);
+        if (activePlans.length === 0) { banner.style.display = 'none'; return; }
+
+        const dismissedAt = Number(localStorage.getItem('selva_premium_promo_dismissed') || 0);
+        const oneDay = 24 * 60 * 60 * 1000;
+        if (Date.now() - dismissedAt < oneDay) return;
+
+        banner.style.display = 'block';
+    } catch (e) {
+        console.warn('No se pudo mostrar la promo de Premium:', e);
+    }
+};
+
+window.dismissPremiumPromo = () => {
+    localStorage.setItem('selva_premium_promo_dismissed', String(Date.now()));
+    const banner = document.getElementById('premium-promo-banner');
+    if (banner) banner.style.display = 'none';
 };
 
 // --- GESTIÓN DE BANNER (Featured) ---
@@ -4143,6 +4454,16 @@ window.loadRegisteredUsers = async () => {
         console.error("Error cargando usuarios registrados:", e);
         tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:#E74C3C;">Fallo cargando usuarios: ${e.message}</td></tr>`;
     }
+};
+
+// Filtro en vivo de la tabla de cuentas por nombre o email — solo esconde
+// filas ya renderizadas, no vuelve a pegarle a Firestore.
+window.filterUsersTable = (queryStr) => {
+    const q = (queryStr || '').toLowerCase().trim();
+    document.querySelectorAll('#admin-users-table-body tr').forEach(tr => {
+        const text = tr.innerText.toLowerCase();
+        tr.style.display = (!q || text.includes(q)) ? '' : 'none';
+    });
 };
 
 // Pills de "Visitantes / Invitados / App instalada" arriba de la tabla de
@@ -6035,9 +6356,18 @@ window.injectGlobalAdScripts = (contentArray, slotId = 'ad-global-container') =>
 };
 
 window.injectCampaignScripts = async () => {
+    // 🔒 Nunca inyectar anuncios de red en el panel admin: los overlays/popups
+    // (Adsterra, Monetag) tapan botones reales del portal y comen los clics.
+    const isAdminActive = sessionStorage.getItem('selva_admin_active') === '1'
+        || document.getElementById('admin-view')?.style.display === 'block';
+    if (isAdminActive) {
+        console.log("🔒 Panel Admin activo: se omite la inyección de anuncios.");
+        return;
+    }
+
     const campaigns = (window.adCampaigns || []).filter(c => c.active);
     console.log(`💉 [DEBUG] Intentando inyectar ${campaigns.length} campañas activas.`);
-    
+
     const forceGlobal = localStorage.getItem('selva_force_ads_debug') === 'true';
     
     if (campaigns.length === 0) {
@@ -8015,6 +8345,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Nota: handleRouting se dispara automáticamente cuando loadSelvaFlixData termina de cargar
   // ⚡ Cargar Publicidad al Inicio (Para todos los usuarios)
   window.loadAdConfig();
+  // 💎 Cargar Planes Premium (para la ventanita de invitación y el modal público)
+  window.loadPlansConfig();
 
   // 🔍 Buscador Global - el listener que faltaba!
   const globalSearch = document.getElementById('global-search');
@@ -8718,6 +9050,8 @@ onAuthStateChanged(auth, async (user) => {
         if (!saved) {
             window.hideSplashScreen(true);
         }
+
+        if (typeof window.maybeShowPremiumPromo === 'function') window.maybeShowPremiumPromo();
     } else {
         console.log("👻 Modo Invitado");
         if (typeof window.watchSupportUnread === 'function') window.watchSupportUnread(null); // corta el listener al cerrar sesión
@@ -8729,6 +9063,8 @@ onAuthStateChanged(auth, async (user) => {
         
         // 🚀 Si es invitado, dejar ver la pantalla de Auth de inmediato
         window.hideSplashScreen(true);
+
+        if (typeof window.maybeShowPremiumPromo === 'function') window.maybeShowPremiumPromo();
     }
 });
 

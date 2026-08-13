@@ -990,6 +990,7 @@ function handleRouting() {
     renderInventory();
     window.loadMetrics();
     if (typeof window.loadAdminMessages === 'function') window.loadAdminMessages(); // refresca el punto de "sin leer" del sidebar
+    if (typeof window.loadPremiumCount === 'function') window.loadPremiumCount();
 
     // 🔒 Si ya se habían inyectado anuncios de red (navegando el sitio público
     // antes de entrar al admin), ese contenedor queda fixed + z-index altísimo
@@ -1931,6 +1932,7 @@ window.switchAdminTab = (tab) => {
     if (_allInventoryItems && _allInventoryItems.length > 0) {
       _updateDetailedStats(_allInventoryItems);
     }
+    if (typeof window.loadPremiumCount === 'function') window.loadPremiumCount();
   }
 };
 
@@ -2924,7 +2926,23 @@ window.renderPremiumPlansGrid = () => {
         return;
     }
 
-    grid.innerHTML = plans.map(p => {
+    // Tarjeta de referencia "Gratuito" para que el contraste con los planes
+    // pagos se vea de un vistazo, en vez de tarjetas sueltas sin punto de
+    // comparación.
+    const freeCard = `
+        <div style="background:rgba(255,255,255,0.02); border:2px solid rgba(255,255,255,0.06); border-radius:14px; padding:20px; display:flex; flex-direction:column; opacity:0.85;">
+            <span style="align-self:flex-start; background:rgba(255,255,255,0.08); color:#999; font-size:0.6rem; font-weight:900; padding:3px 8px; border-radius:6px; margin-bottom:10px; text-transform:uppercase;">Tu plan actual</span>
+            <h3 style="color:#fff; margin:0 0 6px; font-size:1rem;">🐾 Gratuito</h3>
+            <p style="color:#888; font-weight:800; font-size:1.3rem; margin:0 0 14px;">$0</p>
+            <ul style="list-style:none; padding:0; margin:0 0 16px; flex:1; display:flex; flex-direction:column; gap:8px;">
+                <li style="color:#999; font-size:0.78rem; display:flex; gap:6px;"><span>📺</span>Con publicidad</li>
+                <li style="color:#999; font-size:0.78rem; display:flex; gap:6px;"><span>🔒</span>Estrenos VIP bloqueados</li>
+                <li style="color:#999; font-size:0.78rem; display:flex; gap:6px;"><span>📉</span>Calidad estándar</li>
+            </ul>
+            <div style="text-align:center; padding:10px; font-weight:800; font-size:0.8rem; color:#555;">Plan actual</div>
+        </div>`;
+
+    grid.innerHTML = freeCard + plans.map(p => {
         const periodTxt = p.period === 'unico' ? 'pago único' : `/ ${_escPlanHtml(p.period || 'mes')}`;
         return `
         <div style="background:rgba(255,255,255,0.03); border:2px solid ${p.highlighted ? 'var(--primary,#FF6600)' : 'rgba(255,255,255,0.08)'}; border-radius:14px; padding:20px; display:flex; flex-direction:column;">
@@ -2988,7 +3006,7 @@ window.maybeShowPremiumPromo = () => {
         const banner = document.getElementById('premium-promo-banner');
         if (!banner) return;
 
-        const userTier = (auth.currentUser && auth.currentUser.customClaims?.tier) || 'free';
+        const userTier = window.currentUserTier || 'free';
         const isPremiumUser = userTier === 'premium' || userTier === 'admin';
         if (isPremiumUser) { banner.style.display = 'none'; return; }
 
@@ -4377,7 +4395,7 @@ window.loadRegisteredUsers = async () => {
     const countEl = document.getElementById('admin-users-count');
     if (!tableBody) return;
 
-    tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:30px;">Cargando usuarios... 📡</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:30px;">Cargando usuarios... 📡</td></tr>`;
 
     try {
         // 1. Cuentas (documento de "users" con email = cuenta real, no suscriptor anónimo de push)
@@ -4412,7 +4430,7 @@ window.loadRegisteredUsers = async () => {
         if (countEl) countEl.innerText = `${accounts.length} cuenta(s) registrada(s)`;
 
         if (accounts.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:30px; color:var(--admin-text-muted);">Nadie se ha registrado con Google todavía. 🐒</td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:30px; color:var(--admin-text-muted);">Nadie se ha registrado con Google todavía. 🐒</td></tr>`;
             return;
         }
 
@@ -4424,6 +4442,27 @@ window.loadRegisteredUsers = async () => {
             const registered = acc.createdAt ? new Date(acc.createdAt).toLocaleDateString() : '—';
             const lastSeen = stats.last ? new Date(stats.last).toLocaleString() : '—';
             const avatarLetter = (acc.displayName || acc.email || '?').charAt(0).toUpperCase();
+            const safeName = (acc.displayName || acc.email || '').replace(/'/g, "\\'");
+
+            // 💎 Plan efectivo: un premium vencido se trata como free acá también.
+            const rawTier = acc.tier || 'free';
+            const expired = rawTier === 'premium' && acc.premiumUntil && acc.premiumUntil < Date.now();
+            const effTier = expired ? 'free' : rawTier;
+
+            let planCell;
+            if (effTier === 'admin') {
+                planCell = `<span style="color:#9b59b6; font-weight:800; font-size:0.7rem; white-space:nowrap;">🛡️ Admin</span>`;
+            } else if (effTier === 'premium') {
+                const untilTxt = acc.premiumUntil ? `hasta ${new Date(acc.premiumUntil).toLocaleDateString()}` : 'sin vencimiento';
+                planCell = `
+                    <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+                        <span style="color:#f1c40f; font-weight:800; font-size:0.7rem; white-space:nowrap;">💎 Premium</span>
+                        <span style="font-size:0.6rem; color:var(--admin-text-muted); white-space:nowrap;">${untilTxt}</span>
+                        <button onclick="window.revokePremium('${acc.uid}', '${safeName}')" style="background:rgba(231,76,60,0.1); border:1px solid rgba(231,76,60,0.3); color:#e74c3c; font-size:0.62rem; font-weight:700; padding:3px 8px; border-radius:6px; cursor:pointer;">Quitar</button>
+                    </div>`;
+            } else {
+                planCell = `<button onclick="window.grantPremium('${acc.uid}', '${safeName}')" style="background:rgba(241,196,15,0.1); border:1px solid rgba(241,196,15,0.3); color:#f1c40f; font-size:0.68rem; font-weight:800; padding:6px 10px; border-radius:6px; cursor:pointer; white-space:nowrap;">⭐ Hacer Premium</button>`;
+            }
 
             return `
                 <tr>
@@ -4442,8 +4481,9 @@ window.loadRegisteredUsers = async () => {
                     <td style="text-align:center; font-weight:800; color:var(--admin-accent-orange);">${stats.count}</td>
                     <td style="font-size:0.75rem;">${devices}</td>
                     <td style="font-size:0.78rem;">${lastSeen}</td>
+                    <td style="text-align:center;">${planCell}</td>
                     <td style="text-align:center;">
-                        <button onclick="window.viewAccountProfiles('${acc.uid}', '${(acc.displayName || acc.email || '').replace(/'/g, "\\'")}')" style="background:rgba(0,242,255,0.1); border:1px solid rgba(0,242,255,0.3); color:#00f2ff; font-size:0.7rem; font-weight:700; padding:6px 10px; border-radius:6px; cursor:pointer; white-space:nowrap;">
+                        <button onclick="window.viewAccountProfiles('${acc.uid}', '${safeName}')" style="background:rgba(0,242,255,0.1); border:1px solid rgba(0,242,255,0.3); color:#00f2ff; font-size:0.7rem; font-weight:700; padding:6px 10px; border-radius:6px; cursor:pointer; white-space:nowrap;">
                             👤 Ver Perfiles
                         </button>
                     </td>
@@ -4452,7 +4492,68 @@ window.loadRegisteredUsers = async () => {
         }).join('');
     } catch (e) {
         console.error("Error cargando usuarios registrados:", e);
-        tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:#E74C3C;">Fallo cargando usuarios: ${e.message}</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:30px; color:#E74C3C;">Fallo cargando usuarios: ${e.message}</td></tr>`;
+    }
+};
+
+// Otorga/renueva Premium a mano (todavía no hay cobro automático: esto es
+// lo que usa el admin cuando alguien le escribe por el chat de soporte
+// pidiendo un plan). Vencimiento opcional en días; vacío = sin vencer.
+window.grantPremium = async (uid, name) => {
+    const daysStr = prompt(`¿Por cuántos días será Premium ${name}?\n\nDejá vacío para que no venza nunca.`, '30');
+    if (daysStr === null) return; // canceló
+
+    const days = daysStr.trim() === '' ? null : parseInt(daysStr, 10);
+    if (days !== null && (isNaN(days) || days <= 0)) {
+        if (window.showToast) window.showToast('Ingresá un número de días válido.', 'error');
+        return;
+    }
+
+    try {
+        await updateDoc(doc(db, "users", uid), {
+            tier: 'premium',
+            premiumUntil: days ? Date.now() + days * 24 * 60 * 60 * 1000 : null,
+            premiumGrantedAt: Date.now()
+        });
+        if (window.showToast) window.showToast(`💎 ${name} ya es Premium.`, 'success');
+        window.loadRegisteredUsers();
+        if (typeof window.loadPremiumCount === 'function') window.loadPremiumCount();
+    } catch (e) {
+        console.error('Error otorgando premium:', e);
+        if (window.showToast) window.showToast('No se pudo actualizar el plan.', 'error');
+    }
+};
+
+window.revokePremium = async (uid, name) => {
+    if (!confirm(`¿Quitarle Premium a ${name}?`)) return;
+    try {
+        await updateDoc(doc(db, "users", uid), { tier: 'free', premiumUntil: null });
+        if (window.showToast) window.showToast(`${name} vuelve a plan Gratuito.`, 'info');
+        window.loadRegisteredUsers();
+        if (typeof window.loadPremiumCount === 'function') window.loadPremiumCount();
+    } catch (e) {
+        console.error('Error quitando premium:', e);
+        if (window.showToast) window.showToast('No se pudo actualizar el plan.', 'error');
+    }
+};
+
+// Conteo de usuarios Premium activos para la tarjeta del Dashboard. Cuenta
+// solo tier:'premium' vigente (los admin no suman acá, son otra categoría),
+// descontando los que ya vencieron aunque el doc todavía diga 'premium'.
+window.loadPremiumCount = async () => {
+    const el = document.getElementById('count-premium-users');
+    if (!el) return;
+    try {
+        const snap = await getDocs(query(collection(db, "users"), where("tier", "==", "premium")));
+        const now = Date.now();
+        let active = 0;
+        snap.forEach(d => {
+            const data = d.data();
+            if (!data.premiumUntil || data.premiumUntil > now) active++;
+        });
+        el.innerText = active;
+    } catch (e) {
+        console.warn("No se pudo cargar el conteo de premium:", e);
     }
 };
 
@@ -6365,6 +6466,13 @@ window.injectCampaignScripts = async () => {
         return;
     }
 
+    // 💎 Usuario Premium/Admin: el beneficio "Sin publicidad" se cumple acá.
+    const tier = window.currentUserTier || 'free';
+    if (tier === 'premium' || tier === 'admin') {
+        console.log("💎 Usuario Premium: se omite la inyección de anuncios.");
+        return;
+    }
+
     const campaigns = (window.adCampaigns || []).filter(c => c.active);
     console.log(`💉 [DEBUG] Intentando inyectar ${campaigns.length} campañas activas.`);
 
@@ -6514,7 +6622,7 @@ window.openPlayer = async (movieId) => {
   collectUserData("watch_attempt", { title: movie.title, id: movie.id });
 
   // 💎 VIP Engine: Verificar Acceso
-  const userTier = (auth.currentUser && auth.currentUser.customClaims?.tier) || 'free';
+  const userTier = window.currentUserTier || 'free';
   const isPremium = userTier === 'premium' || userTier === 'admin';
   const now = Date.now();
   const isVipLocked = movie.isVIP && (!movie.releaseDate || now < movie.releaseDate);
@@ -9022,6 +9130,30 @@ async function trackAccountLogin(user) {
     } catch (e) { console.error("Error registrando login:", e); }
 }
 
+// --- Tier Premium (real, en Firestore) 💎 ---
+// auth.currentUser.customClaims solo se puede setear desde un backend con
+// Firebase Admin SDK (Cloud Functions), y este proyecto no tiene ninguna —
+// todo acá habla directo con Firestore desde el cliente. Por eso el tier
+// vive en users/{uid}.tier, que el admin puede escribir con un botón como
+// cualquier otro dato del panel, y queda cacheado en memoria para que las
+// verificaciones (reproducir, anuncios, banner) sean síncronas.
+window.currentUserTier = 'free';
+
+window.refreshUserTier = async (uid) => {
+    if (!uid) { window.currentUserTier = 'free'; return window.currentUserTier; }
+    try {
+        const snap = await getDoc(doc(db, "users", uid));
+        const data = snap.exists() ? snap.data() : null;
+        const rawTier = data?.tier || 'free';
+        const expired = rawTier === 'premium' && data?.premiumUntil && data.premiumUntil < Date.now();
+        window.currentUserTier = expired ? 'free' : rawTier;
+    } catch (e) {
+        console.warn('No se pudo leer el tier del usuario:', e);
+        window.currentUserTier = 'free';
+    }
+    return window.currentUserTier;
+};
+
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         console.log("👤 Sesión activa:", user.email);
@@ -9031,6 +9163,14 @@ onAuthStateChanged(auth, async (user) => {
         // En una implementación real verificaríamos un campo 'banned' en el documento del usuario.
 
         trackAccountLogin(user); // 📊 No bloqueante: registra cuenta + login para el panel de Usuarios
+        await window.refreshUserTier(user.uid); // 💎 cachea el tier real (Firestore) antes de cualquier chequeo premium
+
+        // Si los anuncios ya se habían inyectado como invitado (antes de saber
+        // que este login es Premium), se esconden ahora que ya lo sabemos.
+        if (window.currentUserTier === 'premium' || window.currentUserTier === 'admin') {
+            const adGlobalContainer = document.getElementById('ad-global-container');
+            if (adGlobalContainer) adGlobalContainer.style.display = 'none';
+        }
 
         document.getElementById('user-initials').innerText = user.displayName.charAt(0);
         document.getElementById('user-initials').style.display = 'flex';
@@ -9054,6 +9194,7 @@ onAuthStateChanged(auth, async (user) => {
         if (typeof window.maybeShowPremiumPromo === 'function') window.maybeShowPremiumPromo();
     } else {
         console.log("👻 Modo Invitado");
+        window.currentUserTier = 'free';
         if (typeof window.watchSupportUnread === 'function') window.watchSupportUnread(null); // corta el listener al cerrar sesión
         const userNameEl = document.getElementById('user-name');
         if (userNameEl) userNameEl.innerText = "Login";

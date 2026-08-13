@@ -2709,26 +2709,6 @@ window.toggleBannerPin = async (movieId, isPinned) => {
     }
 };
 
-window.setMetricsPreset = (preset) => {
-  const startEl = document.getElementById('metrics-start-date');
-  const endEl = document.getElementById('metrics-end-date');
-  const now = new Date();
-  let start = new Date();
-  let end = new Date();
-  
-  if (preset === 'today') {
-    start.setHours(0,0,0,0);
-  } else if (preset === 'week') {
-    start.setDate(now.getDate() - 7);
-  } else if (preset === 'month') {
-    start = new Date(now.getFullYear(), now.getMonth(), 1);
-  }
-  
-  startEl.value = start.toISOString().split('T')[0];
-  endEl.value = end.toISOString().split('T')[0];
-  window.loadMetrics(startEl.value, endEl.value);
-};
-
 window.handleSmartDate = (type) => {
   if (type === 'start') {
     const startVal = document.getElementById('metrics-start-date').value;
@@ -2891,44 +2871,116 @@ window.initMetricsSelectors = () => {
     if (!startEl.value) {
       startEl.value = firstDay;
       endEl.value = lastDay;
+      window._metricsMode = 'month';
+      window._metricsAnchor = now;
     }
   }
+  window._updateMetricsRangeLabel(window._metricsMode, window._metricsAnchor || now, startEl?.value, endEl?.value);
 };
 
 window.applyMetricsFilters = () => {
   const start = document.getElementById('metrics-start-date').value;
   const end = document.getElementById('metrics-end-date').value;
   if (!start || !end) return;
+  // Rango escrito a mano: ya no es "Hoy/7 días/Mes/Año", así que ◀ ▶ no aplican.
+  window._metricsMode = null;
+  window._updateMetricsRangeLabel();
   window.loadMetrics(start, end);
 };
 
-// Atajos rápidos de rango de fechas para Analíticas (Hoy / 7 días / Mes / Año)
-window.setMetricsPreset = (preset) => {
-  const now = new Date();
+// Calcula el rango [start, end] (YYYY-MM-DD) para un preset, anclado a una
+// fecha de referencia — esa ancla es la que se mueve con ◀ ▶.
+window._computeMetricsRangeForPreset = (preset, anchor) => {
   const toISO = (d) => d.toISOString().split('T')[0];
-  let start;
-  const end = toISO(now);
-
+  let start, end;
   if (preset === 'today') {
-    start = end;
+    start = new Date(anchor);
+    end = new Date(anchor);
   } else if (preset === '7d') {
-    const d = new Date(now);
-    d.setDate(d.getDate() - 6);
-    start = toISO(d);
+    end = new Date(anchor);
+    start = new Date(anchor);
+    start.setDate(start.getDate() - 6);
   } else if (preset === 'month') {
-    start = toISO(new Date(now.getFullYear(), now.getMonth(), 1));
+    start = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+    end = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0);
   } else if (preset === 'year') {
-    start = toISO(new Date(now.getFullYear(), 0, 1));
-  } else {
-    return;
+    start = new Date(anchor.getFullYear(), 0, 1);
+    end = new Date(anchor.getFullYear(), 11, 31);
   }
+  return { start: toISO(start), end: toISO(end) };
+};
+
+// Atajos rápidos de rango de fechas para Analíticas (Hoy / 7 días / Mes / Año).
+// Guarda el modo y la fecha ancla en window._metrics* para que ◀ ▶ (shiftMetricsRange)
+// sepan por cuánto moverse (1 día / 1 semana / 1 mes / 1 año según el modo activo).
+window.setMetricsPreset = (preset) => {
+  if (!['today', '7d', 'month', 'year'].includes(preset)) return;
+  window._metricsMode = preset;
+  window._metricsAnchor = new Date();
+  window._applyMetricsRangeFromState();
+};
+
+// ◀ ▶ de la vista de Analíticas: mueve la fecha ancla un paso (del tamaño del
+// modo activo) y recarga. No hace nada si el rango actual es "personalizado"
+// (cargado a mano con Aplicar), porque ahí no hay un "paso" bien definido.
+window.shiftMetricsRange = (direction) => {
+  if (!window._metricsMode) return;
+  const a = window._metricsAnchor ? new Date(window._metricsAnchor) : new Date();
+  if (window._metricsMode === 'today') a.setDate(a.getDate() + direction);
+  else if (window._metricsMode === '7d') a.setDate(a.getDate() + direction * 7);
+  else if (window._metricsMode === 'month') a.setMonth(a.getMonth() + direction);
+  else if (window._metricsMode === 'year') a.setFullYear(a.getFullYear() + direction);
+  window._metricsAnchor = a;
+  window._applyMetricsRangeFromState();
+};
+
+window._applyMetricsRangeFromState = () => {
+  const preset = window._metricsMode;
+  const anchor = window._metricsAnchor || new Date();
+  const { start, end } = window._computeMetricsRangeForPreset(preset, anchor);
 
   const startEl = document.getElementById('metrics-start-date');
   const endEl = document.getElementById('metrics-end-date');
   if (startEl) startEl.value = start;
   if (endEl) endEl.value = end;
 
+  window._updateMetricsRangeLabel(preset, anchor, start, end);
   window.loadMetrics(start, end);
+};
+
+const METRICS_MONTH_NAMES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+window._updateMetricsRangeLabel = (preset, anchor, startStr, endStr) => {
+  const labelEl = document.getElementById('metrics-range-label');
+  const prevBtn = document.getElementById('metrics-range-prev');
+  const nextBtn = document.getElementById('metrics-range-next');
+  if (!labelEl) return;
+
+  if (!preset) {
+    labelEl.innerText = 'Rango personalizado';
+    if (prevBtn) prevBtn.disabled = true;
+    if (nextBtn) nextBtn.disabled = true;
+    return;
+  }
+  if (prevBtn) prevBtn.disabled = false;
+  if (nextBtn) nextBtn.disabled = false;
+
+  const todayISO = new Date().toISOString().split('T')[0];
+  let text = '';
+  if (preset === 'today') {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (startStr === todayISO) text = 'Hoy';
+    else if (startStr === yesterday.toISOString().split('T')[0]) text = 'Ayer';
+    else text = startStr;
+  } else if (preset === '7d') {
+    text = `${startStr} → ${endStr}`;
+  } else if (preset === 'month') {
+    text = `${METRICS_MONTH_NAMES[anchor.getMonth()]} ${anchor.getFullYear()}`;
+  } else if (preset === 'year') {
+    text = `${anchor.getFullYear()}`;
+  }
+  labelEl.innerText = text;
 };
 
 window.loadMetrics = async (startDateStr, endDateStr) => {
@@ -2970,17 +3022,43 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
     start.setHours(0,0,0,0);
     const end = new Date(endDateStr);
     end.setHours(23,59,59,999);
-    
+
+    const rangeDuration = end.getTime() - start.getTime();
+    const prevStart = new Date(start.getTime() - rangeDuration - 1);
+    const prevEnd = new Date(start.getTime() - 1);
+
     const metricsQuery = query(
-      collection(db, "user_activity"), 
+      collection(db, "user_activity"),
       where("timestamp", ">=", start.getTime()),
       where("timestamp", "<=", end.getTime()),
       orderBy("timestamp", "desc")
     );
-    
-    const snap = await getDocs(metricsQuery);
-    const data = [];
-    snap.forEach(doc => data.push(doc.data()));
+    const prevQuery = query(
+      collection(db, "user_activity"),
+      where("timestamp", ">=", prevStart.getTime()),
+      where("timestamp", "<=", prevEnd.getTime())
+    );
+    const geoQuery = query(
+      collection(db, "analytics_geo"),
+      where("ts", ">=", start.getTime()),
+      where("ts", "<=", end.getTime())
+    );
+
+    // Las 4 consultas de Firestore no dependen entre sí, así que van en paralelo
+    // (Promise.all) en vez de una atrás de la otra — antes cada .then() esperaba
+    // a que termine la anterior y el panel tardaba la SUMA de las 4, no el máximo.
+    const [snap, prevSnap, geoSnap, usersSnap] = await Promise.all([
+      getDocs(metricsQuery),
+      getDocs(prevQuery).catch(e => { console.error("Error calculando crecimiento:", e); return null; }),
+      getDocs(geoQuery).catch(e => { console.warn("Error cargando analíticas geo:", e); return null; }),
+      getDocs(collection(db, "users")).catch(e => { console.error("Error cargando usuarios: ", e); return null; }),
+    ]);
+
+    const rawData = [];
+    snap.forEach(doc => rawData.push(doc.data()));
+    // 🚜 "manual_seed" es al admin agregando películas (Descubrir/Carga Masiva),
+    // no una visita real. Sin este filtro, cada carga masiva infla "Visitas".
+    const data = rawData.filter(d => d.action !== 'manual_seed');
     _lastMetricsData = data; // Disponible para el modal de detalle de visitantes
 
     if (data.length === 0) {
@@ -2992,38 +3070,31 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
     }
 
     // 👥 Stats Base
+    // "Visitas" = solo page_view (una carga de página/navegación real).
+    // "Reproducciones" = solo play_start (la reproducción efectivamente arrancó).
+    // Antes se usaba data.length (TODOS los eventos, incluido watch_attempt Y
+    // play_start del mismo click) y por eso el número salía disparado: ver una
+    // sola película ya sumaba 2-3 "visitas".
     const uniqueVisitors = new Set(data.filter(d => d.visitorId).map(d => d.visitorId));
-    const plays = data.filter(d => d.action === 'play_start' || d.action === 'watch_attempt').length;
-    
-    if (totalVisits) totalVisits.innerText = data.length;
+    const pageViews = data.filter(d => d.action === 'page_view').length;
+    const plays = data.filter(d => d.action === 'play_start').length;
+
+    if (totalVisits) totalVisits.innerText = pageViews;
     if (totalPlays) totalPlays.innerText = plays;
     if (totalUniqueEl) totalUniqueEl.innerText = uniqueVisitors.size;
 
-    // 🚀 CRECIMIENTO (Comparativa vs periodo anterior similar)
-    try {
-        const rangeDuration = end.getTime() - start.getTime();
-        const prevStart = new Date(start.getTime() - rangeDuration - 1);
-        const prevEnd = new Date(start.getTime() - 1);
-        
-        const prevQuery = query(
-            collection(db, "user_activity"),
-            where("timestamp", ">=", prevStart.getTime()),
-            where("timestamp", "<=", prevEnd.getTime())
-        );
-        const prevSnap = await getDocs(prevQuery);
-        const prevCount = prevSnap.size;
-        
-        if (growthEl) {
-            if (prevCount === 0) {
-                growthEl.innerText = 'New';
-                growthEl.style.color = '#2ECC71';
-            } else {
-                const diff = ((data.length - prevCount) / prevCount) * 100;
-                growthEl.innerText = `${diff > 0 ? '+' : ''}${Math.round(diff)}%`;
-                growthEl.style.color = diff >= 0 ? '#2ECC71' : '#E74C3C';
-            }
+    // 🚀 CRECIMIENTO (Comparativa vs periodo anterior similar, sobre Visitas reales)
+    if (growthEl && prevSnap) {
+        const prevPageViews = prevSnap.docs.filter(d => d.data().action === 'page_view').length;
+        if (prevPageViews === 0) {
+            growthEl.innerText = 'New';
+            growthEl.style.color = '#2ECC71';
+        } else {
+            const diff = ((pageViews - prevPageViews) / prevPageViews) * 100;
+            growthEl.innerText = `${diff > 0 ? '+' : ''}${Math.round(diff)}%`;
+            growthEl.style.color = diff >= 0 ? '#2ECC71' : '#E74C3C';
         }
-    } catch (e) { console.error("Error calculando crecimiento:", e); }
+    }
 
     // ⚡ PICO MÁXIMO (Hora con más tráfico)
     const hours = {};
@@ -3042,8 +3113,8 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
     data.forEach(d => {
       const day = d.date || new Date(d.timestamp).toISOString().split('T')[0];
       if (!byDay[day]) byDay[day] = { total: 0, plays: 0 };
-      byDay[day].total++;
-      if (d.action === 'play_start' || d.action === 'watch_attempt') byDay[day].plays++;
+      if (d.action === 'page_view') byDay[day].total++;
+      if (d.action === 'play_start') byDay[day].plays++;
     });
 
     const timeBuckets = window._computeTimeBuckets(start, end);
@@ -3107,7 +3178,7 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
     // elegido, para saber no solo el total sino CUÁNDO se dieron esas reproducciones)
     const counts = {};
     data.forEach(d => {
-      if ((d.action === 'play_start' || d.action === 'watch_attempt') && d.details?.title) {
+      if (d.action === 'play_start' && d.details?.title) {
         const t = d.details.title;
         if (!counts[t]) counts[t] = { count: 0, last: 0, byBucket: new Array(_dayChartBuckets.length).fill(0) };
         counts[t].count++;
@@ -3152,15 +3223,14 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
     if (popularListDash) popularListDash.innerHTML = sortedPopularAll.slice(0, 5).map(buildPopularRowSimple).join('') || '<tr><td colspan="2" style="text-align:center; padding: 15px;">Sin datos.</td></tr>';
 
     // FCM Tokens counter
-    try {
-      const usersSnap = await getDocs(collection(db, "users"));
+    if (usersSnap) {
       let tokenCount = 0;
       usersSnap.forEach(d => {
           if (d.data().fcmToken) tokenCount++;
       });
       const subsEl = document.getElementById("push-subs-count");
       if(subsEl) subsEl.innerText = `${tokenCount} dispositivos suscritos.`;
-    } catch (err) { console.error("Error cargando usuarios: ", err); }
+    }
 
     // Dispositivos (Chart simple)
     if (deviceChart) {
@@ -3185,13 +3255,7 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
     }
 
     // 🌍 ANALÍTICAS GEOGRÁFICAS (Fase 14)
-    try {
-        const geoQuery = query(
-            collection(db, "analytics_geo"),
-            where("ts", ">=", start.getTime()),
-            where("ts", "<=", end.getTime())
-        );
-        const geoSnap = await getDocs(geoQuery);
+    if (geoSnap) {
         const geoData = [];
         geoSnap.forEach(d => geoData.push(d.data()));
 
@@ -3221,7 +3285,7 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
                 </tr>
             `).join('') || '<tr><td colspan="3" style="text-align:center;">Sin datos geográficos.</td></tr>';
         }
-    } catch (e) { console.warn("Error cargando analíticas geo:", e); }
+    }
 
     // La sección de "Links Reportados" ha sido removida del panel de Métricas
     // ya que esta información se gestiona desde los filtros del "Inventario".

@@ -1159,18 +1159,29 @@
                 </div>
               </div>
 
-              <!-- Filtro de fechas -->
-              <div class="admin-card" style="margin-bottom: 20px; display:flex; flex-wrap:wrap; gap: 10px; align-items:flex-end;">
-                <div class="form-group" style="margin:0;">
+              <!-- Filtro de fechas. flex-wrap:nowrap + overflow-x:auto en vez de wrap:
+                   así queda SIEMPRE en una sola fila; si la pantalla es angosta, se
+                   scrollea horizontal en vez de partirse en varias líneas. -->
+              <div class="admin-card" style="margin-bottom: 20px; display:flex; flex-wrap:nowrap; gap: 10px; align-items:flex-end; overflow-x:auto; padding-bottom:10px;">
+                <div class="form-group" style="margin:0; flex-shrink:0;">
                   <label style="font-size:0.65rem;">Desde</label>
                   <input type="date" id="metrics-start-date" class="form-control">
                 </div>
-                <div class="form-group" style="margin:0;">
+                <div class="form-group" style="margin:0; flex-shrink:0;">
                   <label style="font-size:0.65rem;">Hasta</label>
                   <input type="date" id="metrics-end-date" class="form-control">
                 </div>
-                <button class="btn btn-secondary" onclick="window.applyMetricsFilters()">Aplicar</button>
-                <div style="display:flex; gap:6px; margin-left:auto;">
+                <button class="btn btn-secondary" style="flex-shrink:0;" onclick="window.applyMetricsFilters()">Aplicar</button>
+
+                <!-- Navegador de período: ◀ ▶ mueven la fecha ancla un paso del
+                     tamaño del filtro activo (1 día / 1 semana / 1 mes / 1 año) -->
+                <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+                  <button id="metrics-range-prev" class="btn btn-secondary" style="padding:4px 12px;" onclick="window.shiftMetricsRange(-1)" title="Período anterior">◀</button>
+                  <span id="metrics-range-label" style="font-weight:700; font-size:0.8rem; min-width:130px; text-align:center; white-space:nowrap;">—</span>
+                  <button id="metrics-range-next" class="btn btn-secondary" style="padding:4px 12px;" onclick="window.shiftMetricsRange(1)" title="Período siguiente">▶</button>
+                </div>
+
+                <div style="display:flex; gap:6px; margin-left:auto; flex-shrink:0;">
                   <button class="btn btn-secondary" onclick="window.setMetricsPreset('today')">Hoy</button>
                   <button class="btn btn-secondary" onclick="window.setMetricsPreset('7d')">7 días</button>
                   <button class="btn btn-secondary" onclick="window.setMetricsPreset('month')">Este mes</button>
@@ -1198,7 +1209,7 @@
                 </div>
                 <div class="metric-card">
                   <span class="metric-label">HORA PICO</span>
-                  <span class="metric-value" id="stat-peak-hour" style="font-size:1.4rem;">—</span>
+                  <span class="metric-value" id="stat-peak-hour" style="font-size:1.2rem;">—</span>
                 </div>
               </div>
 
@@ -1212,11 +1223,11 @@
                       <button id="daychart-mode-line" class="btn btn-secondary" style="padding:4px 8px; font-size:0.65rem; opacity:0.5;" onclick="window.setDayChartMode('line')">📈 Línea</button>
                     </div>
                   </div>
-                  <div id="metrics-day-chart" style="display:flex; align-items:flex-end; gap:2px; height:150px; padding-top:10px;"></div>
+                  <div id="metrics-day-chart" style="display:flex; align-items:flex-end; gap:2px; height:110px; padding-top:10px;"></div>
                 </div>
                 <div class="admin-card">
                   <h2 class="admin-title">🕒 Actividad por Hora</h2>
-                  <div id="metrics-hour-chart" style="display:flex; align-items:flex-end; gap:2px; height:150px; padding-top:10px;"></div>
+                  <div id="metrics-hour-chart" style="display:flex; align-items:flex-end; gap:2px; height:110px; padding-top:10px;"></div>
                 </div>
               </div>
 
@@ -1229,7 +1240,7 @@
                 </div>
                 <div class="admin-card">
                   <h2 class="admin-title">🌍 Países / Ciudades</h2>
-                  <div style="display:flex; gap:10px; height:160px;">
+                  <div style="display:flex; gap:10px; height:120px;">
                     <canvas id="metrics-geo-countries" style="max-width:50%;"></canvas>
                     <canvas id="metrics-geo-cities" style="max-width:50%;"></canvas>
                   </div>

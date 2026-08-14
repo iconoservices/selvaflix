@@ -2726,11 +2726,34 @@ window.loadPlansConfig = async () => {
         const docRef = doc(db, "configs", "plans");
         const docSnap = await getDoc(docRef);
         window.plansConfig = (docSnap.exists() && docSnap.data().plans) || [];
+        window.ensureFreePlanExists();
         window.renderPlansList();
         if (typeof window.maybeShowPremiumPromo === 'function') window.maybeShowPremiumPromo();
     } catch (e) {
         console.error("❌ Error cargando planes premium:", e);
     }
+};
+
+// El plan Gratuito antes era una tarjeta fija en el código (no se veía ni
+// se podía tocar desde el admin). Ahora es un plan más con id fijo 'free' —
+// se autogenera la primera vez si no existe todavía, así el admin puede
+// editar qué incluye (o no) sin tener que tocar código.
+window.ensureFreePlanExists = () => {
+    if (!window.plansConfig) window.plansConfig = [];
+    if (window.plansConfig.some(p => p.id === 'free')) return;
+    window.plansConfig.unshift({
+        id: 'free',
+        name: 'Gratuito',
+        price: 0,
+        currency: 'USD',
+        period: 'mes',
+        badge: '',
+        highlighted: false,
+        noAds: false,
+        features: ['Con publicidad', 'Estrenos VIP bloqueados', 'Calidad estándar'],
+        active: true,
+        order: -1
+    });
 };
 
 window.renderPlansList = () => {
@@ -2749,7 +2772,7 @@ window.renderPlansList = () => {
 
             <div onclick="window.editPlan('${p.id}')" style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;">
                 <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0;">
-                    ${p.highlighted ? '⭐' : '💎'}
+                    ${p.id === 'free' ? '🐾' : (p.highlighted ? '⭐' : '💎')}
                 </div>
                 <div style="overflow: hidden; flex: 1;">
                     <p style="color: white; font-size: 0.75rem; font-weight: 800; margin: 0; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">
@@ -2838,10 +2861,18 @@ window.editPlan = (id) => {
     setVal('plan-edit-noads', !!plan.noAds);
     setVal('plan-edit-features', (plan.features || []).join('\n'));
     setVal('plan-edit-active', !!plan.active);
+
+    // El plan Gratuito siempre tiene que existir — no se puede borrar.
+    const deleteBtn = document.getElementById('btn-delete-plan');
+    if (deleteBtn) deleteBtn.style.display = (plan.id === 'free') ? 'none' : 'flex';
 };
 
 window.deleteCurrentPlan = async () => {
     if (!editingPlanId) return;
+    if (editingPlanId === 'free') {
+        if (window.showToast) window.showToast('El plan Gratuito no se puede borrar — es la base de todos los demás.', 'info');
+        return;
+    }
     if (!confirm('¿Seguro que quieres borrar este plan? 💎🗑️')) return;
 
     window.plansConfig = (window.plansConfig || []).filter(p => p.id !== editingPlanId);
@@ -2926,33 +2957,35 @@ window.renderPremiumPlansGrid = () => {
         return;
     }
 
-    // Tarjeta de referencia "Gratuito" para que el contraste con los planes
-    // pagos se vea de un vistazo, en vez de tarjetas sueltas sin punto de
-    // comparación.
-    const freeCard = `
-        <div style="background:rgba(255,255,255,0.02); border:2px solid rgba(255,255,255,0.06); border-radius:14px; padding:20px; display:flex; flex-direction:column; opacity:0.85;">
-            <span style="align-self:flex-start; background:rgba(255,255,255,0.08); color:#999; font-size:0.6rem; font-weight:900; padding:3px 8px; border-radius:6px; margin-bottom:10px; text-transform:uppercase;">Tu plan actual</span>
-            <h3 style="color:#fff; margin:0 0 6px; font-size:1rem;">🐾 Gratuito</h3>
-            <p style="color:#888; font-weight:800; font-size:1.3rem; margin:0 0 14px;">$0</p>
-            <ul style="list-style:none; padding:0; margin:0 0 16px; flex:1; display:flex; flex-direction:column; gap:8px;">
-                <li style="color:#999; font-size:0.78rem; display:flex; gap:6px;"><span>📺</span>Con publicidad</li>
-                <li style="color:#999; font-size:0.78rem; display:flex; gap:6px;"><span>🔒</span>Estrenos VIP bloqueados</li>
-                <li style="color:#999; font-size:0.78rem; display:flex; gap:6px;"><span>📉</span>Calidad estándar</li>
-            </ul>
-            <div style="text-align:center; padding:10px; font-weight:800; font-size:0.8rem; color:#555;">Plan actual</div>
-        </div>`;
+    // El plan Gratuito es un plan real más (id fijo 'free', ver
+    // ensureFreePlanExists) — se dibuja con la misma tarjeta que los pagos,
+    // solo que sin poder pedirlo (ya lo tenés por defecto) y marcando cuál
+    // es tu plan actual según el tier real.
+    const currentTier = window.currentUserTier || 'free';
 
-    grid.innerHTML = freeCard + plans.map(p => {
-        const periodTxt = p.period === 'unico' ? 'pago único' : `/ ${_escPlanHtml(p.period || 'mes')}`;
+    grid.innerHTML = plans.map(p => {
+        const isFree = p.id === 'free';
+        const isCurrentPlan = isFree
+            ? currentTier === 'free'
+            : (currentTier === 'premium' || currentTier === 'admin');
+        const periodTxt = isFree ? '' : (p.period === 'unico' ? 'pago único' : `/ ${_escPlanHtml(p.period || 'mes')}`);
+        const priceTxt = isFree ? '$0' : `${p.price ?? 0} ${_escPlanHtml(p.currency || 'USD')}`;
+
+        // El plan Gratuito nunca se "pide" — o ya lo tenés (Plan actual) o
+        // simplemente no aplica si ya sos premium/admin.
+        const actionHtml = isCurrentPlan
+            ? `<div style="text-align:center; padding:10px; font-weight:800; font-size:0.8rem; color:#555;">Plan actual</div>`
+            : (isFree ? '' : `<button onclick="window.requestPlanInterest('${p.id}')" style="background:${p.highlighted ? 'var(--primary,#FF6600)' : 'rgba(255,255,255,0.08)'}; color:${p.highlighted ? '#000' : '#fff'}; border:none; border-radius:10px; padding:10px; font-weight:800; font-size:0.8rem; cursor:pointer;">Quiero este plan</button>`);
+
         return `
-        <div style="background:rgba(255,255,255,0.03); border:2px solid ${p.highlighted ? 'var(--primary,#FF6600)' : 'rgba(255,255,255,0.08)'}; border-radius:14px; padding:20px; display:flex; flex-direction:column;">
+        <div style="background:rgba(255,255,255,0.03); border:2px solid ${p.highlighted ? 'var(--primary,#FF6600)' : 'rgba(255,255,255,0.08)'}; border-radius:14px; padding:20px; display:flex; flex-direction:column; ${isFree ? 'opacity:0.9;' : ''}">
             ${p.badge ? `<span style="align-self:flex-start; background:rgba(255,122,0,0.15); color:var(--primary,#FF6600); font-size:0.6rem; font-weight:900; padding:3px 8px; border-radius:6px; margin-bottom:10px; text-transform:uppercase;">${_escPlanHtml(p.badge)}</span>` : ''}
-            <h3 style="color:#fff; margin:0 0 6px; font-size:1rem;">${_escPlanHtml(p.name || 'Plan')}</h3>
-            <p style="color:var(--primary,#FF6600); font-weight:800; font-size:1.3rem; margin:0 0 14px;">${p.price ?? 0} ${_escPlanHtml(p.currency || 'USD')} <span style="color:#888; font-size:0.7rem; font-weight:600;">${periodTxt}</span></p>
+            <h3 style="color:#fff; margin:0 0 6px; font-size:1rem;">${isFree ? '🐾 ' : ''}${_escPlanHtml(p.name || 'Plan')}</h3>
+            <p style="color:${isFree ? '#888' : 'var(--primary,#FF6600)'}; font-weight:800; font-size:1.3rem; margin:0 0 14px;">${priceTxt} ${periodTxt ? `<span style="color:#888; font-size:0.7rem; font-weight:600;">${periodTxt}</span>` : ''}</p>
             <ul style="list-style:none; padding:0; margin:0 0 16px; flex:1; display:flex; flex-direction:column; gap:8px;">
-                ${(p.features || []).map(f => `<li style="color:#ccc; font-size:0.78rem; display:flex; gap:6px;"><span>✅</span>${_escPlanHtml(f)}</li>`).join('')}
+                ${(p.features || []).map(f => `<li style="color:${isFree ? '#999' : '#ccc'}; font-size:0.78rem; display:flex; gap:6px;"><span>${isFree ? '•' : '✅'}</span>${_escPlanHtml(f)}</li>`).join('')}
             </ul>
-            <button onclick="window.requestPlanInterest('${p.id}')" style="background:${p.highlighted ? 'var(--primary,#FF6600)' : 'rgba(255,255,255,0.08)'}; color:${p.highlighted ? '#000' : '#fff'}; border:none; border-radius:10px; padding:10px; font-weight:800; font-size:0.8rem; cursor:pointer;">Quiero este plan</button>
+            ${actionHtml}
         </div>`;
     }).join('');
 };
@@ -5545,6 +5578,10 @@ window.selvaExecuteCrownPromotion = async (movieId, hash) => {
 // --- Selección de Anuncios In-Player / App Banner ---
 window.getFilteredAd = (placement) => {
     try {
+        // 💎 Usuario Premium/Admin: ni en el reproductor ni en el banner de app.
+        const tier = window.currentUserTier || 'free';
+        if (tier === 'premium' || tier === 'admin') return null;
+
         // 🔥 Chequeo de Actividad Global
         const globalActive = document.getElementById('ad-active-global')?.checked !== false;
         if (!globalActive) return null;
@@ -5771,6 +5808,17 @@ window.recordAdView = async (id) => {
 async function startWarningOverlay(movie, onComplete = () => startPlayer(movie)) {
   const overlay = document.getElementById('ad-overlay');
   if (!overlay) {
+    onComplete();
+    return;
+  }
+
+  // 💎 Usuario Premium/Admin: sin el preroll tampoco. Este es un motor de
+  // anuncios aparte de injectCampaignScripts (ese cubre banners/scripts
+  // globales, este es el que se ve al darle Play), así que necesita su
+  // propio chequeo.
+  const tier = window.currentUserTier || 'free';
+  if (tier === 'premium' || tier === 'admin') {
+    console.log("💎 Usuario Premium: se omite el anuncio de preroll.");
     onComplete();
     return;
   }

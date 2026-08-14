@@ -297,6 +297,9 @@
               <button onclick="window.showProfileSelector()" style="width: 100%; padding: 12px; background: none; border: none; color: #ccc; text-align: left; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 10px;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='none'">
                   🔄 Cambiar Perfil
               </button>
+              <button onclick="window.openPremiumModal()" style="width: 100%; padding: 12px; background: none; border: none; color: #ccc; text-align: left; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 10px;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='none'">
+                  💎 Mi Plan
+              </button>
               <button onclick="window.showSettings()" style="width: 100%; padding: 12px; background: none; border: none; color: #ccc; text-align: left; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 10px;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='none'">
                   ⚙️ Configuración
               </button>
@@ -2226,7 +2229,7 @@
     <div style="background:#111; border-radius:16px; max-width:760px; width:94%; max-height:85vh; border:1px solid rgba(255,255,255,0.1); display:flex; flex-direction:column; overflow:hidden;">
       <div style="display:flex; justify-content:space-between; align-items:center; padding:18px 20px; border-bottom:1px solid rgba(255,255,255,0.08); flex-shrink:0;">
         <div>
-          <h2 style="color:#fff; margin:0; font-size:1.1rem;">🌴 Hazte Premium</h2>
+          <h2 id="premium-modal-title" style="color:#fff; margin:0; font-size:1.1rem;">🌴 Hazte Premium</h2>
           <p id="premium-modal-subtitle" style="color:#888; margin:4px 0 0; font-size:0.75rem;">Sin publicidad, acceso VIP y más.</p>
         </div>
         <button onclick="window.closePremiumModal()" style="background:none; border:none; color:#888; font-size:1.4rem; cursor:pointer; line-height:1;">&times;</button>
@@ -2237,7 +2240,7 @@
     </div>
   </div>
 
-  <script type="module" src="/src/main.js?v=2.64"></script>
+  <script type="module" src="/src/main.js?v=2.65"></script>
 </body>
 
 </html>

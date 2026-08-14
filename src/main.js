@@ -2922,11 +2922,17 @@ window.savePlansConfig = async () => {
 
 // --- Vitrina pública de Planes Premium (banner + modal) 🍿 ---
 window.openPremiumModal = (movie) => {
+    const tier = window.currentUserTier || 'free';
+    const isAlreadyPaid = tier === 'premium' || tier === 'admin';
+
+    const title = document.getElementById('premium-modal-title');
+    if (title) title.innerText = isAlreadyPaid ? '💎 Mi Plan' : '🌴 Hazte Premium';
+
     const subtitle = document.getElementById('premium-modal-subtitle');
     if (subtitle) {
         subtitle.innerText = (movie && movie.title)
             ? `"${movie.title}" es contenido VIP — disponible para suscriptores Premium.`
-            : 'Sin publicidad, acceso VIP y más.';
+            : (isAlreadyPaid ? 'Estos son los beneficios de tu plan actual.' : 'Sin publicidad, acceso VIP y más.');
     }
     window.renderPremiumPlansGrid();
     const modal = document.getElementById('premium-plans-modal');

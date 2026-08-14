@@ -2895,7 +2895,10 @@ window.savePlansConfig = async () => {
         const plan = (window.plansConfig || []).find(p => p.id === editingPlanId);
         if (plan) {
             plan.name = document.getElementById('plan-edit-name')?.value || plan.name;
-            plan.price = parseFloat(document.getElementById('plan-edit-price')?.value) || 0;
+            // Acepta coma o punto como separador decimal (en español lo natural es la coma,
+            // pero el dato interno siempre se guarda con punto).
+            const priceRaw = (document.getElementById('plan-edit-price')?.value || '').trim().replace(',', '.');
+            plan.price = parseFloat(priceRaw) || 0;
             plan.currency = document.getElementById('plan-edit-currency')?.value || 'USD';
             plan.period = document.getElementById('plan-edit-period')?.value || 'mes';
             plan.badge = document.getElementById('plan-edit-badge')?.value || '';

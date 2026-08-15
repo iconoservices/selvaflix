@@ -1285,7 +1285,7 @@
                   <button onclick="window.seedNetworkScripts()" class="btn" style="background:rgba(46,204,113,0.12); color:#2ecc71; border:1px solid rgba(46,204,113,0.3); font-weight:800; font-size:0.8rem; padding:10px 16px; border-radius:8px; cursor:pointer;" title="Crea las campañas de los scripts de red conocidos (Monetag y lo que se sume después) si todavía no existen, sin duplicarlas">
                     ⭐ Importar Scripts de Red
                   </button>
-                  <button onclick="window.createNewAdCampaign()" class="btn btn-upload-orange">
+                  <button onclick="window.createNewAdCampaign()" class="btn btn-upload-orange" title="Crea un anuncio TUYO, a mano: tu propio mensaje, imagen y enlace. Después elegís dónde aparece (arriba, de bienvenida, flotante, o antes de la peli).">
                     + Nueva Campaña
                   </button>
                 </div>
@@ -1363,13 +1363,17 @@
                         </div>
 
                         <h4 style="font-size: 0.75rem; color: var(--primary); margin-bottom: 15px; text-transform: uppercase;">🎯 Ubicación</h4>
+                        <p style="font-size: 0.62rem; color: var(--text-muted); margin: -8px 0 10px;">Dónde aparece este anuncio. Podés marcar más de uno.</p>
                         <div class="form-group">
                           <div id="ad-edit-placements" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px;">
-                            <button class="placement-btn" data-placement="top_banner">Arriba</button>
-                            <button class="placement-btn" data-placement="landing_popup">Bienvenida</button>
-                            <button class="placement-btn" data-placement="card_overlay">Flotante (Play)</button>
-                            <button class="placement-btn" data-placement="video_preroll">Preroll Video</button>
+                            <button class="placement-btn" data-placement="top_banner" title="Banner fijo arriba de todo, en la portada.">🔝 Arriba</button>
+                            <button class="placement-btn" data-placement="landing_popup" title="Ventanita que salta al entrar a la web, una sola vez por visita.">👋 Bienvenida</button>
+                            <button class="placement-btn" data-placement="card_overlay" title="Cartelito flotante sobre las tarjetas de películas.">🃏 Flotante (Play)</button>
+                            <button class="placement-btn" data-placement="video_preroll" title="LA VENTANITA ANTES DE VER LA PELI: se muestra al darle Reproducir, antes de que arranque el video.">🎬 Antes de la peli</button>
                           </div>
+                          <p style="font-size: 0.6rem; color: var(--text-muted); margin: 8px 0 0; line-height: 1.5;">
+                            💡 <b>“Antes de la peli”</b> es el aviso que se muestra al darle Reproducir, justo antes de que arranque el video (el <i>preroll</i>). Es el de mayor impacto y el que más se olvida que existe — pasá el mouse por cada botón para ver qué hace.
+                          </p>
                         </div>
                       </div>
 

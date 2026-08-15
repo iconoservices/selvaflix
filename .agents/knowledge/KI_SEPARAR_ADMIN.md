@@ -78,9 +78,10 @@ shareApp, showToast, toggleUserMenu, trackUserGeo, triggerLandingAd,
 watchSupportUnread
 ```
 
-> 👀 Ojo con `renderPlansList` y `renderAdCampaignList`: **suenan a admin pero las
-> ejecuta todo visitante** (las llaman `loadPlansConfig` y `loadAdConfig` al arrancar,
-> para la ventanita de Premium y para inyectar los anuncios).
+> 👀 `renderPlansList` y `renderAdCampaignList` estaban acá al medir: sonaban a admin
+> pero las ejecutaba todo visitante. **Ya se arregló** (commit `99efbcb`): se separó
+> "cargar datos" de "dibujar el panel", así que ahora son solo-admin de verdad y se
+> pueden mover. Ver la nota en cada una dentro de `main.js`.
 
 ### Solo admin confirmadas — seguras de mover (30)
 
@@ -100,13 +101,48 @@ Casi todas son de **Analíticas** (`loadMetrics`, `renderDayChart`, `renderGeoCh
 `_computeTimeBuckets`…), que además arrastra Chart.js. Es el mejor primer bloque a
 extraer.
 
-### Sin clasificar (~165)
+### Segunda pasada — auditoría más a fondo (misma fecha)
 
-Son las que están detrás de botones que no se apretaron en esa sesión. **No asumir
-nada de ellas**: la lista mezcla cosas públicas (`toggleMyList`, `selectProfile`,
-`claimFreeTrial`, `handleLogout`, `validatePinEntry`…) con cosas de admin
-(`nukeDatabase`, `grantPremium`, `massSeedMovies`…). Para clasificarlas hay que repetir
-la medición apretando esos botones.
+Se repitió la medición apretando muchos más botones en ambos lados:
+
+| | 1ª pasada | 2ª pasada |
+|---|---|---|
+| Públicas confirmadas | 37 | **56** |
+| Solo admin (no vistas en público) | 30 | **61** |
+| Sin clasificar | 165 | **91** |
+
+**Las 19 públicas nuevas** que aparecieron al usar perfiles, ajustes, PIN, Mi Lista y
+compartir: `applyProfile`, `closeAuthModal`, `closePinModal`, `closeWarningOverlay`,
+`dismissPremiumPromo`, `focusNextPin` (¡no!, ver abajo), `loadContinueWatching`,
+`loadProfiles`, `openAvatarPicker`, `renderProfiles`, `selectProfile`, `setYear`,
+`showAddProfile`, `showInstaller`, `showProfileSelector`, `showSettings`,
+`syncPlaybackProgress`, `toggleManageProfiles`, `toggleMyListModal`,
+`updateSettingsAccountInfo`.
+
+### ⚠️ El "solo admin" es una respuesta más débil que el "público"
+
+Ojo con la asimetría, es lo más importante de todo esto:
+
+- **"Se vio en público" es prueba fuerte** → esa función se queda, punto.
+- **"No se vio en público" NO prueba que sea de admin** → solo prueba que no se apretó
+  ese botón en esa sesión.
+
+Ejemplo real de la 2ª pasada: `requestPlanInterest` quedó listada como "solo admin",
+pero es el botón **"Quiero este plan"** que aprieta el usuario en la ventanita de
+Premium. Cayó ahí solo porque en la sesión pública no se hizo clic.
+
+**Regla práctica**: antes de mover algo de la lista "solo admin", leer su nombre y
+preguntarse "¿esto lo puede tocar un visitante?". Si hay la menor duda, no moverla o
+medirla de nuevo apretando ese botón puntual.
+
+### Las 91 sin clasificar
+
+Casi todas son acciones destructivas o de escritura que a propósito NO se ejecutaron en
+la auditoría (`nukeDatabase`, `deleteMovie`, `bulkDeleteMovies`, `grantPremium`,
+`massSeedMovies`, `savePlansConfig`, `sendAdminReply`, `uploadBannerArt`…). Por el
+nombre casi todas son de admin, pero **no están verificadas**. Hay excepciones claras
+que son públicas: `toggleMyList`, `handleLogout`, `validatePinEntry`, `forgotPin`,
+`detailShareMovie`, `reportBrokenLink`, `selectProfile`.
 
 ---
 

@@ -6007,3 +6007,189 @@ body.admin-locked {
   .consejo-movil { display: flex; }
   .consejo-escritorio { display: none; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ADS MANAGER — editor de campañas
+   .placement-btn y .day-btn no tenían ningún estilo: salían como botones
+   crudos del navegador. Acá viven junto al resto del editor.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.ad-editor-grid {
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .ad-editor-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+.ad-section {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 16px;
+  min-width: 0;
+}
+
+.ad-section-title {
+  font-size: 0.72rem;
+  color: var(--primary);
+  margin: 0 0 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 800;
+}
+
+.ad-hint {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  margin: 6px 0 0;
+  line-height: 1.5;
+}
+.ad-hint code {
+  background: rgba(255, 255, 255, 0.07);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 0.95em;
+}
+
+/* El script de la red suele ser largo: monoespaciado y sin ajuste de línea. */
+.ad-code-area {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.68rem;
+  line-height: 1.5;
+  white-space: pre;
+  overflow-x: auto;
+  resize: vertical;
+}
+
+/* --- Dónde aparece --- */
+.ad-placements { display: flex; flex-direction: column; gap: 8px; }
+
+.placement-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #ccc;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+.placement-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+.placement-btn .pl-ico { font-size: 1.05rem; line-height: 1; flex-shrink: 0; }
+.placement-btn .pl-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.placement-btn .pl-txt b { font-size: 0.72rem; font-weight: 800; }
+.placement-btn .pl-txt em {
+  font-style: normal;
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+/* Seleccionado: naranja de la marca, para que se lea de un vistazo cuáles están puestos. */
+.placement-btn.active {
+  background: rgba(255, 102, 0, 0.12);
+  border-color: var(--primary);
+  color: #fff;
+}
+.placement-btn.active .pl-txt em { color: rgba(255, 255, 255, 0.7); }
+.placement-btn.active::after {
+  content: '✓';
+  margin-left: auto;
+  color: var(--primary);
+  font-weight: 900;
+  flex-shrink: 0;
+}
+
+/* El preroll es el de mayor impacto: se marca aunque esté apagado. */
+.placement-star { border-style: dashed; }
+.placement-star.active { border-style: solid; }
+
+/* --- Días de la semana --- */
+.ad-days { display: flex; gap: 5px; margin-top: 6px; flex-wrap: wrap; }
+
+.day-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #888;
+  font-size: 0.7rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+.day-btn:hover { background: rgba(255, 255, 255, 0.07); color: #ccc; }
+.day-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #000;
+}
+
+/* --- Interruptor "Activa" (antes era un toggle pelado sin etiqueta) --- */
+.ad-active-switch {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  padding: 0 10px 0 4px;
+  height: 38px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+/* El .slider es position:absolute y necesita su .switch de 40x22 alrededor;
+   por eso va anidado y no suelto dentro de este flex. */
+.ad-active-switch .switch { flex-shrink: 0; }
+.ad-active-label {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #888;
+  white-space: nowrap;
+}
+.ad-active-switch:has(input:checked) .ad-active-label { color: #2ecc71; }
+
+.ad-btn-ghost {
+  height: 38px;
+  padding: 0 14px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  border-radius: 8px;
+  background: rgba(0, 242, 255, 0.06);
+  border: 1px solid rgba(0, 242, 255, 0.22);
+  color: #00f2ff;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ad-btn-ghost:hover { background: rgba(0, 242, 255, 0.12); }
+
+/* --- Estado vacío --- */
+.ad-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 320px;
+  border: 2px dashed rgba(255, 255, 255, 0.07);
+  padding: 30px;
+}
+.ad-empty-ico { font-size: 3rem; color: #3a3a3a; }
+.ad-empty-title { margin: 12px 0 6px; color: #888; font-weight: 700; font-size: 0.9rem; }
+.ad-empty-desc {
+  margin: 0;
+  color: #555;
+  font-size: 0.7rem;
+  line-height: 1.6;
+  max-width: 380px;
+}

@@ -1322,84 +1322,99 @@
                         <p style="font-size: 0.7rem; color: var(--text-muted); margin: 0;">ID: <span id="ad-edit-id">---</span></p>
                       </div>
                       
-                      <div style="display: flex; align-items: center; gap: 10px;">
-                        <button onclick="window.previewCurrentAd()" class="btn" style="background: rgba(0,242,255,0.05); border: 1px solid rgba(0,242,255,0.2); color: #00f2ff; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px;" title="Vista Previa">👁️</button>
-                        <button onclick="window.saveAdsCampaigns()" id="btn-save-ads" class="btn btn-primary" style="height: 40px; padding: 0 15px; font-weight: 800; font-size: 0.75rem;">💾 GUARDAR</button>
-                        <div style="display: flex; flex-direction: column; gap: 4px; align-items: center;">
-                          <label class="switch" style="transform: scale(0.8);">
+                      <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
+                        <label class="ad-active-switch" title="Prender o apagar esta campaña sin borrarla">
+                          <span class="switch" style="transform: scale(0.8);">
                             <input type="checkbox" id="ad-edit-active" style="display:none;">
                             <span class="slider round"></span>
-                          </label>
-                        </div>
-                        <button onclick="window.deleteCurrentCampaign()" class="btn btn-danger-outline" style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px;" title="Eliminar"><span class="material-symbols-outlined" style="font-size: 1.2rem;">delete</span></button>
+                          </span>
+                          <span class="ad-active-label">Activa</span>
+                        </label>
+                        <button onclick="window.previewCurrentAd()" class="btn ad-btn-ghost" title="Ver cómo queda antes de guardar">👁️ Probar</button>
+                        <button onclick="window.saveAdsCampaigns()" id="btn-save-ads" class="btn btn-primary" style="height: 38px; padding: 0 16px; font-weight: 800; font-size: 0.75rem;">💾 GUARDAR</button>
+                        <button onclick="window.deleteCurrentCampaign()" class="btn btn-danger-outline" style="width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; border-radius: 8px;" title="Eliminar campaña"><span class="material-symbols-outlined" style="font-size: 1.2rem;">delete</span></button>
                       </div>
                     </div>
 
-                    <div class="admin-grid" style="grid-template-columns: 1fr 1fr; gap: 20px;">
-                      <div>
-                        <h4 style="font-size: 0.75rem; color: var(--primary); margin-bottom: 15px; text-transform: uppercase;">⏰ Programación</h4>
+                    <div class="admin-grid ad-editor-grid">
+                      <!-- Columna ancha: lo que más se edita -->
+                      <div class="ad-section">
+                        <h4 class="ad-section-title">🎨 Contenido</h4>
                         <div class="form-group">
-                          <label style="font-size: 0.65rem;">Días de la Semana</label>
-                          <div id="ad-edit-days" style="display: flex; gap: 5px; margin-top: 5px;">
-                            <button class="day-btn" data-day="1">L</button>
-                            <button class="day-btn" data-day="2">M</button>
-                            <button class="day-btn" data-day="3">M</button>
-                            <button class="day-btn" data-day="4">J</button>
-                            <button class="day-btn" data-day="5">V</button>
-                            <button class="day-btn" data-day="6">S</button>
-                            <button class="day-btn" data-day="0">D</button>
-                          </div>
+                          <label style="font-size: 0.65rem;">Mensaje que ve el usuario</label>
+                          <textarea id="ad-edit-message" class="form-control" rows="2" placeholder="Ej: Mirá SelvaFlix sin cortes — hacete Premium"></textarea>
                         </div>
-
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
-                          <div class="form-group">
-                            <label style="font-size: 0.65rem;">Hora Inicio</label>
-                            <input type="number" id="ad-edit-start" class="form-control" min="0" max="23">
-                          </div>
-                          <div class="form-group">
-                            <label style="font-size: 0.65rem;">Hora Fin</label>
-                            <input type="number" id="ad-edit-end" class="form-control" min="0" max="23">
-                          </div>
-                        </div>
-
-                        <h4 style="font-size: 0.75rem; color: var(--primary); margin-bottom: 15px; text-transform: uppercase;">🎯 Ubicación</h4>
-                        <p style="font-size: 0.62rem; color: var(--text-muted); margin: -8px 0 10px;">Dónde aparece este anuncio. Podés marcar más de uno.</p>
                         <div class="form-group">
-                          <div id="ad-edit-placements" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px;">
-                            <button class="placement-btn" data-placement="top_banner" title="Banner fijo arriba de todo, en la portada.">🔝 Arriba</button>
-                            <button class="placement-btn" data-placement="landing_popup" title="Ventanita que salta al entrar a la web, una sola vez por visita.">👋 Bienvenida</button>
-                            <button class="placement-btn" data-placement="card_overlay" title="Cartelito flotante sobre las tarjetas de películas.">🃏 Flotante (Play)</button>
-                            <button class="placement-btn" data-placement="video_preroll" title="LA VENTANITA ANTES DE VER LA PELI: se muestra al darle Reproducir, antes de que arranque el video.">🎬 Antes de la peli</button>
-                          </div>
-                          <p style="font-size: 0.6rem; color: var(--text-muted); margin: 8px 0 0; line-height: 1.5;">
-                            💡 <b>“Antes de la peli”</b> es el aviso que se muestra al darle Reproducir, justo antes de que arranque el video (el <i>preroll</i>). Es el de mayor impacto y el que más se olvida que existe — pasá el mouse por cada botón para ver qué hace.
-                          </p>
+                          <label style="font-size: 0.65rem;">Script de la red / URL de la imagen</label>
+                          <textarea id="ad-edit-media" class="form-control ad-code-area" rows="9" spellcheck="false" placeholder="Pegá acá el &lt;script&gt; de Adsterra/Monetag, o la URL de tu imagen si es un anuncio propio."></textarea>
+                          <p class="ad-hint">Si pegás un <code>&lt;script&gt;</code> se inyecta tal cual. Si ponés una URL de imagen, se muestra como banner propio.</p>
+                        </div>
+                        <div class="form-group" style="margin-bottom:0;">
+                          <label style="font-size: 0.65rem;">Enlace al que lleva el clic</label>
+                          <input type="url" id="ad-edit-link" class="form-control" placeholder="https://...">
+                          <p class="ad-hint">Solo para anuncios propios. Los scripts de red manejan su propio destino.</p>
                         </div>
                       </div>
 
-                      <div>
-                        <h4 style="font-size: 0.75rem; color: var(--primary); margin-bottom: 15px; text-transform: uppercase;">🎨 Contenido</h4>
-                        <div class="form-group">
-                          <label style="font-size: 0.65rem;">Mensaje</label>
-                          <textarea id="ad-edit-message" class="form-control" rows="2"></textarea>
+                      <!-- Columna angosta: se toca menos -->
+                      <div style="display:flex; flex-direction:column; gap:16px; min-width:0;">
+                        <div class="ad-section">
+                          <h4 class="ad-section-title">🎯 Dónde aparece</h4>
+                          <p class="ad-hint" style="margin-top:-6px;">Podés marcar más de uno.</p>
+                          <div id="ad-edit-placements" class="ad-placements">
+                            <button class="placement-btn" data-placement="top_banner" title="Banner fijo arriba de todo, en la portada.">
+                              <span class="pl-ico">🔝</span>
+                              <span class="pl-txt"><b>Arriba</b><em>Banner fijo en la portada</em></span>
+                            </button>
+                            <button class="placement-btn" data-placement="landing_popup" title="Ventanita que salta al entrar a la web, una sola vez por visita.">
+                              <span class="pl-ico">👋</span>
+                              <span class="pl-txt"><b>Bienvenida</b><em>Al entrar, 1 vez por visita</em></span>
+                            </button>
+                            <button class="placement-btn" data-placement="card_overlay" title="Cartelito flotante sobre las tarjetas de películas.">
+                              <span class="pl-ico">🃏</span>
+                              <span class="pl-txt"><b>Flotante</b><em>Sobre las tarjetas</em></span>
+                            </button>
+                            <button class="placement-btn placement-star" data-placement="video_preroll" title="Se muestra al darle Reproducir, antes de que arranque el video.">
+                              <span class="pl-ico">🎬</span>
+                              <span class="pl-txt"><b>Antes de la peli ⭐</b><em>Al darle Reproducir — el de mayor impacto</em></span>
+                            </button>
+                          </div>
                         </div>
-                        <div class="form-group">
-                          <label style="font-size: 0.65rem;">URL de Medios / Script</label>
-                          <textarea id="ad-edit-media" class="form-control" rows="3"></textarea>
-                        </div>
-                        <div class="form-group">
-                          <label style="font-size: 0.65rem;">Enlace de Destino (Click-through)</label>
-                          <input type="url" id="ad-edit-link" class="form-control">
+
+                        <div class="ad-section">
+                          <h4 class="ad-section-title">⏰ Cuándo se muestra</h4>
+                          <div class="form-group">
+                            <label style="font-size: 0.65rem;">Días de la semana</label>
+                            <div id="ad-edit-days" class="ad-days">
+                              <button class="day-btn" data-day="1">L</button>
+                              <button class="day-btn" data-day="2">M</button>
+                              <button class="day-btn" data-day="3">M</button>
+                              <button class="day-btn" data-day="4">J</button>
+                              <button class="day-btn" data-day="5">V</button>
+                              <button class="day-btn" data-day="6">S</button>
+                              <button class="day-btn" data-day="0">D</button>
+                            </div>
+                          </div>
+                          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <div class="form-group" style="margin-bottom:0;">
+                              <label style="font-size: 0.65rem;">Desde (hora)</label>
+                              <input type="number" id="ad-edit-start" class="form-control" min="0" max="23" placeholder="0">
+                            </div>
+                            <div class="form-group" style="margin-bottom:0;">
+                              <label style="font-size: 0.65rem;">Hasta (hora)</label>
+                              <input type="number" id="ad-edit-end" class="form-control" min="0" max="23" placeholder="23">
+                            </div>
+                          </div>
+                          <p class="ad-hint">Dejalo en 0 y 23 para que se muestre todo el día.</p>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div id="ad-campaign-empty" class="admin-card" style="display: flex; align-items: center; justify-content: center; height: 300px; border: 2px dashed rgba(255,255,255,0.05);">
-                    <div style="text-align: center; color: #444;">
-                      <span class="material-symbols-outlined" style="font-size: 3rem;">payments</span>
-                      <p style="margin-top: 10px;">Selecciona una campaña o crea una nueva.</p>
-                    </div>
+                  <div id="ad-campaign-empty" class="admin-card ad-empty">
+                    <span class="material-symbols-outlined ad-empty-ico">payments</span>
+                    <p class="ad-empty-title">Elegí una campaña de la izquierda</p>
+                    <p class="ad-empty-desc">…o creá una nueva. Con <b>“Importar Scripts de Red”</b> se cargan solas las de Monetag y compañía; con <b>“+ Nueva Campaña”</b> armás un anuncio tuyo a mano.</p>
                   </div>
                 </div>
               </div>

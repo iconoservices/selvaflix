@@ -1923,6 +1923,7 @@ window.switchAdminTab = (tab) => {
     if (typeof window.loadAdConfig === 'function') window.loadAdConfig();
   } else if (tab === 'plans') {
     if (typeof window.loadPlansConfig === 'function') window.loadPlansConfig();
+    if (typeof window.loadFreeTrialConfig === 'function') window.loadFreeTrialConfig();
   } else if (tab === 'users') {
     if (typeof window.loadRegisteredUsers === 'function') window.loadRegisteredUsers();
   } else if (tab === 'messages') {
@@ -2754,6 +2755,98 @@ window.saveGlobalWhatsapp = async () => {
     }
 };
 
+// --- Prueba gratis de Premium (auto-servicio) 🎁 ---
+// El usuario se activa solo un pase temporal a premium desde la ventanita de
+// planes, con la cadencia y duración que el admin definió acá. Se guarda
+// aparte (configs/freeTrial) porque no es un plan sino una promo transversal.
+window.freeTrialConfig = { active: false, durationDays: 1, cadenceDays: 30 };
+
+window.loadFreeTrialConfig = async () => {
+    try {
+        const docSnap = await getDoc(doc(db, "configs", "freeTrial"));
+        const data = docSnap.exists() ? docSnap.data() : {};
+        window.freeTrialConfig = {
+            active: !!data.active,
+            durationDays: data.durationDays || 1,
+            cadenceDays: data.cadenceDays || 30
+        };
+        const activeInput = document.getElementById('free-trial-active');
+        const durationInput = document.getElementById('free-trial-duration');
+        const cadenceInput = document.getElementById('free-trial-cadence');
+        if (activeInput) activeInput.checked = window.freeTrialConfig.active;
+        if (durationInput) durationInput.value = window.freeTrialConfig.durationDays;
+        if (cadenceInput) cadenceInput.value = window.freeTrialConfig.cadenceDays;
+    } catch (e) {
+        console.error("❌ Error cargando config de prueba gratis:", e);
+    }
+};
+
+window.saveFreeTrialConfig = async () => {
+    const active = document.getElementById('free-trial-active')?.checked || false;
+    const durationDays = Math.max(1, parseInt(document.getElementById('free-trial-duration')?.value, 10) || 1);
+    const cadenceDays = Math.max(1, parseInt(document.getElementById('free-trial-cadence')?.value, 10) || 1);
+    try {
+        window.freeTrialConfig = { active, durationDays, cadenceDays };
+        await setDoc(doc(db, "configs", "freeTrial"), window.freeTrialConfig);
+        if (window.showToast) window.showToast("✅ Prueba gratis actualizada.", "success");
+    } catch (e) {
+        console.error("Error guardando config de prueba gratis:", e);
+        if (window.showToast) window.showToast("❌ Error al guardar la prueba gratis.", "error");
+    }
+};
+
+// El usuario reclama su pase temporal. El respeto de la cadencia se valida
+// acá mismo contra users/{uid}.lastFreeTrialAt — no hay backend propio.
+window.claimFreeTrial = async () => {
+    const cfg = window.freeTrialConfig || {};
+    if (!cfg.active) return;
+
+    const user = auth.currentUser;
+    if (!user) {
+        window.closePremiumModal();
+        if (window.showToast) window.showToast('Inicia sesión para probar Premium 🐒', 'primary');
+        const authModal = document.getElementById('auth-modal');
+        if (authModal) authModal.style.display = 'flex';
+        return;
+    }
+
+    try {
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
+        const userData = userSnap.exists() ? userSnap.data() : {};
+        const now = Date.now();
+        const cadenceMs = cfg.cadenceDays * 24 * 60 * 60 * 1000;
+
+        if (userData.lastFreeTrialAt && (now - userData.lastFreeTrialAt) < cadenceMs) {
+            const nextDate = new Date(userData.lastFreeTrialAt + cadenceMs).toLocaleDateString();
+            if (window.showToast) window.showToast(`Ya usaste tu prueba gratis. Podés volver a usarla el ${nextDate}.`, 'info');
+            return;
+        }
+
+        const durationMs = cfg.durationDays * 24 * 60 * 60 * 1000;
+        await setDoc(userRef, { tier: 'premium', premiumUntil: now + durationMs, lastFreeTrialAt: now }, { merge: true });
+        await window.refreshUserTier(user.uid);
+        window.closePremiumModal();
+        if (window.showToast) window.showToast(`🎁 ¡Listo! Premium activado por ${cfg.durationDays} día${cfg.durationDays > 1 ? 's' : ''}.`, 'success');
+    } catch (e) {
+        console.error('Error activando prueba gratis:', e);
+        if (window.showToast) window.showToast('No se pudo activar la prueba gratis. Intenta de nuevo.', 'error');
+    }
+};
+
+window.renderFreeTrialBanner = (isAlreadyPaid) => {
+    const banner = document.getElementById('free-trial-banner');
+    if (!banner) return;
+    const cfg = window.freeTrialConfig || {};
+    if (!cfg.active || isAlreadyPaid) {
+        banner.style.display = 'none';
+        return;
+    }
+    const text = document.getElementById('free-trial-banner-text');
+    if (text) text.innerText = `${cfg.durationDays} día${cfg.durationDays > 1 ? 's' : ''} de acceso VIP sin costo, hasta una vez cada ${cfg.cadenceDays} días.`;
+    banner.style.display = 'flex';
+};
+
 // El plan Gratuito antes era una tarjeta fija en el código (no se veía ni
 // se podía tocar desde el admin). Ahora es un plan más con id fijo 'free' —
 // se autogenera la primera vez si no existe todavía, así el admin puede
@@ -2960,6 +3053,7 @@ window.openPremiumModal = (movie) => {
             : (isAlreadyPaid ? 'Estos son los beneficios de tu plan actual.' : 'Sin publicidad, acceso VIP y más.');
     }
     window.renderPremiumPlansGrid();
+    if (typeof window.renderFreeTrialBanner === 'function') window.renderFreeTrialBanner(isAlreadyPaid);
     const modal = document.getElementById('premium-plans-modal');
     if (modal) modal.style.display = 'flex';
 };
@@ -8544,6 +8638,7 @@ document.addEventListener('DOMContentLoaded', () => {
   window.loadAdConfig();
   // 💎 Cargar Planes Premium (para la ventanita de invitación y el modal público)
   window.loadPlansConfig();
+  window.loadFreeTrialConfig();
 
   // 🔍 Buscador Global - el listener que faltaba!
   const globalSearch = document.getElementById('global-search');

@@ -21,48 +21,19 @@ export default {
         }
 
         try {
-            // --- 🎥 RUTA: SELVAFLIX (Intelligent Debrid Logic) ---
-            // ⚠️ EN DESUSO (2026-07): Real-Debrid ya no se usa (ni contratado). La app
-            // ya no llama /flix/unrestrict. Se conserva por si se reactiva RD. No borrar.
-            if (url.pathname === '/flix/unrestrict') {
-                const magnet = url.searchParams.get('magnet');
-                // 1. Añadir Magnet
-                const addResp = await fetch('https://api.real-debrid.com/rest/1.0/torrents/addMagnet', { method: 'POST', headers: { 'Authorization': `Bearer ${env.RD_API_KEY}` }, body: new URLSearchParams({ magnet }) });
-                const addData = await addResp.json();
-
-                // 2. Obtener info para seleccionar el archivo correcto
-                const infoResp = await fetch(`https://api.real-debrid.com/rest/1.0/torrents/info/${addData.id}`, { headers: { 'Authorization': `Bearer ${env.RD_API_KEY}` } });
-                const infoData = await infoResp.json();
-
-                // 3. Filtro Anti-MKV: Prioridad absoluta a MP4, luego al más pesado
-                const videoFiles = infoData.files.filter(f => f.path.match(/\.(mp4|mkv|avi|mov)$/i));
-                const mainFile = videoFiles.sort((a, b) => {
-                    const isAMp4 = a.path.toLowerCase().endsWith('.mp4');
-                    const isBMp4 = b.path.toLowerCase().endsWith('.mp4');
-                    if (isAMp4 && !isBMp4) return -1;
-                    if (!isAMp4 && isBMp4) return 1;
-                    return b.bytes - a.bytes;
-                })[0];
-
-                if (!mainFile) return new Response(JSON.stringify({ error: 'No se encontró video' }), { headers: corsHeaders });
-
-                await fetch(`https://api.real-debrid.com/rest/1.0/torrents/selectFiles/${addData.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${env.RD_API_KEY}` }, body: new URLSearchParams({ files: mainFile.id }) });
-
-                // 4. Esperar y obtener el link final de descarga
-                const updatedInfo = await fetch(`https://api.real-debrid.com/rest/1.0/torrents/info/${addData.id}`, { headers: { 'Authorization': `Bearer ${env.RD_API_KEY}` } }).then(r => r.json());
-
-                if (!updatedInfo.links || updatedInfo.links.length === 0) return new Response(JSON.stringify({ status: 'waiting', msg: 'Descargando en servidor...' }), { headers: corsHeaders });
-
-                const finalResp = await fetch('https://api.real-debrid.com/rest/1.0/unrestrict/link', { method: 'POST', headers: { 'Authorization': `Bearer ${env.RD_API_KEY}` }, body: new URLSearchParams({ link: updatedInfo.links[0] }) });
-                const finalData = await finalResp.json();
-
-                return new Response(JSON.stringify({
-                    url: finalData.download,
-                    title: finalData.filename,
-                    size: (mainFile.bytes / (1024 ** 3)).toFixed(2) + ' GB',
-                    type: 'direct'
-                }), { headers: corsHeaders });
-            }
+            // ═══════════════════════════════════════════════════════════════
+            //  RUTAS /flix/*  →  las usa SelvaFlix
+            //  (más abajo están las /beat/* y /img, que son de OTRA app —
+            //   ojo al tocarlas, no dependen de SelvaFlix)
+            // ═══════════════════════════════════════════════════════════════
+            //
+            // 📌 2026-08-15: se eliminó /flix/unrestrict, el puente a Real-Debrid.
+            // Real-Debrid ya no está contratado y SelvaFlix dejó de llamarlo (ninguna
+            // fuente genera `infoHash`). Queda en el historial de git por si acaso.
+            //
+            // ⚠️ NO borres el secreto RD_API_KEY de Cloudflare: /beat/stream (la otra
+            // app) todavía lo usa, y está escrito para funcionar igual si la clave no
+            // responde (cae a Cobalt), así que su fallo sería silencioso.
 
             // --- 🎬 RUTA: DIPELIS (Extractor de link directo) ---
             // DiPelis no es un embed listo para reproducir: su página completa
@@ -360,6 +331,12 @@ export default {
                 }
                 return new Response(JSON.stringify(data), { status: r.status, headers: corsHeaders });
             }
+
+            // ═══════════════════════════════════════════════════════════════
+            //  RUTAS /beat/* y /img  →  NO son de SelvaFlix (otra app, YouTube).
+            //  Este worker está compartido: borrar algo de acá rompe ese
+            //  proyecto, no este. Verificar antes de tocar.
+            // ═══════════════════════════════════════════════════════════════
 
             // --- 🛡️ RUTA: BÚNKER (Túnel de Descarga) ---
             // Esta ruta permite que el navegador descargue el binario sin errores de CORS.

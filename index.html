@@ -1424,34 +1424,6 @@
                   <div id="plan-list" style="display: flex; flex-direction: column; gap: 5px;">
                     <!-- Inyectado dinámicamente -->
                   </div>
-
-                  <div style="margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.05);">
-                    <p style="font-size: 0.6rem; color: #555; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">📱 WhatsApp general</p>
-                    <p style="font-size: 0.6rem; color: var(--text-muted); margin: 0 0 8px;">Opcional. Se usa para cualquier plan que no tenga su propio WhatsApp cargado.</p>
-                    <div style="display: flex; gap: 6px;">
-                      <input type="text" id="plans-global-whatsapp" class="form-control" placeholder="Ej: 5493511234567" style="flex: 1; min-width: 0;">
-                      <button onclick="window.saveGlobalWhatsapp()" class="btn btn-primary" style="padding: 0 12px; font-size: 0.7rem;">💾</button>
-                    </div>
-                  </div>
-
-                  <div style="margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.05);">
-                    <p style="font-size: 0.6rem; color: #555; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">🎁 Prueba gratis</p>
-                    <label style="display:flex; align-items:center; gap:6px; font-size:0.7rem; color:#ccc; cursor:pointer; margin-bottom: 10px;">
-                      <input type="checkbox" id="free-trial-active"> Activada
-                    </label>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
-                      <div class="form-group" style="margin-bottom:0;">
-                        <label style="font-size: 0.6rem;">Dura (días)</label>
-                        <input type="number" min="1" id="free-trial-duration" class="form-control" value="1">
-                      </div>
-                      <div class="form-group" style="margin-bottom:0;">
-                        <label style="font-size: 0.6rem;">Cada (días)</label>
-                        <input type="number" min="1" id="free-trial-cadence" class="form-control" value="30">
-                      </div>
-                    </div>
-                    <p style="font-size: 0.6rem; color: var(--text-muted); margin: 0 0 8px;">Ej: dura 1 día, cada 7 días = 1 día gratis por semana. El usuario lo activa solo desde la ventanita de planes.</p>
-                    <button onclick="window.saveFreeTrialConfig()" class="btn btn-primary" style="width: 100%; font-size: 0.7rem;">💾 Guardar</button>
-                  </div>
                 </div>
 
                 <!-- Editor de Plan -->
@@ -1534,6 +1506,43 @@
                     <div style="text-align: center; color: #444;">
                       <span class="material-symbols-outlined" style="font-size: 3rem;">workspace_premium</span>
                       <p style="margin-top: 10px;">Selecciona un plan o crea uno nuevo.</p>
+                    </div>
+                  </div>
+
+                  <!-- Ajustes que valen para TODOS los planes, no para el que estés editando -->
+                  <div class="admin-card" style="margin-top: 20px;">
+                    <h2 class="admin-title" style="margin-bottom: 4px;">⚙️ Ajustes generales</h2>
+                    <p style="font-size: 0.7rem; color: var(--text-muted); margin: 0 0 18px;">Valen para todos los planes, no para el que estés editando.</p>
+
+                    <div class="admin-grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px;">
+                      <div>
+                        <h4 style="font-size: 0.75rem; color: var(--primary); margin-bottom: 12px; text-transform: uppercase;">📱 WhatsApp general</h4>
+                        <div class="form-group">
+                          <label style="font-size: 0.65rem;">Número (opcional)</label>
+                          <input type="text" id="plans-global-whatsapp" class="form-control" placeholder="Ej: 5493511234567 (con código de país, sin +)">
+                          <p style="font-size: 0.6rem; color: var(--text-muted); margin: 6px 0 0;">Se usa para cualquier plan que no tenga su propio WhatsApp cargado. Si no cargás ninguno, los pedidos van al chat de soporte.</p>
+                        </div>
+                        <button onclick="window.saveGlobalWhatsapp()" class="btn btn-primary" style="margin-top: 12px; font-size: 0.7rem;">💾 Guardar WhatsApp</button>
+                      </div>
+
+                      <div>
+                        <h4 style="font-size: 0.75rem; color: var(--primary); margin-bottom: 12px; text-transform: uppercase;">🎁 Prueba gratis</h4>
+                        <label style="display:flex; align-items:center; gap:6px; font-size:0.7rem; color:#ccc; cursor:pointer; margin-bottom: 14px;">
+                          <input type="checkbox" id="free-trial-active"> Activada
+                        </label>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                          <div class="form-group">
+                            <label style="font-size: 0.65rem;">Dura (días)</label>
+                            <input type="number" min="1" id="free-trial-duration" class="form-control" value="1">
+                          </div>
+                          <div class="form-group">
+                            <label style="font-size: 0.65rem;">Se repite cada (días)</label>
+                            <input type="number" min="1" id="free-trial-cadence" class="form-control" value="30">
+                          </div>
+                        </div>
+                        <p style="font-size: 0.6rem; color: var(--text-muted); margin: 0;">Ej: dura 1 día, cada 7 = un día gratis por semana. El usuario se la activa solo desde la ventanita de planes.</p>
+                        <button onclick="window.saveFreeTrialConfig()" class="btn btn-primary" style="margin-top: 12px; font-size: 0.7rem;">💾 Guardar prueba gratis</button>
+                      </div>
                     </div>
                   </div>
                 </div>

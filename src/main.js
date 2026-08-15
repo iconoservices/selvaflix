@@ -2747,7 +2747,9 @@ window.saveGlobalWhatsapp = async () => {
     const raw = (document.getElementById('plans-global-whatsapp')?.value || '').trim().replace(/[^\d]/g, '');
     try {
         window.plansGlobalWhatsapp = raw;
-        await setDoc(doc(db, "configs", "plans"), { plans: window.plansConfig || [], whatsapp: raw }, { merge: true });
+        // Solo el campo whatsapp: escribir también los planes acá guardaría sin
+        // querer un plan recién creado que todavía se está editando.
+        await setDoc(doc(db, "configs", "plans"), { whatsapp: raw }, { merge: true });
         if (window.showToast) window.showToast("✅ WhatsApp general actualizado.", "success");
     } catch (e) {
         console.error("Error guardando WhatsApp general:", e);
@@ -2816,6 +2818,16 @@ window.claimFreeTrial = async () => {
         const userData = userSnap.exists() ? userSnap.data() : {};
         const now = Date.now();
         const cadenceMs = cfg.cadenceDays * 24 * 60 * 60 * 1000;
+
+        // El banner ya viene oculto para premium/admin, pero si igual se llega
+        // acá no hay que escribir: a un admin lo degradaría a premium, y a
+        // alguien que pagó le acortaría la suscripción a los días de prueba.
+        const hasActivePremium = userData.tier === 'admin'
+            || (userData.tier === 'premium' && (!userData.premiumUntil || userData.premiumUntil > now));
+        if (hasActivePremium) {
+            if (window.showToast) window.showToast('Ya tenés acceso Premium activo 💎', 'info');
+            return;
+        }
 
         if (userData.lastFreeTrialAt && (now - userData.lastFreeTrialAt) < cadenceMs) {
             const nextDate = new Date(userData.lastFreeTrialAt + cadenceMs).toLocaleDateString();
@@ -3026,7 +3038,9 @@ window.savePlansConfig = async () => {
     }
 
     try {
-        await setDoc(doc(db, "configs", "plans"), { plans: window.plansConfig || [] });
+        // merge: true para no pisar el resto del documento (ej: el WhatsApp
+        // general, que se guarda aparte con su propio botón).
+        await setDoc(doc(db, "configs", "plans"), { plans: window.plansConfig || [] }, { merge: true });
         if (window.showToast) window.showToast("✅ Planes actualizados en la selva.", "success");
         window.renderPlansList();
         if (typeof window.maybeShowPremiumPromo === 'function') window.maybeShowPremiumPromo();

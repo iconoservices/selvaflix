@@ -2050,6 +2050,10 @@ window.loadAdConfig = async () => {
     }
 };
 
+// ⚠️ TRAMPA — parece de admin (dibuja la lista de campañas del panel) pero se ejecuta
+// para TODO VISITANTE: la llama loadAdConfig(), que corre en el arranque para inyectar
+// los anuncios. NO mover a un módulo solo-admin.
+// Verificado midiendo en vivo el 2026-08-15. Ver .agents/knowledge/KI_SEPARAR_ADMIN.md
 window.renderAdCampaignList = () => {
     const list = document.getElementById('ad-campaign-list');
     if (!list) return;
@@ -2869,6 +2873,10 @@ window.ensureFreePlanExists = () => {
     });
 };
 
+// ⚠️ TRAMPA — parece de admin (dibuja la lista de planes del panel) pero se ejecuta
+// para TODO VISITANTE: la llama loadPlansConfig(), que corre en el arranque para
+// poder mostrar la ventanita de Premium. NO mover a un módulo solo-admin.
+// Verificado midiendo en vivo el 2026-08-15. Ver .agents/knowledge/KI_SEPARAR_ADMIN.md
 window.renderPlansList = () => {
     const list = document.getElementById('plan-list');
     if (!list) return;
@@ -3301,6 +3309,28 @@ window.handleSmartDate = (type) => {
     document.getElementById('metrics-end-date').value = lastDayOfMonth.toISOString().split('T')[0];
   }
 };
+
+// ╔═══════════════════════════════════════════════════════════════════════════╗
+// ║ 📦 BLOQUE ANALÍTICAS — CANDIDATO Nº1 A EXTRAER A SU PROPIO MÓDULO         ║
+// ╠═══════════════════════════════════════════════════════════════════════════╣
+// ║ Verificado midiendo en vivo (2026-08-15): estas funciones NO se ejecutan  ║
+// ║ nunca para un visitante normal, solo al entrar a #admin → Analíticas.     ║
+// ║ Son las candidatas más seguras para mover a un módulo de carga diferida:  ║
+// ║                                                                           ║
+// ║   _computeTimeBuckets        _computeMetricsRangeForPreset                ║
+// ║   _applyMetricsRangeFromState  _updateMetricsRangeLabel                   ║
+// ║   initMetricsSelectors       applyMetricsFilters                          ║
+// ║   setMetricsPreset           shiftMetricsRange                            ║
+// ║   setDayChartMode            loadMetrics                                  ║
+// ║   renderDayChart             renderGeoChart (está allá por la línea 5900) ║
+// ║                                                                           ║
+// ║ Bonus: se llevaría también Chart.js, que hoy carga para todo el mundo.    ║
+// ║ El bloque termina cerca de la línea 3620 (fin de loadMetrics).            ║
+// ║                                                                           ║
+// ║ ⚠️ Antes de mover CUALQUIER otra cosa, leer                               ║
+// ║    .agents/knowledge/KI_SEPARAR_ADMIN.md — ahí está explicado por qué     ║
+// ║    mirar el código quieto da resultados FALSOS en este proyecto.          ║
+// ╚═══════════════════════════════════════════════════════════════════════════╝
 
 // Agrupa un rango de fechas en buckets de día/semana/mes según su duración,
 // para que "Actividad por Día" siga siendo legible en rangos largos (ej. "Este año"
@@ -6893,6 +6923,10 @@ window.closePlayer = () => {
 };
 
 // Exported Actions
+// 🔴 100% PÚBLICA — es el clic de CADA tarjeta de película de la portada.
+// Un análisis estático la marcó como "solo admin" (porque la única referencia en el
+// index.html cae dentro de #admin-view); en realidad se genera 12 veces desde
+// plantillas de JS que el grep no ve. Moverla deja la home sin tarjetas. NO MOVER.
 window.handleCardClick = (id) => {
     // Buscar la película para hacer un slug URL limpio
     const movie = movieDatabase?.trending?.find(m => m.id === id);
@@ -9184,6 +9218,10 @@ window.setDownloadUrlFromDrawer = async () => {
 });
 
 // --- SISTEMA DE USUARIOS & PERFILES (Fase 6) ---
+// 🔴 PÚBLICO. Aunque quede pegado al bloque de herramientas de admin (Discovery &
+// Seeding, más arriba), todo esto es del sitio de cara al usuario: menú de usuario,
+// cerrar sesión, perfiles y PIN. Los encabezados de sección de este archivo NO
+// coinciden con la frontera admin/público — cortar "por sección" rompe el logout.
 let _currentProfile = null;
 const provider = new GoogleAuthProvider();
 

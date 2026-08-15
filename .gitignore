@@ -12,7 +12,21 @@ dist
 dist-ssr
 *.local
 
+# Taller local: pruebas, grabaciones de bugs y respaldos a mano.
+# Nada de esto se sube ni se despliega — OJO: todo lo que entre a public/
+# Vite lo copia tal cual a dist/, así que los archivos pesados van acá.
+_local/
+scratch_*.js
+*.bak
+
+# Volcados de debug (git ya guarda el historial, no hace falta versionarlos)
+diff*.txt
+full_log*.txt
+log_player*.txt
+reflog.txt
+
 # Editor directories and files
+.claude/
 .vscode/*
 !.vscode/extensions.json
 .idea

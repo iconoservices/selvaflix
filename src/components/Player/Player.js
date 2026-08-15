@@ -6,12 +6,11 @@
 
 export const SelvaStream = {
     currentPlayerMovie: null,
-    torrentClient: null,
     hls: null,
     lastScrapedStreams: [],
     showTraditional: false,
-    // ⚠️ EN DESUSO: worker + token solo los usa callMasterWorker (Real-Debrid),
-    // que ya no se usa. Se conservan por si se reactiva Real-Debrid. No borrar.
+    // El túnel propio: lo usan /flix/check, /flix/dipelis y /flix/vimeus-catalog
+    // para chequear fuentes y traer catálogo sin toparse con CORS.
     MASTER_WORKER_URL: 'https://icono-proxy.jnmcsky.workers.dev', // IconoServices Master Tunnel
     AUTH_TOKEN: import.meta.env.VITE_AUTH_TOKEN || localStorage.getItem('iconoservices_token') || '', // Token cargado desde Vercel (Seguridad)
     
@@ -107,11 +106,6 @@ export const SelvaStream = {
                         <video id="native-video-player" style="width: 100%; height: 100%; background: #000;" controls playsinline webkit-playsinline></video>
                     </div>
                     
-                    <div id="webtorrent-status" style="display:none; position:absolute; bottom:20px; left:20px; background:rgba(0,0,0,0.8); padding:10px; border-radius:8px; color:#fff; font-size:12px; z-index:100; border: 1px solid var(--primary);">
-                        <div style="color:var(--primary); font-weight:bold; margin-bottom:5px;">🕸️ Conectando a la red P2P...</div>
-                        <div id="wt-progress">Buscando semillas...</div>
-                    </div>
-
                     <!-- Aviso: doble toque/clic sobre el video abre el reproductor
                          de pantalla completa del proveedor. Se muestra unos segundos
                          al abrir en AMBAS vistas (celular y escritorio). -->
@@ -918,7 +912,6 @@ export const SelvaStream = {
         const modal = document.getElementById('player-modal');
         const iframe = document.getElementById('player-iframe');
         const nativePlayer = document.getElementById('native-video-player');
-        const statusDiv = document.getElementById('webtorrent-status');
 
         // Sin esto el vigilante seguía corriendo y hacía saltar de servidor
         // con el reproductor ya cerrado.
@@ -934,21 +927,12 @@ export const SelvaStream = {
             nativePlayer.load();
         }
 
-        if (statusDiv) statusDiv.style.display = 'none';
-
         const dynamicSources = document.getElementById('vip-dynamic-container');
         if (dynamicSources) dynamicSources.style.display = 'none';
 
         if (this.hls) {
             this.hls.destroy();
             this.hls = null;
-        }
-
-        if (this.torrentClient) {
-            try {
-                this.torrentClient.destroy();
-            } catch (e) { }
-            this.torrentClient = null;
         }
 
         document.body.style.overflow = ''; // Restaurar scroll
@@ -1337,7 +1321,6 @@ export const SelvaStream = {
         const startScreen = document.getElementById('player-start-screen');
         const iframe = document.getElementById('player-iframe');
         const loader = document.getElementById('player-loader');
-        const statusDiv = document.getElementById('webtorrent-status');
         const nativeContainer = document.getElementById('native-player-container');
         const nativePlayer = document.getElementById('native-video-player');
 
@@ -1347,7 +1330,6 @@ export const SelvaStream = {
             loader.style.display = 'flex';
             loader.style.opacity = '1';
         }
-        if (statusDiv) statusDiv.style.display = 'none';
         if (nativeContainer) nativeContainer.style.display = 'none';
         if (nativePlayer) nativePlayer.pause();
 
@@ -1455,18 +1437,10 @@ export const SelvaStream = {
         const startScreen = document.getElementById('player-start-screen');
         const nativePlayer = document.getElementById('native-video-player');
         const iframe = document.getElementById('player-iframe');
-        const statusDiv = document.getElementById('webtorrent-status');
 
         if (startScreen) startScreen.style.display = 'none';
-        
-        // 1. MOTOR P2P (Torrents)
-        if (stream.infoHash) {
-            if (loader) loader.style.display = 'flex';
-            this.handleP2PStream(stream);
-            return;
-        }
 
-        // 2. MOTOR DIRECTO / EMBED (URLs)
+        // MOTOR DIRECTO / EMBED (URLs)
         if (stream.url) {
             if (loader) loader.style.display = 'none';
             let finalUrl = stream.url;
@@ -1483,8 +1457,7 @@ export const SelvaStream = {
             if (isDirectVideo) {
                 // Modo Video Nativo
                 iframe.style.display = 'none';
-                if (statusDiv) statusDiv.style.display = 'none';
-                
+
                 const nativeContainer = document.getElementById('native-player-container');
                 if (nativeContainer) nativeContainer.style.display = 'block';
                 nativePlayer.style.display = 'block';
@@ -1522,7 +1495,6 @@ export const SelvaStream = {
                 // setIframeSource clona el iframe, así que el onload que se puso
                 // en init() se pierde: el vigilante va sobre el elemento nuevo.
                 this.vigilarCarga(window.setIframeSource('player-iframe', finalUrl), stream);
-                if (statusDiv) statusDiv.style.display = 'none';
             }
         }
     },
@@ -1606,106 +1578,6 @@ export const SelvaStream = {
             banner.onclick = () => window.open(ad.link, '_blank');
         }
     },
-
-    // ⚠️ EN DESUSO (2026-07): puente a Real-Debrid vía el worker para des-restringir
-    // magnets/torrents a enlace directo. Real-Debrid ya no está contratado y los
-    // torrents se retiraron, así que NADIE llega aquí (solo se invocaba cuando una
-    // fuente traía `infoHash`, cosa que ya no ocurre). Se conserva por si algún día
-    // se vuelve a contratar Real-Debrid; no borrar.
-    async callMasterWorker(infoHash, attempt = 1) {
-        try {
-            const magnet = `magnet:?xt=urn:btih:${infoHash}`;
-            const role = 'admin';
-
-            const url = `${this.MASTER_WORKER_URL}/flix/unrestrict?magnet=${encodeURIComponent(magnet)}&role=${role}`;
-
-            const res = await fetch(url, {
-                headers: { 'x-selva-auth': this.AUTH_TOKEN }
-            });
-
-            if (!res.ok) throw new Error(`HTTP_${res.status}`);
-            const data = await res.json();
-
-            // 🚀 SISTEMA P2P / PÚBLICO (Sin esperas de Debrid)
-            if (data.status === 'waiting') {
-                console.log(`[Búnker] Archivo en proceso o requiere intervención.`);
-            }
-            return data;
-        } catch (error) {
-            console.error('[Worker Connection Error]', error);
-            return { error: error.message };
-        }
-    },
-
-    /**
-     * Motor P2P Nativo: Reproduce torrents directamente en el navegador.
-     */
-    handleP2PStream(stream) {
-        const infoHash = stream.infoHash;
-        // Magnet con trackers públicos para máxima visibilidad P2P
-        const magnet = `magnet:?xt=urn:btih:${infoHash}&dn=SelvaFlix_Stream&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Fzer0day.ch%3A1337&tr=udp%3A%2F%2Fopen.demonii.com%3A1337&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Fexodus.desync.com%3A6969&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com`;
-        
-        const loader = document.getElementById('player-loader');
-        const statusDiv = document.getElementById('webtorrent-status');
-        const progressEl = document.getElementById('wt-progress');
-        const nativePlayer = document.getElementById('native-video-player');
-        
-        if (statusDiv) statusDiv.style.display = 'block';
-        
-        try {
-            if (!this.torrentClient) this.torrentClient = new WebTorrent();
-            
-            // Limpiar descargas previas para no saturar memoria
-            this.torrentClient.torrents.forEach(t => t.destroy());
-
-            console.log("🕸️ Iniciando enjambre P2P para:", infoHash);
-
-            this.torrentClient.add(magnet, (torrent) => {
-                // Buscamos el archivo de video principal
-                const file = torrent.files.find(f => 
-                    f.name.endsWith('.mp4') || f.name.endsWith('.mkv') || 
-                    f.name.endsWith('.webm') || f.name.endsWith('.avi')
-                );
-                
-                torrent.on('download', () => {
-                    if (progressEl) {
-                        const speed = (torrent.downloadSpeed / 1024 / 1024).toFixed(2);
-                        progressEl.innerHTML = `<span style="color:var(--primary);">⬇️ ${speed} MB/s</span> | 👥 ${torrent.numPeers} peers | ${(torrent.progress * 100).toFixed(1)}%`;
-                    }
-                });
-
-                if (file) {
-                    console.log("🎥 Streaming P2P iniciado:", file.name);
-                    file.renderTo('#native-video-player', { 
-                        autoplay: false,
-                        controls: true 
-                    }, (err, elem) => {
-                        if (err) {
-                            console.error("Error renderizando P2P:", err);
-                        } else {
-                            if (loader) loader.style.display = 'none';
-                            const container = document.getElementById('native-player-container');
-                            if (container) container.style.display = 'block';
-                            nativePlayer.style.display = 'block';
-                            
-                            // Ajustar tiempo de reanudación si existe
-                            if (this.currentPlayerMovie.resumeTime > 0) {
-                                nativePlayer.currentTime = this.currentPlayerMovie.resumeTime;
-                            }
-                        }
-                    });
-                }
-            });
-
-            this.torrentClient.on('error', (err) => {
-                console.error("WebTorrent fatal error:", err);
-                if (progressEl) progressEl.innerText = "❌ Error en red P2P. Prueba otra fuente.";
-            });
-
-        } catch (e) {
-            console.error("Falla crítica en motor P2P:", e);
-        }
-    }
 };
 
 window.SelvaStream = SelvaStream;

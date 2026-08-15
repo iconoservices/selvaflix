@@ -1067,19 +1067,7 @@ window.selvaExecuteExportToHosting = async (movieId, streamIndex, isAuto = false
 
         let directUrl = streamData.url;
 
-        // 1. ⚠️ EN DESUSO (Real-Debrid): esta rama solo corría si la fuente traía
-        //    infoHash (torrents), que ya no existen. Se conserva por si vuelve RD.
-        if (streamData.infoHash && !directUrl) {
-            if (window.showToast) window.showToast("🔍 Des-restringiendo link de la selva...", "info");
-            const rdData = await SelvaStream.callMasterWorker(streamData.infoHash);
-            if (rdData && rdData.url) {
-                directUrl = rdData.url;
-            } else {
-                throw new Error("No se pudo obtener el link directo de Real-Debrid.");
-            }
-        }
-
-        // 2. 🔗 EXTRACCIÓN DE LINKS (FlixLatam / Vimeus / RepelisHD)
+        // 🔗 EXTRACCIÓN DE LINKS (FlixLatam / Vimeus / RepelisHD)
         //    Si no hay URL directa en el stream (ej: el iframe no tiene link extraíble
         //    por el cliente), intentamos obtenerla vía el worker server-side.
         if (!directUrl && streamData.providerName) {
@@ -10640,26 +10628,9 @@ window.useScrapedStream = (idx) => {
   import('./components/Player/Player.js').then(({ SelvaStream }) => {
     const s = SelvaStream.lastScrapedStreams[idx];
     if (s) {
-      // ⚠️ EN DESUSO (Real-Debrid): la rama de infoHash solo aplicaba a torrents,
-      // que ya no existen. Se usa siempre la url directa. Se conserva por si vuelve RD.
-      let directUrl = s.url;
-      if (s.infoHash && !directUrl) {
-        window.showToast("De-restringiendo link magnet...", "info");
-        SelvaStream.callMasterWorker(s.infoHash).then(rdData => {
-          if (rdData && rdData.url) {
-            document.getElementById('m-embed').value = rdData.url;
-            window.updateMiniPlayer();
-            window.showToast("¡Magnet de-restringido cargado en el video!", "success");
-          } else {
-            window.showToast("No se pudo de-restringir. Poniendo infoHash.", "warning");
-            document.getElementById('m-embed').value = s.infoHash;
-          }
-        });
-      } else {
-        document.getElementById('m-embed').value = directUrl || s.infoHash || "";
-        window.updateMiniPlayer();
-        window.showToast("Enlace de origen cargado con éxito", "success");
-      }
+      document.getElementById('m-embed').value = s.url || "";
+      window.updateMiniPlayer();
+      window.showToast("Enlace de origen cargado con éxito", "success");
     }
   });
 };

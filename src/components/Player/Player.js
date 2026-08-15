@@ -9,8 +9,23 @@ export const SelvaStream = {
     hls: null,
     lastScrapedStreams: [],
     showTraditional: false,
-    // El túnel propio: lo usan /flix/check, /flix/dipelis y /flix/vimeus-catalog
-    // para chequear fuentes y traer catálogo sin toparse con CORS.
+    // ⚠️ NO BORRAR NINGUNO DE LOS DOS. Hasta 2026-08-15 un comentario acá decía que
+    // "solo los usa callMasterWorker (Real-Debrid)". ERA FALSO: al eliminar Real-Debrid
+    // casi se borran y se habrían roto el chequeo de fuentes, el catálogo de Vimeus y
+    // la exportación a hosting.
+    //
+    // El worker propio existe porque el navegador no puede pedirle nada directamente a
+    // los proveedores (los bloquea CORS): hace de intermediario. Endpoints vivos:
+    //   /flix/check          → ¿esta fuente responde? (auditoría de títulos)
+    //   /flix/check-embed    → ¿este embed puntual sigue vivo?
+    //   /flix/dipelis        → busca la peli en DiPelis y devuelve sus enlaces
+    //   /flix/vimeus-catalog → trae el catálogo de Vimeus paginado
+    //   /flix/extract-links  → saca el enlace real de un proveedor (ver exportManager.js)
+    //
+    // AUTH_TOKEN viaja como cabecera `x-selva-auth` en TODAS esas llamadas (9 sitios
+    // entre main.js y este archivo): sin él el worker responde 401 y se cae todo lo
+    // de arriba. Antes de tocar cualquiera de los dos, buscá MASTER_WORKER_URL y
+    // AUTH_TOKEN en todo el proyecto.
     MASTER_WORKER_URL: 'https://icono-proxy.jnmcsky.workers.dev', // IconoServices Master Tunnel
     AUTH_TOKEN: import.meta.env.VITE_AUTH_TOKEN || localStorage.getItem('iconoservices_token') || '', // Token cargado desde Vercel (Seguridad)
     
@@ -1388,6 +1403,15 @@ export const SelvaStream = {
         // no está contratado. Aportaban ~49 fuentes irreproducibles (varias ni siquiera
         // de la película pedida) y desordenaban las buenas, así que admin y visitante
         // ven ahora exactamente la misma lista.
+        //
+        // 📌 2026-08-15: se borró también lo que quedaba de ese camino, porque ninguna
+        // fuente genera ya `infoHash` y por tanto era inalcanzable: callMasterWorker
+        // (puente a Real-Debrid), handleP2PStream, el cliente WebTorrent y su widget
+        // de estado. De paso se sacó el <script> de webtorrent.min.js del index.html:
+        // eran 0.9 MB que bajaba CADA visitante para código que no podía correr.
+        // Si algún día se recontrata Real-Debrid, todo eso está en el historial de
+        // git (commit bb0d189). OJO: MASTER_WORKER_URL NO era de Real-Debrid — sigue
+        // vivo para /flix/check, /flix/dipelis y /flix/vimeus-catalog.
         if (publicStreams.length > 0) {
             this.lastScrapedStreams = publicStreams;
             // Al cambiar de capítulo respetamos el servidor que el usuario venía viendo

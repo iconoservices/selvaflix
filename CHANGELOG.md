@@ -2,6 +2,26 @@
 
 Este documento es el registro oficial de cambios, errores solucionados y decisiones de arquitectura tomadas durante el desarrollo de SelvaFlix.
 
+> ⚠️ **Nota**: esta bitácora quedó sin actualizar entre marzo y agosto de 2026 (saltó de la v1.6 a la v2.67). Para lo que pasó en ese hueco, el historial de git es la fuente real.
+
+---
+
+## [2.67] - 2026-08-15
+### 🧹 Limpieza de peso: el deploy pasó de 41.2 MB a 1.2 MB
+- **Resumen**: Se sacaron dos cargas muertas que nadie estaba mirando: 40 MB que viajaban a Vercel en cada deploy y 0.9 MB que bajaba cada visitante.
+- **Cambios**:
+  - `public/`: se retiró `bug_recording_temp.mp4` (40 MB, una grabación de debug) y su visor. **La trampa**: Vite copia `public/` *tal cual* a `dist/`, así que ese video era el **97 % del peso del deploy**. Regla para el futuro: nada pesado dentro de `public/` — va a `_local/`, que está ignorado.
+  - `index.html`: se eliminó el `<script>` de `webtorrent.min.js` del CDN. Eran **0.9 MB por visita, más que el bundle entero de la app (843 kB)**, para una función que ya no podía dispararse.
+  - `src/components/Player/Player.js` y `src/main.js`: se borró el camino de torrents/Real-Debrid completo (`callMasterWorker`, `handleP2PStream`, cliente WebTorrent, widget de estado y las dos ramas `if (infoHash)`). Motivo: **ninguna fuente genera ya `infoHash`**, así que era código inalcanzable. Si se recontrata Real-Debrid, está en git (`bb0d189`).
+  - Repo: salieron `backup_monetizacion_v3/`, `backup_monetizacion_v4/`, `backup_v5_full_stable/`, `Player_old.js`, los `.bak` y nueve volcados de diff/log — 39.356 líneas que el historial de git ya guardaba.
+  - `.gitignore`: se agregaron `_local/`, `scratch_*.js`, `*.bak`, los volcados y `.claude/`.
+- **Bugs & Soluciones**:
+  - *Asunto*: al agregar el WhatsApp general de los planes, guardar **cualquier** plan lo borraba en silencio. `savePlansConfig` escribía `configs/plans` con `setDoc` **sin `merge`**, arrasando el resto del documento.
+  - *Solución*: ambos escriben con `{ merge: true }` y cada botón toca solo su campo. Verificado con una prueba de regresión contra Firestore.
+  - *Asunto*: un comentario en `Player.js` afirmaba que `MASTER_WORKER_URL` "solo lo usa Real-Debrid". **Era falso** y por poco se borra algo vivo.
+  - *Solución*: se conservó y se corrigió el comentario. El worker está en uso por `/flix/check`, `/flix/dipelis` y `/flix/vimeus-catalog`.
+- **Pendiente conocido**: `src/main.js` tiene ~10.900 líneas; alrededor de la mitad es código que solo corre en el panel admin y que hoy descargan también los visitantes.
+
 ---
 
 ## [1.6] - 2026-03-04

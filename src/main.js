@@ -2717,6 +2717,7 @@ window.saveAdsCampaigns = async () => {
 // Guardados en el mismo documento que la config de monetización, pero bajo
 // su propia key ("plans") para no pisar las campañas de anuncios.
 window.plansConfig = [];
+window.plansGlobalWhatsapp = '';
 let editingPlanId = null;
 
 const _escPlanHtml = (str) => String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -2725,12 +2726,31 @@ window.loadPlansConfig = async () => {
     try {
         const docRef = doc(db, "configs", "plans");
         const docSnap = await getDoc(docRef);
-        window.plansConfig = (docSnap.exists() && docSnap.data().plans) || [];
+        const data = docSnap.exists() ? docSnap.data() : {};
+        window.plansConfig = data.plans || [];
+        window.plansGlobalWhatsapp = data.whatsapp || '';
+        const globalWhatsappInput = document.getElementById('plans-global-whatsapp');
+        if (globalWhatsappInput) globalWhatsappInput.value = window.plansGlobalWhatsapp;
         window.ensureFreePlanExists();
         window.renderPlansList();
         if (typeof window.maybeShowPremiumPromo === 'function') window.maybeShowPremiumPromo();
     } catch (e) {
         console.error("❌ Error cargando planes premium:", e);
+    }
+};
+
+// Un solo WhatsApp opcional que aplica a todos los planes que no tengan el
+// suyo propio cargado — se guarda aparte para no depender de tener un plan
+// seleccionado en el editor.
+window.saveGlobalWhatsapp = async () => {
+    const raw = (document.getElementById('plans-global-whatsapp')?.value || '').trim().replace(/[^\d]/g, '');
+    try {
+        window.plansGlobalWhatsapp = raw;
+        await setDoc(doc(db, "configs", "plans"), { plans: window.plansConfig || [], whatsapp: raw }, { merge: true });
+        if (window.showToast) window.showToast("✅ WhatsApp general actualizado.", "success");
+    } catch (e) {
+        console.error("Error guardando WhatsApp general:", e);
+        if (window.showToast) window.showToast("❌ Error al guardar el WhatsApp general.", "error");
     }
 };
 
@@ -2857,6 +2877,7 @@ window.editPlan = (id) => {
     setVal('plan-edit-currency', plan.currency || 'USD');
     setVal('plan-edit-period', plan.period || 'mes');
     setVal('plan-edit-badge', plan.badge || '');
+    setVal('plan-edit-whatsapp', plan.whatsapp || '');
     setVal('plan-edit-highlighted', !!plan.highlighted);
     setVal('plan-edit-noads', !!plan.noAds);
     setVal('plan-edit-features', (plan.features || []).join('\n'));
@@ -2902,6 +2923,7 @@ window.savePlansConfig = async () => {
             plan.currency = document.getElementById('plan-edit-currency')?.value || 'USD';
             plan.period = document.getElementById('plan-edit-period')?.value || 'mes';
             plan.badge = document.getElementById('plan-edit-badge')?.value || '';
+            plan.whatsapp = (document.getElementById('plan-edit-whatsapp')?.value || '').trim().replace(/[^\d]/g, '');
             plan.highlighted = document.getElementById('plan-edit-highlighted')?.checked || false;
             plan.noAds = document.getElementById('plan-edit-noads')?.checked || false;
             plan.active = document.getElementById('plan-edit-active')?.checked || false;
@@ -3016,10 +3038,20 @@ window.requestPlanInterest = async (planId) => {
     }
 
     window.closePremiumModal();
-    await window.openSupportChat();
 
     const periodTxt = plan.period === 'unico' ? 'pago único' : `/${plan.period}`;
     const text = `Hola 👋 Quiero contratar el plan "${plan.name}" (${plan.price} ${plan.currency} ${periodTxt}). ¿Cómo sigo?`;
+
+    // Si el plan tiene un WhatsApp propio, se usa ese. Si no, cae al WhatsApp
+    // general (aplica a todos los planes). Si tampoco hay uno general, el
+    // pedido va al chat de soporte interno como antes.
+    const whatsappTarget = plan.whatsapp || window.plansGlobalWhatsapp;
+    if (whatsappTarget) {
+        window.open(`https://wa.me/${whatsappTarget}?text=${encodeURIComponent(text)}`, '_blank');
+        return;
+    }
+
+    await window.openSupportChat();
 
     try {
         await addDoc(collection(db, SUPPORT_COL), {

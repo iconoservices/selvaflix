@@ -1424,6 +1424,15 @@
                   <div id="plan-list" style="display: flex; flex-direction: column; gap: 5px;">
                     <!-- Inyectado dinámicamente -->
                   </div>
+
+                  <div style="margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.05);">
+                    <p style="font-size: 0.6rem; color: #555; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">📱 WhatsApp general</p>
+                    <p style="font-size: 0.6rem; color: var(--text-muted); margin: 0 0 8px;">Opcional. Se usa para cualquier plan que no tenga su propio WhatsApp cargado.</p>
+                    <div style="display: flex; gap: 6px;">
+                      <input type="text" id="plans-global-whatsapp" class="form-control" placeholder="Ej: 5493511234567" style="flex: 1; min-width: 0;">
+                      <button onclick="window.saveGlobalWhatsapp()" class="btn btn-primary" style="padding: 0 12px; font-size: 0.7rem;">💾</button>
+                    </div>
+                  </div>
                 </div>
 
                 <!-- Editor de Plan -->
@@ -1468,6 +1477,13 @@
                             <option value="año">Por año</option>
                             <option value="unico">Pago único</option>
                           </select>
+                        </div>
+
+                        <h4 style="font-size: 0.75rem; color: var(--primary); margin: 15px 0;">📱 Contacto directo</h4>
+                        <div class="form-group">
+                          <label style="font-size: 0.65rem;">WhatsApp (opcional)</label>
+                          <input type="text" id="plan-edit-whatsapp" class="form-control" placeholder="Ej: 5493511234567 (con código de país, sin +)">
+                          <p style="font-size: 0.6rem; color: var(--text-muted); margin: 6px 0 0;">Si lo completás, "Quiero este plan" abre WhatsApp con ese número en vez de mandar el pedido al chat interno.</p>
                         </div>
 
                         <h4 style="font-size: 0.75rem; color: var(--primary); margin: 15px 0;">⭐ Destacado</h4>

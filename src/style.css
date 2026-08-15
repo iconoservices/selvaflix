@@ -789,11 +789,16 @@
   transform: scale(1.1);
 }
 
+/* El degradado solo hace la transición sobre el póster. La franja donde va el
+   texto es opaca y la pinta .cinepulse-card-content, así el arte del póster se
+   corta ahí en vez de competir con el título (antes el degradado llegaba a 0.9
+   pero con opacity 0.8 encima quedaba en 0.72 real: se colaba el 28% del dibujo
+   justo detrás del texto). */
 .cinepulse-card-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, transparent 60%);
-  opacity: 0.8;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, transparent 55%);
+  pointer-events: none;
 }
 
 .cinepulse-card-content {
@@ -802,6 +807,19 @@
   left: 0;
   right: 0;
   padding: var(--spacing-md);
+  background: var(--surface-container);
+}
+
+/* Borde superior difuminado: evita el corte duro entre póster y franja. */
+.cinepulse-card-content::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 28px;
+  background: linear-gradient(to top, var(--surface-container), transparent);
+  pointer-events: none;
 }
 
 .cinepulse-card-title {

@@ -1908,9 +1908,14 @@ window.switchAdminTab = (tab) => {
     if (typeof window.applyMetricsFilters === 'function') window.applyMetricsFilters();
     if (typeof window._loadFcmSubsCount === 'function') window._loadFcmSubsCount();
   } else if (tab === 'ads') {
-    if (typeof window.loadAdConfig === 'function') window.loadAdConfig();
+    // load* ya no dibuja (ver nota en loadAdConfig): pintar la lista es cosa del admin.
+    if (typeof window.loadAdConfig === 'function') {
+      Promise.resolve(window.loadAdConfig()).then(() => window.renderAdCampaignList?.());
+    }
   } else if (tab === 'plans') {
-    if (typeof window.loadPlansConfig === 'function') window.loadPlansConfig();
+    if (typeof window.loadPlansConfig === 'function') {
+      Promise.resolve(window.loadPlansConfig()).then(() => window.renderPlansList?.());
+    }
     if (typeof window.loadFreeTrialConfig === 'function') window.loadFreeTrialConfig();
   } else if (tab === 'users') {
     if (typeof window.loadRegisteredUsers === 'function') window.loadRegisteredUsers();
@@ -2042,7 +2047,9 @@ window.loadAdConfig = async () => {
                     debugToggle.checked = forceAds;
                 }
 
-                window.renderAdCampaignList();
+                // OJO: acá NO se llama a renderAdCampaignList. Esta función corre para
+                // todo visitante (hay que inyectar los anuncios), y dibujar la lista es
+                // cosa exclusiva del panel: lo hace switchAdminTab('ads').
             }
         }
     } catch (e) {
@@ -2050,10 +2057,10 @@ window.loadAdConfig = async () => {
     }
 };
 
-// ⚠️ TRAMPA — parece de admin (dibuja la lista de campañas del panel) pero se ejecuta
-// para TODO VISITANTE: la llama loadAdConfig(), que corre en el arranque para inyectar
-// los anuncios. NO mover a un módulo solo-admin.
-// Verificado midiendo en vivo el 2026-08-15. Ver .agents/knowledge/KI_SEPARAR_ADMIN.md
+// ✅ SOLO ADMIN. Hasta el 2026-08-15 era una trampa: loadAdConfig() la llamaba en el
+// arranque, así que corría para todo visitante (sin hacer nada, porque sale enseguida
+// si no existe el contenedor). Se desacopló: ahora solo la llama switchAdminTab('ads').
+// Se puede mover a un módulo solo-admin.
 window.renderAdCampaignList = () => {
     const list = document.getElementById('ad-campaign-list');
     if (!list) return;
@@ -2725,7 +2732,9 @@ window.loadPlansConfig = async () => {
         const globalWhatsappInput = document.getElementById('plans-global-whatsapp');
         if (globalWhatsappInput) globalWhatsappInput.value = window.plansGlobalWhatsapp;
         window.ensureFreePlanExists();
-        window.renderPlansList();
+        // OJO: acá NO se llama a renderPlansList. Esta función corre para todo
+        // visitante (la ventanita de Premium necesita los planes), y dibujar la
+        // lista es cosa exclusiva del panel: lo hace switchAdminTab('plans').
         if (typeof window.maybeShowPremiumPromo === 'function') window.maybeShowPremiumPromo();
     } catch (e) {
         console.error("❌ Error cargando planes premium:", e);
@@ -2873,10 +2882,10 @@ window.ensureFreePlanExists = () => {
     });
 };
 
-// ⚠️ TRAMPA — parece de admin (dibuja la lista de planes del panel) pero se ejecuta
-// para TODO VISITANTE: la llama loadPlansConfig(), que corre en el arranque para
-// poder mostrar la ventanita de Premium. NO mover a un módulo solo-admin.
-// Verificado midiendo en vivo el 2026-08-15. Ver .agents/knowledge/KI_SEPARAR_ADMIN.md
+// ✅ SOLO ADMIN. Hasta el 2026-08-15 era una trampa: loadPlansConfig() la llamaba en el
+// arranque (para la ventanita de Premium), así que corría para todo visitante sin hacer
+// nada. Se desacopló: ahora solo la llaman switchAdminTab('plans') y las acciones del
+// editor (guardar/crear/borrar). Se puede mover a un módulo solo-admin.
 window.renderPlansList = () => {
     const list = document.getElementById('plan-list');
     if (!list) return;

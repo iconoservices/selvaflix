@@ -954,8 +954,12 @@ function handleRouting() {
   // El player-modal es un overlay independiente del hash, así que hay que cerrarlo
   // a mano en cuanto la ruta deja de ser /play. Si no, se queda encima de la app
   // (invisible pero comiéndose los clics) y con el scroll del body bloqueado.
-  if (!hash.endsWith('/play') && typeof SelvaStream !== 'undefined') {
-    SelvaStream.close();
+  if (!hash.endsWith('/play')) {
+    if (typeof SelvaStream !== 'undefined') SelvaStream.close();
+    // Este es el único punto por el que SIEMPRE pasa un cierre del player (atrás
+    // del navegador, un link, closePlayer()...), así que es el lugar correcto
+    // para cancelar el timer de la racha si todavía no llegó a los 2 minutos.
+    clearTimeout(_streakWatchTimer);
   }
 
   const genreBar = document.getElementById('genre-bar');
@@ -1955,6 +1959,7 @@ window.switchAdminTab = (tab) => {
       Promise.resolve(window.loadPlansConfig()).then(() => window.renderPlansList?.());
     }
     if (typeof window.loadTrialOffers === 'function') window.loadTrialOffers();
+    if (typeof window.loadStreakConfig === 'function') window.loadStreakConfig();
   } else if (tab === 'users') {
     if (typeof window.loadRegisteredUsers === 'function') window.loadRegisteredUsers();
   } else if (tab === 'messages') {
@@ -2968,6 +2973,121 @@ window.renderTrialOffersList = () => {
                 <p style="color: #888; font-size: 0.65rem; margin: 2px 0 0;">Dura ${_trialFormatoDuracion(o.durationHours || 24)} · se repite cada ${_trialFormatoDuracion(o.cadenceHours || 168)}</p>
             </div>
             <span style="width: 8px; height: 8px; border-radius: 50%; background: ${o.active ? '#2ecc71' : '#666'}; flex-shrink: 0;" title="${o.active ? 'Activa' : 'Inactiva'}"></span>
+        </div>
+    `).join('');
+};
+
+// --- Rachas (racha diaria de días seguidos viendo algo) 🔥 ---
+// A diferencia de Pruebas gratis (el usuario aprieta "Activar"), esto se
+// otorga solo al llegar a un escalón — ver registerStreakProgress() más
+// abajo. Acá solo vive el CRUD de qué escalones existen (configs/streaks).
+window.streakMilestones = [];
+let editingStreakMilestoneId = null;
+
+window.loadStreakConfig = async () => {
+    try {
+        const docSnap = await getDoc(doc(db, "configs", "streaks"));
+        const data = docSnap.exists() ? docSnap.data() : {};
+        window.streakMilestones = Array.isArray(data.milestones) ? data.milestones : [];
+        window.renderStreakMilestonesList();
+    } catch (e) {
+        console.error("❌ Error cargando racha:", e);
+    }
+};
+
+window.saveStreakMilestones = async () => {
+    try {
+        await setDoc(doc(db, "configs", "streaks"), { milestones: window.streakMilestones || [] });
+        if (window.showToast) window.showToast("✅ Racha actualizada.", "success");
+    } catch (e) {
+        console.error("Error guardando racha:", e);
+        if (window.showToast) window.showToast("❌ Error al guardar la racha.", "error");
+    }
+};
+
+window.createNewStreakMilestone = () => {
+    window.openStreakMilestoneModal(null);
+};
+
+window.deleteStreakMilestone = (id) => {
+    window.streakMilestones = (window.streakMilestones || []).filter(m => m.id !== id);
+    window.saveStreakMilestones();
+    window.renderStreakMilestonesList();
+};
+
+// id === null significa alta nueva; si no, precarga ese escalón para editarlo.
+window.openStreakMilestoneModal = (id) => {
+    editingStreakMilestoneId = id;
+    const milestone = id ? (window.streakMilestones || []).find(m => m.id === id) : null;
+    const reward = _trialDeshacerHoras(milestone?.hours || 24);
+
+    const setVal = (elId, val) => { const el = document.getElementById(elId); if (el) el.value = val; };
+    setVal('streak-modal-days', milestone?.days || 3);
+    setVal('streak-modal-reward-amount', reward.amount);
+    setVal('streak-modal-reward-unit', reward.unit);
+    const activeCheck = document.getElementById('streak-modal-active');
+    if (activeCheck) activeCheck.checked = milestone ? !!milestone.active : true;
+
+    const deleteBtn = document.getElementById('btn-streak-modal-delete');
+    if (deleteBtn) deleteBtn.style.display = milestone ? 'flex' : 'none';
+
+    const modal = document.getElementById('streak-milestone-modal');
+    if (modal) modal.style.display = 'flex';
+};
+
+window.closeStreakMilestoneModal = () => {
+    const modal = document.getElementById('streak-milestone-modal');
+    if (modal) modal.style.display = 'none';
+    editingStreakMilestoneId = null;
+};
+
+window.saveStreakMilestoneFromModal = () => {
+    const days = Math.max(1, parseInt(document.getElementById('streak-modal-days')?.value, 10) || 1);
+    const rewardAmount = Math.max(1, parseFloat(document.getElementById('streak-modal-reward-amount')?.value) || 1);
+    const rewardUnit = document.getElementById('streak-modal-reward-unit')?.value || 'hours';
+    const active = document.getElementById('streak-modal-active')?.checked ?? true;
+
+    if (!window.streakMilestones) window.streakMilestones = [];
+    let milestone = editingStreakMilestoneId ? window.streakMilestones.find(m => m.id === editingStreakMilestoneId) : null;
+    if (!milestone) {
+        milestone = { id: 'streak_' + Date.now().toString(36) };
+        window.streakMilestones.push(milestone);
+    }
+    milestone.days = days;
+    milestone.hours = _trialHoras(rewardAmount, rewardUnit);
+    milestone.active = active;
+
+    window.streakMilestones.sort((a, b) => a.days - b.days);
+    window.saveStreakMilestones();
+    window.renderStreakMilestonesList();
+    window.closeStreakMilestoneModal();
+};
+
+window.deleteStreakMilestoneFromModal = () => {
+    if (!editingStreakMilestoneId) return;
+    if (!confirm('¿Borrar este escalón de racha? 🔥🗑️')) return;
+    window.deleteStreakMilestone(editingStreakMilestoneId);
+    window.closeStreakMilestoneModal();
+};
+
+window.renderStreakMilestonesList = () => {
+    const list = document.getElementById('streak-milestones-list');
+    if (!list) return;
+    const milestones = window.streakMilestones || [];
+
+    if (milestones.length === 0) {
+        list.innerHTML = '<p style="font-size: 0.7rem; color: #444; text-align: center; padding: 20px;">No hay escalones de racha. Creá uno para empezar. 🔥</p>';
+        return;
+    }
+
+    list.innerHTML = milestones.map(m => `
+        <div onclick="window.openStreakMilestoneModal('${m.id}')" style="display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); cursor: pointer; transition: 0.2s;">
+            <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; opacity: ${m.active ? '1' : '0.4'};">🔥</div>
+            <div style="flex: 1; min-width: 0;">
+                <p style="color: white; font-size: 0.78rem; font-weight: 800; margin: 0;">${m.days} día${m.days !== 1 ? 's' : ''} seguidos</p>
+                <p style="color: #888; font-size: 0.65rem; margin: 2px 0 0;">Regala ${_trialFormatoDuracion(m.hours || 24)} de Premium</p>
+            </div>
+            <span style="width: 8px; height: 8px; border-radius: 50%; background: ${m.active ? '#2ecc71' : '#666'}; flex-shrink: 0;" title="${m.active ? 'Activo' : 'Inactivo'}"></span>
         </div>
     `).join('');
 };
@@ -5316,6 +5436,13 @@ async function collectUserData(action, details = {}) {
 }
 
 // Player Logic & Multi-Server
+// 🔥 Racha: los servidores externos van en iframe cross-origin, así que no
+// hay forma de leer su currentTime real. Como proxy de "vio 2 minutos",
+// medimos cuánto tiempo el reproductor se queda ABIERTO: si pasan 2 minutos
+// sin que se haya cerrado, cuenta. Si cierra antes, se cancela (ver closePlayer).
+const STREAK_WATCH_MS = 2 * 60 * 1000;
+let _streakWatchTimer = null;
+
 function startPlayer(movie) {
   collectUserData("play_start", { title: movie.title, type: movie.type });
 
@@ -5324,6 +5451,13 @@ function startPlayer(movie) {
   const key = movie.tmdbId || movie.id;
   counts[key] = (counts[key] || 0) + 1;
   localStorage.setItem('selva_play_counts', JSON.stringify(counts));
+
+  clearTimeout(_streakWatchTimer);
+  if (auth.currentUser) {
+    _streakWatchTimer = setTimeout(() => {
+      if (typeof window.registerStreakProgress === 'function') window.registerStreakProgress();
+    }, STREAK_WATCH_MS);
+  }
 
   // 🍿 Continuar Viendo (simple, sin barra de progreso): marcamos qué se
   // empezó a ver apenas se abre el player, sin importar la fuente (a
@@ -6571,6 +6705,7 @@ window.addEventListener('keydown', (e) => {
 
 // Cierra el player correctamente y vuelve al detalle de la película
 window.closePlayer = () => {
+    clearTimeout(_streakWatchTimer); // cerró antes de los 2min: no cuenta para la racha
     if (typeof SelvaStream !== 'undefined') SelvaStream.close();
     // Volvemos al detalle. IMPORTANTE: history.back(), no window.location.hash =
     // — abrir el player ya empujó "detail/slug/play" al historial (ver
@@ -9029,8 +9164,14 @@ window.currentUserTier = 'free';
 window.currentUserPremiumUntil = null; // timestamp ms del vencimiento (null = sin vencimiento, ej. plan pago sin límite o admin)
 window.currentUserPremiumGrantedAt = null; // timestamp ms de cuándo arrancó, para poder dibujar el % de la barra
 
+window.currentStreakCount = 0;
+
 window.refreshUserTier = async (uid) => {
-    if (!uid) { window.currentUserTier = 'free'; window.currentUserPremiumUntil = null; window.currentUserPremiumGrantedAt = null; return window.currentUserTier; }
+    if (!uid) {
+        window.currentUserTier = 'free'; window.currentUserPremiumUntil = null; window.currentUserPremiumGrantedAt = null;
+        window.currentStreakCount = 0;
+        return window.currentUserTier;
+    }
     try {
         const snap = await getDoc(doc(db, "users", uid));
         const data = snap.exists() ? snap.data() : null;
@@ -9039,14 +9180,93 @@ window.refreshUserTier = async (uid) => {
         window.currentUserTier = expired ? 'free' : rawTier;
         window.currentUserPremiumUntil = expired ? null : (data?.premiumUntil || null);
         window.currentUserPremiumGrantedAt = expired ? null : (data?.premiumGrantedAt || null);
+        // La racha se corta sola si pasó más de 1 día desde el último "visto" —
+        // no hace falta borrarla en Firestore, con no mostrarla alcanza (el
+        // próximo registerStreakProgress la resetea a mano al detectar el salto).
+        const today = new Date().toISOString().split('T')[0];
+        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+        const streak = data?.streak;
+        window.currentStreakCount = (streak && (streak.lastDate === today || streak.lastDate === yesterday)) ? (streak.count || 0) : 0;
     } catch (e) {
         console.warn('No se pudo leer el tier del usuario:', e);
         window.currentUserTier = 'free';
         window.currentUserPremiumUntil = null;
         window.currentUserPremiumGrantedAt = null;
+        window.currentStreakCount = 0;
     }
     if (typeof window.updatePremiumTimeBadge === 'function') window.updatePremiumTimeBadge();
+    if (typeof window.updateStreakBadge === 'function') window.updateStreakBadge();
     return window.currentUserTier;
+};
+
+window.updateStreakBadge = () => {
+    const badge = document.getElementById('streak-badge');
+    if (!badge) return;
+    if (!window.currentStreakCount || window.currentStreakCount < 1) {
+        badge.style.display = 'none';
+        return;
+    }
+    badge.style.display = 'flex';
+    badge.innerText = `🔥 ${window.currentStreakCount}`;
+};
+
+// Se llama cuando el reproductor estuvo abierto >=2 minutos seguidos (ver
+// STREAK_WATCH_MS en startPlayer) — es el proxy de "vio algo hoy", porque con
+// servidores externos en iframe no hay forma de leer el currentTime real.
+window.registerStreakProgress = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+    try {
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
+        const userData = userSnap.exists() ? userSnap.data() : {};
+        const today = new Date().toISOString().split('T')[0];
+        const streak = userData.streak || { count: 0, lastDate: null, claimedMilestones: [] };
+
+        if (streak.lastDate === today) return; // ya contó hoy, no hacer nada
+
+        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+        const rachaContinua = streak.lastDate === yesterday;
+        const newCount = rachaContinua ? (streak.count || 0) + 1 : 1;
+        const claimedMilestones = rachaContinua ? [...(streak.claimedMilestones || [])] : [];
+
+        // Escalones nuevos alcanzados con este día — se suman por si hay más
+        // de uno pendiente (ej. el admin agregó un escalón bajo después de que
+        // el usuario ya iba más adelantado).
+        const milestonesSnap = window.streakMilestones && window.streakMilestones.length
+            ? window.streakMilestones
+            : ((await getDoc(doc(db, "configs", "streaks"))).data()?.milestones || []);
+
+        let grantedHours = 0;
+        let grantedDays = 0;
+        milestonesSnap.forEach(m => {
+            if (m.active !== false && newCount >= m.days && !claimedMilestones.includes(m.days)) {
+                claimedMilestones.push(m.days);
+                grantedHours += m.hours || 0;
+                grantedDays = m.days;
+            }
+        });
+
+        const updates = { streak: { count: newCount, lastDate: today, claimedMilestones } };
+        if (grantedHours > 0) {
+            const now = Date.now();
+            // Suma sobre lo que ya tenga (no pisa un Premium/prueba en curso).
+            const base = Math.max(userData.premiumUntil || 0, now);
+            updates.tier = 'premium';
+            updates.premiumUntil = base + grantedHours * 60 * 60 * 1000;
+            updates.premiumGrantedAt = userData.premiumGrantedAt || now;
+        }
+
+        await setDoc(userRef, updates, { merge: true });
+        await window.refreshUserTier(user.uid);
+        if (grantedHours > 0 && typeof window.hideAllAdSlots === 'function') window.hideAllAdSlots();
+
+        if (grantedHours > 0 && window.showToast) {
+            window.showToast(`🔥 ¡Racha de ${grantedDays} días! +${_trialFormatoDuracion(grantedHours)} de Premium regaladas 🎁`, 'success');
+        }
+    } catch (e) {
+        console.error('Error actualizando la racha:', e);
+    }
 };
 
 // --- Badge de tiempo Premium restante (pill fija junto al avatar) ⏳ ---
@@ -9146,7 +9366,9 @@ onAuthStateChanged(auth, async (user) => {
         console.log("👻 Modo Invitado");
         window.currentUserTier = 'free';
         window.currentUserPremiumUntil = null;
+        window.currentStreakCount = 0;
         if (typeof window.updatePremiumTimeBadge === 'function') window.updatePremiumTimeBadge();
+        if (typeof window.updateStreakBadge === 'function') window.updateStreakBadge();
         if (typeof window.watchSupportUnread === 'function') window.watchSupportUnread(null); // corta el listener al cerrar sesión
         const userNameEl = document.getElementById('user-name');
         if (userNameEl) userNameEl.innerText = "Login";

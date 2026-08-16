@@ -265,6 +265,11 @@
         <option value="">Año: Todos</option>
       </select>
 
+      <!-- Pill de racha: solo se ve si el usuario tiene al menos 1 día seguido
+           de haber visto algo. Clic abre la ventanita de Premium (ahí se ve el
+           detalle de tiempo/beneficios), no hace falta un modal propio. -->
+      <div id="streak-badge" onclick="window.openPremiumModal()" title="Racha de días seguidos" style="display: none; align-items: center; gap: 4px; background: rgba(255, 87, 34, 0.12); border: 1px solid rgba(255, 87, 34, 0.4); color: #ff5722; font-size: 0.68rem; font-weight: 800; padding: 5px 10px; border-radius: 20px; cursor: pointer; white-space: nowrap; flex-shrink: 0;"></div>
+
       <!-- Pill de tiempo Premium restante: solo se ve si el usuario tiene un
            vencimiento activo (prueba gratis, o plan pago cargado con límite). -->
       <div id="premium-time-badge" onclick="window.openPremiumModal()" title="Tiempo Premium restante" style="display: none; align-items: center; gap: 4px; background: rgba(255, 122, 0, 0.12); border: 1px solid rgba(255, 122, 0, 0.4); color: var(--primary); font-size: 0.68rem; font-weight: 800; padding: 5px 10px; border-radius: 20px; cursor: pointer; white-space: nowrap; flex-shrink: 0;"></div>
@@ -282,13 +287,6 @@
               </div>
           </div>
           
-          <div id="user-menu" style="display: none; position: absolute; top: 40px; right: 0; background: #111; border: 1px solid var(--glass-border); border-radius: 12px; padding: 10px; z-index: 10001; min-width: 150px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-              <!-- 🚩 Slot de Publicidad Lateral (Sidebar) -->
-              <div id="ad-slot-sidebar" class="ad-slot-container" style="display: none; margin-bottom: 15px; background: rgba(0,0,0,0.2); border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05);"></div>
-              <button onclick="window.switchView('admin')" class="btn" style="width: 100%; border: none; background: rgba(255,255,255,0.05); color: white; padding: 8px; font-size: 0.75rem; text-align: left; border-radius: 8px; margin-bottom: 5px;">⚙️ Admin Panel</button>
-              <button onclick="window.handleLogout()" class="btn" style="width: 100%; border: none; background: rgba(231,76,60,0.1); color: #E74C3C; padding: 8px; font-size: 0.75rem; text-align: left; border-radius: 8px;">🚪 Cerrar Sesión</button>
-          </div>
-          
           <!-- Perfil Dropdown -->
           <div id="user-dropdown" style="display: none; position: absolute; top: 45px; right: 0; background: #111; border: 1px solid var(--glass-border); border-radius: 12px; width: 180px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 1001; overflow: hidden;">
               <div style="padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.05); text-align: center;">
@@ -304,6 +302,9 @@
               </button>
               <button onclick="window.showSettings()" style="width: 100%; padding: 12px; background: none; border: none; color: #ccc; text-align: left; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 10px;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='none'">
                   ⚙️ Configuración
+              </button>
+              <button id="admin-panel-menu-btn" onclick="location.hash='admin'" style="width: 100%; padding: 12px; background: none; border: none; color: #ccc; text-align: left; font-size: 0.8rem; cursor: pointer; display: none; align-items: center; gap: 10px;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='none'">
+                  🔒 Admin Panel
               </button>
               <button onclick="window.handleLogout()" style="width: 100%; padding: 12px; background: none; border: none; color: #e74c3c; text-align: left; font-size: 0.8rem; cursor: pointer; border-top: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 10px;" onmouseover="this.style.background='rgba(231,76,60,0.1)'" onmouseout="this.style.background='none'">
                   🚪 Cerrar Sesión
@@ -1479,6 +1480,22 @@
                   <!-- Inyectado dinámicamente -->
                 </div>
               </div>
+
+              <!-- Rachas: a diferencia de Pruebas gratis (que el usuario reclama con un
+                   clic), esto se otorga solo — el usuario ve algo 2 días seguidos (mínimo
+                   2 minutos de reproducción) y al llegar a un escalón se le regala Premium
+                   sin que tenga que hacer nada más, como sorpresa. -->
+              <div class="admin-card" style="margin-top: 20px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px;">
+                  <h2 class="admin-title" style="margin-bottom: 0;">🔥 Rachas</h2>
+                  <button onclick="window.createNewStreakMilestone()" class="btn btn-upload-orange" style="padding: 8px 14px; font-size: 0.72rem;">+ Nuevo escalón</button>
+                </div>
+                <p style="font-size: 0.7rem; color: var(--text-muted); margin: 0 0 16px;">Si un usuario ve algo (2+ min) varios días seguidos, al llegar a cada escalón se le regala Premium automáticamente — sin que tenga que reclamar nada. Si se saltea un día, la racha vuelve a cero.</p>
+
+                <div id="streak-milestones-list" style="display: flex; flex-direction: column; gap: 8px;">
+                  <!-- Inyectado dinámicamente -->
+                </div>
+              </div>
             </div>
 
             <!-- Modal: crear / editar Plan -->
@@ -1605,6 +1622,39 @@
                   <div style="display:flex; gap:10px; margin-top:4px;">
                     <button id="btn-trial-modal-delete" onclick="window.deleteTrialOfferFromModal()" class="btn btn-danger-outline" style="display:none; width:40px; flex-shrink:0; align-items:center; justify-content:center; border-radius:8px;" title="Eliminar"><span class="material-symbols-outlined" style="font-size: 1.1rem;">delete</span></button>
                     <button onclick="window.saveTrialOfferFromModal()" class="btn btn-primary" style="flex:1; font-weight:800; font-size:0.75rem;">💾 Guardar</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Modal: crear / editar escalón de Racha -->
+            <div id="streak-milestone-modal" class="modal-overlay" style="display:none; z-index:20022; background:rgba(0,0,0,0.85); align-items:center; justify-content:center;">
+              <div style="background:#111; border-radius:16px; max-width:380px; width:92%; border:1px solid rgba(255,255,255,0.1); overflow:hidden;">
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid rgba(255,255,255,0.08);">
+                  <h2 style="color:#fff; margin:0; font-size:1rem;">🔥 Escalón de racha</h2>
+                  <button onclick="window.closeStreakMilestoneModal()" style="background:none; border:none; color:#888; font-size:1.4rem; cursor:pointer; line-height:1;">&times;</button>
+                </div>
+                <div style="padding:20px; display:flex; flex-direction:column; gap:14px;">
+                  <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-size: 0.65rem;">Días seguidos que necesita</label>
+                    <input type="number" min="1" step="1" id="streak-modal-days" class="form-control" placeholder="Ej: 3">
+                  </div>
+                  <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-size: 0.65rem;">Premio</label>
+                    <div style="display:flex; gap:6px;">
+                      <input type="number" min="1" step="1" id="streak-modal-reward-amount" class="form-control" style="min-width:0;">
+                      <select id="streak-modal-reward-unit" class="form-control" style="flex-shrink:0; width:90px;">
+                        <option value="hours">horas</option>
+                        <option value="days">días</option>
+                      </select>
+                    </div>
+                  </div>
+                  <label style="display:flex; align-items:center; gap:8px; font-size:0.75rem; color:#ccc; cursor:pointer;">
+                    <input type="checkbox" id="streak-modal-active" checked> Activo
+                  </label>
+                  <div style="display:flex; gap:10px; margin-top:4px;">
+                    <button id="btn-streak-modal-delete" onclick="window.deleteStreakMilestoneFromModal()" class="btn btn-danger-outline" style="display:none; width:40px; flex-shrink:0; align-items:center; justify-content:center; border-radius:8px;" title="Eliminar"><span class="material-symbols-outlined" style="font-size: 1.1rem;">delete</span></button>
+                    <button onclick="window.saveStreakMilestoneFromModal()" class="btn btn-primary" style="flex:1; font-weight:800; font-size:0.75rem;">💾 Guardar</button>
                   </div>
                 </div>
               </div>

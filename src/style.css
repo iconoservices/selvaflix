@@ -822,40 +822,33 @@
   pointer-events: none;
 }
 
-.cinepulse-card-title {
-  font-family: var(--font-body);
-  font-weight: 700;
-  font-size: 1rem;
-  color: var(--on-surface);
-  margin-bottom: var(--spacing-xs);
-  /* 2 líneas en vez de 1: en tarjetas angostas (celular, 130px) un título
-     tipo "La era de hielo 2" quedaba cortado en "La era de ..." — con esto
-     se lee bastante más antes de recurrir a los puntos suspensivos. */
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.25;
-}
-
 .cinepulse-card-meta {
   display: flex;
   align-items: center;
   gap: 6px;
   margin-top: var(--spacing-xs);
-  flex-wrap: wrap;
+  /* Sin título arriba (el póster ya lo muestra), esto es lo único que queda
+     en la tarjeta — tiene que entrar en una sola fila. El género es lo único
+     de largo variable, así que es lo único que se achica/trunca si hace
+     falta; año y rating son cortos y siempre se ven completos. */
+  flex-wrap: nowrap;
+  overflow: hidden;
 }
 
 .cinepulse-card-genre {
   font-size: 0.75rem;
   color: var(--on-surface-variant);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .cinepulse-card-year {
   font-size: 0.75rem;
   color: var(--on-surface-variant);
   opacity: 0.8;
+  flex-shrink: 0;
 }
 
 .cinepulse-card-year::after {
@@ -871,6 +864,7 @@
   font-size: 0.75rem;
   color: var(--primary);
   font-weight: 700;
+  flex-shrink: 0;
 }
 
 .cinepulse-card-rating .material-symbols-outlined {

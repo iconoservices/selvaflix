@@ -1430,7 +1430,6 @@ function _renderCardsInto(container, data, isTrending = false) {
                 </div>
               ` : ''}
               <div class="cinepulse-card-content">
-                <h3 class="cinepulse-card-title">${item.title}</h3>
                 <div class="cinepulse-card-meta">
                   ${item.year ? `<span class="cinepulse-card-year">${item.year}</span>` : ''}
                   <span class="cinepulse-card-genre">${genre}</span>
@@ -1579,7 +1578,6 @@ function renderGallery(title, groups) {
               </div>
             ` : ''}
             <div class="cinepulse-card-content">
-              <h3 class="cinepulse-card-title">${item.title}</h3>
               <div class="cinepulse-card-meta">
                 ${item.year ? `<span class="cinepulse-card-year">${item.year}</span>` : ''}
                 <span class="cinepulse-card-genre">${genre}</span>

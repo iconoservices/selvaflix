@@ -6480,6 +6480,10 @@ window.injectCampaignScripts = async () => {
     }
 
     // 💎 Usuario Premium/Admin: el beneficio "Sin publicidad" se cumple acá.
+    // Se espera a que Firebase confirme el tier real antes de decidir —
+    // si no, esta función corre en DOMContentLoaded y todavía ve el
+    // 'free' por defecto aunque el usuario sea Premium (ver _authReadyPromise).
+    if (window._authReadyPromise) await window._authReadyPromise;
     const tier = window.currentUserTier || 'free';
     if (tier === 'premium' || tier === 'admin') {
         console.log("💎 Usuario Premium: se omite la inyección de anuncios.");
@@ -9325,6 +9329,17 @@ window.updatePremiumTimeBadge = () => {
     if (!_premiumBadgeTimer) _premiumBadgeTimer = setInterval(window.updatePremiumTimeBadge, 30000);
 };
 
+// injectCampaignScripts() corre en DOMContentLoaded, sin esperar a Firebase —
+// en ese momento window.currentUserTier todavía es el default 'free' porque
+// onAuthStateChanged (async, viaja a Firestore) no tuvo tiempo de resolver.
+// Resultado: a un usuario Premium que recién refresca la página le llegaban
+// a inyectar los anuncios igual, y hideAllAdSlots() ya había corrido antes de
+// que esos anuncios existieran (nada que esconder). _authReadyPromise se
+// resuelve una sola vez, en el primer onAuthStateChanged, y lo que necesite
+// saber el tier ANTES de decidir algo (como inyectar ads) lo espera primero.
+let _resolveAuthReady;
+window._authReadyPromise = new Promise((resolve) => { _resolveAuthReady = resolve; });
+
 onAuthStateChanged(auth, async (user) => {
     if (user) {
         console.log("👤 Sesión activa:", user.email);
@@ -9362,6 +9377,7 @@ onAuthStateChanged(auth, async (user) => {
         }
 
         if (typeof window.maybeShowPremiumPromo === 'function') window.maybeShowPremiumPromo();
+        _resolveAuthReady();
     } else {
         console.log("👻 Modo Invitado");
         window.currentUserTier = 'free';
@@ -9380,6 +9396,7 @@ onAuthStateChanged(auth, async (user) => {
         window.hideSplashScreen(true);
 
         if (typeof window.maybeShowPremiumPromo === 'function') window.maybeShowPremiumPromo();
+        _resolveAuthReady();
     }
 });
 

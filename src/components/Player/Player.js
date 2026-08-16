@@ -579,6 +579,47 @@ export const SelvaStream = {
         const isSeries = ['series', 'tv', 'anime'].includes(movie.type);
         if (isSeries && movie.tmdbId) {
             await this.loadSeriesMetadata(movie.tmdbId);
+        } else if (isSeries) {
+            // Sin tmdbId no hay de dónde traer temporadas: limpiar los selects
+            // (reusados entre títulos) para no heredar T5E12 de la serie anterior.
+            const sSel = document.getElementById('selva-season');
+            const eSel = document.getElementById('selva-episode');
+            if (sSel) sSel.value = '';
+            if (eSel) eSel.value = '';
+        }
+
+        // ⚡ RUTA RÁPIDA (series): si el admin cargó un link manual para este
+        // capítulo puntual (T{season}E{episode}) en el editor de episodios,
+        // ese link manda por encima de movie.embed (que para series es un
+        // único link genérico igual para todos los capítulos) y de las
+        // fuentes públicas.
+        if (isSeries) {
+            const sEl = document.getElementById('selva-season');
+            const eEl = document.getElementById('selva-episode');
+            const season = sEl ? (parseInt(sEl.value) || 1) : 1;
+            const episode = eEl ? (parseInt(eEl.value) || 1) : 1;
+            const episodeOverride = this.getEpisodeOverride(movie, season, episode);
+            if (episodeOverride) {
+                if (loader) loader.style.display = 'none';
+                const oficial = {
+                    title: "Servidor Oficial",
+                    name: "🌐 Source Directo (Cloud)",
+                    url: this.limpiarEmbed(episodeOverride),
+                    infoHash: null,
+                    isPublic: true,
+                    lang: 'propio'
+                };
+                const publicas = this.buildPublicStreams('series');
+                this.lastScrapedStreams = [oficial, ...publicas];
+                this.currentEpisodeId = `s${season}e${episode}`;
+                this.currentEpisodeLabel = `T${season} E${episode}`;
+                if (typeof window.markWatchingEpisode === 'function') {
+                    window.markWatchingEpisode(movie, season, episode, this.currentEpisodeLabel);
+                }
+                this.handleExternalStream(oficial);
+                this.renderControls();
+                return;
+            }
         }
 
         // ⚡ RUTA RÁPIDA: Si la película tiene embed directo, reproducir YA
@@ -620,7 +661,12 @@ export const SelvaStream = {
         }
 
         const id = movie.imdbId || movie.tmdbId;
-        const type = movie.type === 'series' ? 'series' : 'movie';
+        // OJO: tenía que incluir 'anime' (y 'tv' por datos legacy) igual que
+        // `isSeries` más arriba -- sin esto, loadDebridAuto recibía
+        // queryType='movie' para animes sin embed directo, y tanto los
+        // selectores de temporada/episodio como el link manual por capítulo
+        // (getEpisodeOverride) quedaban sin efecto para ese título.
+        const type = ['series', 'tv', 'anime'].includes(movie.type) ? 'series' : 'movie';
         if (id) {
             // loadDebridAuto decide solo: admin escanea la selva, visitante va directo
             // a las fuentes públicas (MoviesAPI, Embed.su, VidSrc...).
@@ -688,6 +734,15 @@ export const SelvaStream = {
             }
         } catch (e) {
             console.error('❌ Error cargando info de serie:', e);
+            // Los selects de temporada/capítulo son reusados entre títulos (init()
+            // solo inyecta el modal una vez). Si este fetch falla/cuelga (timeout de
+            // 7s de arriba), sin este reset quedaban con la temporada/capítulo de LA
+            // SERIE ANTERIOR -- silencioso hasta que el link manual por episodio
+            // (getEpisodeOverride) empezó a usar ese valor para elegir qué reproducir.
+            const sSel = document.getElementById('selva-season');
+            const eSel = document.getElementById('selva-episode');
+            if (sSel) sSel.value = '';
+            if (eSel) eSel.value = '';
         }
     },
 
@@ -1063,6 +1118,16 @@ export const SelvaStream = {
         return url.trim();
     },
 
+    // Link manual cargado desde el editor de episodios del admin para un
+    // capítulo puntual (movie.episodes = { "1-1": "https://...", "1-2": ... },
+    // clave "{temporada}-{episodio}"). null si no hay nada cargado para ese
+    // capítulo, para que el llamador siga con el flujo normal (embed / públicas).
+    getEpisodeOverride(movie, season, episode) {
+        if (!movie || !movie.episodes) return null;
+        const url = movie.episodes[`${season}-${episode}`];
+        return (url && url.trim()) ? url.trim() : null;
+    },
+
     // 🌐 Catálogo único de fuentes públicas.
     // lang: 'latino' = doblaje español latino | 'subs' = audio original (inglés) + subtítulos
     buildPublicStreams(queryType) {
@@ -1377,6 +1442,28 @@ export const SelvaStream = {
 
         // 1. Cargar las fuentes públicas disponibles (MoviesAPI Latino, Embed.su, etc.)
         const publicStreams = this.buildPublicStreams(queryType);
+
+        // PRIORIDAD 0: Link Manual por Episodio (T{season}E{episode} puntual,
+        // cargado desde el editor de episodios del admin) — le gana al embed
+        // genérico de PRIORIDAD 1, que para series es el mismo link repetido
+        // en todos los capítulos.
+        if (queryType === 'series') {
+            const episodeOverride = this.getEpisodeOverride(movie, season, episode);
+            if (episodeOverride) {
+                const cleanEmbed = this.limpiarEmbed(episodeOverride);
+                this.lastScrapedStreams = [{
+                    url: cleanEmbed,
+                    name: '🌐 SERVIDOR OFICIAL',
+                    title: movie.title || 'Servidor Oficial',
+                    providerName: 'Admin',
+                    isPublic: true
+                }, ...publicStreams];
+
+                this.handleExternalStream(this.lastScrapedStreams[0]);
+                this.renderControls();
+                return;
+            }
+        }
 
         // PRIORIDAD 1: Link Manual de Administrador (Vía Panel Admin)
         if (movie && movie.embed && (movie.embed.startsWith('http') || movie.embed.includes('<iframe'))) {

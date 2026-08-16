@@ -1887,9 +1887,9 @@
                 <input type="text" id="tmdb-search-input" class="form-control" placeholder="Buscar título en TMDb...">
                 <button class="btn btn-primary" id="btn-tmdb-search" style="padding:0 16px; white-space:nowrap;">Buscar</button>
               </div>
-              <label style="display:flex; align-items:center; gap:6px; margin-bottom:10px; font-size:0.78rem; color:var(--text-muted); cursor:pointer;" title="Apagado: solo se muestran resultados que Vimeus ya tiene confirmados. Prendido: todo lo que devuelva TMDb, aunque no tenga fuente garantizada.">
-                <input type="checkbox" id="chk-fuentes-externas">
-                Fuentes externas (mostrar títulos aunque no estén en Vimeus)
+              <label style="display:flex; align-items:center; gap:6px; margin-bottom:10px; font-size:0.78rem; color:var(--text-muted); cursor:pointer;" title="Muestra todos los resultados de TMDb clasificados en Vimeus, Respaldo o Externos.">
+                <input type="checkbox" id="chk-fuentes-externas" checked>
+                Mostrar todos los resultados (Vimeus, Respaldo y Externos)
               </label>
               <div id="tmdb-results" style="display:flex; gap:8px; overflow-x:auto; padding-bottom:6px;"></div>
               <div id="tmdb-bulk-toolbar" style="display:none; align-items:center; justify-content:space-between; gap:8px; margin-top:8px; padding:8px 10px; background:rgba(255,255,255,0.03); border-radius:6px;">
@@ -1986,6 +1986,24 @@
 
             </div>
 
+            <!-- Episodios (solo Series/Anime): enlaces manuales por capítulo -->
+            <div class="drawer-card" id="episodes-editor-card" style="display:none;">
+              <h3 class="drawer-card-title">
+                <span class="material-symbols-outlined">video_library</span> Episodios (enlaces por capítulo)
+              </h3>
+              <p style="color:#888; font-size:0.7rem; margin:0 0 10px;">
+                Opcional. Si dejás un capítulo vacío, se arma solo con los Servidores Públicos usando el ID de TMDb (temporada/episodio automático). Si cargás un link para un capítulo puntual, ese link manda por encima de todo lo demás, pero SOLO para ese capítulo.
+              </p>
+              <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px;">
+                <select id="ep-season-select" class="form-control" style="max-width:140px;" onchange="window.renderEpisodesEditor()"></select>
+                <button type="button" class="btn btn-secondary" onclick="window.loadEpisodesEditorSeasons()" title="Traer temporadas y capítulos desde TMDb (necesita el ID TMDB de arriba)">
+                  <span class="material-symbols-outlined" style="font-size:16px;">refresh</span> Cargar desde TMDb
+                </button>
+                <span id="ep-editor-status" style="font-size:0.72rem; color:#666;"></span>
+              </div>
+              <div id="ep-rows-container" style="display:flex; flex-direction:column; gap:6px; max-height:320px; overflow-y:auto; padding-right:4px;"></div>
+            </div>
+
             <!-- General Information + Cast & Crew: lado a lado en escritorio -->
             <div class="info-cast-grid">
             <div class="drawer-card">
@@ -2060,7 +2078,7 @@
               <div class="metadata-fields-grid" style="margin-bottom:14px;">
                 <div class="form-group" style="margin-bottom:0;">
                   <label>Tipo</label>
-                  <select id="m-type" class="form-control">
+                  <select id="m-type" class="form-control" onchange="window.toggleEpisodesCardVisibility()">
                     <option value="movie">🎬 Película</option>
                     <option value="series">🏆 Serie</option>
                     <option value="anime">⛩️ Anime</option>

@@ -162,6 +162,21 @@ const TMDB_IMG_URL = 'https://image.tmdb.org/t/p/w500';
 let movieDatabase = { trending: [] };
 let heroPool = [];
 let currentHeroIndex = 0;
+
+// Editor de Episodios (Series/Anime): links manuales opcionales por capítulo
+// puntual, clave "{temporada}-{episodio}" (ej. "1-1") → URL. Declarado acá
+// arriba (no junto a sus funciones más abajo) porque openUploadDrawer,
+// selectTMDBMovie y editMovie -- definidas antes en el archivo -- ya lo
+// reasignan sin `let`; declararlo más abajo rompía esas referencias al
+// empaquetar con Rollup/Terser (ReferenceError: not defined en producción).
+let _currentEpisodesMap = {};
+let _currentEpisodesSeasons = null;
+// Se incrementa en cada llamada a loadEpisodesEditorSeasons y cada reset del
+// drawer -- evita que una carga de TMDb vieja (más lenta) pise el resultado
+// de una más nueva cuando se dispara sola al elegir un resultado de búsqueda
+// Y el admin además aprieta "Cargar desde TMDb" a mano, o cuando cierra el
+// drawer mientras el fetch sigue en vuelo.
+let _epSeasonsRequestId = 0;
 let heroTimer = null;
 let currentPlayerMovie = null;
 window._brokenIds = new Set();
@@ -2000,6 +2015,14 @@ window.openUploadDrawer = () => {
 
   const genreTagsContainer = document.getElementById('genre-tags-container');
   if (genreTagsContainer) genreTagsContainer.innerHTML = '<button type="button" onclick="window.addGenreTag()" class="add-tag-btn">+ Agregar</button>';
+
+  // Reset editor de episodios (Series/Anime)
+  _currentEpisodesMap = {};
+  _currentEpisodesSeasons = null;
+  const epSeasonSelect = document.getElementById('ep-season-select'); if (epSeasonSelect) epSeasonSelect.innerHTML = '';
+  const epRows = document.getElementById('ep-rows-container'); if (epRows) epRows.innerHTML = '';
+  const epStatus = document.getElementById('ep-editor-status'); if (epStatus) epStatus.textContent = '';
+  window.toggleEpisodesCardVisibility();
 
   const submitBtn = document.getElementById('submit-btn');
   const cancelEditBtn = document.getElementById('cancel-edit');
@@ -5318,6 +5341,21 @@ window.runBotHealthCheck = async () => {
 // --- TMDB SEARCH (SAFE SELECTION) ---
 let _tmdbLastResults = [];
 
+// TMDb no tiene media_type "anime": es una serie (tv) más. Se infiere con el
+// mismo criterio que ya usa el descubrimiento de recomendados (género
+// Animación=16 + idioma original japonés) para que una serie de anime
+// buscada a mano no quede mal etiquetada como "Serie" (y el admin tenga que
+// acordarse de corregir el tipo a mano después de cada alta).
+function _tmdbEsAnime(m) {
+  return m.media_type === 'tv' && Array.isArray(m.genre_ids) && m.genre_ids.includes(16) && m.original_language === 'ja';
+}
+function _tmdbTipo(m) {
+  if (_tmdbEsAnime(m)) return 'anime';
+  return m.media_type === 'tv' ? 'series' : 'movie';
+}
+
+const _escHtml = (str) => String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
 window.searchTMDB = async function (query, isSuggestion = false) {
   if (!query) return;
   const resultsDiv = isSuggestion 
@@ -5340,6 +5378,10 @@ window.searchTMDB = async function (query, isSuggestion = false) {
       const res = await fetch(`${TMDB_URL}/movie/${query.trim()}?api_key=${TMDB_API_KEY}&language=${lang}`);
       if (!res.ok) throw new Error("No encontrado");
       const movie = await res.json();
+      // El detalle de /movie/{id} no trae "media_type" (a diferencia de
+      // /search/multi) — sin esto, el filtro de candidatos de más abajo lo
+      // descartaba siempre y la búsqueda por ID directo nunca mostraba nada.
+      movie.media_type = 'movie';
       data = { results: [movie] };
     } else {
       // Búsqueda multi (Películas y Series)
@@ -5353,42 +5395,87 @@ window.searchTMDB = async function (query, isSuggestion = false) {
       return;
     }
 
-    // Se chequea Vimeus siempre (Vimeus tiene CORS, se hace directo desde
-    // acá sin pasar por worker — mismo truco que fetchVimeusSource en el
-    // player), tanto para poder filtrar como para poner el distintivo en
-    // cada tarjeta. "Fuentes externas" apagado = además de mostrarlo, se
-    // sacan de la lista los que Vimeus no tiene.
-    const fuentesExternasOn = document.getElementById('chk-fuentes-externas')?.checked;
-    let disponibleEnVimeus = [];
-    if (!isSuggestion) {
-      resultsDiv.innerHTML = '<p style="color: var(--primary);">Chequeando cuáles tiene Vimeus... 🔎</p>';
-      const candidatos = data.results.slice(0, 8);
-      disponibleEnVimeus = await Promise.all(candidatos.map(async (m) => {
-        if (!m.id) return false;
-        const tipoVimeus = m.media_type === 'tv' ? 'serie' : 'movie';
-        return vimeusTieneTitulo(m.id, null, tipoVimeus);
-      }));
+    // Tomar hasta 20 coincidencias reales de TMDb (sin recortar artificialmente a 5)
+    const candidatos = data.results
+      .filter(m => m.media_type === 'movie' || m.media_type === 'tv')
+      .slice(0, 20);
 
-      if (!fuentesExternasOn) {
-        data = { results: candidatos.filter((_, i) => disponibleEnVimeus[i]) };
-        if (data.results.length === 0) {
-          resultsDiv.innerHTML = '<p style="color: var(--text-muted);">Vimeus no tiene ninguno de estos. Activá "Fuentes externas" para ver todos los resultados de TMDb.</p>';
-          return;
-        }
-      } else {
-        data = { results: candidatos };
-      }
+    if (candidatos.length === 0) {
+      if (!isSuggestion) resultsDiv.innerHTML = '<p style="color: var(--text-muted);">No se encontraron películas ni series en TMDb.</p>';
+      return;
     }
 
-    // Save to global storage to avoid attribute escaping issues
-    _tmdbLastResults = data.results.slice(0, 5);
-    const disponibilidadFinal = fuentesExternasOn || isSuggestion
-      ? disponibleEnVimeus.slice(0, 5)
-      : disponibleEnVimeus.filter(Boolean).slice(0, 5); // si se filtró, todo lo que quedó es Vimeus=true
+    const fuentesExternasOn = document.getElementById('chk-fuentes-externas')?.checked ?? true;
+
+    let itemsClasificados;
+
+    if (isSuggestion) {
+      // Sugerencia de póster (tira de miniaturas bajo el título, dispara en
+      // cada tecla escrita): solo necesita m.poster_path, no las badges de
+      // Vimeus/Respaldo. Chequear disponibilidad acá significaba hasta 20
+      // fetches en paralelo a Vimeus POR TECLA sin ningún debounce -- podía
+      // mandar cientos de pedidos en pocos segundos con solo escribir un
+      // título. Se salta el chequeo entero para este modo.
+      itemsClasificados = candidatos;
+    } else {
+      resultsDiv.innerHTML = '<p style="color: var(--primary);">Analizando servidores disponibles (Vimeus / Respaldo)... 🔎</p>';
+
+      // Chequeo en paralelo de disponibilidad para cada candidato
+      const estados = await Promise.all(candidatos.map(async (m) => {
+        if (!m.id) return { vimeus: false, respaldo: false };
+        const tipoVimeus = m.media_type === 'tv' ? 'serie' : 'movie';
+
+        const esVimeus = await vimeusTieneTitulo(m.id, null, tipoVimeus);
+        let esRespaldo = false;
+        if (!esVimeus) {
+          // Respaldo (FlixLatam/PelisMart/etc.) soporta series y películas con metadata TMDb
+          esRespaldo = (m.media_type === 'tv') || (m.vote_count > 30) || !!m.poster_path;
+        }
+        return { vimeus: esVimeus, respaldo: esRespaldo };
+      }));
+
+      itemsClasificados = candidatos.map((m, i) => {
+        const st = estados[i] || { vimeus: false, respaldo: false };
+        const yaEnCatalogo = window._tmdbYaEnCatalogo(m.id);
+
+        let badgeType = 'externo';
+        if (st.vimeus) {
+          badgeType = 'vimeus';
+        } else if (st.respaldo) {
+          badgeType = 'respaldo';
+        }
+
+        return {
+          ...m,
+          _esVimeus: st.vimeus,
+          _esRespaldo: st.respaldo,
+          _esExterno: !st.vimeus && !st.respaldo,
+          _badgeType: badgeType,
+          _yaEnCatalogo: yaEnCatalogo
+        };
+      });
+
+      if (!fuentesExternasOn) {
+        itemsClasificados = itemsClasificados.filter(item => item._esVimeus || item._esRespaldo);
+        if (itemsClasificados.length === 0) {
+          resultsDiv.innerHTML = '<p style="color: var(--text-muted);">No hay servidores automáticos detectados. Marca "Mostrar todos los resultados" para ver todo TMDb.</p>';
+          return;
+        }
+      }
+
+      // Ordenar: 🟢 VIMEUS -> 🍿 RESPALDO -> 🔗 EXTERNO
+      itemsClasificados.sort((a, b) => {
+        const p = { vimeus: 1, respaldo: 2, externo: 3 };
+        return (p[a._badgeType] || 4) - (p[b._badgeType] || 4);
+      });
+    }
+
+    _tmdbLastResults = itemsClasificados;
 
     if (isSuggestion) {
       resultsDiv.innerHTML = _tmdbLastResults
         .filter(m => m.poster_path)
+        .slice(0, 8)
         .map((m, index) => {
           const imgUrl = TMDB_IMG_URL + m.poster_path;
           return `
@@ -5399,34 +5486,37 @@ window.searchTMDB = async function (query, isSuggestion = false) {
         }).join('');
     } else {
       resultsDiv.innerHTML = _tmdbLastResults.map((m, index) => {
-        const title = m.title || m.name || "Sin Título";
-        const type = m.media_type === 'tv' ? 'series' : 'movie';
+        // Escapado: el título viene de TMDb (editable por cualquiera) y se
+        // inserta como texto/atributo vía innerHTML -- sin esto, un título
+        // con comillas o `<` podía romper el atributo o inyectar markup.
+        const title = _escHtml(m.title || m.name || "Sin Título");
+        const type = _tmdbTipo(m);
         const imgUrl = m.poster_path ? (TMDB_IMG_URL + m.poster_path) : 'https://via.placeholder.com/150x225?text=SIN+POSTER';
-        const esVimeus = disponibilidadFinal[index];
-        const tieneVoe = m.embed && m.embed.includes('voe');
-        const distintivo = tieneVoe
-          ? `<span style="display:inline-block; margin-top:2px; padding:1px 6px; border-radius:4px; background:rgba(255,102,0,0.25); color:#FF6600; font-size:0.58rem; font-weight:700;">🔥 VOE.sx</span>`
-          : (esVimeus
-              ? `<span style="display:inline-block; margin-top:2px; padding:1px 6px; border-radius:4px; background:rgba(46,204,113,0.15); color:#2ECC71; font-size:0.58rem; font-weight:700;">✅ VIMEUS</span>`
-              : `<span style="display:inline-block; margin-top:2px; padding:1px 6px; border-radius:4px; background:rgba(0,242,255,0.12); color:#00f2ff; font-size:0.58rem; font-weight:700;">🔗 RESPALDO</span>`);
+        
+        let distintivo = '';
+        if (m._esVimeus) {
+          distintivo = `<span style="display:inline-block; margin-top:2px; padding:2px 6px; border-radius:4px; background:rgba(46,204,113,0.18); color:#2ECC71; border:1px solid rgba(46,204,113,0.35); font-size:0.58rem; font-weight:800;" title="Servidor especial Vimeus disponible">🟢 VIMEUS</span>`;
+        } else if (m._esRespaldo) {
+          distintivo = `<span style="display:inline-block; margin-top:2px; padding:2px 6px; border-radius:4px; background:rgba(255,184,0,0.18); color:#FFB800; border:1px solid rgba(255,184,0,0.35); font-size:0.58rem; font-weight:800;" title="Servidores automáticos de respaldo (FlixLatam/PelisMart)">🍿 RESPALDO</span>`;
+        } else {
+          distintivo = `<span style="display:inline-block; margin-top:2px; padding:2px 6px; border-radius:4px; background:rgba(0,242,255,0.14); color:#00f2ff; border:1px solid rgba(0,242,255,0.35); font-size:0.58rem; font-weight:800;" title="En TMDb. Ingresa enlace de video manual">🔗 EXTERNO</span>`;
+        }
 
-        // A pedido: en sagas divididas en partes (Crepúsculo, Amanecer 1/2,
-        // etc.) antes no había forma de saber de un vistazo si esa parte ya
-        // estaba en el catálogo, así que era fácil re-agregarla duplicada.
-        const yaEnCatalogo = window._tmdbYaEnCatalogo(m.id);
-        const yaBadge = yaEnCatalogo
-          ? `<span style="display:inline-block; margin-top:2px; padding:1px 6px; border-radius:4px; background:rgba(231,76,60,0.18); color:#E74C3C; font-size:0.58rem; font-weight:700;">📼 YA AGREGADA</span>`
+        const yaBadge = m._yaEnCatalogo
+          ? `<span style="display:inline-block; margin-top:2px; padding:2px 6px; border-radius:4px; background:rgba(231,76,60,0.18); color:#E74C3C; border:1px solid rgba(231,76,60,0.35); font-size:0.58rem; font-weight:800;">📼 YA AGREGADA</span>`
           : '';
 
         return `
-          <div class="tmdb-item" style="cursor:pointer; min-width:100px; text-align:center; position:relative; ${yaEnCatalogo ? 'opacity:0.55;' : ''}">
-            <input type="checkbox" class="tmdb-bulk-check" data-index="${index}" ${yaEnCatalogo ? 'disabled title="Ya está en el catálogo"' : ''} onclick="event.stopPropagation(); window.updateTMDBBulkBar();" style="position:absolute; top:2px; left:2px; width:16px; height:16px; z-index:2; cursor:pointer;">
+          <div class="tmdb-item" style="cursor:pointer; min-width:110px; max-width:110px; text-align:center; position:relative; ${m._yaEnCatalogo ? 'opacity:0.6;' : ''}">
+            <input type="checkbox" class="tmdb-bulk-check" data-index="${index}" ${m._yaEnCatalogo ? 'disabled title="Ya está en el catálogo"' : ''} onclick="event.stopPropagation(); window.updateTMDBBulkBar();" style="position:absolute; top:2px; left:2px; width:16px; height:16px; z-index:2; cursor:pointer;">
             <div onclick="window.selectTMDBMovie(${index})">
-              <img src="${imgUrl}" alt="${title}" style="height:150px; border-radius:8px; object-fit:cover; margin-bottom:5px;" onerror="this.src='https://via.placeholder.com/150x225'">
-              <p style="font-size:0.65rem; color:var(--primary); font-weight:bold;">[${type === 'series' ? 'Serie' : 'Peli'}]</p>
-              <p style="font-size:0.7rem; color:white; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${title}</p>
-              ${distintivo}
-              ${yaBadge}
+              <img src="${imgUrl}" alt="${title}" style="width:100px; height:150px; border-radius:8px; object-fit:cover; margin-bottom:4px;" onerror="this.src='https://via.placeholder.com/150x225'">
+              <p style="font-size:0.65rem; color:var(--primary); font-weight:bold; margin:0;">[${type === 'series' ? 'Serie' : type === 'anime' ? 'Anime' : 'Peli'}]</p>
+              <p style="font-size:0.7rem; color:white; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin:2px 0;" title="${title}">${title}</p>
+              <div style="display:flex; flex-direction:column; gap:2px; align-items:center;">
+                ${distintivo}
+                ${yaBadge}
+              </div>
             </div>
           </div>
         `;
@@ -5436,7 +5526,7 @@ window.searchTMDB = async function (query, isSuggestion = false) {
 
   } catch (err) {
     console.error("TMDB error:", err);
-    if (!isSuggestion) resultsDiv.innerHTML = '<p style="color: #E74C3C;">Error al conectar con TMDB (Revisa el ID) 🐒</p>';
+    if (!isSuggestion) resultsDiv.innerHTML = '<p style="color: #E74C3C;">Error al conectar con TMDB (Revisa tu búsqueda) 🐒</p>';
   }
 }
 
@@ -5449,7 +5539,7 @@ window.selectTMDBMovie = async (index) => {
   const title = m.title || m.name;
   const originalTitle = m.original_title || m.original_name || "";
   const date = m.release_date || m.first_air_date || "2024";
-  const type = m.media_type === 'tv' ? 'series' : 'movie';
+  const type = _tmdbTipo(m);
 
   document.getElementById('m-title').value = title;
   document.getElementById('m-original-title').value = originalTitle;
@@ -5459,11 +5549,16 @@ window.selectTMDBMovie = async (index) => {
   document.getElementById('m-type').value = type;
   document.getElementById('m-year').value = date.split('-')[0];
   document.getElementById('m-rating').value = m.vote_average || '8.0';
+  if (document.getElementById('m-synopsis')) document.getElementById('m-synopsis').value = m.overview || m.synopsis || "";
   document.getElementById('m-embed').value = "";
+  window.toggleEpisodesCardVisibility();
+  _currentEpisodesMap = {};
+  _currentEpisodesSeasons = null;
+  if (type === 'series' || type === 'anime') window.loadEpisodesEditorSeasons();
 
   // Operación Búsqueda Pro: Obtener Títulos Alternativos, Director e ID IMDB
   try {
-    const detailType = type === 'series' ? 'tv' : 'movie';
+    const detailType = (type === 'series' || type === 'anime') ? 'tv' : 'movie';
     const [extResp, altResp, credResp, fullResp] = await Promise.all([
       fetch(`${TMDB_URL}/${detailType}/${m.id}/external_ids?api_key=${TMDB_API_KEY}`),
       fetch(`${TMDB_URL}/${detailType}/${m.id}/alternative_titles?api_key=${TMDB_API_KEY}`),
@@ -5554,8 +5649,8 @@ window.addSelectedTMDBMovies = async () => {
     try {
       const title = m.title || m.name;
       const date = m.release_date || m.first_air_date || "2024";
-      const type = m.media_type === 'tv' ? 'series' : 'movie';
-      const detailType = type === 'series' ? 'tv' : 'movie';
+      const type = _tmdbTipo(m);
+      const detailType = (type === 'series' || type === 'anime') ? 'tv' : 'movie';
       const imgUrl = m.poster_path ? (TMDB_IMG_URL + m.poster_path) : '';
       if (!imgUrl) throw new Error('sin póster');
 
@@ -7512,6 +7607,7 @@ window.editMovie = (id) => {
   document.getElementById('m-year').value = (movie.year || '2024').toString().split('-')[0];
   document.getElementById('m-rating').value = movie.rating || '4.8';
   document.getElementById('m-type').value = movie.type || 'movie';
+  window.toggleEpisodesCardVisibility();
   document.getElementById('m-status').value = movie.status || 'review';
   document.getElementById('m-lang').value = movie.lang || 'es-MX';
   document.getElementById('m-synopsis').value = movie.synopsis || '';
@@ -7560,6 +7656,24 @@ window.editMovie = (id) => {
   // Los servidores públicos ahora aparecen solos al editar, sin depender
   // de que el admin apriete el botón primero.
   if (movie.imdbId) window.checkAdminPublicServers();
+
+  // Editor de episodios: precargar links manuales ya guardados y, si es
+  // serie/anime con TMDb ID, traer las temporadas solo para poder mostrarlos.
+  _currentEpisodesMap = { ...(movie.episodes || {}) };
+  _currentEpisodesSeasons = null;
+  const epRows = document.getElementById('ep-rows-container'); if (epRows) epRows.innerHTML = '';
+  if (['series', 'anime'].includes(movie.type) && movie.tmdbId) {
+    window.loadEpisodesEditorSeasons();
+  } else if (['series', 'anime'].includes(movie.type)) {
+    // Sin TMDb ID no hay de dónde traer temporadas/capítulos: los links ya
+    // guardados en movie.episodes siguen intactos en _currentEpisodesMap (y
+    // el reproductor los sigue usando), pero acá no hay forma de listarlos
+    // fila por fila sin saber cuántos episodios tiene cada temporada.
+    const epStatus = document.getElementById('ep-editor-status');
+    if (epStatus) epStatus.textContent = Object.keys(_currentEpisodesMap).length
+      ? `Este título ya tiene ${Object.keys(_currentEpisodesMap).length} link(s) guardado(s), pero falta el ID TMDB para poder editarlos acá.`
+      : 'Cargá el ID TMDB arriba para poder agregar links por capítulo.';
+  }
 };
 
 
@@ -8830,6 +8944,11 @@ window.submitMovieForm = async () => {
     isVIP: document.getElementById('m-is-vip').checked,
     releaseDate: document.getElementById('m-release-date')?.value ? new Date(document.getElementById('m-release-date').value).getTime() : null,
     showCountdown: document.getElementById('m-show-countdown')?.checked ?? true,
+    // Solo para Series/Anime: si el tipo se cambió a Película después de
+    // haber cargado episodios, no arrastramos ese mapa viejo al documento.
+    episodes: (document.getElementById('m-type').value === 'series' || document.getElementById('m-type').value === 'anime')
+      ? { ..._currentEpisodesMap }
+      : {},
     updatedAt: Date.now()
   };
 
@@ -8930,6 +9049,85 @@ function _renderGenreTags() {
   const hidden = document.getElementById('m-genres');
   if (hidden) hidden.value = JSON.stringify([..._currentGenreTags]);
 }
+
+// ─── Editor de Episodios (Series/Anime) ────────────────────────────────────
+// Player.js usa _currentEpisodesMap (declarado arriba del archivo) como
+// prioridad máxima para ese capítulo específico; sin nada acá, el capítulo
+// se arma solo con los Servidores Públicos + TMDb, tal como ya funcionaba
+// antes de este editor.
+
+window.toggleEpisodesCardVisibility = () => {
+  const card = document.getElementById('episodes-editor-card');
+  if (!card) return;
+  const type = document.getElementById('m-type')?.value || 'movie';
+  card.style.display = (type === 'series' || type === 'anime') ? 'block' : 'none';
+};
+
+window.loadEpisodesEditorSeasons = async () => {
+  const tmdbId = document.getElementById('m-tmdb-id')?.value.trim();
+  const status = document.getElementById('ep-editor-status');
+  if (!tmdbId) {
+    window.showToast('Falta el ID TMDB para traer temporadas 🌴', 'error');
+    return;
+  }
+  const requestId = ++_epSeasonsRequestId;
+  if (status) status.textContent = 'Cargando desde TMDb...';
+  try {
+    const resp = await fetch(`${TMDB_URL}/tv/${tmdbId}?api_key=${TMDB_API_KEY}&language=es-MX`);
+    const details = await resp.json();
+    if (!details.seasons) throw new Error('TMDb no devolvió temporadas');
+    // Llegó una carga más nueva mientras esta estaba en vuelo (auto-trigger
+    // + click manual, o el drawer se cerró/reseteó) -- descartar esta.
+    if (requestId !== _epSeasonsRequestId) return;
+
+    _currentEpisodesSeasons = details.seasons
+      .filter(s => s.season_number > 0)
+      .map(s => ({ season_number: s.season_number, episode_count: s.episode_count }));
+
+    const seasonSelect = document.getElementById('ep-season-select');
+    if (seasonSelect) {
+      seasonSelect.innerHTML = _currentEpisodesSeasons
+        .map(s => `<option value="${s.season_number}">Temporada ${s.season_number}</option>`).join('');
+      seasonSelect.value = _currentEpisodesSeasons[0]?.season_number || 1;
+    }
+    if (status) status.textContent = `${_currentEpisodesSeasons.length} temporada(s) encontradas.`;
+    window.renderEpisodesEditor();
+  } catch (e) {
+    console.error('Error cargando temporadas:', e);
+    if (status) status.textContent = '';
+    window.showToast('No se pudo traer temporadas de TMDb', 'error');
+  }
+};
+
+window.renderEpisodesEditor = () => {
+  const container = document.getElementById('ep-rows-container');
+  const seasonSelect = document.getElementById('ep-season-select');
+  if (!container || !seasonSelect || !_currentEpisodesSeasons) return;
+
+  const seasonNumber = parseInt(seasonSelect.value) || 1;
+  const season = _currentEpisodesSeasons.find(s => s.season_number === seasonNumber);
+  const count = season ? season.episode_count : 0;
+
+  container.innerHTML = '';
+  for (let ep = 1; ep <= count; ep++) {
+    const key = `${seasonNumber}-${ep}`;
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; align-items:center; gap:8px;';
+    row.innerHTML = `
+      <label style="width:52px; flex-shrink:0; font-size:0.75rem; color:#999;">E${ep}</label>
+      <input type="url" class="form-control ep-url-input" data-key="${key}"
+        placeholder="https://... (opcional)" style="flex:1; font-size:0.8rem;"
+        value="${(_currentEpisodesMap[key] || '').replace(/"/g, '&quot;')}">
+    `;
+    const input = row.querySelector('.ep-url-input');
+    input.addEventListener('input', () => {
+      const val = input.value.trim();
+      if (val) _currentEpisodesMap[key] = val;
+      else delete _currentEpisodesMap[key];
+    });
+    container.appendChild(row);
+  }
+};
 
 // Test embed link by playing it
 window.testEmbedLink = () => {
@@ -10916,10 +11114,10 @@ window.checkSourcesForSelectedTMDB = async () => {
     if (btn) btn.textContent = `Probando ${i + 1}/${indices.length}...`;
 
     const title = m.title || m.name || 'Sin título';
-    const type = m.media_type === 'tv' ? 'series' : 'movie';
+    const type = _tmdbTipo(m);
     let imdbId = '';
     try {
-      const detailType = type === 'series' ? 'tv' : 'movie';
+      const detailType = (type === 'series' || type === 'anime') ? 'tv' : 'movie';
       const extData = await fetch(`${TMDB_URL}/${detailType}/${m.id}/external_ids?api_key=${TMDB_API_KEY}`).then(r => r.json());
       imdbId = extData.imdb_id || '';
     } catch (e) { /* sigue el chequeo sin IMDB id */ }

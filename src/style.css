@@ -828,9 +828,15 @@
   font-size: 1rem;
   color: var(--on-surface);
   margin-bottom: var(--spacing-xs);
-  white-space: nowrap;
+  /* 2 líneas en vez de 1: en tarjetas angostas (celular, 130px) un título
+     tipo "La era de hielo 2" quedaba cortado en "La era de ..." — con esto
+     se lee bastante más antes de recurrir a los puntos suspensivos. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.25;
 }
 
 .cinepulse-card-meta {

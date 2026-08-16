@@ -1407,16 +1407,6 @@ function _renderCardsInto(container, data, isTrending = false) {
           statusBadgeHtml = `<div class="badge-maintenance">Mantenimiento</div>`;
         }
 
-        let streamBadge = '';
-        if (isBroken) {
-          streamBadge = `<span style="color: #FF5252; font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 2px;">🔴 Sin Fuentes</span>`;
-        } else if (item.embed && (item.embed.startsWith('http') || item.embed.includes('<iframe'))) {
-          streamBadge = `<span style="color: #00E676; font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 2px;">👑 Directo</span>`;
-        } else if (item.tmdbId || item.imdbId) {
-          streamBadge = `<span style="color: #00B0FF; font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 2px;">🟢 Online HD</span>`;
-        } else {
-          streamBadge = `<span style="color: #FFB300; font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 2px;">🟡 Buscando...</span>`;
-        }
         
         const cardHtml = `
             <div class="cinepulse-movie-card" data-id="${item.id}" tabindex="0" role="button" data-tvnav onclick="window.handleCardClick('${item.id}')">
@@ -1444,11 +1434,10 @@ function _renderCardsInto(container, data, isTrending = false) {
                 <div class="cinepulse-card-meta">
                   ${item.year ? `<span class="cinepulse-card-year">${item.year}</span>` : ''}
                   <span class="cinepulse-card-genre">${genre}</span>
-                  ${streamBadge}
                   ${item.rating ? `
                   <span class="cinepulse-card-rating">
                     <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1; font-size: 12px;">star</span>
-                    ${item.rating}
+                    ${(parseFloat(item.rating) || 0).toFixed(1)}
                   </span>` : ''}
                 </div>
               </div>
@@ -1567,16 +1556,6 @@ function renderGallery(title, groups) {
           statusBadgeHtml = `<div class="badge-maintenance">Mantenimiento</div>`;
         }
 
-        let streamBadge = '';
-        if (isBroken) {
-          streamBadge = `<span style="color: #FF5252; font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 2px;">🔴 Sin Fuentes</span>`;
-        } else if (item.embed && (item.embed.startsWith('http') || item.embed.includes('<iframe'))) {
-          streamBadge = `<span style="color: #00E676; font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 2px;">👑 Directo</span>`;
-        } else if (item.tmdbId || item.imdbId) {
-          streamBadge = `<span style="color: #00B0FF; font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 2px;">🟢 Online HD</span>`;
-        } else {
-          streamBadge = `<span style="color: #FFB300; font-size: 0.7rem; font-weight: 800; display: flex; align-items: center; gap: 2px;">🟡 Buscando...</span>`;
-        }
 
         return `
           <div class="cinepulse-movie-card gallery-card" data-id="${item.id}" tabindex="0" role="button" data-tvnav onclick="window.handleCardClick('${item.id}')">
@@ -1607,7 +1586,7 @@ function renderGallery(title, groups) {
                 ${item.rating ? `
                 <span class="cinepulse-card-rating">
                   <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1; font-size: 12px;">star</span>
-                  ${item.rating}
+                  ${(parseFloat(item.rating) || 0).toFixed(1)}
                 </span>` : ''}
               </div>
             </div>
@@ -5409,7 +5388,7 @@ window.addSelectedTMDBMovies = async () => {
         imdbId,
         embed: '',
         year: date.split('-')[0],
-        rating: m.vote_average || '8.0',
+        rating: m.vote_average ? m.vote_average.toFixed(1) : '8.0',
         type,
         lang: document.getElementById('discover-lang')?.value || 'es-MX',
         status: 'review',

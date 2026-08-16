@@ -3173,9 +3173,10 @@ window.renderFreeTrialBanner = (isAlreadyPaid) => {
         return;
     }
     wrap.innerHTML = activas.map(o => `
-        <div style="padding:14px 16px; background:rgba(46,204,113,0.08); border:1px solid rgba(46,204,113,0.3); border-radius:12px; display:flex; align-items:center; justify-content:space-between; gap:12px;">
-            <div>
-                <p style="color:#2ecc71; font-weight:800; font-size:0.85rem; margin:0 0 2px;">🎁 ${_escTrialHtml(o.name)}</p>
+        <div style="padding:14px 16px; background:rgba(46,204,113,0.08); border:1px solid rgba(46,204,113,0.3); border-radius:12px; display:flex; align-items:center; gap:12px;">
+            <div style="width:44px; height:44px; border-radius:12px; background:rgba(46,204,113,0.15); border:2px solid rgba(46,204,113,0.4); display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex-shrink:0;">${o.icon || _trialIcon(o.durationHours || 24)}</div>
+            <div style="flex:1; min-width:0;">
+                <p style="color:#2ecc71; font-weight:800; font-size:0.85rem; margin:0 0 2px;">${_escTrialHtml(o.name)}</p>
                 <p style="color:#aaa; font-size:0.72rem; margin:0;">${_trialFormatoDuracion(o.durationHours)} de acceso VIP sin costo, hasta una vez cada ${_trialFormatoDuracion(o.cadenceHours)}.</p>
             </div>
             <button onclick="window.claimFreeTrial('${o.id}')" style="background:#2ecc71; color:#000; border:none; border-radius:10px; padding:10px 16px; font-weight:800; font-size:0.78rem; cursor:pointer; white-space:nowrap; flex-shrink:0;">Activar</button>

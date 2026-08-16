@@ -822,15 +822,24 @@
   pointer-events: none;
 }
 
+.cinepulse-card-title {
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--on-surface);
+  margin: 0 0 var(--spacing-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .cinepulse-card-meta {
   display: flex;
   align-items: center;
   gap: 6px;
   margin-top: var(--spacing-xs);
-  /* Sin título arriba (el póster ya lo muestra), esto es lo único que queda
-     en la tarjeta — tiene que entrar en una sola fila. El género es lo único
-     de largo variable, así que es lo único que se achica/trunca si hace
-     falta; año y rating son cortos y siempre se ven completos. */
+  /* El género es lo único de largo variable, así que es lo único que se
+     achica/trunca si hace falta; año y rating son cortos y fijos. */
   flex-wrap: nowrap;
   overflow: hidden;
 }

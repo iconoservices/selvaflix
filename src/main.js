@@ -3439,6 +3439,7 @@ window.openPremiumModal = (movie) => {
     if (typeof window.renderFreeTrialBanner === 'function' && Array.isArray(window.trialOffers)) window.renderFreeTrialBanner(isAlreadyPaid);
     if (typeof window.renderPremiumTimeRemaining === 'function') window.renderPremiumTimeRemaining();
     if (typeof window.renderStreakDetail === 'function' && Array.isArray(window.streakMilestones)) window.renderStreakDetail();
+    if (typeof window.renderRewardsIconStrip === 'function') window.renderRewardsIconStrip();
     if (typeof window.updateReferralCard === 'function') window.updateReferralCard();
 
     Promise.all([window._plansReadyPromise, window._trialOffersReadyPromise, window._streakConfigReadyPromise]).then(() => {
@@ -3446,7 +3447,65 @@ window.openPremiumModal = (movie) => {
         window.renderPremiumPlansGrid();
         if (typeof window.renderFreeTrialBanner === 'function') window.renderFreeTrialBanner(isAlreadyPaid);
         if (typeof window.renderStreakDetail === 'function') window.renderStreakDetail();
+        if (typeof window.renderRewardsIconStrip === 'function') window.renderRewardsIconStrip();
     });
+};
+
+// Fila única con TODOS los íconos de recompensa (pruebas gratis + escalones
+// de racha) juntos, aparte de la tarjeta de la racha y de las tarjetas de
+// prueba gratis — un "vistazo" general antes de entrar en el detalle de
+// cada una. 3 estados visuales: 'claimed' (verde+✓, ya lo tenés), 'ready'
+// (naranja, disponible ahora — pruebas gratis siempre están así, un escalón
+// de racha rara vez porque se cobra solo al llegar) y 'locked' (gris/apagado,
+// racha que todavía no llegaste a ese día).
+window.renderRewardsIconStrip = () => {
+    const strip = document.getElementById('rewards-icon-strip');
+    if (!strip) return;
+
+    const trialItems = (window.trialOffers || []).filter(o => o.active).map(o => ({
+        icon: o.icon || _trialIcon(o.durationHours || 24),
+        label: o.name,
+        state: 'ready',
+        title: `${o.name} — ${_trialFormatoDuracion(o.durationHours || 24)} disponible`,
+    }));
+
+    const count = window.currentStreakCount || 0;
+    const claimedMilestones = window.currentStreakClaimedMilestones || [];
+    const streakItems = (window.streakMilestones || []).filter(m => m.active !== false).sort((a, b) => a.days - b.days).map(m => {
+        const isClaimed = claimedMilestones.includes(m.days);
+        const isReached = count >= m.days;
+        return {
+            icon: _trialIcon(m.hours || 24),
+            label: `${m.days}d`,
+            state: isClaimed ? 'claimed' : (isReached ? 'ready' : 'locked'),
+            title: `${m.days} días seguidos → ${_trialFormatoDuracion(m.hours || 24)} de Premium`,
+        };
+    });
+
+    const items = [...trialItems, ...streakItems];
+    if (items.length === 0) {
+        strip.style.display = 'none';
+        return;
+    }
+
+    const estilo = {
+        claimed: { bg: 'rgba(46,204,113,0.15)', border: '#2ecc71', opacity: '1', grayscale: 'none', check: true },
+        ready: { bg: 'rgba(255,122,0,0.15)', border: 'var(--primary)', opacity: '1', grayscale: 'none', check: false },
+        locked: { bg: 'rgba(255,255,255,0.03)', border: 'rgba(255,255,255,0.12)', opacity: '0.45', grayscale: 'grayscale(85%)', check: false },
+    };
+
+    strip.style.display = 'flex';
+    strip.innerHTML = items.map(item => {
+        const s = estilo[item.state];
+        return `
+        <div style="display:flex; flex-direction:column; align-items:center; gap:4px; width:52px;" title="${_escTrialHtml(item.title)}">
+            <div style="position:relative; width:44px; height:44px; border-radius:13px; display:flex; align-items:center; justify-content:center; font-size:1.35rem; background:${s.bg}; border:2px solid ${s.border}; filter:${s.grayscale}; opacity:${s.opacity};">
+                ${item.icon}
+                ${s.check ? '<span style="position:absolute; bottom:-4px; right:-4px; background:#2ecc71; color:#06210f; font-size:0.55rem; width:15px; height:15px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:900;">✓</span>' : ''}
+            </div>
+            <span style="font-size:0.58rem; color:#ccc; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:52px;">${_escTrialHtml(item.label)}</span>
+        </div>`;
+    }).join('');
 };
 
 // Ladder de escalones dentro del modal de Premium: cuántos días lleva el

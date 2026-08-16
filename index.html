@@ -2419,6 +2419,15 @@
            cada render de #free-trial-offers / #streak-detail. -->
       <div id="rewards-section" style="display:none; margin:16px 20px 0; flex-shrink:0;">
         <h4 style="font-size:0.68rem; color:var(--primary); text-transform:uppercase; letter-spacing:0.5px; margin:0 0 8px; display:flex; align-items:center; gap:6px;">🎁 Recompensas</h4>
+
+        <!-- Fila única con TODOS los íconos (pruebas gratis + racha) juntos,
+             separada de la tarjeta de la racha y de las tarjetas de prueba
+             gratis de abajo — un "vistazo" de todo lo que hay para ganar/usar
+             antes de entrar en el detalle de cada una. -->
+        <div id="rewards-icon-strip" style="display:none; gap:10px; justify-content:center; margin-bottom:14px; flex-wrap:wrap;">
+          <!-- Inyectado dinámicamente -->
+        </div>
+
         <div style="display:flex; flex-direction:column; gap:10px;">
           <!-- Puede haber varias ofertas activas a la vez (ej. "3 horas" y "24 horas"),
                por eso es una lista de tarjetas, no un banner único. -->

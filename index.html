@@ -2400,6 +2400,12 @@
         </div>
         <button onclick="window.closePremiumModal()" style="background:none; border:none; color:#888; font-size:1.4rem; cursor:pointer; line-height:1;">&times;</button>
       </div>
+      <!-- Todo lo de abajo del título (recompensas + planes) scrollea junto,
+           como un solo bloque — antes #premium-plans-grid tenía su PROPIO
+           scroll interno (flex:1 + overflow-y), y con "Recompensas" creciendo
+           (racha, invitar amigos) le quedaba tan poco alto que los planes
+           parecían encerrados en una ventanita aparte, tapados. -->
+      <div style="flex:1; overflow-y:auto;">
       <!-- Barra con el tiempo Premium restante: solo aparece si el usuario tiene
            un vencimiento activo (prueba gratis, o plan pago cargado con límite). -->
       <div id="premium-time-remaining" style="display:none; margin:16px 20px 0; flex-shrink:0; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:12px 14px;">
@@ -2439,8 +2445,9 @@
         </div>
       </div>
 
-      <div id="premium-plans-grid" style="flex:1; overflow-y:auto; padding:20px; display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px;">
+      <div id="premium-plans-grid" style="padding:20px; display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px;">
         <p style="text-align:center; color:#666; font-size:0.8rem; grid-column: 1/-1;">Cargando planes...</p>
+      </div>
       </div>
     </div>
   </div>

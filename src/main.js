@@ -3451,10 +3451,30 @@ window.renderStreakDetail = () => {
 
     wrap.style.display = 'block';
     wrap.innerHTML = `
-        <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
             <span style="font-size:1.1rem;">🔥</span>
             <span style="color:#fff; font-size:0.82rem; font-weight:800;">${count > 0 ? `Llevás ${count} día${count !== 1 ? 's' : ''} seguido${count !== 1 ? 's' : ''}` : 'Empezá tu racha viendo algo hoy'}</span>
         </div>
+
+        <!-- Frascos: uno por escalón, en fila. Lleno/de color = ya lo cobraste;
+             vacío/apagado = todavía no. Mismo criterio de ícono según duración
+             que usan las tarjetas de Pruebas gratis, para que se sientan del
+             mismo "set". -->
+        <div style="display:flex; gap:10px; justify-content:center; margin-bottom:12px;">
+            ${milestones.map(m => {
+                const isClaimed = claimed.includes(m.days);
+                const icon = _trialIcon(m.hours || 24);
+                return `
+                <div style="display:flex; flex-direction:column; align-items:center; gap:4px; width:56px;" title="${m.days} días seguidos → ${_trialFormatoDuracion(m.hours || 24)} de Premium">
+                    <div style="position:relative; width:48px; height:48px; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:1.5rem; background:${isClaimed ? 'rgba(255,122,0,0.15)' : 'rgba(255,255,255,0.03)'}; border:2px solid ${isClaimed ? 'var(--primary)' : 'rgba(255,255,255,0.12)'}; filter:${isClaimed ? 'none' : 'grayscale(85%)'}; opacity:${isClaimed ? '1' : '0.45'};">
+                        ${icon}
+                        ${isClaimed ? '<span style="position:absolute; bottom:-4px; right:-4px; background:#2ecc71; color:#06210f; font-size:0.55rem; width:16px; height:16px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:900;">✓</span>' : ''}
+                    </div>
+                    <span style="font-size:0.6rem; color:${isClaimed ? '#fff' : '#777'}; font-weight:700;">${m.days}d</span>
+                </div>`;
+            }).join('')}
+        </div>
+
         <div style="display:flex; flex-direction:column; gap:6px;">
             ${milestones.map(m => {
                 const isClaimed = claimed.includes(m.days);

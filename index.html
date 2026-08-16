@@ -2424,7 +2424,15 @@
              separada de la tarjeta de la racha y de las tarjetas de prueba
              gratis de abajo — un "vistazo" de todo lo que hay para ganar/usar
              antes de entrar en el detalle de cada una. -->
-        <div id="rewards-icon-strip" style="display:none; gap:10px; justify-content:center; margin-bottom:14px; flex-wrap:wrap;">
+        <div id="rewards-icon-strip" style="display:none; gap:10px; justify-content:center; margin-bottom:10px; flex-wrap:wrap;">
+          <!-- Inyectado dinámicamente -->
+        </div>
+
+        <!-- Se abre al tocar un ícono de la fila de arriba: info de esa
+             recompensa puntual + botón de activarla si corresponde (las
+             pruebas gratis sí; los escalones de racha se cobran solos, así
+             que ahí no hay botón, solo el estado). -->
+        <div id="rewards-icon-detail" style="display:none; align-items:center; gap:12px; padding:12px 14px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:12px; margin-bottom:14px;">
           <!-- Inyectado dinámicamente -->
         </div>
 

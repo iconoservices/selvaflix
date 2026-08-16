@@ -3467,6 +3467,9 @@ window.renderRewardsIconStrip = () => {
         label: o.name,
         state: 'ready',
         title: `${o.name} — ${_trialFormatoDuracion(o.durationHours || 24)} disponible`,
+        type: 'trial',
+        offerId: o.id,
+        detailText: `${_trialFormatoDuracion(o.durationHours)} de acceso VIP sin costo, hasta una vez cada ${_trialFormatoDuracion(o.cadenceHours)}.`,
     }));
 
     const count = window.currentStreakCount || 0;
@@ -3474,15 +3477,27 @@ window.renderRewardsIconStrip = () => {
     const streakItems = (window.streakMilestones || []).filter(m => m.active !== false).sort((a, b) => a.days - b.days).map(m => {
         const isClaimed = claimedMilestones.includes(m.days);
         const isReached = count >= m.days;
+        const state = isClaimed ? 'claimed' : (isReached ? 'ready' : 'locked');
+        const detailText = isClaimed
+            ? '✅ Ya cobraste este premio — vuelve a estar disponible si arrancás otra racha.'
+            : (isReached ? '🎁 ¡Ya es tuyo! Se acredita solo.' : `Te faltan ${m.days - count} día${(m.days - count) !== 1 ? 's' : ''} seguidos para desbloquearlo.`);
         return {
             icon: _trialIcon(m.hours || 24),
             label: `${m.days}d`,
-            state: isClaimed ? 'claimed' : (isReached ? 'ready' : 'locked'),
+            state,
             title: `${m.days} días seguidos → ${_trialFormatoDuracion(m.hours || 24)} de Premium`,
+            type: 'streak',
+            days: m.days,
+            hours: m.hours,
+            detailText,
         };
     });
 
     const items = [...trialItems, ...streakItems];
+    window._rewardsIconStripItems = items; // lo lee window.showRewardIconDetail() al tocar un ícono
+    const detailPanel = document.getElementById('rewards-icon-detail');
+    if (detailPanel) detailPanel.style.display = 'none'; // se re-dibujó todo, cerrar el detalle que hubiera quedado abierto
+
     if (items.length === 0) {
         strip.style.display = 'none';
         return;
@@ -3495,10 +3510,10 @@ window.renderRewardsIconStrip = () => {
     };
 
     strip.style.display = 'flex';
-    strip.innerHTML = items.map(item => {
+    strip.innerHTML = items.map((item, idx) => {
         const s = estilo[item.state];
         return `
-        <div style="display:flex; flex-direction:column; align-items:center; gap:4px; width:52px;" title="${_escTrialHtml(item.title)}">
+        <div onclick="window.showRewardIconDetail(${idx})" style="display:flex; flex-direction:column; align-items:center; gap:4px; width:52px; cursor:pointer;" title="${_escTrialHtml(item.title)}">
             <div style="position:relative; width:44px; height:44px; border-radius:13px; display:flex; align-items:center; justify-content:center; font-size:1.35rem; background:${s.bg}; border:2px solid ${s.border}; filter:${s.grayscale}; opacity:${s.opacity};">
                 ${item.icon}
                 ${s.check ? '<span style="position:absolute; bottom:-4px; right:-4px; background:#2ecc71; color:#06210f; font-size:0.55rem; width:15px; height:15px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:900;">✓</span>' : ''}
@@ -3506,6 +3521,29 @@ window.renderRewardsIconStrip = () => {
             <span style="font-size:0.58rem; color:#ccc; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:52px;">${_escTrialHtml(item.label)}</span>
         </div>`;
     }).join('');
+};
+
+// Se dispara al tocar un ícono de la fila de arriba — muestra info de esa
+// recompensa puntual, y un botón de "Activar" solo si es una prueba gratis
+// (los escalones de racha se cobran solos, no hay nada para "activar").
+window.showRewardIconDetail = (idx) => {
+    const item = (window._rewardsIconStripItems || [])[idx];
+    const panel = document.getElementById('rewards-icon-detail');
+    if (!item || !panel) return;
+
+    const actionHtml = item.type === 'trial'
+        ? `<button onclick="window.claimFreeTrial('${item.offerId}')" style="background:#2ecc71; color:#000; border:none; border-radius:10px; padding:10px 16px; font-weight:800; font-size:0.78rem; cursor:pointer; white-space:nowrap; flex-shrink:0;">Activar</button>`
+        : '';
+
+    panel.innerHTML = `
+        <div style="width:40px; height:40px; border-radius:10px; background:rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center; font-size:1.2rem; flex-shrink:0;">${item.icon}</div>
+        <div style="flex:1; min-width:0;">
+            <p style="color:#fff; font-weight:800; font-size:0.8rem; margin:0 0 2px;">${_escTrialHtml(item.type === 'trial' ? item.label : `${item.label} de racha`)}</p>
+            <p style="color:#aaa; font-size:0.72rem; margin:0;">${_escTrialHtml(item.detailText)}</p>
+        </div>
+        ${actionHtml}
+    `;
+    panel.style.display = 'flex';
 };
 
 // Ladder de escalones dentro del modal de Premium: cuántos días lleva el

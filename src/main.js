@@ -1944,7 +1944,7 @@ window.switchAdminTab = (tab) => {
     if (typeof window.loadPlansConfig === 'function') {
       Promise.resolve(window.loadPlansConfig()).then(() => window.renderPlansList?.());
     }
-    if (typeof window.loadFreeTrialConfig === 'function') window.loadFreeTrialConfig();
+    if (typeof window.loadTrialOffers === 'function') window.loadTrialOffers();
   } else if (tab === 'users') {
     if (typeof window.loadRegisteredUsers === 'function') window.loadRegisteredUsers();
   } else if (tab === 'messages') {
@@ -2786,51 +2786,150 @@ window.saveGlobalWhatsapp = async () => {
     }
 };
 
-// --- Prueba gratis de Premium (auto-servicio) 🎁 ---
-// El usuario se activa solo un pase temporal a premium desde la ventanita de
-// planes, con la cadencia y duración que el admin definió acá. Se guarda
-// aparte (configs/freeTrial) porque no es un plan sino una promo transversal.
-window.freeTrialConfig = { active: false, durationDays: 1, cadenceDays: 30 };
+// --- Pruebas gratis de Premium (auto-servicio) 🎁 ---
+// Pueden convivir VARIAS ofertas a la vez (ej. "3 horas" y "24 horas"), cada
+// una con su propia duración y cadencia — por eso es una lista (trialOffers),
+// no un config único como al principio. El usuario se activa el pase él
+// mismo desde la ventanita de planes. Se guarda aparte (configs/freeTrial)
+// porque no es un plan sino una promo transversal.
+//
+// Cada oferta: { id, name, durationHours, cadenceHours, active }. Duración y
+// cadencia se guardan siempre en horas (aunque el admin las cargue en días)
+// para no tener que arrastrar la unidad por todos lados en los cálculos.
+window.trialOffers = [];
+let editingTrialOfferId = null;
 
-window.loadFreeTrialConfig = async () => {
+const _escTrialHtml = (str) => String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// Convierte {amount, unit} <-> horas, para no repetir la cuenta en cada lado.
+const _trialHoras = (amount, unit) => (unit === 'days' ? amount * 24 : amount);
+const _trialFormatoDuracion = (hours) => {
+    if (hours % 24 === 0) { const d = hours / 24; return `${d} día${d !== 1 ? 's' : ''}`; }
+    return `${hours} hora${hours !== 1 ? 's' : ''}`;
+};
+
+window.loadTrialOffers = async () => {
     try {
         const docSnap = await getDoc(doc(db, "configs", "freeTrial"));
         const data = docSnap.exists() ? docSnap.data() : {};
-        window.freeTrialConfig = {
-            active: !!data.active,
-            durationDays: data.durationDays || 1,
-            cadenceDays: data.cadenceDays || 30
-        };
-        const activeInput = document.getElementById('free-trial-active');
-        const durationInput = document.getElementById('free-trial-duration');
-        const cadenceInput = document.getElementById('free-trial-cadence');
-        if (activeInput) activeInput.checked = window.freeTrialConfig.active;
-        if (durationInput) durationInput.value = window.freeTrialConfig.durationDays;
-        if (cadenceInput) cadenceInput.value = window.freeTrialConfig.cadenceDays;
+        window.trialOffers = Array.isArray(data.offers) ? data.offers : [];
+        window.renderTrialOffersList();
     } catch (e) {
-        console.error("❌ Error cargando config de prueba gratis:", e);
+        console.error("❌ Error cargando pruebas gratis:", e);
     }
 };
 
-window.saveFreeTrialConfig = async () => {
-    const active = document.getElementById('free-trial-active')?.checked || false;
-    const durationDays = Math.max(1, parseInt(document.getElementById('free-trial-duration')?.value, 10) || 1);
-    const cadenceDays = Math.max(1, parseInt(document.getElementById('free-trial-cadence')?.value, 10) || 1);
+window.saveTrialOffers = async () => {
     try {
-        window.freeTrialConfig = { active, durationDays, cadenceDays };
-        await setDoc(doc(db, "configs", "freeTrial"), window.freeTrialConfig);
-        if (window.showToast) window.showToast("✅ Prueba gratis actualizada.", "success");
+        await setDoc(doc(db, "configs", "freeTrial"), { offers: window.trialOffers || [] });
+        if (window.showToast) window.showToast("✅ Pruebas gratis actualizadas.", "success");
     } catch (e) {
-        console.error("Error guardando config de prueba gratis:", e);
-        if (window.showToast) window.showToast("❌ Error al guardar la prueba gratis.", "error");
+        console.error("Error guardando pruebas gratis:", e);
+        if (window.showToast) window.showToast("❌ Error al guardar las pruebas gratis.", "error");
     }
 };
 
-// El usuario reclama su pase temporal. El respeto de la cadencia se valida
-// acá mismo contra users/{uid}.lastFreeTrialAt — no hay backend propio.
-window.claimFreeTrial = async () => {
-    const cfg = window.freeTrialConfig || {};
-    if (!cfg.active) return;
+window.createNewTrialOffer = () => {
+    if (!window.trialOffers) window.trialOffers = [];
+    window.trialOffers.push({
+        id: 'trial_' + Date.now().toString(36),
+        name: 'Nueva prueba',
+        durationHours: 24,
+        cadenceHours: 168, // 7 días — "una vez por semana" por defecto
+        active: true
+    });
+    window.renderTrialOffersList();
+};
+
+window.deleteTrialOffer = (id) => {
+    if (!confirm('¿Borrar esta prueba gratis? 🎁🗑️')) return;
+    window.trialOffers = (window.trialOffers || []).filter(o => o.id !== id);
+    window.saveTrialOffers();
+    window.renderTrialOffersList();
+};
+
+// Lee los inputs de UNA fila (nombre, cantidad+unidad de duración, cantidad+unidad
+// de cadencia, activa) y actualiza esa oferta en memoria — se llama en cada change,
+// así "Guardar todo" siempre guarda lo que se ve en pantalla.
+window.updateTrialOfferFromRow = (id) => {
+    const offer = (window.trialOffers || []).find(o => o.id === id);
+    if (!offer) return;
+    const row = document.getElementById(`trial-offer-row-${id}`);
+    if (!row) return;
+    offer.name = row.querySelector('.trial-name')?.value || offer.name;
+    const durAmount = Math.max(1, parseFloat(row.querySelector('.trial-duration-amount')?.value) || 1);
+    const durUnit = row.querySelector('.trial-duration-unit')?.value || 'hours';
+    offer.durationHours = _trialHoras(durAmount, durUnit);
+    const cadAmount = Math.max(1, parseFloat(row.querySelector('.trial-cadence-amount')?.value) || 1);
+    const cadUnit = row.querySelector('.trial-cadence-unit')?.value || 'days';
+    offer.cadenceHours = _trialHoras(cadAmount, cadUnit);
+    offer.active = row.querySelector('.trial-active')?.checked ?? offer.active;
+};
+
+window.renderTrialOffersList = () => {
+    const list = document.getElementById('trial-offers-list');
+    if (!list) return;
+    const offers = window.trialOffers || [];
+
+    if (offers.length === 0) {
+        list.innerHTML = '<p style="font-size: 0.7rem; color: #444; text-align: center; padding: 20px;">No hay pruebas gratis. Creá una para empezar. 🎁</p>';
+        return;
+    }
+
+    // Deshace horas -> {amount, unit} eligiendo días si entra justo, para que
+    // el admin vea "3 días" en vez de "72 horas" si así lo cargó.
+    const deshacer = (hours) => (hours % 24 === 0 && hours >= 24)
+        ? { amount: hours / 24, unit: 'days' }
+        : { amount: hours, unit: 'hours' };
+
+    list.innerHTML = offers.map(o => {
+        const dur = deshacer(o.durationHours || 24);
+        const cad = deshacer(o.cadenceHours || 168);
+        return `
+        <div id="trial-offer-row-${o.id}" style="padding: 14px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); display: grid; grid-template-columns: 1.3fr 1fr 1fr auto auto; gap: 10px; align-items: end;">
+            <div class="form-group" style="margin-bottom:0;">
+                <label style="font-size: 0.6rem;">Nombre</label>
+                <input type="text" class="form-control trial-name" value="${_escTrialHtml(o.name)}" placeholder="Ej: Prueba relámpago" onchange="window.updateTrialOfferFromRow('${o.id}')" style="font-size:0.78rem;">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label style="font-size: 0.6rem;">Dura</label>
+                <div style="display:flex; gap:4px;">
+                    <input type="number" min="1" step="1" class="form-control trial-duration-amount" value="${dur.amount}" onchange="window.updateTrialOfferFromRow('${o.id}')" style="font-size:0.78rem; min-width:0;">
+                    <select class="form-control trial-duration-unit" onchange="window.updateTrialOfferFromRow('${o.id}')" style="font-size:0.7rem; flex-shrink:0; width:72px;">
+                        <option value="hours" ${dur.unit === 'hours' ? 'selected' : ''}>horas</option>
+                        <option value="days" ${dur.unit === 'days' ? 'selected' : ''}>días</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label style="font-size: 0.6rem;">Se repite cada</label>
+                <div style="display:flex; gap:4px;">
+                    <input type="number" min="1" step="1" class="form-control trial-cadence-amount" value="${cad.amount}" onchange="window.updateTrialOfferFromRow('${o.id}')" style="font-size:0.78rem; min-width:0;">
+                    <select class="form-control trial-cadence-unit" onchange="window.updateTrialOfferFromRow('${o.id}')" style="font-size:0.7rem; flex-shrink:0; width:72px;">
+                        <option value="hours" ${cad.unit === 'hours' ? 'selected' : ''}>horas</option>
+                        <option value="days" ${cad.unit === 'days' ? 'selected' : ''}>días</option>
+                    </select>
+                </div>
+            </div>
+            <label class="switch" style="transform: scale(0.8);" title="Activa / Inactiva">
+                <input type="checkbox" class="trial-active" ${o.active ? 'checked' : ''} onchange="window.updateTrialOfferFromRow('${o.id}')">
+                <span class="slider round"></span>
+            </label>
+            <button onclick="window.deleteTrialOffer('${o.id}')" class="btn btn-danger-outline" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 8px;" title="Eliminar"><span class="material-symbols-outlined" style="font-size: 1.1rem;">delete</span></button>
+        </div>`;
+    }).join('') + `
+        <button onclick="window.saveTrialOffers()" class="btn btn-primary" style="margin-top: 4px; align-self: flex-start; font-size: 0.75rem;">💾 Guardar todas</button>
+    `;
+};
+
+// El usuario reclama el pase de UNA oferta puntual (offerId). La cadencia se
+// respeta por oferta: users/{uid}.freeTrialClaims = { [offerId]: timestampMs }.
+// Si ya tiene Premium activo (pago o de otra prueba en curso) no se le toca
+// nada — ni para acortarlo, ni para "sumarle" de más: hay que esperar a que
+// se le venza lo que ya tiene para poder pedir otra.
+window.claimFreeTrial = async (offerId) => {
+    const offer = (window.trialOffers || []).find(o => o.id === offerId);
+    if (!offer || !offer.active) return;
 
     const user = auth.currentUser;
     if (!user) {
@@ -2846,11 +2945,7 @@ window.claimFreeTrial = async () => {
         const userSnap = await getDoc(userRef);
         const userData = userSnap.exists() ? userSnap.data() : {};
         const now = Date.now();
-        const cadenceMs = cfg.cadenceDays * 24 * 60 * 60 * 1000;
 
-        // El banner ya viene oculto para premium/admin, pero si igual se llega
-        // acá no hay que escribir: a un admin lo degradaría a premium, y a
-        // alguien que pagó le acortaría la suscripción a los días de prueba.
         const hasActivePremium = userData.tier === 'admin'
             || (userData.tier === 'premium' && (!userData.premiumUntil || userData.premiumUntil > now));
         if (hasActivePremium) {
@@ -2858,17 +2953,24 @@ window.claimFreeTrial = async () => {
             return;
         }
 
-        if (userData.lastFreeTrialAt && (now - userData.lastFreeTrialAt) < cadenceMs) {
-            const nextDate = new Date(userData.lastFreeTrialAt + cadenceMs).toLocaleDateString();
-            if (window.showToast) window.showToast(`Ya usaste tu prueba gratis. Podés volver a usarla el ${nextDate}.`, 'info');
+        const claims = userData.freeTrialClaims || {};
+        const lastClaim = claims[offerId];
+        const cadenceMs = offer.cadenceHours * 60 * 60 * 1000;
+        if (lastClaim && (now - lastClaim) < cadenceMs) {
+            const nextDate = new Date(lastClaim + cadenceMs).toLocaleString();
+            if (window.showToast) window.showToast(`Ya usaste "${offer.name}". Podés volver a usarla el ${nextDate}.`, 'info');
             return;
         }
 
-        const durationMs = cfg.durationDays * 24 * 60 * 60 * 1000;
-        await setDoc(userRef, { tier: 'premium', premiumUntil: now + durationMs, lastFreeTrialAt: now }, { merge: true });
+        const durationMs = offer.durationHours * 60 * 60 * 1000;
+        await setDoc(userRef, {
+            tier: 'premium',
+            premiumUntil: now + durationMs,
+            freeTrialClaims: { ...claims, [offerId]: now }
+        }, { merge: true });
         await window.refreshUserTier(user.uid);
         window.closePremiumModal();
-        if (window.showToast) window.showToast(`🎁 ¡Listo! Premium activado por ${cfg.durationDays} día${cfg.durationDays > 1 ? 's' : ''}.`, 'success');
+        if (window.showToast) window.showToast(`🎁 ¡Listo! Premium activado: ${_trialFormatoDuracion(offer.durationHours)}.`, 'success');
     } catch (e) {
         console.error('Error activando prueba gratis:', e);
         if (window.showToast) window.showToast('No se pudo activar la prueba gratis. Intenta de nuevo.', 'error');
@@ -2876,16 +2978,23 @@ window.claimFreeTrial = async () => {
 };
 
 window.renderFreeTrialBanner = (isAlreadyPaid) => {
-    const banner = document.getElementById('free-trial-banner');
-    if (!banner) return;
-    const cfg = window.freeTrialConfig || {};
-    if (!cfg.active || isAlreadyPaid) {
-        banner.style.display = 'none';
+    const wrap = document.getElementById('free-trial-offers');
+    if (!wrap) return;
+    const activas = (window.trialOffers || []).filter(o => o.active);
+    if (activas.length === 0 || isAlreadyPaid) {
+        wrap.style.display = 'none';
         return;
     }
-    const text = document.getElementById('free-trial-banner-text');
-    if (text) text.innerText = `${cfg.durationDays} día${cfg.durationDays > 1 ? 's' : ''} de acceso VIP sin costo, hasta una vez cada ${cfg.cadenceDays} días.`;
-    banner.style.display = 'flex';
+    wrap.innerHTML = activas.map(o => `
+        <div style="padding:14px 16px; background:rgba(46,204,113,0.08); border:1px solid rgba(46,204,113,0.3); border-radius:12px; display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <div>
+                <p style="color:#2ecc71; font-weight:800; font-size:0.85rem; margin:0 0 2px;">🎁 ${_escTrialHtml(o.name)}</p>
+                <p style="color:#aaa; font-size:0.72rem; margin:0;">${_trialFormatoDuracion(o.durationHours)} de acceso VIP sin costo, hasta una vez cada ${_trialFormatoDuracion(o.cadenceHours)}.</p>
+            </div>
+            <button onclick="window.claimFreeTrial('${o.id}')" style="background:#2ecc71; color:#000; border:none; border-radius:10px; padding:10px 16px; font-weight:800; font-size:0.78rem; cursor:pointer; white-space:nowrap; flex-shrink:0;">Activar</button>
+        </div>
+    `).join('');
+    wrap.style.display = 'flex';
 };
 
 // El plan Gratuito antes era una tarjeta fija en el código (no se veía ni
@@ -8104,7 +8213,7 @@ document.addEventListener('DOMContentLoaded', () => {
   window.loadAdConfig();
   // 💎 Cargar Planes Premium (para la ventanita de invitación y el modal público)
   window.loadPlansConfig();
-  window.loadFreeTrialConfig();
+  window.loadTrialOffers();
 
   // 🔍 Buscador Global - el listener que faltaba!
   const globalSearch = document.getElementById('global-search');

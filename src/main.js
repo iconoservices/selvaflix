@@ -3018,6 +3018,10 @@ window.claimFreeTrial = async (offerId) => {
             freeTrialClaims: { ...claims, [offerId]: now }
         }, { merge: true });
         await window.refreshUserTier(user.uid);
+        // Sin esto, los anuncios ya inyectados (como invitado/free, antes de
+        // reclamar) seguían visibles hasta el próximo login — el beneficio
+        // "sin publicidad" no se notaba hasta refrescar la página.
+        if (typeof window.hideAllAdSlots === 'function') window.hideAllAdSlots();
         window.closePremiumModal();
         if (window.showToast) window.showToast(`🎁 ¡Listo! Premium activado: ${_trialFormatoDuracion(offer.durationHours)}.`, 'success');
     } catch (e) {
@@ -6203,6 +6207,18 @@ window.triggerLandingAd = async () => {
     window.showWarningOverlayCard(win, { title: 'Bienvenido' });
 };
 
+// Esconde los 4 slots donde puede haber caído un anuncio (banner de arriba,
+// banner de abajo, el lateral del menú de usuario, y el flotante global que
+// injectGlobalAdScripts crea solo si hace falta). Se llama cada vez que el
+// tier pasa a premium/admin DESPUÉS de que ya se hubieran inyectado ads como
+// invitado/free — si no, quedaban visibles hasta el próximo login.
+window.hideAllAdSlots = () => {
+    ['ad-global-container', 'ad-slot-top', 'ad-slot-footer', 'ad-slot-sidebar'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+};
+
 window.injectGlobalAdScripts = (contentArray, slotId = 'ad-global-container') => {
     if (!contentArray || contentArray.length === 0) return;
     console.log(`💉 Inyectando ${contentArray.length} elementos en slot: ${slotId}`);
@@ -9091,8 +9107,7 @@ onAuthStateChanged(auth, async (user) => {
         // Si los anuncios ya se habían inyectado como invitado (antes de saber
         // que este login es Premium), se esconden ahora que ya lo sabemos.
         if (window.currentUserTier === 'premium' || window.currentUserTier === 'admin') {
-            const adGlobalContainer = document.getElementById('ad-global-container');
-            if (adGlobalContainer) adGlobalContainer.style.display = 'none';
+            window.hideAllAdSlots();
         }
 
         document.getElementById('user-initials').innerText = user.displayName.charAt(0);

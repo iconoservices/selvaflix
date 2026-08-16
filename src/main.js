@@ -2773,6 +2773,14 @@ let editingPlanId = null;
 
 const _escPlanHtml = (str) => String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+// El botón flotante de Premium hace fácil abrir "Hazte Premium" en el primer
+// segundo de carga, antes de que el getDoc() de abajo termine — sin esto,
+// window.plansConfig todavía era undefined y el modal mostraba "Todavía no
+// hay planes disponibles" aunque sí los haya, solo que no habían llegado
+// todavía. openPremiumModal() espera esta promesa antes de dibujar la grilla.
+let _resolvePlansReady;
+window._plansReadyPromise = new Promise((resolve) => { _resolvePlansReady = resolve; });
+
 window.loadPlansConfig = async () => {
     try {
         const docRef = doc(db, "configs", "plans");
@@ -2789,6 +2797,8 @@ window.loadPlansConfig = async () => {
         if (typeof window.maybeShowPremiumPromo === 'function') window.maybeShowPremiumPromo();
     } catch (e) {
         console.error("❌ Error cargando planes premium:", e);
+    } finally {
+        _resolvePlansReady();
     }
 };
 
@@ -2831,6 +2841,11 @@ const _trialFormatoDuracion = (hours) => {
     return `${hours} hora${hours !== 1 ? 's' : ''}`;
 };
 
+// Mismo motivo que _plansReadyPromise: el modal puede abrirse antes de que
+// esto termine de cargar.
+let _resolveTrialOffersReady;
+window._trialOffersReadyPromise = new Promise((resolve) => { _resolveTrialOffersReady = resolve; });
+
 window.loadTrialOffers = async () => {
     try {
         const docSnap = await getDoc(doc(db, "configs", "freeTrial"));
@@ -2839,6 +2854,8 @@ window.loadTrialOffers = async () => {
         window.renderTrialOffersList();
     } catch (e) {
         console.error("❌ Error cargando pruebas gratis:", e);
+    } finally {
+        _resolveTrialOffersReady();
     }
 };
 
@@ -3403,11 +3420,28 @@ window.openPremiumModal = (movie) => {
             ? `"${movie.title}" es contenido VIP — disponible para suscriptores Premium.`
             : (isAlreadyPaid ? 'Estos son los beneficios de tu plan actual.' : 'Sin publicidad, acceso VIP y más.');
     }
-    window.renderPremiumPlansGrid();
-    if (typeof window.renderFreeTrialBanner === 'function') window.renderFreeTrialBanner(isAlreadyPaid);
-    if (typeof window.renderPremiumTimeRemaining === 'function') window.renderPremiumTimeRemaining();
     const modal = document.getElementById('premium-plans-modal');
     if (modal) modal.style.display = 'flex';
+
+    // Si loadPlansConfig/loadTrialOffers todavía no terminaron (típico si se
+    // abre esto apenas carga la página — el botón flotante nuevo lo hace muy
+    // fácil), dibuja primero un estado de carga y vuelve a pintar en cuanto
+    // lleguen los datos reales; si no, se veía "Todavía no hay planes" aunque
+    // sí hubiera, solo que no habían llegado todavía.
+    if (Array.isArray(window.plansConfig)) {
+        window.renderPremiumPlansGrid();
+    } else {
+        const grid = document.getElementById('premium-plans-grid');
+        if (grid) grid.innerHTML = '<p style="text-align:center; color:#666; font-size:0.8rem; grid-column: 1/-1;">Cargando planes...</p>';
+    }
+    if (typeof window.renderFreeTrialBanner === 'function' && Array.isArray(window.trialOffers)) window.renderFreeTrialBanner(isAlreadyPaid);
+    if (typeof window.renderPremiumTimeRemaining === 'function') window.renderPremiumTimeRemaining();
+
+    Promise.all([window._plansReadyPromise, window._trialOffersReadyPromise]).then(() => {
+        if (!modal || modal.style.display === 'none') return; // se cerró mientras esperábamos
+        window.renderPremiumPlansGrid();
+        if (typeof window.renderFreeTrialBanner === 'function') window.renderFreeTrialBanner(isAlreadyPaid);
+    });
 };
 
 // Barra grande (con % real, usando premiumGrantedAt como inicio) que vive

@@ -2988,6 +2988,11 @@ window.renderTrialOffersList = () => {
 window.streakMilestones = [];
 let editingStreakMilestoneId = null;
 
+// Mismo motivo que _plansReadyPromise/_trialOffersReadyPromise: el modal de
+// Premium puede abrirse antes de que esto termine de cargar.
+let _resolveStreakConfigReady;
+window._streakConfigReadyPromise = new Promise((resolve) => { _resolveStreakConfigReady = resolve; });
+
 window.loadStreakConfig = async () => {
     try {
         const docSnap = await getDoc(doc(db, "configs", "streaks"));
@@ -2996,6 +3001,8 @@ window.loadStreakConfig = async () => {
         window.renderStreakMilestonesList();
     } catch (e) {
         console.error("❌ Error cargando racha:", e);
+    } finally {
+        _resolveStreakConfigReady();
     }
 };
 
@@ -3415,12 +3422,53 @@ window.openPremiumModal = (movie) => {
     }
     if (typeof window.renderFreeTrialBanner === 'function' && Array.isArray(window.trialOffers)) window.renderFreeTrialBanner(isAlreadyPaid);
     if (typeof window.renderPremiumTimeRemaining === 'function') window.renderPremiumTimeRemaining();
+    if (typeof window.renderStreakDetail === 'function' && Array.isArray(window.streakMilestones)) window.renderStreakDetail();
 
-    Promise.all([window._plansReadyPromise, window._trialOffersReadyPromise]).then(() => {
+    Promise.all([window._plansReadyPromise, window._trialOffersReadyPromise, window._streakConfigReadyPromise]).then(() => {
         if (!modal || modal.style.display === 'none') return; // se cerró mientras esperábamos
         window.renderPremiumPlansGrid();
         if (typeof window.renderFreeTrialBanner === 'function') window.renderFreeTrialBanner(isAlreadyPaid);
+        if (typeof window.renderStreakDetail === 'function') window.renderStreakDetail();
     });
+};
+
+// Ladder de escalones dentro del modal de Premium: cuántos días lleva el
+// usuario, y qué falta para el próximo premio. Reusa window.streakMilestones
+// (cargado para todo visitante desde DOMContentLoaded) y el progreso cacheado
+// en refreshUserTier (currentStreakCount/currentStreakClaimedMilestones).
+window.renderStreakDetail = () => {
+    const wrap = document.getElementById('streak-detail');
+    if (!wrap) return;
+
+    const milestones = (window.streakMilestones || []).filter(m => m.active !== false).sort((a, b) => a.days - b.days);
+    if (milestones.length === 0) {
+        wrap.style.display = 'none';
+        return;
+    }
+
+    const count = window.currentStreakCount || 0;
+    const claimed = window.currentStreakClaimedMilestones || [];
+
+    wrap.style.display = 'block';
+    wrap.innerHTML = `
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+            <span style="font-size:1.1rem;">🔥</span>
+            <span style="color:#fff; font-size:0.82rem; font-weight:800;">${count > 0 ? `Llevás ${count} día${count !== 1 ? 's' : ''} seguido${count !== 1 ? 's' : ''}` : 'Empezá tu racha viendo algo hoy'}</span>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:6px;">
+            ${milestones.map(m => {
+                const isClaimed = claimed.includes(m.days);
+                const isReached = count >= m.days;
+                const statusTxt = isClaimed ? '✅ Ya la cobraste' : (isReached ? '🎁 ¡Lista para el próximo día!' : `Faltan ${m.days - count} día${(m.days - count) !== 1 ? 's' : ''}`);
+                return `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; border-radius:8px; background:rgba(255,255,255,0.03); opacity:${isClaimed ? '0.6' : '1'};">
+                    <span style="color:#ccc; font-size:0.75rem;">${m.days} día${m.days !== 1 ? 's' : ''} seguidos → <b style="color:#fff;">${_trialFormatoDuracion(m.hours || 24)}</b> de Premium</span>
+                    <span style="color:${isClaimed ? '#2ecc71' : (isReached ? 'var(--primary)' : '#888')}; font-size:0.68rem; font-weight:700; white-space:nowrap; margin-left:8px;">${statusTxt}</span>
+                </div>`;
+            }).join('')}
+        </div>
+        <p style="font-size:0.6rem; color:#666; margin:10px 0 0;">Mirá algo (2+ min) todos los días para no perder la racha.</p>
+    `;
 };
 
 // Barra grande (con % real, usando premiumGrantedAt como inicio) que vive
@@ -8499,6 +8547,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // 💎 Cargar Planes Premium (para la ventanita de invitación y el modal público)
   window.loadPlansConfig();
   window.loadTrialOffers();
+  window.loadStreakConfig();
 
   // 🔥⏳ Ubicar las pills de racha/tiempo Premium (navbar en desktop, ancla
   // fija junto a los flotantes en celular) — y de nuevo si cambia el ancho
@@ -9196,11 +9245,13 @@ window.currentUserPremiumUntil = null; // timestamp ms del vencimiento (null = s
 window.currentUserPremiumGrantedAt = null; // timestamp ms de cuándo arrancó, para poder dibujar el % de la barra
 
 window.currentStreakCount = 0;
+window.currentStreakClaimedMilestones = []; // escalones ya cobrados en la racha actual
 
 window.refreshUserTier = async (uid) => {
     if (!uid) {
         window.currentUserTier = 'free'; window.currentUserPremiumUntil = null; window.currentUserPremiumGrantedAt = null;
         window.currentStreakCount = 0;
+        window.currentStreakClaimedMilestones = [];
         return window.currentUserTier;
     }
     try {
@@ -9217,16 +9268,20 @@ window.refreshUserTier = async (uid) => {
         const today = new Date().toISOString().split('T')[0];
         const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
         const streak = data?.streak;
-        window.currentStreakCount = (streak && (streak.lastDate === today || streak.lastDate === yesterday)) ? (streak.count || 0) : 0;
+        const streakVigente = streak && (streak.lastDate === today || streak.lastDate === yesterday);
+        window.currentStreakCount = streakVigente ? (streak.count || 0) : 0;
+        window.currentStreakClaimedMilestones = streakVigente ? (streak.claimedMilestones || []) : [];
     } catch (e) {
         console.warn('No se pudo leer el tier del usuario:', e);
         window.currentUserTier = 'free';
         window.currentUserPremiumUntil = null;
         window.currentUserPremiumGrantedAt = null;
         window.currentStreakCount = 0;
+        window.currentStreakClaimedMilestones = [];
     }
     if (typeof window.updatePremiumTimeBadge === 'function') window.updatePremiumTimeBadge();
     if (typeof window.updateStreakBadge === 'function') window.updateStreakBadge();
+    if (typeof window.renderStreakDetail === 'function') window.renderStreakDetail();
     if (typeof window.updateDropdownPlanLabel === 'function') window.updateDropdownPlanLabel();
     if (typeof window.updatePremiumPromoFab === 'function') window.updatePremiumPromoFab();
     return window.currentUserTier;

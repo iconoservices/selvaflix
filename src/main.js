@@ -3495,12 +3495,26 @@ window.renderRewardsIconStrip = () => {
 
     const items = [...trialItems, ...streakItems];
     window._rewardsIconStripItems = items; // lo lee window.showRewardIconDetail() al tocar un ícono
-    const detailPanel = document.getElementById('rewards-icon-detail');
-    if (detailPanel) detailPanel.style.display = 'none'; // se re-dibujó todo, cerrar el detalle que hubiera quedado abierto
 
     if (items.length === 0) {
         strip.style.display = 'none';
+        const detailPanel = document.getElementById('rewards-icon-detail');
+        if (detailPanel) detailPanel.style.display = 'none';
         return;
+    }
+
+    // El panel no arranca vacío/escondido: mientras no toques ningún ícono,
+    // muestra un texto general (se re-dibuja así cada vez que cambian los
+    // datos, para no dejar pegado el detalle de un ícono que ya no aplica).
+    const detailPanel = document.getElementById('rewards-icon-detail');
+    if (detailPanel) {
+        detailPanel.style.display = 'flex';
+        detailPanel.innerHTML = `
+            <div style="width:40px; height:40px; border-radius:10px; background:rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center; font-size:1.2rem; flex-shrink:0;">🎁</div>
+            <div style="flex:1; min-width:0;">
+                <p style="color:#aaa; font-size:0.75rem; margin:0;">Tocá un ícono para ver el detalle de esa recompensa y activarla.</p>
+            </div>
+        `;
     }
 
     const estilo = {

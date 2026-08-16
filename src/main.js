@@ -2837,41 +2837,90 @@ window.saveTrialOffers = async () => {
     }
 };
 
+// Ícono según duración — cuanto más larga la prueba, "más grande" se ve la
+// fruta/frasco. Puramente decorativo, no afecta la lógica.
+const _trialIcon = (hours) => {
+    if (hours <= 6) return '🍋';
+    if (hours <= 24) return '🍊';
+    if (hours <= 72) return '🍉';
+    return '🍯';
+};
+
 window.createNewTrialOffer = () => {
-    if (!window.trialOffers) window.trialOffers = [];
-    window.trialOffers.push({
-        id: 'trial_' + Date.now().toString(36),
-        name: 'Nueva prueba',
-        durationHours: 24,
-        cadenceHours: 168, // 7 días — "una vez por semana" por defecto
-        active: true
-    });
-    window.renderTrialOffersList();
+    window.openTrialOfferModal(null);
 };
 
 window.deleteTrialOffer = (id) => {
-    if (!confirm('¿Borrar esta prueba gratis? 🎁🗑️')) return;
     window.trialOffers = (window.trialOffers || []).filter(o => o.id !== id);
     window.saveTrialOffers();
     window.renderTrialOffersList();
 };
 
-// Lee los inputs de UNA fila (nombre, cantidad+unidad de duración, cantidad+unidad
-// de cadencia, activa) y actualiza esa oferta en memoria — se llama en cada change,
-// así "Guardar todo" siempre guarda lo que se ve en pantalla.
-window.updateTrialOfferFromRow = (id) => {
-    const offer = (window.trialOffers || []).find(o => o.id === id);
-    if (!offer) return;
-    const row = document.getElementById(`trial-offer-row-${id}`);
-    if (!row) return;
-    offer.name = row.querySelector('.trial-name')?.value || offer.name;
-    const durAmount = Math.max(1, parseFloat(row.querySelector('.trial-duration-amount')?.value) || 1);
-    const durUnit = row.querySelector('.trial-duration-unit')?.value || 'hours';
+// Deshace horas -> {amount, unit} eligiendo días si entra justo, para que
+// el admin vea "3 días" en vez de "72 horas" si así lo cargó.
+const _trialDeshacerHoras = (hours) => (hours % 24 === 0 && hours >= 24)
+    ? { amount: hours / 24, unit: 'days' }
+    : { amount: hours, unit: 'hours' };
+
+// id === null significa alta nueva; si no, precarga esa oferta para editarla.
+window.openTrialOfferModal = (id) => {
+    editingTrialOfferId = id;
+    const offer = id ? (window.trialOffers || []).find(o => o.id === id) : null;
+
+    const dur = _trialDeshacerHoras(offer?.durationHours || 24);
+    const cad = _trialDeshacerHoras(offer?.cadenceHours || 168);
+
+    const setVal = (elId, val) => { const el = document.getElementById(elId); if (el) el.value = val; };
+    setVal('trial-modal-name', offer?.name || '');
+    setVal('trial-modal-duration-amount', dur.amount);
+    setVal('trial-modal-duration-unit', dur.unit);
+    setVal('trial-modal-cadence-amount', cad.amount);
+    setVal('trial-modal-cadence-unit', cad.unit);
+    const activeCheck = document.getElementById('trial-modal-active');
+    if (activeCheck) activeCheck.checked = offer ? !!offer.active : true;
+
+    const deleteBtn = document.getElementById('btn-trial-modal-delete');
+    if (deleteBtn) deleteBtn.style.display = offer ? 'flex' : 'none';
+
+    const modal = document.getElementById('trial-offer-modal');
+    if (modal) modal.style.display = 'flex';
+};
+
+window.closeTrialOfferModal = () => {
+    const modal = document.getElementById('trial-offer-modal');
+    if (modal) modal.style.display = 'none';
+    editingTrialOfferId = null;
+};
+
+window.saveTrialOfferFromModal = () => {
+    const name = (document.getElementById('trial-modal-name')?.value || '').trim() || 'Nueva prueba';
+    const durAmount = Math.max(1, parseFloat(document.getElementById('trial-modal-duration-amount')?.value) || 1);
+    const durUnit = document.getElementById('trial-modal-duration-unit')?.value || 'hours';
+    const cadAmount = Math.max(1, parseFloat(document.getElementById('trial-modal-cadence-amount')?.value) || 1);
+    const cadUnit = document.getElementById('trial-modal-cadence-unit')?.value || 'days';
+    const active = document.getElementById('trial-modal-active')?.checked ?? true;
+
+    if (!window.trialOffers) window.trialOffers = [];
+    let offer = editingTrialOfferId ? window.trialOffers.find(o => o.id === editingTrialOfferId) : null;
+    if (!offer) {
+        offer = { id: 'trial_' + Date.now().toString(36) };
+        window.trialOffers.push(offer);
+    }
+    offer.name = name;
     offer.durationHours = _trialHoras(durAmount, durUnit);
-    const cadAmount = Math.max(1, parseFloat(row.querySelector('.trial-cadence-amount')?.value) || 1);
-    const cadUnit = row.querySelector('.trial-cadence-unit')?.value || 'days';
     offer.cadenceHours = _trialHoras(cadAmount, cadUnit);
-    offer.active = row.querySelector('.trial-active')?.checked ?? offer.active;
+    offer.active = active;
+
+    window.saveTrialOffers();
+    window.renderTrialOffersList();
+    window.closeTrialOfferModal();
+};
+
+window.deleteTrialOfferFromModal = () => {
+    if (!editingTrialOfferId) return;
+    if (!confirm('¿Borrar esta prueba gratis? 🎁🗑️')) return;
+    window.deleteTrialOffer(editingTrialOfferId);
+    window.closeTrialOfferModal();
 };
 
 window.renderTrialOffersList = () => {
@@ -2884,50 +2933,16 @@ window.renderTrialOffersList = () => {
         return;
     }
 
-    // Deshace horas -> {amount, unit} eligiendo días si entra justo, para que
-    // el admin vea "3 días" en vez de "72 horas" si así lo cargó.
-    const deshacer = (hours) => (hours % 24 === 0 && hours >= 24)
-        ? { amount: hours / 24, unit: 'days' }
-        : { amount: hours, unit: 'hours' };
-
-    list.innerHTML = offers.map(o => {
-        const dur = deshacer(o.durationHours || 24);
-        const cad = deshacer(o.cadenceHours || 168);
-        return `
-        <div id="trial-offer-row-${o.id}" style="padding: 14px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); display: grid; grid-template-columns: 1.3fr 1fr 1fr auto auto; gap: 10px; align-items: end;">
-            <div class="form-group" style="margin-bottom:0;">
-                <label style="font-size: 0.6rem;">Nombre</label>
-                <input type="text" class="form-control trial-name" value="${_escTrialHtml(o.name)}" placeholder="Ej: Prueba relámpago" onchange="window.updateTrialOfferFromRow('${o.id}')" style="font-size:0.78rem;">
+    list.innerHTML = offers.map(o => `
+        <div onclick="window.openTrialOfferModal('${o.id}')" style="display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); cursor: pointer; transition: 0.2s;">
+            <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; opacity: ${o.active ? '1' : '0.4'};">${_trialIcon(o.durationHours || 24)}</div>
+            <div style="flex: 1; min-width: 0;">
+                <p style="color: white; font-size: 0.78rem; font-weight: 800; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${_escTrialHtml(o.name)}</p>
+                <p style="color: #888; font-size: 0.65rem; margin: 2px 0 0;">Dura ${_trialFormatoDuracion(o.durationHours || 24)} · se repite cada ${_trialFormatoDuracion(o.cadenceHours || 168)}</p>
             </div>
-            <div class="form-group" style="margin-bottom:0;">
-                <label style="font-size: 0.6rem;">Dura</label>
-                <div style="display:flex; gap:4px;">
-                    <input type="number" min="1" step="1" class="form-control trial-duration-amount" value="${dur.amount}" onchange="window.updateTrialOfferFromRow('${o.id}')" style="font-size:0.78rem; min-width:0;">
-                    <select class="form-control trial-duration-unit" onchange="window.updateTrialOfferFromRow('${o.id}')" style="font-size:0.7rem; flex-shrink:0; width:72px;">
-                        <option value="hours" ${dur.unit === 'hours' ? 'selected' : ''}>horas</option>
-                        <option value="days" ${dur.unit === 'days' ? 'selected' : ''}>días</option>
-                    </select>
-                </div>
-            </div>
-            <div class="form-group" style="margin-bottom:0;">
-                <label style="font-size: 0.6rem;">Se repite cada</label>
-                <div style="display:flex; gap:4px;">
-                    <input type="number" min="1" step="1" class="form-control trial-cadence-amount" value="${cad.amount}" onchange="window.updateTrialOfferFromRow('${o.id}')" style="font-size:0.78rem; min-width:0;">
-                    <select class="form-control trial-cadence-unit" onchange="window.updateTrialOfferFromRow('${o.id}')" style="font-size:0.7rem; flex-shrink:0; width:72px;">
-                        <option value="hours" ${cad.unit === 'hours' ? 'selected' : ''}>horas</option>
-                        <option value="days" ${cad.unit === 'days' ? 'selected' : ''}>días</option>
-                    </select>
-                </div>
-            </div>
-            <label class="switch" style="transform: scale(0.8);" title="Activa / Inactiva">
-                <input type="checkbox" class="trial-active" ${o.active ? 'checked' : ''} onchange="window.updateTrialOfferFromRow('${o.id}')">
-                <span class="slider round"></span>
-            </label>
-            <button onclick="window.deleteTrialOffer('${o.id}')" class="btn btn-danger-outline" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 8px;" title="Eliminar"><span class="material-symbols-outlined" style="font-size: 1.1rem;">delete</span></button>
-        </div>`;
-    }).join('') + `
-        <button onclick="window.saveTrialOffers()" class="btn btn-primary" style="margin-top: 4px; align-self: flex-start; font-size: 0.75rem;">💾 Guardar todas</button>
-    `;
+            <span style="width: 8px; height: 8px; border-radius: 50%; background: ${o.active ? '#2ecc71' : '#666'}; flex-shrink: 0;" title="${o.active ? 'Activa' : 'Inactiva'}"></span>
+        </div>
+    `).join('');
 };
 
 // El usuario reclama el pase de UNA oferta puntual (offerId). La cadencia se
@@ -2974,6 +2989,7 @@ window.claimFreeTrial = async (offerId) => {
         await setDoc(userRef, {
             tier: 'premium',
             premiumUntil: now + durationMs,
+            premiumGrantedAt: now,
             freeTrialClaims: { ...claims, [offerId]: now }
         }, { merge: true });
         await window.refreshUserTier(user.uid);
@@ -3038,35 +3054,33 @@ window.renderPlansList = () => {
     const plans = window.plansConfig || [];
 
     if (plans.length === 0) {
-        list.innerHTML = '<p style="font-size: 0.7rem; color: #444; text-align: center; padding: 20px;">No hay planes. Crea uno para empezar. 💎</p>';
+        list.innerHTML = '<p style="grid-column: 1/-1; font-size: 0.7rem; color: #444; text-align: center; padding: 30px;">No hay planes. Crea uno para empezar. 💎</p>';
         return;
     }
 
-    list.innerHTML = plans.map(p => `
-        <div class="plan-list-item ${editingPlanId === p.id ? 'active' : ''}" style="padding: 12px; border-radius: 12px; background: ${editingPlanId === p.id ? 'rgba(255,122,0,0.1)' : 'rgba(255,255,255,0.03)'}; border: 1px solid ${editingPlanId === p.id ? 'var(--primary)' : 'rgba(255,255,255,0.08)'}; cursor: pointer; transition: 0.3s; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
-
-            <div onclick="window.editPlan('${p.id}')" style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;">
-                <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0;">
-                    ${p.id === 'free' ? '🐾' : (p.highlighted ? '⭐' : '💎')}
-                </div>
-                <div style="overflow: hidden; flex: 1;">
-                    <p style="color: white; font-size: 0.75rem; font-weight: 800; margin: 0; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">
-                        ${_escPlanHtml(p.name || 'Sin Nombre')}
-                    </p>
-                    <p style="color: ${p.active ? '#2ecc71' : '#666'}; font-size: 0.55rem; margin: 0; font-weight: bold; text-transform: uppercase; display: flex; align-items: center; gap: 4px;">
-                        <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: ${p.active ? '#2ecc71' : '#666'};"></span>
-                        ${p.active ? 'ACTIVO' : 'INACTIVO'} • ${p.price ?? 0} ${_escPlanHtml(p.currency || 'USD')}
-                    </p>
-                </div>
+    list.innerHTML = plans.map(p => {
+        const icon = p.id === 'free' ? '🐾' : (p.highlighted ? '⭐' : '💎');
+        const feats = (p.features || []).slice(0, 3);
+        const extra = (p.features || []).length - feats.length;
+        return `
+        <div onclick="window.editPlan('${p.id}')" style="position: relative; background: ${p.highlighted ? 'linear-gradient(160deg, rgba(255,122,0,0.18), rgba(255,122,0,0.02))' : 'rgba(255,255,255,0.03)'}; border: 1px solid ${p.highlighted ? 'var(--primary)' : 'rgba(255,255,255,0.08)'}; border-radius: 16px; padding: 18px; cursor: pointer; transition: 0.25s; display: flex; flex-direction: column; gap: 10px;">
+            ${p.badge ? `<span style="position: absolute; top: -10px; left: 16px; background: var(--primary); color: #000; font-size: 0.6rem; font-weight: 800; padding: 3px 10px; border-radius: 20px; text-transform: uppercase;">${_escPlanHtml(p.badge)}</span>` : ''}
+            <div onclick="event.stopPropagation(); window.togglePlanActiveQuick('${p.id}')" title="${p.active ? 'Activo' : 'Inactivo'}" style="position: absolute; top: 16px; right: 16px; width: 32px; height: 18px; background: ${p.active ? 'var(--primary)' : '#444'}; border-radius: 10px; cursor: pointer; transition: 0.3s;">
+                <div style="width: 14px; height: 14px; background: white; border-radius: 50%; position: relative; top: 2px; ${p.active ? 'left: 16px' : 'left: 2px'}; transition: 0.3s; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>
             </div>
 
-            <div onclick="window.togglePlanActiveQuick('${p.id}')" style="flex-shrink: 0; padding: 4px;">
-                <div style="width: 36px; height: 18px; background: ${p.active ? 'var(--primary)' : '#444'}; border-radius: 4px; position: relative; cursor: pointer; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); border: 1px solid rgba(255,255,255,0.05);">
-                    <div style="width: 14px; height: 14px; background: white; border-radius: 50%; position: absolute; top: 1px; ${p.active ? 'right: 2px' : 'left: 2px'}; transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>
-                </div>
+            <div style="font-size: 1.6rem;">${icon}</div>
+            <div>
+                <p style="color: white; font-size: 0.95rem; font-weight: 800; margin: 0;">${_escPlanHtml(p.name || 'Sin Nombre')}</p>
+                <p style="color: #666; font-size: 0.6rem; margin: 2px 0 0; text-transform: uppercase; letter-spacing: 0.5px;">${p.active ? '● Activo' : '○ Inactivo'}</p>
             </div>
-        </div>
-    `).join('');
+            <div style="display: flex; align-items: baseline; gap: 4px;">
+                <span style="font-size: 1.6rem; font-weight: 900; color: white;">${p.price ?? 0}</span>
+                <span style="font-size: 0.75rem; color: #999;">${_escPlanHtml(p.currency || 'USD')} / ${_escPlanHtml(p.period || 'mes')}</span>
+            </div>
+            ${feats.length ? `<ul style="margin: 4px 0 0; padding-left: 18px; color: #999; font-size: 0.7rem; display: flex; flex-direction: column; gap: 3px;">${feats.map(f => `<li>${_escPlanHtml(f)}</li>`).join('')}${extra > 0 ? `<li style="color: #555;">+${extra} más</li>` : ''}</ul>` : ''}
+        </div>`;
+    }).join('');
 };
 
 window.togglePlanActiveQuick = (id) => {
@@ -3080,6 +3094,12 @@ window.togglePlanActiveQuick = (id) => {
     }
     // No guardamos a Firestore en cada click, hay que darle a GUARDAR.
 };
+
+// Un plan recién creado con "+ Nuevo Plan" vive en memoria (window.plansConfig)
+// desde antes de guardarlo, para que el modal tenga algo que editar. Si el
+// admin cierra el modal sin tocar "Guardar", hay que sacarlo de la lista para
+// que no quede un plan fantasma sin persistir.
+let _pendingNewPlanId = null;
 
 window.createNewPlan = () => {
     const plans = window.plansConfig || [];
@@ -3099,7 +3119,7 @@ window.createNewPlan = () => {
 
     if (!window.plansConfig) window.plansConfig = [];
     window.plansConfig.push(newPlan);
-    window.renderPlansList();
+    _pendingNewPlanId = newPlan.id;
     window.editPlan(newPlan.id);
 };
 
@@ -3107,13 +3127,6 @@ window.editPlan = (id) => {
     editingPlanId = id;
     const plan = (window.plansConfig || []).find(p => p.id === id);
     if (!plan) return;
-
-    window.renderPlansList();
-
-    const emptyHint = document.getElementById('plan-editor-empty');
-    if (emptyHint) emptyHint.style.display = 'none';
-    const editor = document.getElementById('plan-editor');
-    if (editor) editor.style.display = 'block';
 
     const setVal = (elId, val) => {
         const el = document.getElementById(elId);
@@ -3141,6 +3154,19 @@ window.editPlan = (id) => {
     // El plan Gratuito siempre tiene que existir — no se puede borrar.
     const deleteBtn = document.getElementById('btn-delete-plan');
     if (deleteBtn) deleteBtn.style.display = (plan.id === 'free') ? 'none' : 'flex';
+
+    const modal = document.getElementById('plan-edit-modal');
+    if (modal) modal.style.display = 'flex';
+};
+
+window.closePlanEditModal = () => {
+    if (_pendingNewPlanId && _pendingNewPlanId === editingPlanId) {
+        window.plansConfig = (window.plansConfig || []).filter(p => p.id !== _pendingNewPlanId);
+    }
+    _pendingNewPlanId = null;
+    const modal = document.getElementById('plan-edit-modal');
+    if (modal) modal.style.display = 'none';
+    editingPlanId = null;
 };
 
 window.deleteCurrentPlan = async () => {
@@ -3153,14 +3179,12 @@ window.deleteCurrentPlan = async () => {
 
     window.plansConfig = (window.plansConfig || []).filter(p => p.id !== editingPlanId);
     editingPlanId = null;
+    _pendingNewPlanId = null;
 
     await window.savePlansConfig();
 
-    const editor = document.getElementById('plan-editor');
-    if (editor) editor.style.display = 'none';
-    const emptyHint = document.getElementById('plan-editor-empty');
-    if (emptyHint) emptyHint.style.display = 'flex';
-    window.renderPlansList();
+    const modal = document.getElementById('plan-edit-modal');
+    if (modal) modal.style.display = 'none';
 };
 
 window.savePlansConfig = async () => {
@@ -3192,6 +3216,10 @@ window.savePlansConfig = async () => {
         // general, que se guarda aparte con su propio botón).
         await setDoc(doc(db, "configs", "plans"), { plans: window.plansConfig || [] }, { merge: true });
         if (window.showToast) window.showToast("✅ Planes actualizados en la selva.", "success");
+        _pendingNewPlanId = null;
+        editingPlanId = null;
+        const modal = document.getElementById('plan-edit-modal');
+        if (modal) modal.style.display = 'none';
         window.renderPlansList();
         if (typeof window.maybeShowPremiumPromo === 'function') window.maybeShowPremiumPromo();
     } catch (e) {
@@ -3218,9 +3246,53 @@ window.openPremiumModal = (movie) => {
     }
     window.renderPremiumPlansGrid();
     if (typeof window.renderFreeTrialBanner === 'function') window.renderFreeTrialBanner(isAlreadyPaid);
+    if (typeof window.renderPremiumTimeRemaining === 'function') window.renderPremiumTimeRemaining();
     const modal = document.getElementById('premium-plans-modal');
     if (modal) modal.style.display = 'flex';
 };
+
+// Barra grande (con % real, usando premiumGrantedAt como inicio) que vive
+// dentro del modal — el badge de la navbar es el resumen rápido, esto es el
+// detalle completo para cuando el usuario abre "Hazte Premium"/"Mi Plan".
+window.renderPremiumTimeRemaining = () => {
+    const wrap = document.getElementById('premium-time-remaining');
+    if (!wrap) return;
+
+    const isPremium = window.currentUserTier === 'premium' || window.currentUserTier === 'admin';
+    const remaining = window.currentUserPremiumUntil ? window.currentUserPremiumUntil - Date.now() : 0;
+    if (!isPremium || !window.currentUserPremiumUntil || remaining <= 0) {
+        wrap.style.display = 'none';
+        return;
+    }
+
+    // Sin premiumGrantedAt (cuentas viejas de antes de este campo) no sabemos
+    // cuándo arrancó — mostramos la barra casi llena en vez de esconderla.
+    const grantedAt = window.currentUserPremiumGrantedAt || (window.currentUserPremiumUntil - remaining);
+    const total = Math.max(1, window.currentUserPremiumUntil - grantedAt);
+    const pct = Math.max(2, Math.min(100, Math.round((remaining / total) * 100)));
+
+    wrap.style.display = 'block';
+    wrap.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span style="color:#ccc; font-size:0.72rem; font-weight:700;">⏳ Tiempo Premium restante</span>
+            <span style="color:var(--primary); font-size:0.78rem; font-weight:800;">${_formatTiempoRestante(remaining)}</span>
+        </div>
+        <div style="width:100%; height:10px; background:rgba(255,255,255,0.08); border-radius:6px; overflow:hidden;">
+            <div style="width:${pct}%; height:100%; background:linear-gradient(90deg, var(--primary), #ffb347); border-radius:6px; transition: width 1s linear;"></div>
+        </div>
+    `;
+
+    if (!_premiumModalBarTimer) _premiumModalBarTimer = setInterval(() => {
+        const modal = document.getElementById('premium-plans-modal');
+        if (modal && modal.style.display !== 'none') {
+            window.renderPremiumTimeRemaining();
+        } else {
+            clearInterval(_premiumModalBarTimer);
+            _premiumModalBarTimer = null;
+        }
+    }, 30000);
+};
+let _premiumModalBarTimer = null;
 
 window.closePremiumModal = () => {
     const modal = document.getElementById('premium-plans-modal');
@@ -8911,20 +8983,73 @@ async function trackAccountLogin(user) {
 // cualquier otro dato del panel, y queda cacheado en memoria para que las
 // verificaciones (reproducir, anuncios, banner) sean síncronas.
 window.currentUserTier = 'free';
+window.currentUserPremiumUntil = null; // timestamp ms del vencimiento (null = sin vencimiento, ej. plan pago sin límite o admin)
+window.currentUserPremiumGrantedAt = null; // timestamp ms de cuándo arrancó, para poder dibujar el % de la barra
 
 window.refreshUserTier = async (uid) => {
-    if (!uid) { window.currentUserTier = 'free'; return window.currentUserTier; }
+    if (!uid) { window.currentUserTier = 'free'; window.currentUserPremiumUntil = null; window.currentUserPremiumGrantedAt = null; return window.currentUserTier; }
     try {
         const snap = await getDoc(doc(db, "users", uid));
         const data = snap.exists() ? snap.data() : null;
         const rawTier = data?.tier || 'free';
         const expired = rawTier === 'premium' && data?.premiumUntil && data.premiumUntil < Date.now();
         window.currentUserTier = expired ? 'free' : rawTier;
+        window.currentUserPremiumUntil = expired ? null : (data?.premiumUntil || null);
+        window.currentUserPremiumGrantedAt = expired ? null : (data?.premiumGrantedAt || null);
     } catch (e) {
         console.warn('No se pudo leer el tier del usuario:', e);
         window.currentUserTier = 'free';
+        window.currentUserPremiumUntil = null;
+        window.currentUserPremiumGrantedAt = null;
     }
+    if (typeof window.updatePremiumTimeBadge === 'function') window.updatePremiumTimeBadge();
     return window.currentUserTier;
+};
+
+// --- Badge de tiempo Premium restante (pill fija junto al avatar) ⏳ ---
+// Solo tiene sentido cuando premiumUntil está seteado (pruebas gratis, o un
+// plan pago que el admin cargó con vencimiento) — un plan/admin sin límite
+// no tiene nada que contar, así que el badge se esconde.
+const _formatTiempoRestante = (ms) => {
+    if (ms <= 0) return 'Vence ya';
+    const totalMin = Math.floor(ms / 60000);
+    const days = Math.floor(totalMin / 1440);
+    const hours = Math.floor((totalMin % 1440) / 60);
+    const minutes = totalMin % 60;
+    if (days > 0) return `${days}d ${hours}h`;
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
+};
+
+let _premiumBadgeTimer = null;
+
+window.updatePremiumTimeBadge = () => {
+    const badge = document.getElementById('premium-time-badge');
+    if (!badge) return;
+
+    const isPremium = window.currentUserTier === 'premium' || window.currentUserTier === 'admin';
+    if (!isPremium || !window.currentUserPremiumUntil) {
+        badge.style.display = 'none';
+        clearInterval(_premiumBadgeTimer);
+        _premiumBadgeTimer = null;
+        return;
+    }
+
+    const remaining = window.currentUserPremiumUntil - Date.now();
+    if (remaining <= 0) {
+        // Se venció mientras la pestaña estaba abierta: recachea el tier real.
+        badge.style.display = 'none';
+        clearInterval(_premiumBadgeTimer);
+        _premiumBadgeTimer = null;
+        const user = auth.currentUser;
+        if (user) window.refreshUserTier(user.uid);
+        return;
+    }
+
+    badge.style.display = 'flex';
+    badge.innerText = `⏳ ${_formatTiempoRestante(remaining)}`;
+
+    if (!_premiumBadgeTimer) _premiumBadgeTimer = setInterval(window.updatePremiumTimeBadge, 30000);
 };
 
 onAuthStateChanged(auth, async (user) => {
@@ -8968,6 +9093,8 @@ onAuthStateChanged(auth, async (user) => {
     } else {
         console.log("👻 Modo Invitado");
         window.currentUserTier = 'free';
+        window.currentUserPremiumUntil = null;
+        if (typeof window.updatePremiumTimeBadge === 'function') window.updatePremiumTimeBadge();
         if (typeof window.watchSupportUnread === 'function') window.watchSupportUnread(null); // corta el listener al cerrar sesión
         const userNameEl = document.getElementById('user-name');
         if (userNameEl) userNameEl.innerText = "Login";

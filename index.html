@@ -1197,6 +1197,11 @@
                   <span class="metric-label">HORA PICO</span>
                   <span class="metric-value" id="stat-peak-hour" style="font-size:1.2rem;">—</span>
                 </div>
+                <div class="metric-card" title="De los visitantes únicos del período, cuántos aparecieron en más de un día distinto — como la tasa de clientes que vuelven de un negocio.">
+                  <span class="metric-label">RECURRENTES</span>
+                  <span class="metric-value" id="stat-returning-pct" style="color:#9b59b6;">0%</span>
+                  <span style="font-size:0.6rem; color:var(--admin-text-muted);"><span id="stat-returning-visitors">0</span> volvieron</span>
+                </div>
               </div>
 
               <!-- Actividad por Día / Hora -->
@@ -1215,6 +1220,14 @@
                   <h2 class="admin-title">🕒 Actividad por Hora</h2>
                   <div id="metrics-hour-chart" style="display:flex; align-items:flex-end; gap:2px; height:110px; padding-top:10px;"></div>
                 </div>
+              </div>
+
+              <!-- Usuarios Únicos por Día (DAU) — ancho completo porque es la métrica
+                   de retención, la que responde "cuánta gente vuelve". -->
+              <div class="admin-card" style="margin-bottom: 32px;">
+                <h2 class="admin-title">👥 Usuarios Únicos por Día</h2>
+                <p style="font-size: 0.65rem; color: var(--admin-text-muted); margin: -4px 0 4px;">Cuántos dispositivos distintos entraron cada día/semana/mes (mismos buckets que "Actividad"). No es lo mismo que Visitas: alguien que entra 5 veces en un día cuenta 1 sola vez acá.</p>
+                <div id="metrics-dau-chart" style="display:flex; align-items:flex-end; gap:2px; height:110px; padding-top:10px;"></div>
               </div>
 
               <!-- Dispositivos / Geografía -->

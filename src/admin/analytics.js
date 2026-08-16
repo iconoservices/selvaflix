@@ -138,6 +138,41 @@ window.renderDayChart = () => {
   }
 };
 
+// 👥 Usuarios Únicos por Día (DAU) — mismos buckets que "Actividad por Día"
+// (día/semana/mes según el rango, ver _computeTimeBuckets) pero contando
+// visitorId DISTINTOS por bucket, no eventos. Si un bucket junta varios días
+// (semana/mes) hay que UNIR los sets, no sumar sus tamaños: alguien que
+// visitó el lunes y el martes de la misma semana es 1 usuario único esa
+// semana, no 2 — sumar los tamaños lo contaría dos veces.
+window.renderDAUChart = (timeBuckets, byDay) => {
+  const el = document.getElementById('metrics-dau-chart');
+  if (!el) return;
+
+  const buckets = timeBuckets.buckets.map(b => {
+    const union = new Set();
+    b.keys.forEach(k => { const v = byDay[k]; if (v) v.visitorIds.forEach(id => union.add(id)); });
+    return { label: b.label, dau: union.size };
+  });
+
+  if (buckets.length === 0 || buckets.every(b => b.dau === 0)) {
+    el.innerHTML = '<div style="margin:auto; color:#555; font-size:0.7rem;">Sin datos.</div>';
+    return;
+  }
+
+  const max = Math.max(...buckets.map(b => b.dau), 1);
+  el.innerHTML = buckets.map(b => {
+    const h = (b.dau / max) * 100;
+    return `
+      <div style="flex:1; min-width:18px; display:flex; flex-direction:column; align-items:center; gap:4px; height:100%;">
+        <div style="flex:1; width:100%; display:flex; align-items:flex-end; position:relative; background:rgba(255,255,255,0.01); border-radius:1px;">
+          <div style="width:100%; height:${h}%; background:#9b59b6; opacity:0.85; border-radius:1px 1px 0 0;" title="${b.label}: ${b.dau} usuarios únicos"></div>
+        </div>
+        <span style="font-size:0.5rem; color:#777;">${b.label}</span>
+      </div>
+    `;
+  }).join('');
+};
+
 // Toggle barras/línea del gráfico "Actividad por Día" en Analíticas
 window.setDayChartMode = (mode) => {
   _dayChartMode = mode;
@@ -413,6 +448,28 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
     if (totalPlays) totalPlays.innerText = plays;
     if (totalUniqueEl) totalUniqueEl.innerText = uniqueVisitors.size;
 
+    // 🔁 RECURRENTES — como la "tasa de clientes que vuelven" de un negocio,
+    // pero medida con lo que ya tenemos: de los visitantes del período, qué
+    // % apareció en más de un día distinto (no un solo visitorId con varios
+    // eventos el mismo día, que no cuenta como "volvió"). visitorId es un ID
+    // fijo por dispositivo en localStorage (ver getVisitorId en main.js), así
+    // que sobrevive entre visitas del mismo aparato sin pedir login.
+    const returningEl = document.getElementById('stat-returning-visitors');
+    const returningPctEl = document.getElementById('stat-returning-pct');
+    if (returningEl || returningPctEl) {
+      const diasPorVisitante = {};
+      data.forEach(d => {
+        if (!d.visitorId) return;
+        const day = d.date || new Date(d.timestamp).toISOString().split('T')[0];
+        if (!diasPorVisitante[d.visitorId]) diasPorVisitante[d.visitorId] = new Set();
+        diasPorVisitante[d.visitorId].add(day);
+      });
+      const recurrentes = Object.values(diasPorVisitante).filter(dias => dias.size > 1).length;
+      const pct = uniqueVisitors.size > 0 ? Math.round((recurrentes / uniqueVisitors.size) * 100) : 0;
+      if (returningEl) returningEl.innerText = recurrentes;
+      if (returningPctEl) returningPctEl.innerText = `${pct}%`;
+    }
+
     // 🚀 CRECIMIENTO (Comparativa vs periodo anterior similar, sobre Visitas reales)
     if (growthEl && prevSnap) {
         const prevPageViews = prevSnap.docs.filter(d => d.data().action === 'page_view').length;
@@ -442,12 +499,14 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
     const byDay = {};
     data.forEach(d => {
       const day = d.date || new Date(d.timestamp).toISOString().split('T')[0];
-      if (!byDay[day]) byDay[day] = { total: 0, plays: 0 };
+      if (!byDay[day]) byDay[day] = { total: 0, plays: 0, visitorIds: new Set() };
       if (d.action === 'page_view') byDay[day].total++;
       if (d.action === 'play_start') byDay[day].plays++;
+      if (d.visitorId) byDay[day].visitorIds.add(d.visitorId);
     });
 
     const timeBuckets = window._computeTimeBuckets(start, end);
+    window.renderDAUChart(timeBuckets, byDay);
     _dayChartBuckets = timeBuckets.buckets.map(b => {
       let total = 0, plays = 0;
       b.keys.forEach(k => { const v = byDay[k]; if (v) { total += v.total; plays += v.plays; } });

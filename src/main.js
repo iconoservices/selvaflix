@@ -8498,6 +8498,12 @@ document.addEventListener('DOMContentLoaded', () => {
   window.loadPlansConfig();
   window.loadTrialOffers();
 
+  // 🔥⏳ Ubicar las pills de racha/tiempo Premium (navbar en desktop, ancla
+  // fija junto a los flotantes en celular) — y de nuevo si cambia el ancho
+  // (rotar el teléfono, achicar la ventana).
+  window.placePremiumBadges();
+  window.addEventListener('resize', window.placePremiumBadges);
+
   // 🔍 Buscador Global - el listener que faltaba!
   const globalSearch = document.getElementById('global-search');
   if (globalSearch) {
@@ -9263,6 +9269,29 @@ window.updateStreakBadge = () => {
     }
     badge.style.display = 'flex';
     badge.innerText = `🔥 ${window.currentStreakCount}`;
+};
+
+// El navbar tiene backdrop-filter, así que position:fixed adentro se calcula
+// mal (crea su propio "contenedor" para los fixed, en vez del viewport real)
+// — en celular, en vez de pelear con eso, se mudan los nodos de verdad a
+// #mobile-badges-anchor (fixed, fuera del navbar, junto a los flotantes de
+// abajo). En desktop vuelven a vivir adentro de .nav-actions, como siempre.
+window.placePremiumBadges = () => {
+    const streak = document.getElementById('streak-badge');
+    const premiumBadge = document.getElementById('premium-time-badge');
+    const mobileAnchor = document.getElementById('mobile-badges-anchor');
+    const navActions = document.querySelector('.nav-actions');
+    const avatarContainer = document.getElementById('user-profile-container');
+    if (!streak || !premiumBadge || !mobileAnchor || !navActions || !avatarContainer) return;
+
+    const isMobile = window.matchMedia('(max-width: 768px)').matches;
+    if (isMobile) {
+        if (streak.parentElement !== mobileAnchor) mobileAnchor.appendChild(streak);
+        if (premiumBadge.parentElement !== mobileAnchor) mobileAnchor.appendChild(premiumBadge);
+    } else {
+        if (streak.parentElement !== navActions) navActions.insertBefore(streak, avatarContainer);
+        if (premiumBadge.parentElement !== navActions) navActions.insertBefore(premiumBadge, avatarContainer);
+    }
 };
 
 // Se llama cuando el reproductor estuvo abierto >=2 minutos seguidos (ver

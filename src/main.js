@@ -794,6 +794,14 @@ function showView(active) {
   const supportFab = document.getElementById('support-chat-fab');
   if (supportFab) supportFab.style.display = active === 'admin-view' ? 'none' : 'flex';
 
+  // El de Premium/Promos: igual que el de soporte, nada de esto en el panel admin.
+  // Fuera del admin, lo decide el tier (updatePremiumPromoFab esconde si ya es premium/admin).
+  const promoFab = document.getElementById('premium-promo-fab');
+  if (promoFab) {
+    if (active === 'admin-view') promoFab.style.display = 'none';
+    else if (typeof window.updatePremiumPromoFab === 'function') window.updatePremiumPromoFab();
+  }
+
   // Candado anti-scroll: el panel admin ya maneja su propio scroll interno
   // (.admin-portal-content-body). Si el <body> también puede desplazarse, cualquier
   // elemento que sobre unos px de alto deja ver el fondo negro debajo del panel.
@@ -9200,7 +9208,33 @@ window.refreshUserTier = async (uid) => {
     }
     if (typeof window.updatePremiumTimeBadge === 'function') window.updatePremiumTimeBadge();
     if (typeof window.updateStreakBadge === 'function') window.updateStreakBadge();
+    if (typeof window.updateDropdownPlanLabel === 'function') window.updateDropdownPlanLabel();
+    if (typeof window.updatePremiumPromoFab === 'function') window.updatePremiumPromoFab();
     return window.currentUserTier;
+};
+
+// El botón flotante de Premium: solo tiene sentido si TODAVÍA no sos premium —
+// a alguien que ya pagó (o está en una prueba activa) no hace falta ofrecerle
+// nada, así que se esconde solo. En el panel admin lo maneja showView(), no acá.
+window.updatePremiumPromoFab = () => {
+    const fab = document.getElementById('premium-promo-fab');
+    if (!fab) return;
+    if (document.getElementById('admin-view')?.style.display === 'block') { fab.style.display = 'none'; return; }
+    const isPremium = window.currentUserTier === 'premium' || window.currentUserTier === 'admin';
+    fab.style.display = isPremium ? 'none' : 'flex';
+};
+
+// El botón del menú decía siempre "Mi Plan", texto fijo sin importar si sos
+// gratuito, premium o admin — ahora muestra el plan real de la cuenta. No
+// hay (todavía) un plan específico guardado por usuario, solo el tier
+// (free/premium/admin), así que el nombre es genérico por tier, no el de
+// una tarjeta puntual de la grilla de planes.
+window.updateDropdownPlanLabel = () => {
+    const btn = document.getElementById('dropdown-my-plan-btn');
+    if (!btn) return;
+    const tier = window.currentUserTier || 'free';
+    const label = tier === 'admin' ? '👑 Plan Admin' : tier === 'premium' ? '💎 Plan Premium' : '🐾 Plan Gratuito';
+    btn.innerText = label;
 };
 
 window.updateStreakBadge = () => {
@@ -9385,6 +9419,8 @@ onAuthStateChanged(auth, async (user) => {
         window.currentStreakCount = 0;
         if (typeof window.updatePremiumTimeBadge === 'function') window.updatePremiumTimeBadge();
         if (typeof window.updateStreakBadge === 'function') window.updateStreakBadge();
+        if (typeof window.updateDropdownPlanLabel === 'function') window.updateDropdownPlanLabel();
+        if (typeof window.updatePremiumPromoFab === 'function') window.updatePremiumPromoFab();
         if (typeof window.watchSupportUnread === 'function') window.watchSupportUnread(null); // corta el listener al cerrar sesión
         const userNameEl = document.getElementById('user-name');
         if (userNameEl) userNameEl.innerText = "Login";

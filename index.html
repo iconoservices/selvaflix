@@ -297,7 +297,7 @@
               <button onclick="window.showProfileSelector()" style="width: 100%; padding: 12px; background: none; border: none; color: #ccc; text-align: left; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 10px;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='none'">
                   🔄 Cambiar Perfil
               </button>
-              <button onclick="window.openPremiumModal()" style="width: 100%; padding: 12px; background: none; border: none; color: #ccc; text-align: left; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 10px;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='none'">
+              <button id="dropdown-my-plan-btn" onclick="window.openPremiumModal()" style="width: 100%; padding: 12px; background: none; border: none; color: #ccc; text-align: left; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 10px;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='none'">
                   💎 Mi Plan
               </button>
               <button onclick="window.showSettings()" style="width: 100%; padding: 12px; background: none; border: none; color: #ccc; text-align: left; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 10px;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='none'">
@@ -2350,6 +2350,12 @@
       <span class="material-symbols-outlined" style="font-size: 22px;">download</span>
     </button>
   </div>
+
+  <!-- Botón flotante de Premium/Promos: se esconde solo si ya sos premium/admin
+       (lo controla window.updatePremiumPromoFab) o si estás en el panel admin. -->
+  <button id="premium-promo-fab" onclick="window.openPremiumModal()" title="Planes, pruebas gratis y racha">
+    <span class="material-symbols-outlined">workspace_premium</span>
+  </button>
 
   <!-- Botón flotante de Soporte -->
   <button id="support-chat-fab" onclick="window.openSupportChat()" title="¿Necesitas ayuda?">

@@ -1717,6 +1717,53 @@ h3,
   }
 }
 
+/* Botón flotante de Premium/Promos — mismo molde que el de Soporte, apilado
+   arriba. A propósito NO rebota/tiembla ni usa colores ajenos a la marca:
+   eso es lo que hace que un botón flotante "parezca publicidad". Un pulso
+   de anillo suave (mismo recurso que ya usa el puntito de soporte) alcanza
+   para llamar la atención sin ensuciar. Se esconde solo si ya sos premium/admin. */
+#premium-promo-fab {
+  position: fixed;
+  bottom: 92px;
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #000;
+  border: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  z-index: 3999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s;
+  animation: premium-fab-pulse 2.6s ease-in-out infinite;
+}
+
+#premium-promo-fab:hover {
+  transform: scale(1.08);
+}
+
+#premium-promo-fab .material-symbols-outlined {
+  font-size: 26px;
+}
+
+@keyframes premium-fab-pulse {
+  0%, 100% { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 0 0 rgba(255, 122, 0, 0.55); }
+  50% { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 0 8px rgba(255, 122, 0, 0); }
+}
+
+@media (max-width: 768px) {
+  #premium-promo-fab {
+    bottom: calc(146px + env(safe-area-inset-bottom, 0px));
+    right: 16px;
+    width: 50px;
+    height: 50px;
+  }
+}
+
 /* Smart PWA Banner */
 .pwa-banner {
   display: none;

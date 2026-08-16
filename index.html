@@ -275,7 +275,7 @@
               <div style="position: relative; flex-shrink: 0;">
                   <div id="user-avatar" style="width: 40px; height: 40px; border-radius: 50%; overflow: hidden; border: 2px solid rgba(255, 87, 26, 0.5);">
                       <img id="user-avatar-img" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;">
-                      <span id="user-initials" style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: var(--primary-container); color: var(--on-primary-container); font-weight: 900; font-size: 0.75rem;">G</span>
+                      <span id="user-initials" style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: var(--primary-container); color: var(--on-primary-container); font-weight: 900; font-size: 0.75rem;"><span class="material-symbols-outlined" style="font-size: 1.15rem;">person</span></span>
                   </div>
                   <!-- Admin Indicator Dot Pulsante (Anclado al avatar, más arriba) 💎 -->
                   <div id="admin-status-dot" style="display: none; position: absolute; bottom: 2px; right: 2px; width: 10px; height: 10px; background: #00f2ff; border-radius: 50%; border: 2px solid #000; box-shadow: 0 0 10px #00f2ff; z-index: 100; animation: admin-pulse 2s infinite;"></div>
@@ -1451,27 +1451,18 @@
                 </div>
               </div>
 
+              <!-- Ajustes generales: por ahora es solo el WhatsApp de respaldo. Va arriba
+                   de todo, en una sola línea sin tarjeta ni título propio — el ícono +
+                   el placeholder ya explican qué es, así ocupa lo mínimo posible. -->
+              <div style="display:flex; align-items:center; gap:10px; margin-bottom: 16px;">
+                <span title="WhatsApp general: se usa para cualquier plan que no tenga el suyo propio cargado. Si no cargás ninguno, los pedidos van al chat de soporte." style="font-size: 1.1rem; cursor: help; flex-shrink: 0;">📱</span>
+                <input type="text" id="plans-global-whatsapp" class="form-control" placeholder="WhatsApp general (opcional) — Ej: 5493511234567, sin +" style="flex: 1; min-width: 0; margin: 0; padding: 8px 12px; font-size: 0.78rem;">
+                <button onclick="window.saveGlobalWhatsapp()" class="btn btn-primary" style="font-size: 0.7rem; white-space: nowrap; flex-shrink: 0; padding: 8px 14px;">💾 Guardar</button>
+              </div>
+
               <!-- Tarjetas de planes: clic en cualquiera abre el modal de edición -->
               <div id="plan-list" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
                 <!-- Inyectado dinámicamente -->
-              </div>
-
-              <!-- Ajustes que valen para TODOS los planes, no para el que estés editando -->
-              <div class="admin-card" style="margin-top: 20px;">
-                <h2 class="admin-title" style="margin-bottom: 4px;">⚙️ Ajustes generales</h2>
-                <p style="font-size: 0.7rem; color: var(--text-muted); margin: 0 0 18px;">Valen para todos los planes, no para el que estés editando.</p>
-
-                <div class="admin-grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px;">
-                  <div>
-                    <h4 style="font-size: 0.75rem; color: var(--primary); margin-bottom: 12px; text-transform: uppercase;">📱 WhatsApp general</h4>
-                    <div class="form-group">
-                      <label style="font-size: 0.65rem;">Número (opcional)</label>
-                      <input type="text" id="plans-global-whatsapp" class="form-control" placeholder="Ej: 5493511234567 (con código de país, sin +)">
-                      <p style="font-size: 0.6rem; color: var(--text-muted); margin: 6px 0 0;">Se usa para cualquier plan que no tenga su propio WhatsApp cargado. Si no cargás ninguno, los pedidos van al chat de soporte.</p>
-                    </div>
-                    <button onclick="window.saveGlobalWhatsapp()" class="btn btn-primary" style="margin-top: 12px; font-size: 0.7rem;">💾 Guardar WhatsApp</button>
-                  </div>
-                </div>
               </div>
 
               <!-- Pruebas gratis: filas compactas con ícono de fruta/frasco según duración;
@@ -1581,6 +1572,12 @@
                   <div class="form-group" style="margin-bottom:0;">
                     <label style="font-size: 0.65rem;">Nombre</label>
                     <input type="text" id="trial-modal-name" class="form-control" placeholder="Ej: Prueba relámpago">
+                  </div>
+                  <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-size: 0.65rem;">Ícono</label>
+                    <div id="trial-modal-icon-picker" style="display:flex; gap:6px; flex-wrap:wrap;">
+                      <!-- Inyectado dinámicamente -->
+                    </div>
                   </div>
                   <div class="form-group" style="margin-bottom:0;">
                     <label style="font-size: 0.65rem;">Dura</label>

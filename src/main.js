@@ -2837,13 +2837,34 @@ window.saveTrialOffers = async () => {
     }
 };
 
-// Ícono según duración — cuanto más larga la prueba, "más grande" se ve la
-// fruta/frasco. Puramente decorativo, no afecta la lógica.
+// Ícono sugerido según duración — solo el default al crear una oferta nueva
+// o si es una oferta vieja sin ícono elegido a mano (offer.icon). El admin
+// puede pisarlo en el selector del modal.
 const _trialIcon = (hours) => {
     if (hours <= 6) return '🍋';
     if (hours <= 24) return '🍊';
     if (hours <= 72) return '🍉';
     return '🍯';
+};
+
+const _TRIAL_ICON_OPTIONS = ['🍋', '🍊', '🍉', '🍇', '🍓', '🍯', '🫙', '🎁'];
+let _selectedTrialModalIcon = '🍋';
+
+const _renderTrialIconPicker = (selected) => {
+    const wrap = document.getElementById('trial-modal-icon-picker');
+    if (!wrap) return;
+    wrap.innerHTML = _TRIAL_ICON_OPTIONS.map(ic => `
+        <button type="button" onclick="window.selectTrialModalIcon('${ic}')" data-icon="${ic}" style="width: 34px; height: 34px; border-radius: 8px; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; cursor: pointer; background: ${ic === selected ? 'rgba(255,122,0,0.2)' : 'rgba(255,255,255,0.04)'}; border: 1px solid ${ic === selected ? 'var(--primary)' : 'rgba(255,255,255,0.08)'};">${ic}</button>
+    `).join('');
+};
+
+window.selectTrialModalIcon = (icon) => {
+    _selectedTrialModalIcon = icon;
+    document.querySelectorAll('#trial-modal-icon-picker button').forEach(b => {
+        const isSel = b.dataset.icon === icon;
+        b.style.background = isSel ? 'rgba(255,122,0,0.2)' : 'rgba(255,255,255,0.04)';
+        b.style.border = '1px solid ' + (isSel ? 'var(--primary)' : 'rgba(255,255,255,0.08)');
+    });
 };
 
 window.createNewTrialOffer = () => {
@@ -2879,6 +2900,9 @@ window.openTrialOfferModal = (id) => {
     const activeCheck = document.getElementById('trial-modal-active');
     if (activeCheck) activeCheck.checked = offer ? !!offer.active : true;
 
+    _selectedTrialModalIcon = offer?.icon || _trialIcon(offer?.durationHours || 24);
+    _renderTrialIconPicker(_selectedTrialModalIcon);
+
     const deleteBtn = document.getElementById('btn-trial-modal-delete');
     if (deleteBtn) deleteBtn.style.display = offer ? 'flex' : 'none';
 
@@ -2910,6 +2934,7 @@ window.saveTrialOfferFromModal = () => {
     offer.durationHours = _trialHoras(durAmount, durUnit);
     offer.cadenceHours = _trialHoras(cadAmount, cadUnit);
     offer.active = active;
+    offer.icon = _selectedTrialModalIcon;
 
     window.saveTrialOffers();
     window.renderTrialOffersList();
@@ -2935,7 +2960,7 @@ window.renderTrialOffersList = () => {
 
     list.innerHTML = offers.map(o => `
         <div onclick="window.openTrialOfferModal('${o.id}')" style="display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); cursor: pointer; transition: 0.2s;">
-            <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; opacity: ${o.active ? '1' : '0.4'};">${_trialIcon(o.durationHours || 24)}</div>
+            <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; opacity: ${o.active ? '1' : '0.4'};">${o.icon || _trialIcon(o.durationHours || 24)}</div>
             <div style="flex: 1; min-width: 0;">
                 <p style="color: white; font-size: 0.78rem; font-weight: 800; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${_escTrialHtml(o.name)}</p>
                 <p style="color: #888; font-size: 0.65rem; margin: 2px 0 0;">Dura ${_trialFormatoDuracion(o.durationHours || 24)} · se repite cada ${_trialFormatoDuracion(o.cadenceHours || 168)}</p>
@@ -9098,7 +9123,7 @@ onAuthStateChanged(auth, async (user) => {
         if (typeof window.watchSupportUnread === 'function') window.watchSupportUnread(null); // corta el listener al cerrar sesión
         const userNameEl = document.getElementById('user-name');
         if (userNameEl) userNameEl.innerText = "Login";
-        document.getElementById('user-initials').innerText = "G";
+        document.getElementById('user-initials').innerHTML = '<span class="material-symbols-outlined" style="font-size: 1.15rem;">person</span>';
         document.getElementById('user-avatar-img').style.display = 'none';
         document.getElementById('user-initials').style.display = 'flex';
         

@@ -3535,24 +3535,10 @@ window.renderStreakDetail = () => {
             <span style="color:#fff; font-size:0.82rem; font-weight:800;">${count > 0 ? `Llevás ${count} día${count !== 1 ? 's' : ''} seguido${count !== 1 ? 's' : ''}` : 'Empezá tu racha viendo algo hoy'}</span>
         </div>
 
-        <!-- Fila de íconos, de costado a costado — espacio aparte de la
-             barrita y del detalle de abajo. Lleno/color = ya lo cobraste,
-             apagado/gris = todavía no. Mismo ícono que usan las tarjetas de
-             Pruebas gratis (_trialIcon), para que se sientan del mismo set. -->
-        <div style="display:flex; gap:10px; justify-content:center; margin-bottom:14px;">
-            ${milestones.map(m => {
-                const isClaimed = claimed.includes(m.days);
-                const icon = _trialIcon(m.hours || 24);
-                return `
-                <div style="display:flex; flex-direction:column; align-items:center; gap:4px; width:52px;" title="${m.days} días seguidos → ${_trialFormatoDuracion(m.hours || 24)} de Premium">
-                    <div style="position:relative; width:44px; height:44px; border-radius:13px; display:flex; align-items:center; justify-content:center; font-size:1.35rem; background:${isClaimed ? 'rgba(255,122,0,0.15)' : 'rgba(255,255,255,0.03)'}; border:2px solid ${isClaimed ? 'var(--primary)' : 'rgba(255,255,255,0.12)'}; filter:${isClaimed ? 'none' : 'grayscale(85%)'}; opacity:${isClaimed ? '1' : '0.45'};">
-                        ${icon}
-                        ${isClaimed ? '<span style="position:absolute; bottom:-4px; right:-4px; background:#2ecc71; color:#06210f; font-size:0.55rem; width:15px; height:15px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:900;">✓</span>' : ''}
-                    </div>
-                    <span style="font-size:0.58rem; color:${isClaimed ? '#fff' : '#777'}; font-weight:700;">${m.days}d</span>
-                </div>`;
-            }).join('')}
-        </div>
+        <!-- La fila de íconos por escalón ahora vive arriba, en #rewards-icon-strip
+             (junto con las pruebas gratis) — tenerla acá también era mostrar
+             lo mismo dos veces. Adentro de la racha queda solo la barrita +
+             el detalle. -->
 
         <!-- Barrita de progreso hasta el escalón más grande, con una marca por
              cada premio (verde+✓ = ya lo cobraste, gris = todavía no). Más

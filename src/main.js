@@ -355,6 +355,8 @@ window.updateAdminUI = () => {
   const isAdmin = localStorage.getItem('selva_admin_auth') === 'true';
   const dot = document.getElementById('admin-status-dot');
   if (dot) dot.style.display = isAdmin ? 'block' : 'none';
+  const adminMenuBtn = document.getElementById('admin-panel-menu-btn');
+  if (adminMenuBtn) adminMenuBtn.style.display = isAdmin ? 'flex' : 'none';
 };
 // Ya no siembra títulos "famosos" automáticamente: se agregaban solos sin que
 // el admin lo pidiera, y si alguno se borraba a propósito (ej. "Friends"),
@@ -9083,7 +9085,17 @@ window.updatePremiumTimeBadge = () => {
         clearInterval(_premiumBadgeTimer);
         _premiumBadgeTimer = null;
         const user = auth.currentUser;
-        if (user) window.refreshUserTier(user.uid);
+        if (user) {
+            window.refreshUserTier(user.uid).then(() => {
+                // Simétrico a hideAllAdSlots(): el pre-roll del video ya se
+                // vuelve a chequear solo en cada play, pero los banners/flotantes
+                // globales solo se inyectan una vez al cargar la página — sin
+                // esto, quedaban "de regalo" hasta el próximo refresh.
+                if (window.currentUserTier === 'free' && typeof window.injectCampaignScripts === 'function') {
+                    window.injectCampaignScripts();
+                }
+            });
+        }
         return;
     }
 

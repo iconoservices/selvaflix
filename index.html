@@ -2425,6 +2425,17 @@
           <div id="streak-detail" style="display:none; background:rgba(255,87,34,0.06); border:1px solid rgba(255,87,34,0.25); border-radius:12px; padding:12px 14px;">
             <!-- Inyectado dinámicamente -->
           </div>
+
+          <!-- Invitar amigos: solo con sesión iniciada (el link lleva el uid).
+               window.updateReferralCard() la muestra/esconde. -->
+          <div id="referral-card" style="display:none; padding:14px 16px; background:rgba(0,176,255,0.08); border:1px solid rgba(0,176,255,0.3); border-radius:12px; align-items:center; gap:12px;">
+            <div style="width:44px; height:44px; border-radius:12px; background:rgba(0,176,255,0.15); border:2px solid rgba(0,176,255,0.4); display:flex; align-items:center; justify-content:center; font-size:1.3rem; flex-shrink:0;">🤝</div>
+            <div style="flex:1; min-width:0;">
+              <p style="color:#00B0FF; font-weight:800; font-size:0.85rem; margin:0 0 2px;">Invitá a un amigo</p>
+              <p style="color:#aaa; font-size:0.72rem; margin:0;">Vos y tu amigo ganan 5 días de Premium cuando mire su primera peli.</p>
+            </div>
+            <button onclick="window.shareReferralLink()" style="background:#25D366; color:#000; border:none; border-radius:10px; padding:10px 14px; font-weight:800; font-size:0.75rem; cursor:pointer; white-space:nowrap; flex-shrink:0;">WhatsApp</button>
+          </div>
         </div>
       </div>
 

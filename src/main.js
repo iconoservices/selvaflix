@@ -3195,7 +3195,8 @@ window._updateRewardsSectionVisibility = () => {
     if (!section) return;
     const trialVisible = document.getElementById('free-trial-offers')?.style.display !== 'none';
     const streakVisible = document.getElementById('streak-detail')?.style.display !== 'none';
-    section.style.display = (trialVisible || streakVisible) ? 'block' : 'none';
+    const referralVisible = document.getElementById('referral-card')?.style.display !== 'none';
+    section.style.display = (trialVisible || streakVisible || referralVisible) ? 'block' : 'none';
 };
 
 // El plan Gratuito antes era una tarjeta fija en el código (no se veía ni
@@ -3438,6 +3439,7 @@ window.openPremiumModal = (movie) => {
     if (typeof window.renderFreeTrialBanner === 'function' && Array.isArray(window.trialOffers)) window.renderFreeTrialBanner(isAlreadyPaid);
     if (typeof window.renderPremiumTimeRemaining === 'function') window.renderPremiumTimeRemaining();
     if (typeof window.renderStreakDetail === 'function' && Array.isArray(window.streakMilestones)) window.renderStreakDetail();
+    if (typeof window.updateReferralCard === 'function') window.updateReferralCard();
 
     Promise.all([window._plansReadyPromise, window._trialOffersReadyPromise, window._streakConfigReadyPromise]).then(() => {
         if (!modal || modal.style.display === 'none') return; // se cerró mientras esperábamos
@@ -3464,45 +3466,52 @@ window.renderStreakDetail = () => {
 
     const count = window.currentStreakCount || 0;
     const claimed = window.currentStreakClaimedMilestones || [];
+    const maxDays = milestones[milestones.length - 1].days;
+    const fillPct = Math.min(100, (count / maxDays) * 100);
 
     wrap.style.display = 'block';
     wrap.innerHTML = `
-        <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
             <span style="font-size:1.1rem;">🔥</span>
             <span style="color:#fff; font-size:0.82rem; font-weight:800;">${count > 0 ? `Llevás ${count} día${count !== 1 ? 's' : ''} seguido${count !== 1 ? 's' : ''}` : 'Empezá tu racha viendo algo hoy'}</span>
         </div>
 
-        <!-- Frascos: uno por escalón, en fila. Lleno/de color = ya lo cobraste;
-             vacío/apagado = todavía no. Mismo criterio de ícono según duración
-             que usan las tarjetas de Pruebas gratis, para que se sientan del
-             mismo "set". -->
-        <div style="display:flex; gap:10px; justify-content:center; margin-bottom:12px;">
+        <!-- Barrita de progreso hasta el escalón más grande, con una marca por
+             cada premio (verde+✓ = ya lo cobraste, gris = todavía no). Más
+             compacta que dibujar un frasco por escalón, y de un vistazo se ve
+             cuánto falta para el próximo. -->
+        <div style="position:relative; height:8px; background:rgba(255,255,255,0.08); border-radius:5px; margin:6px 7px 20px;">
+            <div style="height:100%; width:${fillPct}%; background:linear-gradient(90deg, var(--primary), #ffb347); border-radius:5px; transition:width .3s;"></div>
             ${milestones.map(m => {
                 const isClaimed = claimed.includes(m.days);
-                const icon = _trialIcon(m.hours || 24);
+                const leftPct = (m.days / maxDays) * 100;
                 return `
-                <div style="display:flex; flex-direction:column; align-items:center; gap:4px; width:56px;" title="${m.days} días seguidos → ${_trialFormatoDuracion(m.hours || 24)} de Premium">
-                    <div style="position:relative; width:48px; height:48px; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:1.5rem; background:${isClaimed ? 'rgba(255,122,0,0.15)' : 'rgba(255,255,255,0.03)'}; border:2px solid ${isClaimed ? 'var(--primary)' : 'rgba(255,255,255,0.12)'}; filter:${isClaimed ? 'none' : 'grayscale(85%)'}; opacity:${isClaimed ? '1' : '0.45'};">
-                        ${icon}
-                        ${isClaimed ? '<span style="position:absolute; bottom:-4px; right:-4px; background:#2ecc71; color:#06210f; font-size:0.55rem; width:16px; height:16px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:900;">✓</span>' : ''}
-                    </div>
-                    <span style="font-size:0.6rem; color:${isClaimed ? '#fff' : '#777'}; font-weight:700;">${m.days}d</span>
+                <div style="position:absolute; left:${leftPct}%; top:50%; transform:translate(-50%,-50%);" title="${m.days} días seguidos → ${_trialFormatoDuracion(m.hours || 24)} de Premium">
+                    <div style="width:14px; height:14px; border-radius:50%; background:${isClaimed ? '#2ecc71' : '#1a1a1a'}; border:2px solid ${isClaimed ? '#2ecc71' : 'rgba(255,255,255,0.3)'}; display:flex; align-items:center; justify-content:center; font-size:0.5rem; color:#06210f; font-weight:900;">${isClaimed ? '✓' : ''}</div>
+                    <span style="position:absolute; top:16px; left:50%; transform:translateX(-50%); font-size:0.55rem; color:${isClaimed ? '#fff' : '#888'}; white-space:nowrap;">${m.days}d</span>
                 </div>`;
             }).join('')}
         </div>
 
-        <div style="display:flex; flex-direction:column; gap:6px;">
-            ${milestones.map(m => {
-                const isClaimed = claimed.includes(m.days);
-                const isReached = count >= m.days;
-                const statusTxt = isClaimed ? '✅ Ya la cobraste' : (isReached ? '🎁 ¡Lista para el próximo día!' : `Faltan ${m.days - count} día${(m.days - count) !== 1 ? 's' : ''}`);
-                return `
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; border-radius:8px; background:rgba(255,255,255,0.03); opacity:${isClaimed ? '0.6' : '1'};">
-                    <span style="color:#ccc; font-size:0.75rem;">${m.days} día${m.days !== 1 ? 's' : ''} seguidos → <b style="color:#fff;">${_trialFormatoDuracion(m.hours || 24)}</b> de Premium</span>
-                    <span style="color:${isClaimed ? '#2ecc71' : (isReached ? 'var(--primary)' : '#888')}; font-size:0.68rem; font-weight:700; white-space:nowrap; margin-left:8px;">${statusTxt}</span>
-                </div>`;
-            }).join('')}
-        </div>
+        <!-- Desplegable en vez de la lista siempre abierta: con varios escalones
+             cargados (ej. 4) ocupaba tanto que en desktop empujaba los planes
+             pagos fuera de la vista. Colapsado por defecto, el detalle sigue
+             ahí para quien lo quiera abrir. -->
+        <details>
+            <summary style="cursor:pointer; font-size:0.68rem; color:#999; font-weight:700;">Ver detalle de cada escalón</summary>
+            <div style="display:flex; flex-direction:column; gap:6px; margin-top:8px;">
+                ${milestones.map(m => {
+                    const isClaimed = claimed.includes(m.days);
+                    const isReached = count >= m.days;
+                    const statusTxt = isClaimed ? '✅ Ya la cobraste' : (isReached ? '🎁 ¡Lista para el próximo día!' : `Faltan ${m.days - count} día${(m.days - count) !== 1 ? 's' : ''}`);
+                    return `
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; border-radius:8px; background:rgba(255,255,255,0.03); opacity:${isClaimed ? '0.6' : '1'};">
+                        <span style="color:#ccc; font-size:0.75rem;">${m.days} día${m.days !== 1 ? 's' : ''} seguidos → <b style="color:#fff;">${_trialFormatoDuracion(m.hours || 24)}</b> de Premium</span>
+                        <span style="color:${isClaimed ? '#2ecc71' : (isReached ? 'var(--primary)' : '#888')}; font-size:0.68rem; font-weight:700; white-space:nowrap; margin-left:8px;">${statusTxt}</span>
+                    </div>`;
+                }).join('')}
+            </div>
+        </details>
         <p style="font-size:0.6rem; color:#666; margin:10px 0 0;">Mirá algo (2+ min) todos los días para no perder la racha.</p>
     `;
     if (typeof window._updateRewardsSectionVisibility === 'function') window._updateRewardsSectionVisibility();
@@ -5562,6 +5571,9 @@ function startPlayer(movie) {
   if (auth.currentUser) {
     _streakWatchTimer = setTimeout(() => {
       if (typeof window.registerStreakProgress === 'function') window.registerStreakProgress();
+      // Mismos 2 minutos cuentan como "el amigo referido ya miró algo" —
+      // ver window.checkReferralReward().
+      if (typeof window.checkReferralReward === 'function') window.checkReferralReward();
     }, STREAK_WATCH_MS);
   }
 
@@ -8578,6 +8590,12 @@ window.autoSuggestLogo = async () => {
 
 // Initial Setup
 document.addEventListener('DOMContentLoaded', () => {
+  // 👥 Programa de referidos: si llegó con ?ref=UID, lo guardamos para cuando
+  // se registre (puede tardar en crear cuenta, por eso no alcanza con una
+  // variable en memoria) — se consume una sola vez en trackAccountLogin().
+  const refParam = new URLSearchParams(window.location.search).get('ref');
+  if (refParam) localStorage.setItem('selva_pending_ref', refParam);
+
   // Nota: handleRouting se dispara automáticamente cuando loadSelvaFlixData termina de cargar
   // ⚡ Cargar Publicidad al Inicio (Para todos los usuarios)
   window.loadAdConfig();
@@ -9247,12 +9265,21 @@ async function trackAccountLogin(user) {
         const snap = await getDoc(userRef);
         const isNewAccount = !snap.exists() || !snap.data().createdAt;
 
+        // 👥 Referidos: solo aplica una vez, en la cuenta nueva, y nunca a uno
+        // mismo (alguien que abre su propio link y crea otra cuenta). Se limpia
+        // del localStorage se haya podido aplicar o no, para no arrastrar un
+        // código viejo a la próxima cuenta que se cree en este navegador.
+        const pendingRef = localStorage.getItem('selva_pending_ref');
+        const referredBy = (isNewAccount && pendingRef && pendingRef !== user.uid) ? pendingRef : null;
+        localStorage.removeItem('selva_pending_ref');
+
         await setDoc(userRef, {
             email: user.email || null,
             displayName: user.displayName || null,
             photoURL: user.photoURL || null,
             createdAt: isNewAccount ? Date.now() : snap.data().createdAt,
             lastLoginAt: Date.now(),
+            ...(referredBy ? { referredBy } : {}),
         }, { merge: true });
 
         await addDoc(collection(db, "user_activity"), {
@@ -9321,6 +9348,7 @@ window.refreshUserTier = async (uid) => {
     if (typeof window.renderStreakDetail === 'function') window.renderStreakDetail();
     if (typeof window.updateDropdownPlanLabel === 'function') window.updateDropdownPlanLabel();
     if (typeof window.updatePremiumPromoFab === 'function') window.updatePremiumPromoFab();
+    if (typeof window.updateReferralCard === 'function') window.updateReferralCard();
     return window.currentUserTier;
 };
 
@@ -9447,6 +9475,77 @@ window.registerStreakProgress = async () => {
     }
 };
 
+const REFERRAL_REWARD_HOURS = 5 * 24; // 5 días para cada uno (invitado + quien invita)
+
+// Se llama junto con registerStreakProgress (mismos 2 min de "vio algo"):
+// si este usuario llegó con un link de invitación (referredBy) y todavía no
+// se le dio el premio, se lo regala a él Y a quien lo invitó. referralRewardGiven
+// asegura que corra una sola vez por cuenta referida, no cada vez que mira algo.
+window.checkReferralReward = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+    try {
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
+        const userData = userSnap.exists() ? userSnap.data() : {};
+        const referrerId = userData.referredBy;
+        if (!referrerId || userData.referralRewardGiven) return;
+
+        const now = Date.now();
+        const rewardMs = REFERRAL_REWARD_HOURS * 60 * 60 * 1000;
+
+        const myBase = Math.max(userData.premiumUntil || 0, now);
+        await setDoc(userRef, {
+            tier: 'premium',
+            premiumUntil: myBase + rewardMs,
+            premiumGrantedAt: userData.premiumGrantedAt || now,
+            referralRewardGiven: true,
+        }, { merge: true });
+
+        // Mismas reglas de Firestore que ya permiten esto: cualquier usuario
+        // autenticado puede escribir cualquier doc (ver firestore.rules) —
+        // no es un permiso nuevo, ya se usaba así para todo lo demás.
+        const referrerRef = doc(db, "users", referrerId);
+        const referrerSnap = await getDoc(referrerRef);
+        const referrerData = referrerSnap.exists() ? referrerSnap.data() : {};
+        const referrerBase = Math.max(referrerData.premiumUntil || 0, now);
+        await setDoc(referrerRef, {
+            tier: 'premium',
+            premiumUntil: referrerBase + rewardMs,
+            premiumGrantedAt: referrerData.premiumGrantedAt || now,
+        }, { merge: true });
+
+        await window.refreshUserTier(user.uid);
+        if (typeof window.hideAllAdSlots === 'function') window.hideAllAdSlots();
+        if (window.showToast) {
+            window.showToast(`🎉 ¡Bienvenido! Vos y quien te invitó ganaron ${_trialFormatoDuracion(REFERRAL_REWARD_HOURS)} de Premium 🎁`, 'success');
+        }
+    } catch (e) {
+        console.error('Error otorgando premio de referido:', e);
+    }
+};
+
+// Tarjeta "Invitá a un amigo": solo tiene sentido con sesión iniciada, porque
+// el link de invitación lleva el uid (?ref=UID, ver captura en DOMContentLoaded
+// y consumo en trackAccountLogin).
+window.updateReferralCard = () => {
+    const card = document.getElementById('referral-card');
+    if (!card) return;
+    card.style.display = auth.currentUser ? 'flex' : 'none';
+    if (typeof window._updateRewardsSectionVisibility === 'function') window._updateRewardsSectionVisibility();
+};
+
+window.shareReferralLink = () => {
+    const user = auth.currentUser;
+    if (!user) {
+        if (window.showToast) window.showToast('Iniciá sesión para invitar amigos 🐒', 'primary');
+        return;
+    }
+    const link = `${window.location.origin}/?ref=${user.uid}`;
+    const texto = `🌴 ¡Che, te invito a SelvaFlix! Entrá con este link y cuando veas tu primera peli ganamos los dos 5 días de Premium gratis: ${link}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
+};
+
 // --- Badge de tiempo Premium restante (pill fija junto al avatar) ⏳ ---
 // Solo tiene sentido cuando premiumUntil está seteado (pruebas gratis, o un
 // plan pago que el admin cargó con vencimiento) — un plan/admin sin límite
@@ -9561,6 +9660,7 @@ onAuthStateChanged(auth, async (user) => {
         if (typeof window.updateStreakBadge === 'function') window.updateStreakBadge();
         if (typeof window.updateDropdownPlanLabel === 'function') window.updateDropdownPlanLabel();
         if (typeof window.updatePremiumPromoFab === 'function') window.updatePremiumPromoFab();
+        if (typeof window.updateReferralCard === 'function') window.updateReferralCard();
         if (typeof window.watchSupportUnread === 'function') window.watchSupportUnread(null); // corta el listener al cerrar sesión
         const userNameEl = document.getElementById('user-name');
         if (userNameEl) userNameEl.innerText = "Login";

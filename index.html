@@ -2351,11 +2351,11 @@
     </button>
   </div>
 
-  <!-- Botón flotante de Premium/Promos: se esconde solo si ya sos premium/admin
-       (lo controla window.updatePremiumPromoFab) o si estás en el panel admin. -->
-  <button id="premium-promo-fab" onclick="window.openPremiumModal()" title="Planes, pruebas gratis y racha">
-    <span class="material-symbols-outlined">workspace_premium</span>
-  </button>
+  <!-- Botón flotante de Premium: NO se esconde al ser premium, cambia de
+       ícono/sentido (🎁 invitado/free -> ver planes y pruebas gratis; 👑
+       premium/admin -> ver tu plan y cuánto te queda). Solo se esconde en
+       el panel admin. Lo controla window.updatePremiumPromoFab. -->
+  <button id="premium-promo-fab" onclick="window.openPremiumModal()" title="Planes, pruebas gratis y racha">🎁</button>
 
   <!-- Botón flotante de Soporte -->
   <button id="support-chat-fab" onclick="window.openSupportChat()" title="¿Necesitas ayuda?">

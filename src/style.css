@@ -1740,14 +1740,12 @@ h3,
   cursor: pointer;
   transition: transform 0.2s;
   animation: premium-fab-pulse 2.6s ease-in-out infinite;
+  font-size: 26px;
+  line-height: 1;
 }
 
 #premium-promo-fab:hover {
   transform: scale(1.08);
-}
-
-#premium-promo-fab .material-symbols-outlined {
-  font-size: 26px;
 }
 
 @keyframes premium-fab-pulse {

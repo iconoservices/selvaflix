@@ -9254,8 +9254,14 @@ window.updatePremiumPromoFab = () => {
     const fab = document.getElementById('premium-promo-fab');
     if (!fab) return;
     if (document.getElementById('admin-view')?.style.display === 'block') { fab.style.display = 'none'; return; }
+    // No se esconde al ser premium: cambia de sentido en vez de desaparecer.
+    // 🎁 invitado/free = "mirá lo que hay" (planes, prueba gratis, racha).
+    // 👑 premium/admin = "mirá tu plan" (mismo modal, pero ahora te muestra
+    // tus beneficios y cuánto tiempo te queda en vez de venderte algo).
     const isPremium = window.currentUserTier === 'premium' || window.currentUserTier === 'admin';
-    fab.style.display = isPremium ? 'none' : 'flex';
+    fab.style.display = 'flex';
+    fab.innerText = isPremium ? '👑' : '🎁';
+    fab.title = isPremium ? 'Tu plan Premium' : 'Planes, pruebas gratis y racha';
 };
 
 // El botón del menú decía siempre "Mi Plan", texto fijo sin importar si sos

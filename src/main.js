@@ -3169,6 +3169,7 @@ window.renderFreeTrialBanner = (isAlreadyPaid) => {
     const activas = (window.trialOffers || []).filter(o => o.active);
     if (activas.length === 0 || isAlreadyPaid) {
         wrap.style.display = 'none';
+        if (typeof window._updateRewardsSectionVisibility === 'function') window._updateRewardsSectionVisibility();
         return;
     }
     wrap.innerHTML = activas.map(o => `
@@ -3181,6 +3182,19 @@ window.renderFreeTrialBanner = (isAlreadyPaid) => {
         </div>
     `).join('');
     wrap.style.display = 'flex';
+    if (typeof window._updateRewardsSectionVisibility === 'function') window._updateRewardsSectionVisibility();
+};
+
+// #free-trial-offers y #streak-detail viven juntos adentro de #rewards-section
+// ("🎁 Recompensas"), separados de los planes pagos — pero cada uno se
+// muestra u oculta de forma independiente, así que hace falta este chequeo
+// aparte para saber si el contenedor común tiene que aparecer o no.
+window._updateRewardsSectionVisibility = () => {
+    const section = document.getElementById('rewards-section');
+    if (!section) return;
+    const trialVisible = document.getElementById('free-trial-offers')?.style.display !== 'none';
+    const streakVisible = document.getElementById('streak-detail')?.style.display !== 'none';
+    section.style.display = (trialVisible || streakVisible) ? 'block' : 'none';
 };
 
 // El plan Gratuito antes era una tarjeta fija en el código (no se veía ni
@@ -3443,6 +3457,7 @@ window.renderStreakDetail = () => {
     const milestones = (window.streakMilestones || []).filter(m => m.active !== false).sort((a, b) => a.days - b.days);
     if (milestones.length === 0) {
         wrap.style.display = 'none';
+        if (typeof window._updateRewardsSectionVisibility === 'function') window._updateRewardsSectionVisibility();
         return;
     }
 
@@ -3489,6 +3504,7 @@ window.renderStreakDetail = () => {
         </div>
         <p style="font-size:0.6rem; color:#666; margin:10px 0 0;">Mirá algo (2+ min) todos los días para no perder la racha.</p>
     `;
+    if (typeof window._updateRewardsSectionVisibility === 'function') window._updateRewardsSectionVisibility();
 };
 
 // Barra grande (con % real, usando premiumGrantedAt como inicio) que vive

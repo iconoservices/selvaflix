@@ -2406,17 +2406,28 @@
         <!-- Inyectado dinámicamente -->
       </div>
 
-      <!-- Racha: cuántos días seguidos lleva el usuario y qué escalón sigue.
-           Solo se ve si el admin cargó al menos un escalón en configs/streaks. -->
-      <div id="streak-detail" style="display:none; margin:16px 20px 0; flex-shrink:0; background:rgba(255,87,34,0.06); border:1px solid rgba(255,87,34,0.25); border-radius:12px; padding:12px 14px;">
-        <!-- Inyectado dinámicamente -->
+      <!-- Espacio único para todo lo que es "gratis" (racha + pruebas gratis),
+           separado de los planes pagos de abajo. Solo aparece si hay algo
+           para mostrar en cualquiera de los dos — ver
+           window._updateRewardsSectionVisibility(), que corre después de
+           cada render de #free-trial-offers / #streak-detail. -->
+      <div id="rewards-section" style="display:none; margin:16px 20px 0; flex-shrink:0;">
+        <h4 style="font-size:0.68rem; color:var(--primary); text-transform:uppercase; letter-spacing:0.5px; margin:0 0 8px; display:flex; align-items:center; gap:6px;">🎁 Recompensas</h4>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <!-- Puede haber varias ofertas activas a la vez (ej. "3 horas" y "24 horas"),
+               por eso es una lista de tarjetas, no un banner único. -->
+          <div id="free-trial-offers" style="display:none; flex-direction:column; gap:8px;">
+            <!-- Inyectado dinámicamente -->
+          </div>
+
+          <!-- Racha: cuántos días seguidos lleva el usuario y qué escalón sigue.
+               Solo se ve si el admin cargó al menos un escalón en configs/streaks. -->
+          <div id="streak-detail" style="display:none; background:rgba(255,87,34,0.06); border:1px solid rgba(255,87,34,0.25); border-radius:12px; padding:12px 14px;">
+            <!-- Inyectado dinámicamente -->
+          </div>
+        </div>
       </div>
 
-      <!-- Puede haber varias ofertas activas a la vez (ej. "3 horas" y "24 horas"),
-           por eso es una lista de tarjetas, no un banner único. -->
-      <div id="free-trial-offers" style="display:none; flex-direction:column; gap:8px; margin:16px 20px 0; flex-shrink:0;">
-        <!-- Inyectado dinámicamente -->
-      </div>
       <div id="premium-plans-grid" style="flex:1; overflow-y:auto; padding:20px; display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px;">
         <p style="text-align:center; color:#666; font-size:0.8rem; grid-column: 1/-1;">Cargando planes...</p>
       </div>

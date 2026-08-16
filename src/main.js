@@ -991,7 +991,15 @@ function handleRouting() {
     sessionStorage.setItem('selva_admin_active', '1');
     showView('admin-view');
     renderInventory();
-    window.loadMetrics();
+    // loadMetrics vive en el módulo de Analíticas, que se baja recién con
+    // cargarAnaliticas() (import() perezoso) — antes esto llamaba a
+    // window.loadMetrics() directo, y si el admin entraba a #admin sin haber
+    // abierto nunca la pestaña Analíticas en esa sesión, tiraba "loadMetrics
+    // is not a function" y cortaba el resto de esta rama (badge de mensajes,
+    // conteo de Premium, ocultar el contenedor de anuncios).
+    cargarAnaliticas().then(() => window.loadMetrics()).catch(e => {
+        console.error('No se pudo cargar el módulo de Analíticas:', e);
+    });
     if (typeof window.loadAdminMessages === 'function') window.loadAdminMessages(); // refresca el punto de "sin leer" del sidebar
     if (typeof window.loadPremiumCount === 'function') window.loadPremiumCount();
 
@@ -4555,7 +4563,9 @@ window.reportBrokenLink = async (movieId, movieTitle) => {
 window.resolveReport = async (reportId) => {
   try {
     await updateDoc(doc(db, "link_reports", reportId), { status: 'resolved', resolvedAt: Date.now() });
-    window.loadMetrics(); // refresca
+    // refresca — mismo motivo que en handleRouting: loadMetrics vive en el
+    // módulo perezoso de Analíticas, no se puede llamar directo.
+    cargarAnaliticas().then(() => window.loadMetrics());
   } catch (e) { console.error(e); }
 };
 

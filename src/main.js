@@ -10985,7 +10985,12 @@ window.loadMyList = async () => {
     const badge = document.getElementById("nav-fav-count");
     const buildCard = (m) => {
         const p = (m.poster || "").startsWith("http") ? m.poster : "https://image.tmdb.org/t/p/w300" + m.poster;
-        return `<div class="mylist-card" onclick='window.handleCardClick("${m.movieId}")'><div class="mylist-card-bg" style="background-image:url('${p}');"></div><div class="mylist-card-gradient"></div><div class="mylist-card-overlay"><button class="mylist-play-btn" onclick="event.stopPropagation();window.handleCardClick('${m.movieId}')"><span class="material-symbols-outlined">play_arrow</span></button><button class="mylist-remove-btn" onclick="event.stopPropagation();window.toggleMyList('${m.movieId}',this)"><span class="material-symbols-outlined">close</span></button></div><div class="mylist-card-title">${m.title}</div></div>`;
+        // Mismo caso que "Continuar viendo": el movieId guardado acá al momento
+        // de agregar a Mi Lista puede quedar muerto si el catálogo se fusiona
+        // con un duplicado más tarde. Se pasa el título para que handleCardClick
+        // pueda autorepararse por nombre en vez de mandar a "Contenido no encontrado".
+        const safeTitle = (m.title || "").replace(/'/g, "\\'");
+        return `<div class="mylist-card" onclick="window.handleCardClick('${m.movieId}', '${safeTitle}')"><div class="mylist-card-bg" style="background-image:url('${p}');"></div><div class="mylist-card-gradient"></div><div class="mylist-card-overlay"><button class="mylist-play-btn" onclick="event.stopPropagation();window.handleCardClick('${m.movieId}', '${safeTitle}')"><span class="material-symbols-outlined">play_arrow</span></button><button class="mylist-remove-btn" onclick="event.stopPropagation();window.toggleMyList('${m.movieId}',this)"><span class="material-symbols-outlined">close</span></button></div><div class="mylist-card-title">${m.title}</div></div>`;
     };
     const empty = `<div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:rgba(255,255,255,0.3);"><span class="material-symbols-outlined" style="font-size:48px;display:block;margin-bottom:12px;">bookmarks</span><p style="font-family:'Sora',sans-serif;font-size:1rem;margin:0;">Tu selva esta vacia...</p></div>`;
     const setGrids = (html) => {

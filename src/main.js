@@ -379,7 +379,7 @@ window.updateAdminUI = () => {
 // hacía que se volviera a crear solo, porque la función no podía distinguir
 // "nunca existió" de "lo borraron adrede". Se mantiene SOLO la limpieza de
 // duplicados reales (que no agrega nada nuevo, solo saca copias repetidas).
-async function limpiarDuplicadosDeCatalogo() {
+async function limpiarDuplicadosDeCatalogo({ manual = false } = {}) {
   if (!Array.isArray(movieDatabase.trending)) return;
 
   // --- AUTOMATIC DUPLICATE CLEANER ---
@@ -424,21 +424,55 @@ async function limpiarDuplicadosDeCatalogo() {
     }
   }
 
-  if (duplicatesToDelete.length > 0) {
-    console.log(`🧹 Encontrados ${duplicatesToDelete.length} duplicados en Firebase. Iniciando limpieza...`);
-    for (const dup of duplicatesToDelete) {
-      try {
-        await deleteDoc(doc(db, "movies", dup.id));
-        movieDatabase.trending = movieDatabase.trending.filter(m => m.id !== dup.id);
-        console.log(`🗑️ Duplicado eliminado: ${dup.title} (ID: ${dup.id})`);
-      } catch (err) {
-        console.error(`Error eliminando duplicado ${dup.title}:`, err);
-      }
-    }
-    localStorage.removeItem('selvaflix_full_database');
-    localStorage.removeItem('selvaflix_cache_timestamp');
+  if (duplicatesToDelete.length === 0) {
+    if (manual && window.showToast) window.showToast('✨ No hay duplicados en el catálogo.', 'info');
+    return { borrados: 0, fallidos: 0 };
   }
+
+  // En modo manual (botón del admin) se muestra qué se va a borrar y cuál
+  // copia se queda antes de tocar nada — corriendo solo (al cargar la
+  // página, para cualquier visitante) esto se aplicaba directo y en
+  // silencio, que es justo lo que hacía invisible el problema real: un ID
+  // viejo de "Continuar viendo" moría sin que quedara rastro de por qué.
+  if (manual) {
+    const detalle = duplicatesToDelete
+      .map(dup => `• "${dup.title}" (se borra esta copia, ID: ${dup.id.slice(0, 8)}…)`)
+      .join('\n');
+    if (!confirm(`🧹 Se encontraron ${duplicatesToDelete.length} duplicado(s):\n\n${detalle}\n\n¿Borrar las copias repetidas y quedarse con la mejor de cada una?`)) {
+      return { borrados: 0, fallidos: 0, cancelado: true };
+    }
+  }
+
+  console.log(`🧹 Encontrados ${duplicatesToDelete.length} duplicados en Firebase. Iniciando limpieza...`);
+  let borrados = 0, fallidos = 0;
+  for (const dup of duplicatesToDelete) {
+    try {
+      await deleteDoc(doc(db, "movies", dup.id));
+      movieDatabase.trending = movieDatabase.trending.filter(m => m.id !== dup.id);
+      console.log(`🗑️ Duplicado eliminado: ${dup.title} (ID: ${dup.id})`);
+      borrados++;
+    } catch (err) {
+      console.error(`Error eliminando duplicado ${dup.title}:`, err);
+      fallidos++;
+    }
+  }
+  localStorage.removeItem('selvaflix_full_database');
+  localStorage.removeItem('selvaflix_cache_timestamp');
+
+  if (manual) {
+    const msg = `🧹 ${borrados} duplicado${borrados === 1 ? '' : 's'} eliminado${borrados === 1 ? '' : 's'}${fallidos ? ` (${fallidos} fallaron)` : ''}.`;
+    if (window.showToast) window.showToast(msg, fallidos ? 'warning' : 'success');
+    else alert(msg);
+    if (document.getElementById('admin-view')?.style.display === 'block') {
+      _updateDetailedStats(movieDatabase.trending);
+      if (window.filterInventoryByCategory) window.filterInventoryByCategory();
+    }
+  }
+
+  return { borrados, fallidos };
 }
+
+window.limpiarDuplicadosManual = () => limpiarDuplicadosDeCatalogo({ manual: true });
 
 window.updateAdminUI();
 // Se guarda la promesa para que la Carga Masiva pueda esperarla antes de
@@ -4632,7 +4666,16 @@ window.sincronizarCatalogoVimeus = async (tipos = ['movies', 'series', 'animes']
             };
 
             const docRef = await addDoc(collection(db, "movies"), { ...nuevoDoc, createdAt: Date.now() });
-            movieDatabase.trending.push({ id: docRef.id, ...nuevoDoc });
+            // El listener en vivo de loadSelvaFlixData() (onSnapshot) suele
+            // enterarse de esta misma escritura (aunque sea local/optimista)
+            // antes de que lleguemos a esta línea, y ya la empuja a trending
+            // por su cuenta. Empujar de nuevo sin chequear generaba una fila
+            // duplicada en la tabla del admin (mismo ID, dos objetos) hasta
+            // el próximo reload — se chequea primero, igual que hace el
+            // propio handler del listener.
+            const idxYaEmpujado = movieDatabase.trending.findIndex(m => m.id === docRef.id);
+            if (idxYaEmpujado === -1) movieDatabase.trending.push({ id: docRef.id, ...nuevoDoc });
+            else movieDatabase.trending[idxYaEmpujado] = { id: docRef.id, ...nuevoDoc };
             agregados++;
         } catch (e) {
             console.error('Error agregando título de Vimeus:', it.title, e);
@@ -5754,11 +5797,22 @@ window.addSelectedTMDBMovies = async () => {
   const btn = document.querySelector('#tmdb-bulk-toolbar button.btn-add-selected');
   if (btn) btn.disabled = true;
 
-  let ok = 0, fail = 0;
+  let ok = 0, fail = 0, omitidos = 0;
   for (let i = 0; i < indices.length; i++) {
     const m = _tmdbLastResults[indices[i]];
     if (!m) continue;
     if (btn) btn.textContent = `Agregando ${i + 1}/${indices.length}...`;
+
+    // Este alta masiva era el único (junto al formulario individual, ya
+    // arreglado aparte) que no chequeaba contra el catálogo ya cargado antes
+    // de guardar — a diferencia de la Carga Masiva por páginas y la siembra
+    // rápida, que sí filtran lo ya existente. Sin esto, seleccionar dos veces
+    // el mismo resultado de búsqueda (o buscar algo que ya se había agregado
+    // antes) creaba un duplicado en Firebase que el limpiador automático se
+    // comía en la siguiente carga, dejando IDs muertos en cualquier
+    // "Continuar viendo" que apuntara a la copia borrada.
+    const yaExisteBulk = movieDatabase.trending.some(x => String(x.tmdbId) === String(m.id));
+    if (yaExisteBulk) { omitidos++; continue; }
 
     try {
       const title = m.title || m.name;
@@ -5835,7 +5889,9 @@ window.addSelectedTMDBMovies = async () => {
   await loadSelvaFlixData();
   if (window.filterInventoryByCategory) window.filterInventoryByCategory();
 
-  const msg = `${ok} título${ok === 1 ? '' : 's'} agregado${ok === 1 ? '' : 's'} a Revisión${fail ? ` (${fail} fallaron)` : ''} 🌴`;
+  const msg = `${ok} título${ok === 1 ? '' : 's'} agregado${ok === 1 ? '' : 's'} a Revisión`
+    + (omitidos ? ` (${omitidos} ya estaba${omitidos === 1 ? '' : 'n'} en el catálogo, omitido${omitidos === 1 ? '' : 's'})` : '')
+    + (fail ? ` (${fail} fallaron)` : '') + ' 🌴';
   if (window.showToast) window.showToast(msg, fail ? 'warning' : 'success');
   else alert(msg);
 
@@ -7173,15 +7229,31 @@ window.closePlayer = () => {
 // Un análisis estático la marcó como "solo admin" (porque la única referencia en el
 // index.html cae dentro de #admin-view); en realidad se genera 12 veces desde
 // plantillas de JS que el grep no ve. Moverla deja la home sin tarjetas. NO MOVER.
-window.handleCardClick = (id) => {
+window.handleCardClick = (id, fallbackTitle) => {
     // Buscar la película para hacer un slug URL limpio
     const movie = movieDatabase?.trending?.find(m => m.id === id);
     if (movie) {
         const slug = slugify(movie.title, movie.year);
         window.location.hash = `detail/${slug}`;
-    } else {
-        window.location.hash = `detail/${id}`;
+        return;
     }
+
+    // El ID guardado (ej. en "Continuar viendo") ya no existe en el catálogo
+    // — el caso típico es que limpiarDuplicadosDeCatalogo() se lo comió al
+    // fusionar un duplicado. Antes de rendirnos con un ID muerto en el hash
+    // (que nunca va a matchear ni por ID ni por slug), probamos por título:
+    // así la tarjeta se autorepara sola en vez de mandar a "Contenido no encontrado".
+    if (fallbackTitle) {
+        const porTitulo = movieDatabase?.trending?.find(
+            m => (m.title || '').toLowerCase().trim() === fallbackTitle.toLowerCase().trim()
+        );
+        if (porTitulo) {
+            window.location.hash = `detail/${slugify(porTitulo.title, porTitulo.year)}`;
+            return;
+        }
+    }
+
+    window.location.hash = `detail/${id}`;
 };
 
 // ======================================================
@@ -8417,7 +8489,13 @@ window.confirmBatchSeed = async () => {
     delete mData.selected;
     try {
       const ref = await addDoc(moviesCol, mData);
-      movieDatabase.trending.push({ id: ref.id, ...mData }); // Reflejar en memoria sin esperar un reload
+      // Mismo caso que en sincronizarCatalogoVimeus: el listener en vivo
+      // suele ganar la carrera y ya la agregó solo — empujar de nuevo sin
+      // chequear duplicaba la fila en la tabla (visible al toque, no hacía
+      // falta esperar nada para notarlo).
+      const idxYaEmpujadoBatch = movieDatabase.trending.findIndex(m => m.id === ref.id);
+      if (idxYaEmpujadoBatch === -1) movieDatabase.trending.push({ id: ref.id, ...mData }); // Reflejar en memoria sin esperar un reload
+      else movieDatabase.trending[idxYaEmpujadoBatch] = { id: ref.id, ...mData };
       collectUserData("manual_seed", { title: s.title, type: s.type });
       count++;
       const percent = Math.round((count / checks.length) * 100);
@@ -9085,6 +9163,31 @@ window.submitMovieForm = async () => {
       await updateDoc(doc(db, "movies", dbId), movieData);
       window.showToast('¡Título actualizado! 🌴🔄', 'success');
     } else {
+      // Chequeo de duplicados: este formulario era el único de los ~6 puntos
+      // de alta que no comparaba contra el catálogo ya cargado antes de
+      // guardar (los demás — Carga Masiva, siembra rápida, sync de Vimeus —
+      // sí lo hacen). Agregar el mismo título dos veces (por TMDB ID, o por
+      // nombre si no hay ID) generaba un duplicado silencioso en Firebase que
+      // limpiarDuplicadosDeCatalogo() se comía solo en la siguiente carga de
+      // cualquier visitante — y si alguien ya había visto/guardado la copia
+      // que terminaba borrada, su "Continuar viendo" quedaba apuntando a un
+      // ID muerto ("Contenido no encontrado" aunque el título siguiera vivo
+      // con otro ID). Se avisa y se deja decidir en vez de bloquear de una,
+      // por si de verdad se quiere una segunda entrada a propósito.
+      const normTmdbNuevo = movieData.tmdbId ? String(movieData.tmdbId).trim() : '';
+      const normTituloNuevo = movieData.title.toLowerCase().trim();
+      const posibleDuplicado = movieDatabase.trending.find(m => {
+        if (normTmdbNuevo) return m.tmdbId && String(m.tmdbId).trim() === normTmdbNuevo;
+        return (m.title || '').toLowerCase().trim() === normTituloNuevo;
+      });
+      if (posibleDuplicado) {
+        const motivo = normTmdbNuevo ? 'mismo ID de TMDB' : 'mismo título';
+        if (!confirm(`⚠️ Ya existe "${posibleDuplicado.title}" en el catálogo (${motivo}).\n\n¿Agregar de todas formas y crear un duplicado?`)) {
+          if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = 'Guardar'; }
+          return;
+        }
+      }
+
       // Chequear Vimeus acá, al crear, tal como ya hace la Carga Masiva
       // (ver comentario en selvaExecuteExportToHosting/mData más abajo) —
       // sin esto, un título nuevo agregado por este formulario individual
@@ -10816,8 +10919,9 @@ window.loadContinueWatching = async () => {
             const movieActual = movieDatabase.trending.find(m => m.id === h.movieId);
             const raw = h.backdrop || movieActual?.backdrop || h.poster || movieActual?.img;
             const img = (raw && raw.startsWith('http')) ? raw : 'https://image.tmdb.org/t/p/w300' + (raw || h.poster_path);
+            const safeTitle = (h.title || '').replace(/'/g, "\\'");
             return `
-                <div class="card-horizontal-container" tabindex="0" role="button" data-tvnav onclick="window.handleCardClick('${h.movieId}')">
+                <div class="card-horizontal-container" tabindex="0" role="button" data-tvnav onclick="window.handleCardClick('${h.movieId}', '${safeTitle}')">
                     <div class="card-horizontal-media">
                         <img src="${img}" alt="${h.title}" loading="lazy" onerror="this.src='/icon_192.png'">
                     </div>

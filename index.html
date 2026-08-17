@@ -1024,6 +1024,9 @@
                   <button class="btn btn-secondary-outline" onclick="window.detectarFranquiciasAutomatico()" title="Revisa las películas que ya tienen ID de TMDB y les asigna la franquicia (Marvel, Star Wars, etc) automáticamente si TMDB la conoce. No pisa las que ya tengan franquicia puesta a mano.">
                     🎬 Detectar Franquicias
                   </button>
+                  <button class="btn btn-secondary-outline" onclick="window.limpiarDuplicadosManual()" title="Busca títulos repetidos (mismo ID de TMDB o mismo nombre) y borra las copias de más, quedándose con la más sana/reciente de cada una. Esto ya corre solo en segundo plano cada vez que alguien visita la página; este botón lo corre a mano y te muestra qué se borró.">
+                    🧹 Limpiar Duplicados
+                  </button>
                   <button class="btn btn-secondary-outline" onclick="window.convertirCatalogoAVoe()" title="Extrae los links reales de FlixLatam/Vimeus/RepelisHD de cada película y los sube a tu cuenta de VOE.sx. Puedes seleccionar cuántas películas subir y con qué fuente.">
                     🔥 Convertir a VOE
                   </button>

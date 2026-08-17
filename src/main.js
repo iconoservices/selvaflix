@@ -7271,14 +7271,15 @@ window.handleCardClick = (id, fallbackTitle) => {
     window.location.hash = `detail/${id}`;
 };
 
-// Clic específico de las tarjetas de "Continuar viendo": a diferencia del
-// resto (que solo abren la ficha), acá ya sabemos en qué temporada/capítulo/
-// minuto quedó el usuario -- viene en el propio historial y ya se ve en la
-// tarjeta ("T1 E3"). Se lo pasamos directo al reproductor en vez de dejar
-// que openPlayer lo tenga que re-buscar en Firestore por el ID actual (que
-// puede no matchear si el catálogo fusionó un duplicado después de que se
-// guardó el progreso), y se salta la ficha para retomar de una, como en
-// cualquier otro streaming.
+// Clic específico de las tarjetas de "Continuar viendo": igual que el resto,
+// primero va a la ficha (el usuario quiere ver la info antes de darle Play a
+// propósito, no saltear ese paso). La diferencia es que acá ya sabemos en
+// qué temporada/capítulo/minuto quedó -- viene en el propio historial y ya
+// se ve en la tarjeta ("T1 E3") -- así que se lo dejamos precargado a la
+// película para cuando el usuario le dé Play, en vez de que openPlayer
+// tenga que re-buscarlo en Firestore por el ID actual (que puede no
+// matchear si el catálogo fusionó un duplicado después de que se guardó el
+// progreso).
 window.resumeContinueWatching = (id, fallbackTitle, season, episode, lastTime) => {
     let movie = movieDatabase?.trending?.find(m => m.id === id);
     if (!movie && fallbackTitle) {
@@ -7294,7 +7295,7 @@ window.resumeContinueWatching = (id, fallbackTitle, season, episode, lastTime) =
     if (season && episode) { movie.resumeSeason = season; movie.resumeEpisode = episode; }
     if (lastTime > 0) movie.resumeTime = lastTime;
 
-    window.location.hash = `detail/${slugify(movie.title, movie.year)}/play`;
+    window.location.hash = `detail/${slugify(movie.title, movie.year)}`;
 };
 
 // ======================================================

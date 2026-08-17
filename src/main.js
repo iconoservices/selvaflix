@@ -7271,6 +7271,32 @@ window.handleCardClick = (id, fallbackTitle) => {
     window.location.hash = `detail/${id}`;
 };
 
+// Clic específico de las tarjetas de "Continuar viendo": a diferencia del
+// resto (que solo abren la ficha), acá ya sabemos en qué temporada/capítulo/
+// minuto quedó el usuario -- viene en el propio historial y ya se ve en la
+// tarjeta ("T1 E3"). Se lo pasamos directo al reproductor en vez de dejar
+// que openPlayer lo tenga que re-buscar en Firestore por el ID actual (que
+// puede no matchear si el catálogo fusionó un duplicado después de que se
+// guardó el progreso), y se salta la ficha para retomar de una, como en
+// cualquier otro streaming.
+window.resumeContinueWatching = (id, fallbackTitle, season, episode, lastTime) => {
+    let movie = movieDatabase?.trending?.find(m => m.id === id);
+    if (!movie && fallbackTitle) {
+        movie = movieDatabase?.trending?.find(
+            m => (m.title || '').toLowerCase().trim() === fallbackTitle.toLowerCase().trim()
+        );
+    }
+    if (!movie) {
+        window.location.hash = `detail/${id}`;
+        return;
+    }
+
+    if (season && episode) { movie.resumeSeason = season; movie.resumeEpisode = episode; }
+    if (lastTime > 0) movie.resumeTime = lastTime;
+
+    window.location.hash = `detail/${slugify(movie.title, movie.year)}/play`;
+};
+
 // ======================================================
 // DETALLE DE PELÍCULA — Vista Premium (Tailwind Design)
 // ======================================================
@@ -10936,7 +10962,7 @@ window.loadContinueWatching = async () => {
             const img = (raw && raw.startsWith('http')) ? raw : 'https://image.tmdb.org/t/p/w300' + (raw || h.poster_path);
             const safeTitle = (h.title || '').replace(/'/g, "\\'");
             return `
-                <div class="card-horizontal-container" tabindex="0" role="button" data-tvnav onclick="window.handleCardClick('${h.movieId}', '${safeTitle}')">
+                <div class="card-horizontal-container" tabindex="0" role="button" data-tvnav onclick="window.resumeContinueWatching('${h.movieId}', '${safeTitle}', ${h.season || 0}, ${h.episode || 0}, ${h.lastTime || 0})">
                     <div class="card-horizontal-media">
                         <img src="${img}" alt="${h.title}" loading="lazy" onerror="this.src='/icon_192.png'">
                     </div>

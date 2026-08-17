@@ -7173,7 +7173,22 @@ window.openPlayer = async (movieId) => {
     try {
         // 1. Obtener progreso de cache o Firestore (Optimizado v2.42)
         const historyRef = doc(db, "users", auth.currentUser.uid, "profiles", _currentProfile.id, "history", movie.id);
-        const snap = await getDoc(historyRef);
+        let snap = await getDoc(historyRef);
+
+        // El progreso puede haber quedado guardado bajo un ID viejo si el
+        // catálogo fusionó un duplicado después de guardarlo (ver
+        // limpiarDuplicadosDeCatalogo) -- el ID actual ya no matchea ningún
+        // documento y el capítulo/tiempo se perdía en silencio, aunque
+        // "Continuar Viendo" ya hubiera encontrado la película por título.
+        // Se busca por título como último recurso antes de asumir que nunca
+        // se vio nada.
+        if (!snap.exists() && movie.title) {
+            const historyCol = collection(db, "users", auth.currentUser.uid, "profiles", _currentProfile.id, "history");
+            const altQuery = query(historyCol, where("title", "==", movie.title), limit(1));
+            const altSnap = await getDocs(altQuery);
+            if (!altSnap.empty) snap = altSnap.docs[0];
+        }
+
         if (snap.exists()) {
             const data = snap.data();
             if (data.lastTime > 0) {

@@ -4734,9 +4734,14 @@ window.loadRegisteredUsers = async () => {
                     <td style="font-size:0.78rem;">${lastSeen}</td>
                     <td style="text-align:center;">${planCell}</td>
                     <td style="text-align:center;">
-                        <button onclick="window.viewAccountProfiles('${acc.uid}', '${safeName}')" style="background:rgba(0,242,255,0.1); border:1px solid rgba(0,242,255,0.3); color:#00f2ff; font-size:0.7rem; font-weight:700; padding:6px 10px; border-radius:6px; cursor:pointer; white-space:nowrap;">
-                            👤 Ver Perfiles
-                        </button>
+                        <div style="display:flex; flex-direction:column; gap:4px; align-items:center;">
+                            <button onclick="window.viewAccountProfiles('${acc.uid}', '${safeName}')" style="background:rgba(0,242,255,0.1); border:1px solid rgba(0,242,255,0.3); color:#00f2ff; font-size:0.7rem; font-weight:700; padding:6px 10px; border-radius:6px; cursor:pointer; white-space:nowrap;">
+                                👤 Ver Perfiles
+                            </button>
+                            <button onclick="window.viewAccountSessions('${acc.uid}', '${safeName}')" style="background:rgba(155,89,182,0.1); border:1px solid rgba(155,89,182,0.3); color:#9b59b6; font-size:0.7rem; font-weight:700; padding:6px 10px; border-radius:6px; cursor:pointer; white-space:nowrap;">
+                                🕐 Ver Sesiones
+                            </button>
+                        </div>
                     </td>
                 </tr>
             `;
@@ -4923,6 +4928,54 @@ window.viewAccountProfiles = async (uid, displayName) => {
     } catch (e) {
         console.error('Error cargando perfiles de la cuenta:', e);
         list.innerHTML = `<p style="color:#e74c3c; text-align:center; font-size:0.8rem;">Error cargando perfiles: ${e.message}</p>`;
+    }
+};
+
+// Historial de inicios de sesión de una cuenta puntual — para ver si es
+// alguien recurrente o entró una sola vez. Reusa user_activity (misma
+// colección que ya alimenta el conteo de logins de la tabla). Sin orderBy
+// en la query, mismo motivo que loadRegisteredUsers: dos where("==") no
+// piden índice compuesto, pero sumarle un orderBy sí — se ordena en el
+// cliente, que para el historial de un solo uid es un puñado de docs.
+window.viewAccountSessions = async (uid, displayName) => {
+    const modal = document.getElementById('account-sessions-modal');
+    const title = document.getElementById('account-sessions-modal-title');
+    const list = document.getElementById('account-sessions-list');
+    if (!modal || !list) return;
+
+    if (title) title.textContent = `Sesiones de ${displayName || 'esta cuenta'}`;
+    list.innerHTML = '<p style="color:#888; text-align:center; font-size:0.8rem;">Cargando sesiones... 📡</p>';
+    modal.style.display = 'flex';
+
+    try {
+        const sessionsQuery = query(
+            collection(db, "user_activity"),
+            where("uid", "==", uid),
+            where("action", "==", "login"),
+            limit(200)
+        );
+        const snap = await getDocs(sessionsQuery);
+        const sessions = [];
+        snap.forEach(d => sessions.push(d.data()));
+        sessions.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+        if (sessions.length === 0) {
+            list.innerHTML = '<p style="color:#888; text-align:center; font-size:0.8rem;">No hay inicios de sesión registrados para esta cuenta.</p>';
+            return;
+        }
+
+        list.innerHTML = `
+            <p style="margin:0 0 4px; color:#888; font-size:0.7rem;">${sessions.length} inicio${sessions.length !== 1 ? 's' : ''} de sesión registrados${sessions.length >= 200 ? ' (mostrando los últimos 200)' : ''}.</p>
+            ${sessions.map(s => `
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px;">
+                    <span style="color:#fff; font-size:0.78rem;">${s.timestamp ? new Date(s.timestamp).toLocaleString() : '—'}</span>
+                    <span style="color:#9b59b6; font-size:0.7rem; font-weight:700;">${s.platform || '—'}</span>
+                </div>
+            `).join('')}
+        `;
+    } catch (e) {
+        console.error('Error cargando sesiones de la cuenta:', e);
+        list.innerHTML = `<p style="color:#e74c3c; text-align:center; font-size:0.8rem;">Error cargando sesiones: ${e.message}</p>`;
     }
 };
 

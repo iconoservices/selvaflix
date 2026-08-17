@@ -1142,6 +1142,17 @@
                   <div id="account-profiles-list" style="display:flex; flex-direction:column; gap:10px;"></div>
                 </div>
               </div>
+
+              <!-- Modal: Historial de inicios de sesión de una cuenta -->
+              <div id="account-sessions-modal" class="modal-overlay" style="display:none; z-index:29500; background:rgba(0,0,0,0.85); align-items:center; justify-content:center;">
+                <div style="background:#111; padding:26px; border-radius:16px; max-width:420px; width:90%; border:1px solid rgba(255,255,255,0.1); max-height:80vh; overflow-y:auto;">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                    <h2 id="account-sessions-modal-title" style="color:white; margin:0; font-size:1.05rem;">Sesiones</h2>
+                    <button onclick="document.getElementById('account-sessions-modal').style.display='none'" style="background:none; border:none; color:#888; font-size:1.4rem; cursor:pointer; line-height:1;">&times;</button>
+                  </div>
+                  <div id="account-sessions-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+                </div>
+              </div>
             </div>
 
             <!-- D. ANALYTICS TAB -->

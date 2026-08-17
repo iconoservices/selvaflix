@@ -4678,6 +4678,14 @@ window.loadRegisteredUsers = async () => {
 
         window.loadVisitorInsights(visitorIdsConCuenta);
 
+        // 3. Quién tiene la app instalada (PWA) — analytics_geo ya guarda
+        // isPwa + uid por visita (ver trackUserGeo), así que alcanza con
+        // juntar los uids que alguna vez visitaron en modo standalone.
+        const pwaQuery = query(collection(db, "analytics_geo"), where("isPwa", "==", true), limit(3000));
+        const pwaSnap = await getDocs(pwaQuery);
+        const pwaUids = new Set();
+        pwaSnap.forEach(d => { const u = d.data().uid; if (u) pwaUids.add(u); });
+
         if (countEl) countEl.innerText = `${accounts.length} cuenta(s) registrada(s)`;
 
         if (accounts.length === 0) {
@@ -4690,6 +4698,7 @@ window.loadRegisteredUsers = async () => {
         tableBody.innerHTML = accounts.map(acc => {
             const stats = loginsByUid[acc.uid] || { count: 0, platforms: new Set(), last: acc.lastLoginAt || 0 };
             const devices = Array.from(stats.platforms).join(', ') || '—';
+            const tieneAppInstalada = pwaUids.has(acc.uid);
             const registered = acc.createdAt ? new Date(acc.createdAt).toLocaleDateString() : '—';
             const lastSeen = stats.last ? new Date(stats.last).toLocaleString() : '—';
             const avatarLetter = (acc.displayName || acc.email || '?').charAt(0).toUpperCase();
@@ -4730,7 +4739,10 @@ window.loadRegisteredUsers = async () => {
                     </td>
                     <td style="font-size:0.78rem;">${registered}</td>
                     <td style="text-align:center; font-weight:800; color:var(--admin-accent-orange);">${stats.count}</td>
-                    <td style="font-size:0.75rem;">${devices}</td>
+                    <td style="font-size:0.75rem;">
+                        ${devices}
+                        ${tieneAppInstalada ? `<div style="margin-top:3px;"><span title="Visitó en modo app instalada (PWA) alguna vez" style="background:rgba(46,204,113,0.12); color:#2ecc71; font-size:0.62rem; font-weight:700; padding:2px 6px; border-radius:6px; white-space:nowrap;">📲 App instalada</span></div>` : ''}
+                    </td>
                     <td style="font-size:0.78rem;">${lastSeen}</td>
                     <td style="text-align:center;">${planCell}</td>
                     <td style="text-align:center;">

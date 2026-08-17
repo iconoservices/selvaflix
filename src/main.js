@@ -4683,11 +4683,18 @@ window.loadRegisteredUsers = async () => {
         // (loadVisitorInsights), para que el badge signifique lo mismo que
         // ese número. Sin este límite de fecha, alguien que instaló y
         // desinstaló hace meses seguía apareciendo como "instalada".
+        // OJO: el filtro de fecha se aplica en el cliente, NO en la query —
+        // combinar where("isPwa","==") con where("ts",">=") en Firestore
+        // pide un índice compuesto (a diferencia de dos "==" juntos, que no
+        // lo piden). Esto rompió la tabla entera la primera vez que se hizo así.
         const desde30diasPwa = Date.now() - 30 * 24 * 60 * 60 * 1000;
-        const pwaQuery = query(collection(db, "analytics_geo"), where("isPwa", "==", true), where("ts", ">=", desde30diasPwa), limit(3000));
+        const pwaQuery = query(collection(db, "analytics_geo"), where("isPwa", "==", true), limit(3000));
         const pwaSnap = await getDocs(pwaQuery);
         const pwaUids = new Set();
-        pwaSnap.forEach(d => { const u = d.data().uid; if (u) pwaUids.add(u); });
+        pwaSnap.forEach(d => {
+            const data = d.data();
+            if (data.uid && data.ts >= desde30diasPwa) pwaUids.add(data.uid);
+        });
 
         if (countEl) countEl.innerText = `${accounts.length} cuenta(s) registrada(s)`;
 

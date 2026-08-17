@@ -3189,33 +3189,33 @@ window.claimFreeTrial = async (offerId) => {
 window.renderFreeTrialBanner = (isAlreadyPaid) => {
     const wrap = document.getElementById('free-trial-offers');
     if (!wrap) return;
-    const activas = (window.trialOffers || []).filter(o => o.active);
+    const trialClaims = window.currentUserFreeTrialClaims || {};
+    const trialNow = Date.now();
+    // Las que están en cooldown (ya reclamadas, todavía no vuelven a estar
+    // disponibles) no se listan acá — ese estado ya lo muestra el ícono
+    // gris con ✓ de la fila de arriba; repetirlo acá con un cartel "Usada"
+    // solo era ruido en el modal.
+    const activas = (window.trialOffers || []).filter(o => {
+        if (!o.active) return false;
+        const lastClaim = trialClaims[o.id];
+        const cadenceMs = (o.cadenceHours || 0) * 60 * 60 * 1000;
+        return !(lastClaim && (trialNow - lastClaim) < cadenceMs);
+    });
     if (activas.length === 0 || isAlreadyPaid) {
         wrap.style.display = 'none';
         if (typeof window._updateRewardsSectionVisibility === 'function') window._updateRewardsSectionVisibility();
         return;
     }
-    const trialClaims = window.currentUserFreeTrialClaims || {};
-    const trialNow = Date.now();
-    wrap.innerHTML = activas.map(o => {
-        const lastClaim = trialClaims[o.id];
-        const cadenceMs = (o.cadenceHours || 0) * 60 * 60 * 1000;
-        const onCooldown = !!(lastClaim && (trialNow - lastClaim) < cadenceMs);
-        const nextDate = onCooldown ? new Date(lastClaim + cadenceMs).toLocaleString() : null;
-        const actionHtml = onCooldown
-            ? `<span style="color:#888; font-size:0.68rem; font-weight:700; white-space:nowrap; flex-shrink:0; text-align:right;">✅ Usada<br>hasta ${nextDate}</span>`
-            : `<button onclick="window.claimFreeTrial('${o.id}')" style="background:#2ecc71; color:#000; border:none; border-radius:10px; padding:10px 16px; font-weight:800; font-size:0.78rem; cursor:pointer; white-space:nowrap; flex-shrink:0;">Activar</button>`;
-        return `
-        <div style="padding:14px 16px; background:${onCooldown ? 'rgba(255,255,255,0.03)' : 'rgba(46,204,113,0.08)'}; border:1px solid ${onCooldown ? 'rgba(255,255,255,0.12)' : 'rgba(46,204,113,0.3)'}; border-radius:12px; display:flex; align-items:center; gap:12px; opacity:${onCooldown ? '0.6' : '1'};">
-            <div style="width:44px; height:44px; border-radius:12px; background:rgba(46,204,113,0.15); border:2px solid rgba(46,204,113,0.4); display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex-shrink:0; filter:${onCooldown ? 'grayscale(85%)' : 'none'};">${o.icon || _trialIcon(o.durationHours || 24)}</div>
+    wrap.innerHTML = activas.map(o => `
+        <div style="padding:14px 16px; background:rgba(46,204,113,0.08); border:1px solid rgba(46,204,113,0.3); border-radius:12px; display:flex; align-items:center; gap:12px;">
+            <div style="width:44px; height:44px; border-radius:12px; background:rgba(46,204,113,0.15); border:2px solid rgba(46,204,113,0.4); display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex-shrink:0;">${o.icon || _trialIcon(o.durationHours || 24)}</div>
             <div style="flex:1; min-width:0;">
-                <p style="color:${onCooldown ? '#aaa' : '#2ecc71'}; font-weight:800; font-size:0.85rem; margin:0 0 2px;">${_escTrialHtml(o.name)}</p>
+                <p style="color:#2ecc71; font-weight:800; font-size:0.85rem; margin:0 0 2px;">${_escTrialHtml(o.name)}</p>
                 <p style="color:#aaa; font-size:0.72rem; margin:0;">${_trialFormatoDuracion(o.durationHours)} de acceso VIP sin costo, hasta una vez cada ${_trialFormatoDuracion(o.cadenceHours)}.</p>
             </div>
-            ${actionHtml}
+            <button onclick="window.claimFreeTrial('${o.id}')" style="background:#2ecc71; color:#000; border:none; border-radius:10px; padding:10px 16px; font-weight:800; font-size:0.78rem; cursor:pointer; white-space:nowrap; flex-shrink:0;">Activar</button>
         </div>
-    `;
-    }).join('');
+    `).join('');
     wrap.style.display = 'flex';
     if (typeof window._updateRewardsSectionVisibility === 'function') window._updateRewardsSectionVisibility();
 };
@@ -3488,10 +3488,10 @@ window.openPremiumModal = (movie) => {
 // Fila única con TODOS los íconos de recompensa (pruebas gratis + escalones
 // de racha) juntos, aparte de la tarjeta de la racha y de las tarjetas de
 // prueba gratis — un "vistazo" general antes de entrar en el detalle de
-// cada una. 3 estados visuales: 'claimed' (verde+✓, ya lo tenés), 'ready'
-// (naranja, disponible ahora — pruebas gratis siempre están así, un escalón
-// de racha rara vez porque se cobra solo al llegar) y 'locked' (gris/apagado,
-// racha que todavía no llegaste a ese día).
+// cada una. 4 estados visuales: 'claimed' (verde+✓, racha ya cobrada),
+// 'ready' (naranja, disponible ahora), 'locked' (gris/apagado, racha que
+// todavía no llegaste a ese día) y 'cooldown' (gris+✓, prueba gratis ya
+// usada — no se pinta en verde para no leerse como "disponible").
 window.renderRewardsIconStrip = () => {
     const strip = document.getElementById('rewards-icon-strip');
     if (!strip) return;
@@ -3506,7 +3506,7 @@ window.renderRewardsIconStrip = () => {
         return {
             icon: o.icon || _trialIcon(o.durationHours || 24),
             label: o.name,
-            state: onCooldown ? 'claimed' : 'ready',
+            state: onCooldown ? 'cooldown' : 'ready',
             title: onCooldown ? `${o.name} — ya usada, disponible el ${nextDate}` : `${o.name} — ${_trialFormatoDuracion(o.durationHours || 24)} disponible`,
             type: 'trial',
             offerId: o.id,
@@ -3566,6 +3566,10 @@ window.renderRewardsIconStrip = () => {
         claimed: { bg: 'rgba(46,204,113,0.15)', border: '#2ecc71', opacity: '1', grayscale: 'none', check: true },
         ready: { bg: 'rgba(255,122,0,0.15)', border: 'var(--primary)', opacity: '1', grayscale: 'none', check: false },
         locked: { bg: 'rgba(255,255,255,0.03)', border: 'rgba(255,255,255,0.12)', opacity: '0.45', grayscale: 'grayscale(85%)', check: false },
+        // Prueba gratis ya reclamada, todavía en cooldown: gris como "locked"
+        // (verde ahí se leía como "disponible", que es justo lo contrario),
+        // pero con el ✓ para distinguirla de un escalón de racha sin alcanzar.
+        cooldown: { bg: 'rgba(255,255,255,0.03)', border: 'rgba(255,255,255,0.12)', opacity: '0.5', grayscale: 'grayscale(85%)', check: true },
     };
 
     strip.style.display = 'flex';

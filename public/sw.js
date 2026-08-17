@@ -1,13 +1,6 @@
-self.options = {
-    "domain": "3nbf4.com",
-    "zoneId": 10733308
-}
-self.lary = ""
-importScripts('https://3nbf4.com/act/files/service-worker.min.js?r=sw')
-
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
-console.log('🌴 SW Check: Script cargado (v2.63)');
+console.log('🌴 SW Check: Script cargado (v2.64)');
 
 const firebaseConfig = {
     apiKey: "AIzaSyCABaNkvUlMjBatNh0Giih01IDH4sNbt1Q",
@@ -40,7 +33,7 @@ messaging.onBackgroundMessage((payload) => {
    4. Blindaje contra Opaque Responses (CORS).
 */
 
-const CACHE_NAME = 'selvaflix-cache-v2.63';
+const CACHE_NAME = 'selvaflix-cache-v2.64';
 const STATIC_ASSETS = [
     '/',
     '/index.html',

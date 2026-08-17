@@ -2195,15 +2195,14 @@ window.KNOWN_NETWORK_SCRIPTS = [
     id: 'monetag-vignette-11548083',
     name: 'Monetag · Viñeta / Interstitial (11548083)',
     media: `<script>(function(s){s.dataset.zone='11548083',s.src='https://n6wxm.com/vignette.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script>`
-  },
-  {
-    id: 'monetag-tag-11549958',
-    // tag.min.js es el snippet genérico que Monetag documenta para Push
-    // Notifications — a diferencia de vignette.min.js (interstitial), que
-    // tiene su propio script con nombre explícito.
-    name: 'Monetag · Push Notifications (11549958)',
-    media: `<script src="https://5gvci.com/act/files/tag.min.js?z=11549958" data-cfasync="false" async></script>`
   }
+  // 🚫 SACADO 2026-08-17: 'monetag-tag-11549958' (Push Notifications, tag.min.js).
+  // Ese formato de anuncio pide permiso de notificaciones del navegador y,
+  // una vez concedido, Monetag le puede seguir mandando avisos a esa cuenta
+  // para siempre, mostrando el ícono de SelvaFlix aunque el anuncio sea de
+  // ellos — y nada de esto es reversible por código, ni apagando la campaña.
+  // Se saca del catálogo para que nadie la vuelva a sembrar sin querer con
+  // "Importar Scripts de Red". La causa real de fondo era otra (ver sw.js).
 ];
 
 // Crea las campañas de la lista de arriba como campañas normales (tipo

@@ -3563,13 +3563,14 @@ window.renderRewardsIconStrip = () => {
     }
 
     const estilo = {
-        claimed: { bg: 'rgba(46,204,113,0.15)', border: '#2ecc71', opacity: '1', grayscale: 'none', check: true },
-        ready: { bg: 'rgba(255,122,0,0.15)', border: 'var(--primary)', opacity: '1', grayscale: 'none', check: false },
-        locked: { bg: 'rgba(255,255,255,0.03)', border: 'rgba(255,255,255,0.12)', opacity: '0.45', grayscale: 'grayscale(85%)', check: false },
+        claimed: { bg: 'rgba(46,204,113,0.15)', border: '#2ecc71', opacity: '1', grayscale: 'none', check: '✓', checkBg: '#2ecc71', checkColor: '#06210f' },
+        ready: { bg: 'rgba(255,122,0,0.15)', border: 'var(--primary)', opacity: '1', grayscale: 'none', check: '' },
+        locked: { bg: 'rgba(255,255,255,0.03)', border: 'rgba(255,255,255,0.12)', opacity: '0.45', grayscale: 'grayscale(85%)', check: '' },
         // Prueba gratis ya reclamada, todavía en cooldown: gris como "locked"
         // (verde ahí se leía como "disponible", que es justo lo contrario),
-        // pero con el ✓ para distinguirla de un escalón de racha sin alcanzar.
-        cooldown: { bg: 'rgba(255,255,255,0.03)', border: 'rgba(255,255,255,0.12)', opacity: '0.5', grayscale: 'grayscale(85%)', check: true },
+        // incluido el circulito de la esquina — antes quedaba verde fijo
+        // sin importar el estado, y seguía leyéndose como "disponible".
+        cooldown: { bg: 'rgba(255,255,255,0.03)', border: 'rgba(255,255,255,0.12)', opacity: '0.5', grayscale: 'grayscale(85%)', check: '✓', checkBg: '#555', checkColor: '#ccc' },
     };
 
     strip.style.display = 'flex';
@@ -3579,7 +3580,7 @@ window.renderRewardsIconStrip = () => {
         <div onclick="window.showRewardIconDetail(${idx})" style="display:flex; flex-direction:column; align-items:center; gap:4px; width:52px; cursor:pointer;" title="${_escTrialHtml(item.title)}">
             <div style="position:relative; width:44px; height:44px; border-radius:13px; display:flex; align-items:center; justify-content:center; font-size:1.35rem; background:${s.bg}; border:2px solid ${s.border}; filter:${s.grayscale}; opacity:${s.opacity};">
                 ${item.icon}
-                ${s.check ? '<span style="position:absolute; bottom:-4px; right:-4px; background:#2ecc71; color:#06210f; font-size:0.55rem; width:15px; height:15px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:900;">✓</span>' : ''}
+                ${s.check ? `<span style="position:absolute; bottom:-4px; right:-4px; background:${s.checkBg}; color:${s.checkColor}; font-size:0.55rem; width:15px; height:15px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:900;">${s.check}</span>` : ''}
             </div>
             <span style="font-size:0.58rem; color:#ccc; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:52px;">${_escTrialHtml(item.label)}</span>
         </div>`;

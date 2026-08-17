@@ -10979,9 +10979,33 @@ window.loadMyList = async () => {
     const listCol = collection(db, "users", auth.currentUser.uid, "profiles", _currentProfile.id, "mylist");
     const q = query(listCol, orderBy("timestamp", "desc"));
     const snap = await getDocs(q);
+    const crudo = [];
+    snap.forEach(d => crudo.push(d.data()));
+
+    // Un título borrado del todo del catálogo (no solo fusionado con un
+    // duplicado) se queda para siempre en "Mi Lista" -- la tarjeta se arma
+    // con el poster/título guardados acá mismo, sin depender del catálogo
+    // real, así que nunca se entera de que ya no existe. Se limpia acá: si
+    // ni el ID ni el título matchean contra el catálogo actual, se borra la
+    // entrada de Firestore (igual que el botón ✕) y no se muestra.
     const myList = [];
+    const muertos = [];
+    for (const data of crudo) {
+        const existe = movieDatabase?.trending?.some(m =>
+            m.id === data.movieId || (m.title || '').toLowerCase().trim() === (data.title || '').toLowerCase().trim()
+        );
+        if (existe) myList.push(data);
+        else muertos.push(data);
+    }
+    if (muertos.length > 0 && auth.currentUser && _currentProfile) {
+        for (const m of muertos) {
+            deleteDoc(doc(db, "users", auth.currentUser.uid, "profiles", _currentProfile.id, "mylist", m.movieId))
+                .catch(e => console.warn('No se pudo limpiar entrada muerta de Mi Lista:', m.title, e));
+        }
+    }
+
     window._myListIds.clear();
-    snap.forEach(d => { const data = d.data(); myList.push(data); window._myListIds.add(data.movieId); });
+    myList.forEach(data => window._myListIds.add(data.movieId));
     const badge = document.getElementById("nav-fav-count");
     const buildCard = (m) => {
         const p = (m.poster || "").startsWith("http") ? m.poster : "https://image.tmdb.org/t/p/w300" + m.poster;

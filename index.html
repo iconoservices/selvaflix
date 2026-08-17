@@ -559,12 +559,15 @@
       </div>
     </div>
 
-    <!-- Ventanita de invitación a Premium (usuarios free) -->
-    <div id="premium-promo-banner" style="display:none; position:fixed; bottom:20px; right:20px; z-index:9500; background:#111; border:1px solid var(--glass-border,rgba(255,255,255,0.1)); border-radius:14px; padding:16px 18px; box-shadow:0 10px 30px rgba(0,0,0,0.5); max-width:300px; width:88vw; font-family:'Outfit', sans-serif;">
+    <!-- Ventanita de invitación a Premium (usuarios free) — la posición
+         vive en style.css (#premium-promo-banner) para poder acomodarla
+         distinto en mobile, arriba del nav inferior. -->
+    <div id="premium-promo-banner" style="display:none; background:#111; border:1px solid var(--glass-border,rgba(255,255,255,0.1)); border-radius:14px; padding:16px 18px; box-shadow:0 10px 30px rgba(0,0,0,0.5); max-width:300px; width:88vw; font-family:'Outfit', sans-serif;">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
         <div>
           <p style="margin:0 0 6px; color:#fff; font-weight:700; font-size:0.9rem;">🍿 Mírala sin publicidad</p>
-          <p style="margin:0 0 12px; color:rgba(255,255,255,0.75); font-size:0.78rem; line-height:1.5;">Pásate a Premium y disfrutá SelvaFlix sin anuncios ni interrupciones.</p>
+          <p style="margin:0 0 10px; color:rgba(255,255,255,0.75); font-size:0.78rem; line-height:1.5;">Pásate a Premium y disfrutá SelvaFlix sin anuncios ni interrupciones.</p>
+          <p style="margin:0 0 12px; color:#2ecc71; font-size:0.72rem; font-weight:700;">🎁 O probalo gratis 10hs sin costo</p>
           <button onclick="window.openPremiumModal()" style="background:var(--primary,#FF6600); color:#000; border:none; border-radius:20px; padding:8px 16px; font-size:0.75rem; font-weight:800; cursor:pointer;">Ver planes</button>
         </div>
         <button onclick="window.dismissPremiumPromo()" style="background:none; border:none; color:#888; font-size:1.3rem; cursor:pointer; line-height:1; padding:0;">&times;</button>

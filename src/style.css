@@ -1762,6 +1762,26 @@ h3,
   50% { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 0 8px rgba(255, 122, 0, 0); }
 }
 
+/* Ventanita "invitación a Premium" (#premium-promo-banner en index.html) —
+   estaba anclada a bottom:20px/right:20px inline, pegada al piso: en mobile
+   quedaba tapando las pills de categorías y el nav inferior (70px +
+   safe-area). Ahora se sube arriba del apilado de FABs y se centra
+   horizontalmente en vez de quedar pegada a la derecha. */
+#premium-promo-banner {
+  position: fixed;
+  bottom: 160px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9500;
+}
+
+@media (max-width: 768px) {
+  #premium-promo-banner {
+    bottom: calc(266px + env(safe-area-inset-bottom, 0px));
+    max-width: 280px;
+  }
+}
+
 @media (max-width: 768px) {
   #premium-promo-fab {
     bottom: calc(146px + env(safe-area-inset-bottom, 0px));

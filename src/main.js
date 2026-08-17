@@ -4678,10 +4678,13 @@ window.loadRegisteredUsers = async () => {
 
         window.loadVisitorInsights(visitorIdsConCuenta);
 
-        // 3. Quién tiene la app instalada (PWA) — analytics_geo ya guarda
-        // isPwa + uid por visita (ver trackUserGeo), así que alcanza con
-        // juntar los uids que alguna vez visitaron en modo standalone.
-        const pwaQuery = query(collection(db, "analytics_geo"), where("isPwa", "==", true), limit(3000));
+        // 3. Quién tiene la app instalada (PWA) ACTUALMENTE — mismo criterio
+        // de 30 días que usa el contador "Con App Instalada" de arriba
+        // (loadVisitorInsights), para que el badge signifique lo mismo que
+        // ese número. Sin este límite de fecha, alguien que instaló y
+        // desinstaló hace meses seguía apareciendo como "instalada".
+        const desde30diasPwa = Date.now() - 30 * 24 * 60 * 60 * 1000;
+        const pwaQuery = query(collection(db, "analytics_geo"), where("isPwa", "==", true), where("ts", ">=", desde30diasPwa), limit(3000));
         const pwaSnap = await getDocs(pwaQuery);
         const pwaUids = new Set();
         pwaSnap.forEach(d => { const u = d.data().uid; if (u) pwaUids.add(u); });
@@ -4741,7 +4744,7 @@ window.loadRegisteredUsers = async () => {
                     <td style="text-align:center; font-weight:800; color:var(--admin-accent-orange);">${stats.count}</td>
                     <td style="font-size:0.75rem;">
                         ${devices}
-                        ${tieneAppInstalada ? `<div style="margin-top:3px;"><span title="Visitó en modo app instalada (PWA) alguna vez" style="background:rgba(46,204,113,0.12); color:#2ecc71; font-size:0.62rem; font-weight:700; padding:2px 6px; border-radius:6px; white-space:nowrap;">📲 App instalada</span></div>` : ''}
+                        ${tieneAppInstalada ? `<div style="margin-top:3px;"><span title="Entró en modo app instalada (PWA) en los últimos 30 días" style="background:rgba(46,204,113,0.12); color:#2ecc71; font-size:0.62rem; font-weight:700; padding:2px 6px; border-radius:6px; white-space:nowrap;">📲 App instalada</span></div>` : ''}
                     </td>
                     <td style="font-size:0.78rem;">${lastSeen}</td>
                     <td style="text-align:center;">${planCell}</td>

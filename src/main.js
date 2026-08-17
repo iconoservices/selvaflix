@@ -494,6 +494,11 @@ window.setFilter = (type) => {
   sincronizarContinuarViendo(type);
   marcarNavMovil(type);
 
+  // Mismo motivo que en showView(): salir del admin para acá (Películas/
+  // Series/Anime) no pasa por goToHome(), así que sin esto el flag de
+  // "admin activo" quedaba pegado y nunca más se inyectaba publicidad.
+  sessionStorage.removeItem('selva_admin_active');
+
   const adminEl = document.getElementById('admin-view');
   const homeEl = document.getElementById('home-view');
   if (adminEl) adminEl.style.display = 'none';
@@ -787,6 +792,14 @@ window.setIframeSource = (id, url) => {
 };
 
 function showView(active) {
+  // El flag de "estoy en el panel admin" (que injectCampaignScripts usa
+  // para no inyectar anuncios encima de los botones del portal) solo se
+  // limpiaba en goToHome() -- si el admin salía del panel navegando
+  // directo a Películas/Series/Anime (setFilter, que no pasa por acá)
+  // o a un detalle, se quedaba pegado en '1' para el resto de la sesión
+  // y nunca más se le mostraba publicidad, aunque ya no estuviera en admin.
+  if (active !== 'admin-view') sessionStorage.removeItem('selva_admin_active');
+
   const adminEl = document.getElementById('admin-view');
   const homeEl = document.getElementById('home-view');
   const detailEl = document.getElementById('detail-view');

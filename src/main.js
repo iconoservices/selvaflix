@@ -3195,16 +3195,27 @@ window.renderFreeTrialBanner = (isAlreadyPaid) => {
         if (typeof window._updateRewardsSectionVisibility === 'function') window._updateRewardsSectionVisibility();
         return;
     }
-    wrap.innerHTML = activas.map(o => `
-        <div style="padding:14px 16px; background:rgba(46,204,113,0.08); border:1px solid rgba(46,204,113,0.3); border-radius:12px; display:flex; align-items:center; gap:12px;">
-            <div style="width:44px; height:44px; border-radius:12px; background:rgba(46,204,113,0.15); border:2px solid rgba(46,204,113,0.4); display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex-shrink:0;">${o.icon || _trialIcon(o.durationHours || 24)}</div>
+    const trialClaims = window.currentUserFreeTrialClaims || {};
+    const trialNow = Date.now();
+    wrap.innerHTML = activas.map(o => {
+        const lastClaim = trialClaims[o.id];
+        const cadenceMs = (o.cadenceHours || 0) * 60 * 60 * 1000;
+        const onCooldown = !!(lastClaim && (trialNow - lastClaim) < cadenceMs);
+        const nextDate = onCooldown ? new Date(lastClaim + cadenceMs).toLocaleString() : null;
+        const actionHtml = onCooldown
+            ? `<span style="color:#888; font-size:0.68rem; font-weight:700; white-space:nowrap; flex-shrink:0; text-align:right;">✅ Usada<br>hasta ${nextDate}</span>`
+            : `<button onclick="window.claimFreeTrial('${o.id}')" style="background:#2ecc71; color:#000; border:none; border-radius:10px; padding:10px 16px; font-weight:800; font-size:0.78rem; cursor:pointer; white-space:nowrap; flex-shrink:0;">Activar</button>`;
+        return `
+        <div style="padding:14px 16px; background:${onCooldown ? 'rgba(255,255,255,0.03)' : 'rgba(46,204,113,0.08)'}; border:1px solid ${onCooldown ? 'rgba(255,255,255,0.12)' : 'rgba(46,204,113,0.3)'}; border-radius:12px; display:flex; align-items:center; gap:12px; opacity:${onCooldown ? '0.6' : '1'};">
+            <div style="width:44px; height:44px; border-radius:12px; background:rgba(46,204,113,0.15); border:2px solid rgba(46,204,113,0.4); display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex-shrink:0; filter:${onCooldown ? 'grayscale(85%)' : 'none'};">${o.icon || _trialIcon(o.durationHours || 24)}</div>
             <div style="flex:1; min-width:0;">
-                <p style="color:#2ecc71; font-weight:800; font-size:0.85rem; margin:0 0 2px;">${_escTrialHtml(o.name)}</p>
+                <p style="color:${onCooldown ? '#aaa' : '#2ecc71'}; font-weight:800; font-size:0.85rem; margin:0 0 2px;">${_escTrialHtml(o.name)}</p>
                 <p style="color:#aaa; font-size:0.72rem; margin:0;">${_trialFormatoDuracion(o.durationHours)} de acceso VIP sin costo, hasta una vez cada ${_trialFormatoDuracion(o.cadenceHours)}.</p>
             </div>
-            <button onclick="window.claimFreeTrial('${o.id}')" style="background:#2ecc71; color:#000; border:none; border-radius:10px; padding:10px 16px; font-weight:800; font-size:0.78rem; cursor:pointer; white-space:nowrap; flex-shrink:0;">Activar</button>
+            ${actionHtml}
         </div>
-    `).join('');
+    `;
+    }).join('');
     wrap.style.display = 'flex';
     if (typeof window._updateRewardsSectionVisibility === 'function') window._updateRewardsSectionVisibility();
 };
@@ -3485,15 +3496,26 @@ window.renderRewardsIconStrip = () => {
     const strip = document.getElementById('rewards-icon-strip');
     if (!strip) return;
 
-    const trialItems = (window.trialOffers || []).filter(o => o.active).map(o => ({
-        icon: o.icon || _trialIcon(o.durationHours || 24),
-        label: o.name,
-        state: 'ready',
-        title: `${o.name} — ${_trialFormatoDuracion(o.durationHours || 24)} disponible`,
-        type: 'trial',
-        offerId: o.id,
-        detailText: `${_trialFormatoDuracion(o.durationHours)} de acceso VIP sin costo, hasta una vez cada ${_trialFormatoDuracion(o.cadenceHours)}.`,
-    }));
+    const trialClaims = window.currentUserFreeTrialClaims || {};
+    const trialNow = Date.now();
+    const trialItems = (window.trialOffers || []).filter(o => o.active).map(o => {
+        const lastClaim = trialClaims[o.id];
+        const cadenceMs = (o.cadenceHours || 0) * 60 * 60 * 1000;
+        const onCooldown = !!(lastClaim && (trialNow - lastClaim) < cadenceMs);
+        const nextDate = onCooldown ? new Date(lastClaim + cadenceMs).toLocaleString() : null;
+        return {
+            icon: o.icon || _trialIcon(o.durationHours || 24),
+            label: o.name,
+            state: onCooldown ? 'claimed' : 'ready',
+            title: onCooldown ? `${o.name} — ya usada, disponible el ${nextDate}` : `${o.name} — ${_trialFormatoDuracion(o.durationHours || 24)} disponible`,
+            type: 'trial',
+            offerId: o.id,
+            onCooldown,
+            detailText: onCooldown
+                ? `✅ Ya usaste "${o.name}". Podés volver a usarla el ${nextDate}.`
+                : `${_trialFormatoDuracion(o.durationHours)} de acceso VIP sin costo, hasta una vez cada ${_trialFormatoDuracion(o.cadenceHours)}.`,
+        };
+    });
 
     const count = window.currentStreakCount || 0;
     const claimedMilestones = window.currentStreakClaimedMilestones || [];
@@ -3568,9 +3590,9 @@ window.showRewardIconDetail = (idx) => {
     const panel = document.getElementById('rewards-icon-detail');
     if (!item || !panel) return;
 
-    const actionHtml = item.type === 'trial'
+    const actionHtml = (item.type === 'trial' && !item.onCooldown)
         ? `<button onclick="window.claimFreeTrial('${item.offerId}')" style="background:#2ecc71; color:#000; border:none; border-radius:10px; padding:10px 16px; font-weight:800; font-size:0.78rem; cursor:pointer; white-space:nowrap; flex-shrink:0;">Activar</button>`
-        : '';
+        : (item.type === 'trial' ? `<span style="color:#888; font-size:0.68rem; font-weight:700; white-space:nowrap; flex-shrink:0;">✅ Ya usada</span>` : '');
 
     panel.innerHTML = `
         <div style="width:40px; height:40px; border-radius:10px; background:rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center; font-size:1.2rem; flex-shrink:0;">${item.icon}</div>
@@ -9628,6 +9650,7 @@ window.currentStreakClaimedMilestones = []; // escalones ya cobrados en la racha
 window.refreshUserTier = async (uid) => {
     if (!uid) {
         window.currentUserTier = 'free'; window.currentUserPremiumUntil = null; window.currentUserPremiumGrantedAt = null;
+        window.currentUserFreeTrialClaims = {};
         window.currentStreakCount = 0;
         window.currentStreakClaimedMilestones = [];
         return window.currentUserTier;
@@ -9640,6 +9663,7 @@ window.refreshUserTier = async (uid) => {
         window.currentUserTier = expired ? 'free' : rawTier;
         window.currentUserPremiumUntil = expired ? null : (data?.premiumUntil || null);
         window.currentUserPremiumGrantedAt = expired ? null : (data?.premiumGrantedAt || null);
+        window.currentUserFreeTrialClaims = data?.freeTrialClaims || {};
         // La racha se corta sola si pasó más de 1 día desde el último "visto" —
         // no hace falta borrarla en Firestore, con no mostrarla alcanza (el
         // próximo registerStreakProgress la resetea a mano al detectar el salto).
@@ -9654,6 +9678,7 @@ window.refreshUserTier = async (uid) => {
         window.currentUserTier = 'free';
         window.currentUserPremiumUntil = null;
         window.currentUserPremiumGrantedAt = null;
+        window.currentUserFreeTrialClaims = {};
         window.currentStreakCount = 0;
         window.currentStreakClaimedMilestones = [];
     }

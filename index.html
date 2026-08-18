@@ -1002,19 +1002,38 @@
                   <select id="inventory-filter" class="form-control" onchange="window.filterInventoryByCategory()">
                     <option value="all">Salud: Todas</option>
                     <option value="review">🧪 En Revisión</option>
+                    <option value="verify">🧐 Por Verificar (Exportados)</option>
                     <option value="waiting">⏳ En Espera</option>
                     <option value="healthy">💚 Sano (Live)</option>
                     <option value="broken">🔴 Sin Fuentes</option>
                     <option value="no-vimeus">🚫 Sin Vimeus</option>
                     <option value="vimeus-fantasma">👻 Vimeus Fantasma</option>
                     <option value="no-download">⬇️ Sin Descarga</option>
+                    <option value="missing">🟠 Sin ID TMDB</option>
+                    <option value="reported">🚨 Reportados por Usuarios</option>
                   </select>
                   <select id="inventory-lang-filter" class="form-control" onchange="window.filterInventoryByCategory()">
                     <option value="all">Idiomas: Todos</option>
                     <option value="es-MX">Latino</option>
+                    <option value="es-PE">Perú</option>
                     <option value="es-ES">España</option>
                     <option value="en-US">Inglés</option>
                   </select>
+                  <select id="inventory-genre-filter" class="form-control" onchange="window.filterInventoryByCategory()">
+                    <option value="all">Géneros: Todos</option>
+                    <option value="28">Acción</option>
+                    <option value="35">Comedia</option>
+                    <option value="18">Drama</option>
+                    <option value="16">Animación</option>
+                    <option value="27">Terror</option>
+                    <option value="10749">Romance</option>
+                    <option value="878">Sci-Fi</option>
+                    <option value="10770">Telenovela</option>
+                  </select>
+                </div>
+
+                <!-- Acciones Masivas -->
+                <div class="catalog-actions">
                   <button class="btn btn-secondary-outline" onclick="window.runBotHealthCheck()">
                     🤖 Revisar Enlaces
                   </button>
@@ -1033,7 +1052,6 @@
                   <button class="btn btn-danger-outline" onclick="window.nukeDatabase()">
                     🔥 Limpiar Selva
                   </button>
-
                 </div>
 
                 <!-- Selección Múltiple -->

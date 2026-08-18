@@ -4632,7 +4632,8 @@ body.admin-locked {
   gap: 8px;
   align-items: center;
   flex-wrap: wrap;
-  flex: 2 1 auto;
+  flex: 1 1 100%;
+  order: 2;
 }
 
 .catalog-filters .form-control {
@@ -4646,7 +4647,22 @@ body.admin-locked {
   padding: 0 10px;
   outline: none;
   min-width: 0;
-  flex: 1 1 110px;
+  flex: 1 1 130px;
+}
+
+/* Botones de acciones masivas (auditorías, limpieza) separados de los
+   filtros para que no se amontonen en la misma fila y salten a cualquier
+   lado al agregar nuevas opciones de filtro. */
+.catalog-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  flex: 1 1 100%;
+  order: 3;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--admin-border);
 }
 
 .btn-secondary-outline {

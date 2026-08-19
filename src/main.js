@@ -176,14 +176,24 @@ function supaOnSnapshotMovies(callback) {
   return () => { cancelado = true; supabase.removeChannel(channel); };
 }
 
-function collection(dbRef, path) {
+// BUG CRÍTICO corregido acá (encontrado 2026-08-19): collection()/doc() de
+// Firestore son variádicas — aceptan rutas anidadas tipo
+// collection(db,"users",uid,"profiles"). La primera versión de este shim
+// solo tomaba (dbRef, path) y descartaba el resto de los segmentos, así
+// que CUALQUIER ruta anidada (perfiles, historial, Mi Lista) terminaba
+// apuntando a la colección/documento equivocado — ej. doc(db,"users",uid,
+// "profiles",id) se convertía en doc(db,"users",uid), el documento de la
+// CUENTA, no el del perfil. "Ver Perfiles" mostraba las 459 cuentas como
+// si fueran perfiles de una sola cuenta, y borrar/editar un perfil podía
+// borrar/pisar la cuenta real. Ahora se reenvían todos los segmentos.
+function collection(dbRef, path, ...rest) {
   if (path === 'movies') return { [MOVIES_SENTINEL]: true };
-  return fsCollection(dbRef, path);
+  return fsCollection(dbRef, path, ...rest);
 }
 
-function doc(dbRef, path, id) {
-  if (path === 'movies') return { [MOVIES_SENTINEL]: true, id };
-  return fsDoc(dbRef, path, id);
+function doc(dbRef, path, ...rest) {
+  if (path === 'movies') return { [MOVIES_SENTINEL]: true, id: rest[0] };
+  return fsDoc(dbRef, path, ...rest);
 }
 
 async function addDoc(colRef, data) {

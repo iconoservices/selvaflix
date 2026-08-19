@@ -679,6 +679,74 @@ window.detectarFranquiciasAutomatico = async () => {
   }, 800);
 };
 
+// Completa género/año/calificación/sinopsis/título original desde TMDB para
+// títulos que quedaron sin esos datos (por ejemplo, un ingreso rápido que solo
+// trajo título/poster/ids). Mismo patrón que detectarFranquiciasAutomatico:
+// solo llena lo que esté vacío, nunca pisa algo ya cargado a mano.
+window.enriquecerCatalogoDesdeTMDB = async () => {
+  const candidatos = movieDatabase.trending.filter(m =>
+    m.tmdbId && (!m.genres || m.genres.length === 0)
+  );
+
+  if (candidatos.length === 0) {
+    if (window.showToast) window.showToast('No hay títulos con TMDB ID y sin género pendiente. 🌴', 'info');
+    return;
+  }
+
+  if (!confirm(`🎨 ENRIQUECER CATÁLOGO:\nVoy a completar género/año/calificación/sinopsis desde TMDB para ${candidatos.length} título(s) que no los tienen. Solo llena lo que esté vacío — no pisa nada que ya hayas puesto a mano.\n\n¿Continuar? 🔍🌴`)) return;
+
+  const overlay = document.getElementById('delete-progress-overlay');
+  const bar = document.getElementById('progress-bar-fill');
+  const text = document.getElementById('progress-percent');
+  const statusText = document.getElementById('progress-text');
+
+  if (statusText) statusText.innerText = 'Completando datos desde TMDB... 🎨🔎';
+  if (overlay) overlay.style.display = 'flex';
+
+  let completados = 0, fallidos = 0;
+  for (let i = 0; i < candidatos.length; i++) {
+    const m = candidatos[i];
+    const esSerie = m.type === 'series' || m.type === 'anime';
+    const tipoTMDB = esSerie ? 'tv' : 'movie';
+    try {
+      const res = await fetch(`${TMDB_URL}/${tipoTMDB}/${m.tmdbId}?api_key=${TMDB_API_KEY}&language=es-MX`);
+      const details = await res.json();
+
+      const cambios = {};
+      if (!m.genres || m.genres.length === 0) cambios.genres = (details.genres || []).map(g => String(g.id));
+      if (!m.rating) cambios.rating = details.vote_average ? details.vote_average.toFixed(1) : '';
+      if (!m.year) cambios.year = (details.release_date || details.first_air_date || '').slice(0, 4);
+      if (!m.synopsis) cambios.synopsis = details.overview || '';
+      if (!m.original_title) cambios.original_title = details.original_title || details.original_name || '';
+
+      if (Object.keys(cambios).length > 0) {
+        await updateDoc(doc(db, "movies", m.id), cambios);
+        Object.assign(m, cambios);
+      }
+      completados++;
+    } catch (e) {
+      console.error('Error enriqueciendo desde TMDB:', m.title, e);
+      fallidos++;
+    }
+
+    const percent = Math.round(((i + 1) / candidatos.length) * 100);
+    if (bar) bar.style.width = `${percent}%`;
+    if (text) text.innerText = `${percent}% (${i + 1}/${candidatos.length})`;
+
+    await new Promise(r => setTimeout(r, 300)); // no saturar la API de TMDB
+  }
+
+  localStorage.removeItem('selvaflix_full_database');
+  localStorage.removeItem('selvaflix_cache_timestamp');
+
+  setTimeout(() => {
+    if (overlay) overlay.style.display = 'none';
+    alert(`🎨 ENRIQUECIMIENTO COMPLETO:\n- Revisados: ${candidatos.length} título(s).\n- Completados: ${completados}.\n- Fallidos (error de red/TMDB): ${fallidos}.`);
+    if (window.filterInventoryByCategory) window.filterInventoryByCategory();
+    else if (document.getElementById('admin-view')?.style.display === 'block') renderInventory();
+  }, 800);
+};
+
 // ─── 🔥 Conversión Masiva a VOE ─────────────────────────────────────────────
 // Recorre el catálogo (o un subconjunto) y sube cada película a VOE.sx usando
 // el mismo pipeline de extracción del botón individual ("Subir a VOE").

@@ -1040,6 +1040,18 @@
                   <button class="btn btn-secondary-outline" onclick="window.auditarCatalogoCompleto()" title="Revisa cada título contra las 5 fuentes (Vimeus, FlixLatam, RepelisHD, PelisPlus, DiPelis). Tarda varios minutos. Llena los filtros 'Sin Vimeus' y 'Vimeus Fantasma'.">
                     👻 Auditar Vimeus
                   </button>
+                  <span style="display:inline-flex; align-items:center; gap:6px;">
+                    <button class="btn btn-secondary-outline" onclick="window.sincronizarYAuditarVimeus()" title="Trae del catálogo completo de Vimeus los títulos que todavía no tenés (puede ser miles, tarda) y después audita todo el catálogo, para que no queden mostrando 'Sin Verificar'.">
+                      📚 Sincronizar Vimeus
+                    </button>
+                    <small style="color:rgba(255,255,255,0.45); font-size:0.72rem; max-width:150px;">Trae títulos nuevos de Vimeus y audita</small>
+                  </span>
+                  <span style="display:inline-flex; align-items:center; gap:6px;">
+                    <button class="btn btn-secondary-outline" onclick="window.enriquecerCatalogoDesdeTMDB()" title="Completa género/año/calificación/sinopsis desde TMDB para títulos que quedaron sin esos datos (por ejemplo, los que entraron por 'Sincronizar Vimeus'). No pisa nada cargado a mano.">
+                      🎨 Enriquecer Datos
+                    </button>
+                    <small style="color:rgba(255,255,255,0.45); font-size:0.72rem; max-width:150px;">Completa género/año/rating desde TMDB</small>
+                  </span>
                   <button class="btn btn-secondary-outline" onclick="window.detectarFranquiciasAutomatico()" title="Revisa las películas que ya tienen ID de TMDB y les asigna la franquicia (Marvel, Star Wars, etc) automáticamente si TMDB la conoce. No pisa las que ya tengan franquicia puesta a mano.">
                     🎬 Detectar Franquicias
                   </button>

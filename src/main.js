@@ -12,15 +12,20 @@ import { getMessaging, getToken, onMessage } from "firebase/messaging"; // 🔔 
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "firebase/auth"; // 🔑 Auth SDK
 
 // --- Firebase Configuration ---
+// Sale de variables de entorno (VITE_FIREBASE_*) para poder desplegar este
+// mismo repo en otro proyecto de Vercel apuntando a otra base de Firebase,
+// sin tocar código — solo cambiando las env vars de ese Vercel. El valor
+// después de "||" es el de SelvaFlix, así el deploy actual sigue andando
+// igual aunque Vercel no tenga estas variables configuradas todavía.
 const firebaseConfig = {
-  apiKey: "AIzaSyCABaNkvUlMjBatNh0Giih01IDH4sNbt1Q",
-  authDomain: "selvaflix-5d991.firebaseapp.com",
-  databaseURL: "https://selvaflix-5d991-default-rtdb.firebaseio.com",
-  projectId: "selvaflix-5d991",
-  storageBucket: "selvaflix-5d991.firebasestorage.app",
-  messagingSenderId: "935630160406",
-  appId: "1:935630160406:web:171ecfcb9e4258628bab37",
-  measurementId: "G-N4DRH9QPE3"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCABaNkvUlMjBatNh0Giih01IDH4sNbt1Q",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "selvaflix-5d991.firebaseapp.com",
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || "https://selvaflix-5d991-default-rtdb.firebaseio.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "selvaflix-5d991",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "selvaflix-5d991.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "935630160406",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:935630160406:web:171ecfcb9e4258628bab37",
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-N4DRH9QPE3"
 };
 
 const app = initializeApp(firebaseConfig);

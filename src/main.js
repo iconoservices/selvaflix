@@ -6,10 +6,16 @@ import './ui/toasts.js' // 🍿 Notificaciones (define window.showToast)
 // Firebase es nuestro Puesto de Vigilancia: mantiene un ojo en los datos
 // y nos avisa al instante cuando algo cambia en la selva.
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, setDoc, query, orderBy, limit, getDocs, getDoc, where } from "firebase/firestore";
+import {
+  getFirestore,
+  collection as fsCollection, onSnapshot as fsOnSnapshot, addDoc as fsAddDoc,
+  deleteDoc as fsDeleteDoc, doc as fsDoc, updateDoc as fsUpdateDoc,
+  setDoc, query, orderBy, limit, getDocs, getDoc, where
+} from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { getMessaging, getToken, onMessage } from "firebase/messaging"; // 🔔 FCM SDK
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "firebase/auth"; // 🔑 Auth SDK
+import { createClient } from "@supabase/supabase-js"; // 🎬 Catálogo de películas (Firestore se quedó sin cuota, ver 2026-08-19)
 
 // --- Firebase Configuration ---
 // Sale de variables de entorno (VITE_FIREBASE_*) para poder desplegar este
@@ -38,6 +44,167 @@ try {
   console.log('🔕 FCM no soportado en este navegador:', e.message);
 }
 const auth = getAuth(app); // 🚪 El guardián de la selva
+
+// --- Supabase (catálogo de películas) ---
+// Firestore se quedó sin cuota gratis (millones de lecturas/día leyendo el
+// catálogo entero por sesión, ver 2026-08-19) — la colección "movies" se
+// muda a Supabase, que cobra por ancho de banda y no por documento leído.
+// Todo lo demás (Auth, usuarios, anuncios, push) se queda en Firebase.
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
+
+// Los ~38 lugares del código que hacían collection(db,"movies")/doc(db,"movies",id)
+// /addDoc/updateDoc/deleteDoc/onSnapshot sobre la colección "movies" de Firestore
+// NO se tocaron uno por uno (mucho riesgo de romper algo al copiar mal una
+// variable). En cambio, collection/doc/addDoc/updateDoc/deleteDoc/onSnapshot se
+// redefinen acá: cuando el pedido es sobre "movies" van a Supabase, para
+// cualquier otra colección (users, reports, ads, etc.) siguen yendo a Firestore
+// como siempre (fsCollection/fsDoc/etc., los nombres reales importados arriba).
+const MOVIES_SENTINEL = Symbol('movies');
+const MOVIE_PROMOTED_COLS = new Set(['id', 'tmdbId', 'imdbId', 'title', 'type', 'status']);
+
+function supaRowToMovie(row) {
+  return {
+    id: row.id,
+    tmdbId: row.tmdb_id || '',
+    imdbId: row.imdb_id || '',
+    title: row.title || '',
+    type: row.type || '',
+    status: row.status || 'healthy',
+    ...(row.data || {})
+  };
+}
+
+function movieToSupaRow(m) {
+  const row = {
+    tmdb_id: (m.tmdbId != null && m.tmdbId !== '') ? String(m.tmdbId) : null,
+    imdb_id: m.imdbId || null,
+    title: m.title || null,
+    type: m.type || null,
+    status: m.status || 'healthy',
+    data: {}
+  };
+  for (const [k, v] of Object.entries(m)) {
+    if (!MOVIE_PROMOTED_COLS.has(k)) row.data[k] = v;
+  }
+  return row;
+}
+
+// PostgREST corta en 1000 filas por pedido si no le decís lo contrario —
+// con 1897 títulos (y creciendo) hace falta paginar con .range() hasta
+// que una página vuelva con menos de PAGE_SIZE, o se pierden los últimos.
+async function supaFetchAllMovieRows() {
+  const PAGE_SIZE = 1000;
+  const rows = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await supabase.from('movies').select('*').range(from, from + PAGE_SIZE - 1);
+    if (error) { console.error('Error trayendo catálogo de Supabase:', error); break; }
+    rows.push(...(data || []));
+    if (!data || data.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+  return rows;
+}
+
+async function supaAddMovie(movieData) {
+  const row = movieToSupaRow(movieData);
+  row.id = movieData.id || (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}${Math.random().toString(36).slice(2)}`);
+  const { data: inserted, error } = await supabase.from('movies').insert(row).select('id').single();
+  if (error) throw error;
+  return { id: inserted.id };
+}
+
+// Mergea (no pisa) — igual que updateDoc de Firestore, que solo toca los
+// campos que le pasás. Los campos "promovidos" (columnas reales) se actualizan
+// directo; el resto se mergea adentro de "data" vía la función merge_movie_data
+// (creada a mano en el SQL Editor de Supabase) para que sea atómico.
+async function supaUpdateMovie(id, patch) {
+  const cols = {};
+  const dataPatch = {};
+  for (const [k, v] of Object.entries(patch)) {
+    if (k === 'tmdbId') cols.tmdb_id = (v != null && v !== '') ? String(v) : null;
+    else if (k === 'imdbId') cols.imdb_id = v;
+    else if (k === 'title' || k === 'type' || k === 'status') cols[k] = v;
+    else dataPatch[k] = v;
+  }
+  if (Object.keys(dataPatch).length > 0) {
+    const { error } = await supabase.rpc('merge_movie_data', { p_id: id, p_patch: dataPatch });
+    if (error) throw error;
+  }
+  if (Object.keys(cols).length > 0) {
+    const { error } = await supabase.from('movies').update(cols).eq('id', id);
+    if (error) throw error;
+  }
+}
+
+async function supaDeleteMovie(id) {
+  const { error } = await supabase.from('movies').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// Emula el onSnapshot de Firestore: primera entrega = snapshot.docs (catálogo
+// completo), entregas siguientes = snapshot.docChanges() (uno por cambio en
+// vivo vía Supabase Realtime). Requiere que la tabla "movies" tenga Replication
+// activada en Supabase (Database → Replication) para las entregas en vivo — si
+// no está activada, la carga inicial funciona igual, solo no llegan los cambios
+// en vivo de otras pestañas/dispositivos hasta que se refresque el caché.
+function supaOnSnapshotMovies(callback) {
+  let cancelado = false;
+
+  (async () => {
+    const rows = await supaFetchAllMovieRows();
+    if (cancelado) return;
+    callback({ docs: rows.map(row => ({ id: row.id, data: () => supaRowToMovie(row) })) });
+  })();
+
+  const channel = supabase
+    .channel('movies-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'movies' }, (payload) => {
+      const tipo = payload.eventType === 'INSERT' ? 'added' : payload.eventType === 'DELETE' ? 'removed' : 'modified';
+      const row = payload.eventType === 'DELETE' ? payload.old : payload.new;
+      if (!row) return;
+      callback({
+        docs: [],
+        docChanges: () => [{ type: tipo, doc: { id: row.id, data: () => supaRowToMovie(row) } }]
+      });
+    })
+    .subscribe();
+
+  return () => { cancelado = true; supabase.removeChannel(channel); };
+}
+
+function collection(dbRef, path) {
+  if (path === 'movies') return { [MOVIES_SENTINEL]: true };
+  return fsCollection(dbRef, path);
+}
+
+function doc(dbRef, path, id) {
+  if (path === 'movies') return { [MOVIES_SENTINEL]: true, id };
+  return fsDoc(dbRef, path, id);
+}
+
+async function addDoc(colRef, data) {
+  if (colRef && colRef[MOVIES_SENTINEL]) return await supaAddMovie(data);
+  return await fsAddDoc(colRef, data);
+}
+
+async function updateDoc(ref, patch) {
+  if (ref && ref[MOVIES_SENTINEL]) return await supaUpdateMovie(ref.id, patch);
+  return await fsUpdateDoc(ref, patch);
+}
+
+async function deleteDoc(ref) {
+  if (ref && ref[MOVIES_SENTINEL]) return await supaDeleteMovie(ref.id);
+  return await fsDeleteDoc(ref);
+}
+
+function onSnapshot(refOrQuery, callback) {
+  if (refOrQuery && refOrQuery[MOVIES_SENTINEL]) return supaOnSnapshotMovies(callback);
+  return fsOnSnapshot(refOrQuery, callback);
+}
 const moviesCol = collection(db, "movies");
 
 // --- iOS PWA / Notch Fallback Detection ---
@@ -4782,6 +4949,56 @@ window.sincronizarYAuditarVimeus = async (tipos = ['movies', 'series', 'animes']
     const resultadoAudit = await window.auditarCatalogoCompleto();
 
     return { sync: resultadoSync, audit: resultadoAudit };
+};
+
+// Migración de una sola vez: copia el catálogo actual de Firestore a la tabla
+// "movies" de Supabase, con los mismos IDs (para no romper Mi Lista/Continuar
+// Viendo de los usuarios, que guardan ese ID). No borra ni toca nada en
+// Firestore — es una copia. Usa upsert, así que se puede volver a correr sin
+// duplicar nada si se corta a la mitad.
+window.migrarCatalogoASupabase = async () => {
+  if (!confirm('📦 MIGRAR CATÁLOGO A SUPABASE:\nVoy a leer todo el catálogo actual de Firestore y copiarlo a la tabla "movies" de Supabase, con los mismos IDs. No borra ni modifica nada en Firestore.\n\n¿Continuar? 📦🌴')) return;
+
+  const overlay = document.getElementById('delete-progress-overlay');
+  const bar = document.getElementById('progress-bar-fill');
+  const text = document.getElementById('progress-percent');
+  const statusText = document.getElementById('progress-text');
+  if (statusText) statusText.innerText = 'Migrando catálogo a Supabase... 📦';
+  if (overlay) overlay.style.display = 'flex';
+
+  let docs = [];
+  try {
+    const snap = await getDocs(fsCollection(db, 'movies'));
+    docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    if (overlay) overlay.style.display = 'none';
+    alert('❌ No se pudo leer el catálogo de Firestore: ' + (e.message || e));
+    return;
+  }
+
+  let migrados = 0, fallidos = 0;
+  const errores = [];
+  for (let i = 0; i < docs.length; i++) {
+    const m = docs[i];
+    try {
+      const row = movieToSupaRow(m);
+      row.id = m.id;
+      const { error } = await supabase.from('movies').upsert(row);
+      if (error) throw error;
+      migrados++;
+    } catch (e) {
+      console.error('Error migrando', m.title, e);
+      fallidos++;
+      errores.push(`${m.title || m.id}: ${e.message || e}`);
+    }
+
+    const percent = Math.round(((i + 1) / docs.length) * 100);
+    if (bar) bar.style.width = `${percent}%`;
+    if (text) text.innerText = `${percent}% (${i + 1}/${docs.length})`;
+  }
+
+  if (overlay) overlay.style.display = 'none';
+  alert(`📦 MIGRACIÓN COMPLETA:\n- Total en Firestore: ${docs.length}\n- Migrados a Supabase: ${migrados}\n- Fallidos: ${fallidos}${errores.length ? '\n\n' + errores.slice(0, 5).join('\n') : ''}`);
 };
 
 // --- Panel de Usuarios: cuentas reales + logins + dispositivos (v2.45) ---

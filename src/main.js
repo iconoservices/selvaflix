@@ -10,7 +10,7 @@ import {
   getFirestore,
   collection as fsCollection, onSnapshot as fsOnSnapshot, addDoc as fsAddDoc,
   deleteDoc as fsDeleteDoc, doc as fsDoc, updateDoc as fsUpdateDoc,
-  setDoc, query, orderBy, limit, getDocs, getDoc, where
+  setDoc, query, orderBy, limit, getDocs, getDoc, where, deleteField
 } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { getMessaging, getToken, onMessage } from "firebase/messaging"; // 🔔 FCM SDK
@@ -5009,6 +5009,122 @@ window.migrarCatalogoASupabase = async () => {
 
   if (overlay) overlay.style.display = 'none';
   alert(`📦 MIGRACIÓN COMPLETA:\n- Total en Firestore: ${docs.length}\n- Migrados a Supabase: ${migrados}\n- Fallidos: ${fallidos}${errores.length ? '\n\n' + errores.slice(0, 5).join('\n') : ''}`);
+};
+
+// Diagnóstico de una sola vez (2026-08-19): busca daño real en la colección
+// "users" causado por el bug del shim collection()/doc() (ver fix ba87f38).
+// No borra ni arregla nada solo — solo reporta, para decidir con los datos
+// reales a la vista qué hacer con cada caso.
+window.diagnosticarCuentasRotas = async () => {
+  const snap = await getDocs(fsCollection(db, 'users'));
+  const sinEmail = [];      // documentos basura: perfil creado sin subcolección real
+  const conCamposDePerfil = []; // cuentas reales con campos de perfil pisados encima (pin/avatar/isPrimary)
+
+  snap.forEach(d => {
+    const data = d.data();
+    if (!data.email) {
+      sinEmail.push({ id: d.id, data });
+    } else if (data.pin !== undefined || data.avatar !== undefined || data.isPrimary !== undefined) {
+      conCamposDePerfil.push({ id: d.id, email: data.email, camposSospechosos: { pin: data.pin, avatar: data.avatar, isPrimary: data.isPrimary } });
+    }
+  });
+
+  console.log('📋 Documentos sin email (basura de perfiles mal creados):', sinEmail);
+  console.log('📋 Cuentas reales con campos de perfil pisados encima:', conCamposDePerfil);
+
+  alert(`🔍 DIAGNÓSTICO:\n- Total documentos en "users": ${snap.size}\n- Sin email (basura): ${sinEmail.length}\n- Cuentas con campos de perfil pisados: ${conCamposDePerfil.length}\n\nDetalle completo en la consola (F12).`);
+
+  return { total: snap.size, sinEmail, conCamposDePerfil };
+};
+
+// Limpia campos de perfil pisados por error sobre una cuenta real (ver
+// diagnosticarCuentasRotas). Solo borra los campos puntuales que no deberían
+// estar en un documento de "users" — no toca email/displayName/tier/etc.
+window.limpiarCamposDePerfilEnCuenta = async (uid) => {
+  const snap = await getDoc(doc(db, 'users', uid));
+  if (!snap.exists()) { alert('No existe esa cuenta.'); return; }
+  const data = snap.data();
+  const patch = {};
+  if (data.pin !== undefined) patch.pin = deleteField();
+  if (data.avatar !== undefined) patch.avatar = deleteField();
+  if (data.isPrimary !== undefined) patch.isPrimary = deleteField();
+  if (Object.keys(patch).length === 0) { alert('Esta cuenta no tiene campos de perfil de sobra.'); return; }
+  await updateDoc(doc(db, 'users', uid), patch);
+  alert(`✅ Limpiado: ${Object.keys(patch).join(', ')}`);
+};
+
+// Migración de una sola vez: copia el historial viejo de user_activity y
+// analytics_geo desde Firestore hacia Supabase, preservando la fecha real
+// de cada evento (no "ahora"), para no perder el historial de antes del
+// deploy. No borra ni toca nada en Firestore — es una copia.
+window.migrarActividadYGeoASupabase = async () => {
+  if (!confirm('📦 MIGRAR HISTORIAL:\nVoy a copiar todo el historial de actividad (logins, eventos) y geolocalización desde Firestore hacia Supabase, con sus fechas reales. No borra ni modifica nada en Firestore.\n\n¿Continuar? 📦🌴')) return;
+
+  const overlay = document.getElementById('delete-progress-overlay');
+  const bar = document.getElementById('progress-bar-fill');
+  const text = document.getElementById('progress-percent');
+  const statusText = document.getElementById('progress-text');
+  if (overlay) overlay.style.display = 'flex';
+
+  const chunk = (arr, size) => { const out = []; for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size)); return out; };
+
+  const subirEnBloques = async (tabla, filas, etiqueta) => {
+    let migrados = 0, fallidos = 0;
+    const bloques = chunk(filas, 500);
+    for (let i = 0; i < bloques.length; i++) {
+      const { error } = await supabase.from(tabla).insert(bloques[i]);
+      if (error) { console.error(`Error migrando bloque de ${tabla}:`, error); fallidos += bloques[i].length; }
+      else migrados += bloques[i].length;
+
+      const percent = Math.round(((i + 1) / bloques.length) * 100);
+      if (statusText) statusText.innerText = `Migrando ${etiqueta}... 📦`;
+      if (bar) bar.style.width = `${percent}%`;
+      if (text) text.innerText = `${etiqueta}: ${percent}% (bloque ${i + 1}/${bloques.length})`;
+    }
+    return { migrados, fallidos };
+  };
+
+  if (statusText) statusText.innerText = 'Leyendo historial de Firestore... 📦';
+
+  const actSnap = await getDocs(fsCollection(db, 'user_activity'));
+  const actRows = [];
+  actSnap.forEach(d => {
+    const x = d.data();
+    actRows.push({
+      uid: x.uid || null,
+      visitor_id: x.visitorId || null,
+      action: x.action || 'unknown',
+      details: x.details || {},
+      platform: x.platform || null,
+      user_agent: x.userAgent || null,
+      ts: x.timestamp ? new Date(x.timestamp).toISOString() : new Date().toISOString()
+    });
+  });
+
+  const geoSnap = await getDocs(fsCollection(db, 'analytics_geo'));
+  const geoRows = [];
+  geoSnap.forEach(d => {
+    const x = d.data();
+    geoRows.push({
+      type: x.type || 'visit',
+      uid: x.uid || null,
+      visitor_id: x.visitorId || null,
+      country: x.country || null,
+      city: x.city || null,
+      region: x.region || null,
+      ip: x.ip || null,
+      ad_id: x.adId || null,
+      is_pwa: !!x.isPwa,
+      is_mobile: !!x.isMobile,
+      ts: x.ts ? new Date(x.ts).toISOString() : new Date().toISOString()
+    });
+  });
+
+  const resAct = await subirEnBloques('user_activity', actRows, 'actividad');
+  const resGeo = await subirEnBloques('analytics_geo', geoRows, 'geolocalización');
+
+  if (overlay) overlay.style.display = 'none';
+  alert(`📦 MIGRACIÓN DE HISTORIAL COMPLETA:\n\nActividad: ${resAct.migrados}/${actRows.length} migrados (${resAct.fallidos} fallidos)\nGeolocalización: ${resGeo.migrados}/${geoRows.length} migrados (${resGeo.fallidos} fallidos)`);
 };
 
 // --- Panel de Usuarios: cuentas reales + logins + dispositivos (v2.45) ---

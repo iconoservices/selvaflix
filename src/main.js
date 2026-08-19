@@ -4695,6 +4695,22 @@ window.sincronizarCatalogoVimeus = async (tipos = ['movies', 'series', 'animes']
     return { agregados, fallidos, total: nuevos.length };
 };
 
+// Encadena sincronizarCatalogoVimeus() + auditarCatalogoCompleto() para que
+// los títulos nuevos no se queden mostrando "❔ Sin Verificar" en la home
+// hasta que alguien se acuerde de auditar a mano. Cada paso conserva sus
+// propios confirm() (uno pregunta antes de agregar, el otro antes de
+// borrar/marcar), así que sigue pudiéndose cancelar en el medio sin que
+// se toque nada.
+window.sincronizarYAuditarVimeus = async (tipos = ['movies', 'series', 'animes']) => {
+    if (window.showToast) window.showToast('📚 Paso 1/2: sincronizando catálogo de Vimeus...', 'info');
+    const resultadoSync = await window.sincronizarCatalogoVimeus(tipos);
+
+    if (window.showToast) window.showToast('👻 Paso 2/2: auditando catálogo completo...', 'info');
+    const resultadoAudit = await window.auditarCatalogoCompleto();
+
+    return { sync: resultadoSync, audit: resultadoAudit };
+};
+
 // --- Panel de Usuarios: cuentas reales + logins + dispositivos (v2.45) ---
 window.loadRegisteredUsers = async () => {
     const tableBody = document.getElementById('admin-users-table-body');

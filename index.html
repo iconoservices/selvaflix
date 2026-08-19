@@ -1055,6 +1055,12 @@
                     </button>
                     <small style="color:rgba(255,255,255,0.45); font-size:0.72rem; max-width:150px;">Completa género/año/rating desde TMDB</small>
                   </span>
+                  <span style="display:inline-flex; align-items:center; gap:6px;">
+                    <button class="btn btn-secondary-outline" onclick="window.sincronizarYAuditarVimeus(['movies','series','animes'])" title="Combina las dos: agrega los títulos nuevos de Vimeus y DESPUÉS audita el catálogo completo. Con 1897+ títulos puede tardar más de una hora — usalo cuando tengas tiempo de sobra, si no, mejor las dos por separado.">
+                      🔄 Sincronizar y Auditar
+                    </button>
+                    <small style="color:rgba(255,255,255,0.45); font-size:0.72rem; max-width:150px;">Agrega Y audita — tarda mucho más</small>
+                  </span>
                   <button class="btn btn-secondary-outline" onclick="window.detectarFranquiciasAutomatico()" title="Revisa las películas que ya tienen ID de TMDB y les asigna la franquicia (Marvel, Star Wars, etc) automáticamente si TMDB la conoce. No pisa las que ya tengan franquicia puesta a mano.">
                     🎬 Detectar Franquicias
                   </button>

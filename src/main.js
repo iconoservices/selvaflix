@@ -10,7 +10,7 @@ import {
   getFirestore,
   collection as fsCollection, onSnapshot as fsOnSnapshot, addDoc as fsAddDoc,
   deleteDoc as fsDeleteDoc, doc as fsDoc, updateDoc as fsUpdateDoc,
-  setDoc, query, orderBy, limit, getDocs, getDoc, where, deleteField
+  setDoc, query, orderBy, limit, getDocs, getDoc, where, deleteField, increment
 } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { getMessaging, getToken, onMessage } from "firebase/messaging"; // 🔔 FCM SDK
@@ -10257,6 +10257,12 @@ async function trackAccountLogin(user) {
             photoURL: user.photoURL || null,
             createdAt: isNewAccount ? Date.now() : snap.data().createdAt,
             lastLoginAt: Date.now(),
+            // Contador que nunca se borra ni se recalcula desde cero — a
+            // diferencia del conteo de login_stats_by_uid (Supabase), que se
+            // suma sobre las filas de user_activity que existan en ese momento
+            // y por eso baja si la limpieza automática de 90 días borra filas
+            // viejas. Este vive en la cuenta misma, sobrevive a esa limpieza.
+            loginCountTotal: increment(1),
             ...(referredBy ? { referredBy } : {}),
         }, { merge: true });
 

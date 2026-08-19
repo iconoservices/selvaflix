@@ -5018,24 +5018,20 @@ window.loadRegisteredUsers = async () => {
             if (data.email) accounts.push({ uid: d.id, ...data });
         });
 
-        // 2. Logins agrupados por uid (sin orderBy para no requerir índice compuesto en Firestore)
-        const loginQuery = query(
-            collection(db, "user_activity"),
-            where("action", "==", "login"),
-            limit(3000)
-        );
-        const loginSnap = await getDocs(loginQuery);
+        // 2. Logins agrupados por uid — lo hace Postgres (login_stats_by_uid),
+        // no un loop en el navegador sobre miles de filas como antes.
         const loginsByUid = {};
-        const visitorIdsConCuenta = new Set(); // quién ya se logueó alguna vez, para no contarlo como "invitado"
-        loginSnap.forEach(d => {
-            const data = d.data();
-            if (data.visitorId) visitorIdsConCuenta.add(data.visitorId);
-            if (!data.uid) return;
-            if (!loginsByUid[data.uid]) loginsByUid[data.uid] = { count: 0, platforms: new Set(), last: 0 };
-            loginsByUid[data.uid].count++;
-            if (data.platform) loginsByUid[data.uid].platforms.add(data.platform);
-            if (data.timestamp > loginsByUid[data.uid].last) loginsByUid[data.uid].last = data.timestamp;
+        const { data: loginStats } = await supabase.rpc('login_stats_by_uid');
+        (loginStats || []).forEach(row => {
+            loginsByUid[row.uid] = {
+                count: Number(row.login_count) || 0,
+                platforms: new Set(row.platforms || []),
+                last: row.last_login ? Date.parse(row.last_login) : 0
+            };
         });
+        // quién ya se logueó alguna vez, para no contarlo como "invitado"
+        const { data: loggedInVisitors } = await supabase.rpc('logged_in_visitor_ids');
+        const visitorIdsConCuenta = new Set((loggedInVisitors || []).map(r => r.visitor_id));
 
         window.loadVisitorInsights(visitorIdsConCuenta);
 
@@ -5044,18 +5040,9 @@ window.loadRegisteredUsers = async () => {
         // (loadVisitorInsights), para que el badge signifique lo mismo que
         // ese número. Sin este límite de fecha, alguien que instaló y
         // desinstaló hace meses seguía apareciendo como "instalada".
-        // OJO: el filtro de fecha se aplica en el cliente, NO en la query —
-        // combinar where("isPwa","==") con where("ts",">=") en Firestore
-        // pide un índice compuesto (a diferencia de dos "==" juntos, que no
-        // lo piden). Esto rompió la tabla entera la primera vez que se hizo así.
         const desde30diasPwa = Date.now() - 30 * 24 * 60 * 60 * 1000;
-        const pwaQuery = query(collection(db, "analytics_geo"), where("isPwa", "==", true), limit(3000));
-        const pwaSnap = await getDocs(pwaQuery);
-        const pwaUids = new Set();
-        pwaSnap.forEach(d => {
-            const data = d.data();
-            if (data.uid && data.ts >= desde30diasPwa) pwaUids.add(data.uid);
-        });
+        const { data: pwaRows } = await supabase.rpc('pwa_uids_since', { since: new Date(desde30diasPwa).toISOString() });
+        const pwaUids = new Set((pwaRows || []).map(r => r.uid));
 
         if (countEl) countEl.innerText = `${accounts.length} cuenta(s) registrada(s)`;
 
@@ -5223,26 +5210,19 @@ window.loadVisitorInsights = async (visitorIdsConCuenta = new Set()) => {
 
     try {
         const desde30dias = Date.now() - 30 * 24 * 60 * 60 * 1000;
-        const visitasQuery = query(collection(db, "analytics_geo"), where("ts", ">=", desde30dias));
-        const visitasSnap = await getDocs(visitasQuery);
+        // visitor_flags_since ya agrupa por visitante en Postgres (bool_or de
+        // is_pwa/is_mobile) — acá solo queda clasificar, no sumar miles de filas.
+        const { data: flagRows } = await supabase.rpc('visitor_flags_since', { since: new Date(desde30dias).toISOString() });
+        const porVisitante = flagRows || [];
 
-        const porVisitante = {};
-        visitasSnap.forEach(d => {
-            const data = d.data();
-            if (!data.visitorId) return; // visita de antes de agregar este campo
-            if (!porVisitante[data.visitorId]) porVisitante[data.visitorId] = { isPwa: false, isMobile: false };
-            if (data.isPwa) porVisitante[data.visitorId].isPwa = true;
-            if (data.isMobile) porVisitante[data.visitorId].isMobile = true;
-        });
-
-        const ids = Object.keys(porVisitante);
+        const ids = porVisitante.map(v => v.visitor_id);
         const invitados = ids.filter(vid => !visitorIdsConCuenta.has(vid)).length;
-        const conPwa = ids.filter(vid => porVisitante[vid].isPwa).length;
+        const conPwa = porVisitante.filter(v => v.is_pwa).length;
         // "Celular sin instalar" y "Escritorio" son ambos "solo navegador" (no
         // instalaron la app), separados por si entraron desde el celu o la PC —
         // separado de conPwa arriba, que ya cubre "instalada" sin importar el dispositivo.
-        const celularSinInstalar = ids.filter(vid => !porVisitante[vid].isPwa && porVisitante[vid].isMobile).length;
-        const escritorio = ids.filter(vid => !porVisitante[vid].isPwa && !porVisitante[vid].isMobile).length;
+        const celularSinInstalar = porVisitante.filter(v => !v.is_pwa && v.is_mobile).length;
+        const escritorio = porVisitante.filter(v => !v.is_pwa && !v.is_mobile).length;
 
         elVisitantes.innerText = ids.length;
         if (elInvitados) elInvitados.innerText = invitados;
@@ -5331,16 +5311,15 @@ window.viewAccountSessions = async (uid, displayName) => {
     modal.style.display = 'flex';
 
     try {
-        const sessionsQuery = query(
-            collection(db, "user_activity"),
-            where("uid", "==", uid),
-            where("action", "==", "login"),
-            limit(200)
-        );
-        const snap = await getDocs(sessionsQuery);
-        const sessions = [];
-        snap.forEach(d => sessions.push(d.data()));
-        sessions.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        const { data: rows, error } = await supabase
+            .from('user_activity')
+            .select('ts, platform')
+            .eq('uid', uid)
+            .eq('action', 'login')
+            .order('ts', { ascending: false })
+            .limit(200);
+        if (error) throw error;
+        const sessions = (rows || []).map(r => ({ timestamp: Date.parse(r.ts), platform: r.platform }));
 
         if (sessions.length === 0) {
             list.innerHTML = '<p style="color:#888; text-align:center; font-size:0.8rem;">No hay inicios de sesión registrados para esta cuenta.</p>';
@@ -6221,19 +6200,21 @@ function getVisitorId() {
 }
 
 // --- DATA & ADS SYSTEM ---
+// user_activity y analytics_geo viven en Supabase (no Firestore): son tablas
+// de solo-agregar que se leían enteras (miles de filas) y se agrupaban a mano
+// en el navegador — con Postgres esa cuenta la hace la base (ver
+// login_stats_by_uid/visitor_flags_since/etc., funciones SQL creadas a mano
+// en Supabase, no versionadas). uid/auth de cuenta se quedan en Firebase.
 async function collectUserData(action, details = {}) {
   try {
-    const userData = {
+    await supabase.from('user_activity').insert({
       action,
       details,
-      timestamp: Date.now(),
       platform: navigator.platform,
-      userAgent: navigator.userAgent.substring(0, 80),
-      visitorId: getVisitorId(),  // 🔑 ID de visitante unico
-      uid: auth.currentUser ? auth.currentUser.uid : null, // 🔑 Cuenta real, si hay sesión
-      date: new Date().toISOString().split('T')[0]  // '2026-03-11' para agrupar por dia
-    };
-    await addDoc(collection(db, "user_activity"), userData);
+      user_agent: navigator.userAgent.substring(0, 80),
+      visitor_id: getVisitorId(),  // 🔑 ID de visitante unico
+      uid: auth.currentUser ? auth.currentUser.uid : null // 🔑 Cuenta real, si hay sesión
+    });
   } catch (e) { console.error("Error tracking:", e); }
 }
 
@@ -6433,17 +6414,20 @@ window.trackUserGeo = async () => {
         // Guardar visita (Cacheada 24h para no saturar Firestore por usuario)
         const lastTrack = localStorage.getItem('selva_last_geo_track');
         if (!lastTrack || (Date.now() - parseInt(lastTrack) > 86400000)) {
-            await addDoc(collection(db, "analytics_geo"), {
+            await supabase.from('analytics_geo').insert({
                 type: 'visit',
-                ...geoInfo,
-                // visitorId + isPwa: para el panel de Usuarios poder distinguir
+                country: geoInfo.country,
+                city: geoInfo.city,
+                region: geoInfo.region,
+                ip: geoInfo.ip,
+                // visitor_id + is_pwa: para el panel de Usuarios poder distinguir
                 // invitados de cuentas reales, y navegador vs app instalada
                 // (PWA). Arranca a contar desde que se agregó esto — no hay
                 // forma de reconstruir esta info para visitas viejas.
-                visitorId: getVisitorId(),
+                visitor_id: getVisitorId(),
                 uid: auth.currentUser ? auth.currentUser.uid : null,
-                isPwa: window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true,
-                isMobile: /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+                is_pwa: window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true,
+                is_mobile: /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
             });
             localStorage.setItem('selva_last_geo_track', Date.now());
         }
@@ -6458,31 +6442,21 @@ let geoCharts = { countries: null, cities: null };
 
 window.refreshAdAnalytics = async () => {
     try {
-        const analyticsRef = collection(db, "analytics_geo");
         // Últimos 7 días para el panel de anuncios
-        const since = Date.now() - (7 * 24 * 60 * 60 * 1000);
-        const q = query(analyticsRef, where("ts", ">=", since));
-        const querySnapshot = await getDocs(q);
-        
-        let stats = { countries: {}, clicks: 0, views: 0 };
+        const sinceIso = new Date(Date.now() - (7 * 24 * 60 * 60 * 1000)).toISOString();
 
-        querySnapshot.forEach((doc) => {
-            const data = doc.data();
-            if (data.type === 'visit') {
-                stats.views++;
-                stats.countries[data.country] = (stats.countries[data.country] || 0) + 1;
-            } else if (data.type === 'ad_click') {
-                stats.clicks++;
-            }
-        });
+        const [viewsRes, clicksRes, countriesRes] = await Promise.all([
+            supabase.from('analytics_geo').select('*', { count: 'exact', head: true }).eq('type', 'visit').gte('ts', sinceIso),
+            supabase.from('analytics_geo').select('*', { count: 'exact', head: true }).eq('type', 'ad_click').gte('ts', sinceIso),
+            supabase.rpc('ad_country_breakdown_since', { since: sinceIso })
+        ]);
+
+        const stats = { views: viewsRes.count || 0, clicks: clicksRes.count || 0 };
+        const topCountries = (countriesRes.data || []).map(r => [r.country, Number(r.views)]);
 
         // 📊 En el TAB de publicidad, solo mostramos la tabla de rendimiento de países vs clics
         const tableBody = document.getElementById('ad-analytics-table-body');
         if (tableBody) {
-            const topCountries = Object.entries(stats.countries)
-                .sort((a, b) => b[1] - a[1])
-                .slice(0, 10);
-
             tableBody.innerHTML = topCountries.map(([name, count]) => `
                 <tr style="border-bottom: 1px solid rgba(255,255,255,0.03);">
                     <td style="padding: 12px; font-weight: bold;">${name}</td>
@@ -6550,13 +6524,12 @@ window.recordAdView = async (id) => {
     h.views.push(now);
     localStorage.setItem(key, JSON.stringify(h));
 
-    // Registrar en Firestore con Analytics
+    // Registrar en Supabase con Analytics
     try {
         const cachedGeo = JSON.parse(sessionStorage.getItem('selva_geo_cache') || '{}');
-        await addDoc(collection(db, "analytics_geo"), {
+        await supabase.from('analytics_geo').insert({
             type: 'ad_click',
-            adId: id,
-            ts: now,
+            ad_id: id,
             country: cachedGeo.country || 'Desconocido',
             city: cachedGeo.city || 'Desconocido'
         });
@@ -10161,15 +10134,13 @@ async function trackAccountLogin(user) {
             ...(referredBy ? { referredBy } : {}),
         }, { merge: true });
 
-        await addDoc(collection(db, "user_activity"), {
+        await supabase.from('user_activity').insert({
             action: 'login',
             details: { email: user.email || 'sin-email' },
-            timestamp: Date.now(),
             platform: navigator.platform,
-            userAgent: navigator.userAgent.substring(0, 80),
-            visitorId: getVisitorId(),
-            uid: user.uid,
-            date: new Date().toISOString().split('T')[0]
+            user_agent: navigator.userAgent.substring(0, 80),
+            visitor_id: getVisitorId(),
+            uid: user.uid
         });
 
         sessionStorage.setItem(flagKey, '1');

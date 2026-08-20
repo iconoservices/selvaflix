@@ -4051,20 +4051,37 @@ window.renderPremiumPlansGrid = () => {
     // solo que sin poder pedirlo (ya lo tenés por defecto) y marcando cuál
     // es tu plan actual según el tier real.
     const currentTier = window.currentUserTier || 'free';
+    const isPaidTier = currentTier === 'premium' || currentTier === 'admin';
+    // activePlanId solo queda seteado cuando el admin otorgó un plan puntual
+    // desde la tabla de Usuarios (ver confirmGrantPremium). Un premium sin
+    // ese dato (bono de racha/prueba gratis, o un otorgado "a mano" viejo sin
+    // plan elegido) no bloquea ninguna tarjeta — así no se disfraza de compra.
+    const activePlanId = window.currentUserActivePlanId || null;
 
     grid.innerHTML = plans.map(p => {
         const isFree = p.id === 'free';
         const isCurrentPlan = isFree
             ? currentTier === 'free'
-            : (currentTier === 'premium' || currentTier === 'admin');
+            : (currentTier === 'admin' || (currentTier === 'premium' && activePlanId === p.id));
+
         const periodTxt = isFree ? '' : (p.period === 'unico' ? 'pago único' : `/ ${_escPlanHtml(p.period || 'mes')}`);
         const priceTxt = isFree ? '$0' : `${p.price ?? 0} ${_escPlanHtml(p.currency || 'USD')}`;
 
         // El plan Gratuito nunca se "pide" — o ya lo tenés (Plan actual) o
-        // simplemente no aplica si ya sos premium/admin.
-        const actionHtml = isCurrentPlan
-            ? `<div style="text-align:center; padding:10px; font-weight:800; font-size:0.8rem; color:#555;">Plan actual</div>`
-            : (isFree ? '' : `<button onclick="window.requestPlanInterest('${p.id}')" style="background:${p.highlighted ? 'var(--primary,#FF6600)' : 'rgba(255,255,255,0.08)'}; color:${p.highlighted ? '#000' : '#fff'}; border:none; border-radius:10px; padding:10px; font-weight:800; font-size:0.8rem; cursor:pointer;">Quiero este plan</button>`);
+        // simplemente no aplica si ya sos premium/admin. Para el resto de
+        // los planes pagos: si ya sos premium/admin pero esta tarjeta no es
+        // la tuya, el CTA es "cambiar/mejorar" en vez de "Quiero este plan"
+        // (antes esto ni se mostraba: un premium real no tenía forma de
+        // pedir upgrade desde acá).
+        let actionHtml;
+        if (isCurrentPlan) {
+            actionHtml = `<div style="text-align:center; padding:10px; font-weight:800; font-size:0.8rem; color:#555;">Plan actual</div>`;
+        } else if (isFree) {
+            actionHtml = '';
+        } else {
+            const label = isPaidTier ? 'Cambiar a este plan' : 'Quiero este plan';
+            actionHtml = `<button onclick="window.requestPlanInterest('${p.id}')" style="background:${p.highlighted ? 'var(--primary,#FF6600)' : 'rgba(255,255,255,0.08)'}; color:${p.highlighted ? '#000' : '#fff'}; border:none; border-radius:10px; padding:10px; font-weight:800; font-size:0.8rem; cursor:pointer;">${label}</button>`;
+        }
 
         return `
         <div style="background:rgba(255,255,255,0.03); border:2px solid ${p.highlighted ? 'var(--primary,#FF6600)' : 'rgba(255,255,255,0.08)'}; border-radius:14px; padding:20px; display:flex; flex-direction:column; ${isFree ? 'opacity:0.9;' : ''}">
@@ -4098,7 +4115,15 @@ window.requestPlanInterest = async (planId) => {
     window.closePremiumModal();
 
     const periodTxt = plan.period === 'unico' ? 'pago único' : `/${plan.period}`;
-    const text = `Hola 👋 Quiero contratar el plan "${plan.name}" (${plan.price} ${plan.currency} ${periodTxt}). ¿Cómo sigo?`;
+    // Ya sos premium con un plan distinto marcado (activePlanId) -> esto es un
+    // cambio/mejora, no una contratación nueva. El texto lo aclara para que
+    // el admin no piense que es una cuenta nueva pidiendo el plan de cero.
+    const isChange = window.currentUserTier === 'premium' && window.currentUserActivePlanId && window.currentUserActivePlanId !== plan.id;
+    const accion = isChange ? `cambiar mi plan a` : `contratar el plan`;
+    // Correo + UID van siempre: el correo es lo que el admin reconoce a
+    // simple vista en Admin > Usuarios, el UID es el dato preciso por si hay
+    // nombres/correos parecidos (ver búsqueda en esa tabla).
+    const text = `Hola 👋 Quiero ${accion} "${plan.name}" (${plan.price} ${plan.currency} ${periodTxt}). ¿Cómo sigo?\n\nCorreo: ${user.email || '—'}\nUID: ${user.uid}`;
 
     // Si el plan tiene un WhatsApp propio, se usa ese. Si no, cae al WhatsApp
     // general (aplica a todos los planes). Si tampoco hay uno general, el
@@ -5198,14 +5223,18 @@ window.loadRegisteredUsers = async () => {
                 planCell = `<span style="color:#9b59b6; font-weight:800; font-size:0.7rem; white-space:nowrap;">🛡️ Admin</span>`;
             } else if (effTier === 'premium') {
                 const untilTxt = acc.premiumUntil ? `hasta ${new Date(acc.premiumUntil).toLocaleDateString()}` : 'sin vencimiento';
+                const planNombre = acc.activePlanId && (window.plansConfig || []).find(p => p.id === acc.activePlanId)?.name;
                 planCell = `
                     <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
-                        <span style="color:#f1c40f; font-weight:800; font-size:0.7rem; white-space:nowrap;">💎 Premium</span>
+                        <span style="color:#f1c40f; font-weight:800; font-size:0.7rem; white-space:nowrap;">💎 ${planNombre ? _escPlanHtml(planNombre) : 'Premium'}</span>
                         <span style="font-size:0.6rem; color:var(--admin-text-muted); white-space:nowrap;">${untilTxt}</span>
-                        <button onclick="window.revokePremium('${acc.uid}', '${safeName}')" style="background:rgba(231,76,60,0.1); border:1px solid rgba(231,76,60,0.3); color:#e74c3c; font-size:0.62rem; font-weight:700; padding:3px 8px; border-radius:6px; cursor:pointer;">Quitar</button>
+                        <div style="display:flex; gap:4px;">
+                            <button onclick="window.openGrantPremiumModal('${acc.uid}', '${safeName}')" title="Cambiar plan / vencimiento" style="background:rgba(241,196,15,0.1); border:1px solid rgba(241,196,15,0.3); color:#f1c40f; font-size:0.62rem; font-weight:700; padding:3px 8px; border-radius:6px; cursor:pointer;">✏️</button>
+                            <button onclick="window.revokePremium('${acc.uid}', '${safeName}')" style="background:rgba(231,76,60,0.1); border:1px solid rgba(231,76,60,0.3); color:#e74c3c; font-size:0.62rem; font-weight:700; padding:3px 8px; border-radius:6px; cursor:pointer;">Quitar</button>
+                        </div>
                     </div>`;
             } else {
-                planCell = `<button onclick="window.grantPremium('${acc.uid}', '${safeName}')" style="background:rgba(241,196,15,0.1); border:1px solid rgba(241,196,15,0.3); color:#f1c40f; font-size:0.68rem; font-weight:800; padding:6px 10px; border-radius:6px; cursor:pointer; white-space:nowrap;">⭐ Hacer Premium</button>`;
+                planCell = `<button onclick="window.openGrantPremiumModal('${acc.uid}', '${safeName}')" style="background:rgba(241,196,15,0.1); border:1px solid rgba(241,196,15,0.3); color:#f1c40f; font-size:0.68rem; font-weight:800; padding:6px 10px; border-radius:6px; cursor:pointer; white-space:nowrap;">⭐ Hacer Premium</button>`;
             }
 
             return `
@@ -5218,6 +5247,7 @@ window.loadRegisteredUsers = async () => {
                             <div>
                                 <div style="font-weight:700; color:#fff; font-size:0.8rem;">${acc.displayName || 'Sin nombre'}</div>
                                 <div style="font-size:0.7rem; color:var(--admin-text-muted);">${acc.email}</div>
+                                <div style="font-size:0.6rem; color:#555; user-select:all;" title="UID (por si hay correos/nombres parecidos)">${acc.uid}</div>
                             </div>
                         </div>
                     </td>
@@ -5248,26 +5278,73 @@ window.loadRegisteredUsers = async () => {
     }
 };
 
-// Otorga/renueva Premium a mano (todavía no hay cobro automático: esto es
-// lo que usa el admin cuando alguien le escribe por el chat de soporte
-// pidiendo un plan). Vencimiento opcional en días; vacío = sin vencer.
-window.grantPremium = async (uid, name) => {
-    const daysStr = prompt(`¿Por cuántos días será Premium ${name}?\n\nDejá vacío para que no venza nunca.`, '30');
-    if (daysStr === null) return; // canceló
+// Otorga/renueva/cambia Premium a mano (todavía no hay cobro automático:
+// esto es lo que usa el admin cuando alguien le escribe por WhatsApp o el
+// chat de soporte pidiendo un plan). Reemplaza el viejo prompt() de "¿por
+// cuántos días?" por un selector de plan (autocompleta el vencimiento según
+// el período) con opción "Personalizado" para días a mano, igual que antes.
+let _grantPremiumTarget = { uid: null, name: null };
 
-    const days = daysStr.trim() === '' ? null : parseInt(daysStr, 10);
-    if (days !== null && (isNaN(days) || days <= 0)) {
-        if (window.showToast) window.showToast('Ingresá un número de días válido.', 'error');
-        return;
+window.openGrantPremiumModal = (uid, name) => {
+    _grantPremiumTarget = { uid, name };
+    const modal = document.getElementById('grant-premium-modal');
+    const title = document.getElementById('grant-premium-title');
+    const select = document.getElementById('grant-premium-plan-select');
+    if (title) title.textContent = `💎 Otorgar Premium — ${name}`;
+    if (select) {
+        const plans = (window.plansConfig || []).filter(p => p.id !== 'free' && p.active);
+        select.innerHTML = plans.map(p => `<option value="${p.id}">${_escPlanHtml(p.name || p.id)}</option>`).join('')
+            + `<option value="">Personalizado (días a mano)</option>`;
+    }
+    window.onGrantPremiumPlanChange();
+    if (modal) modal.style.display = 'flex';
+};
+
+window.closeGrantPremiumModal = () => {
+    const modal = document.getElementById('grant-premium-modal');
+    if (modal) modal.style.display = 'none';
+    _grantPremiumTarget = { uid: null, name: null };
+};
+
+// mes=30 días, trimestre=90, año=365, único = pago único -> sin vencimiento.
+const PLAN_PERIOD_DAYS = { mes: 30, trimestre: 90, año: 365, unico: null };
+
+window.onGrantPremiumPlanChange = () => {
+    const select = document.getElementById('grant-premium-plan-select');
+    const customRow = document.getElementById('grant-premium-custom-days-row');
+    const isCustom = !select || select.value === '';
+    if (customRow) customRow.style.display = isCustom ? 'block' : 'none';
+};
+
+window.confirmGrantPremium = async () => {
+    const { uid, name } = _grantPremiumTarget;
+    if (!uid) return;
+
+    const select = document.getElementById('grant-premium-plan-select');
+    const planId = select?.value || '';
+    let days;
+
+    if (planId) {
+        const plan = (window.plansConfig || []).find(p => p.id === planId);
+        days = plan ? PLAN_PERIOD_DAYS[plan.period] ?? null : null;
+    } else {
+        const daysStr = (document.getElementById('grant-premium-custom-days')?.value || '').trim();
+        days = daysStr === '' ? null : parseInt(daysStr, 10);
+        if (days !== null && (isNaN(days) || days <= 0)) {
+            if (window.showToast) window.showToast('Ingresá un número de días válido.', 'error');
+            return;
+        }
     }
 
     try {
         await updateDoc(doc(db, "users", uid), {
             tier: 'premium',
             premiumUntil: days ? Date.now() + days * 24 * 60 * 60 * 1000 : null,
-            premiumGrantedAt: Date.now()
+            premiumGrantedAt: Date.now(),
+            activePlanId: planId || null
         });
         if (window.showToast) window.showToast(`💎 ${name} ya es Premium.`, 'success');
+        window.closeGrantPremiumModal();
         window.loadRegisteredUsers();
         if (typeof window.loadPremiumCount === 'function') window.loadPremiumCount();
     } catch (e) {
@@ -5279,7 +5356,7 @@ window.grantPremium = async (uid, name) => {
 window.revokePremium = async (uid, name) => {
     if (!confirm(`¿Quitarle Premium a ${name}?`)) return;
     try {
-        await updateDoc(doc(db, "users", uid), { tier: 'free', premiumUntil: null });
+        await updateDoc(doc(db, "users", uid), { tier: 'free', premiumUntil: null, activePlanId: null });
         if (window.showToast) window.showToast(`${name} vuelve a plan Gratuito.`, 'info');
         window.loadRegisteredUsers();
         if (typeof window.loadPremiumCount === 'function') window.loadPremiumCount();
@@ -10289,6 +10366,7 @@ async function trackAccountLogin(user) {
 window.currentUserTier = 'free';
 window.currentUserPremiumUntil = null; // timestamp ms del vencimiento (null = sin vencimiento, ej. plan pago sin límite o admin)
 window.currentUserPremiumGrantedAt = null; // timestamp ms de cuándo arrancó, para poder dibujar el % de la barra
+window.currentUserActivePlanId = null; // id del plan que el admin le marcó (grantPremium con plan elegido); null = premium genérico sin plan específico atado
 
 window.currentStreakCount = 0;
 window.currentStreakClaimedMilestones = []; // escalones ya cobrados en la racha actual
@@ -10296,6 +10374,7 @@ window.currentStreakClaimedMilestones = []; // escalones ya cobrados en la racha
 window.refreshUserTier = async (uid) => {
     if (!uid) {
         window.currentUserTier = 'free'; window.currentUserPremiumUntil = null; window.currentUserPremiumGrantedAt = null;
+        window.currentUserActivePlanId = null;
         window.currentUserFreeTrialClaims = {};
         window.currentStreakCount = 0;
         window.currentStreakClaimedMilestones = [];
@@ -10309,6 +10388,7 @@ window.refreshUserTier = async (uid) => {
         window.currentUserTier = expired ? 'free' : rawTier;
         window.currentUserPremiumUntil = expired ? null : (data?.premiumUntil || null);
         window.currentUserPremiumGrantedAt = expired ? null : (data?.premiumGrantedAt || null);
+        window.currentUserActivePlanId = expired ? null : (data?.activePlanId || null);
         window.currentUserFreeTrialClaims = data?.freeTrialClaims || {};
         // La racha se corta sola si pasó más de 1 día desde el último "visto" —
         // no hace falta borrarla en Firestore, con no mostrarla alcanza (el
@@ -10324,6 +10404,7 @@ window.refreshUserTier = async (uid) => {
         window.currentUserTier = 'free';
         window.currentUserPremiumUntil = null;
         window.currentUserPremiumGrantedAt = null;
+        window.currentUserActivePlanId = null;
         window.currentUserFreeTrialClaims = {};
         window.currentStreakCount = 0;
         window.currentStreakClaimedMilestones = [];

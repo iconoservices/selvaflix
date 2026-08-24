@@ -570,10 +570,12 @@
     <div id="premium-promo-banner" style="display:none; background:#111; border:1px solid var(--glass-border,rgba(255,255,255,0.1)); border-radius:14px; padding:16px 18px; box-shadow:0 10px 30px rgba(0,0,0,0.5); max-width:300px; width:88vw; font-family:'Outfit', sans-serif;">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
         <div>
-          <p style="margin:0 0 6px; color:#fff; font-weight:700; font-size:0.9rem;">🍿 Mírala sin publicidad</p>
-          <p style="margin:0 0 10px; color:rgba(255,255,255,0.75); font-size:0.78rem; line-height:1.5;">Pásate a Premium y disfrutá SelvaFlix sin anuncios ni interrupciones.</p>
-          <p style="margin:0 0 12px; color:#2ecc71; font-size:0.72rem; font-weight:700;">🎁 O probalo gratis 10hs sin costo</p>
-          <button onclick="window.openPremiumModal()" style="background:var(--primary,#FF6600); color:#000; border:none; border-radius:20px; padding:8px 16px; font-size:0.75rem; font-weight:800; cursor:pointer;">Ver planes</button>
+          <p id="premium-promo-title" style="margin:0 0 6px; color:#fff; font-weight:700; font-size:0.9rem;">🍿 Mírala sin publicidad</p>
+          <p id="premium-promo-message" style="margin:0 0 12px; color:rgba(255,255,255,0.75); font-size:0.78rem; line-height:1.5;">Pásate a Premium y disfrutá SelvaFlix sin anuncios ni interrupciones.</p>
+          <div style="display:flex; align-items:center; gap:14px;">
+            <button id="premium-promo-cta" onclick="window.openPremiumModal()" style="background:var(--primary,#FF6600); color:#000; border:none; border-radius:20px; padding:8px 16px; font-size:0.75rem; font-weight:800; cursor:pointer;">Ver planes</button>
+            <button onclick="window.dismissPremiumPromo()" style="background:none; border:none; color:#888; font-size:0.72rem; font-weight:700; cursor:pointer; padding:0;">Más tarde</button>
+          </div>
         </div>
         <button onclick="window.dismissPremiumPromo()" style="background:none; border:none; color:#888; font-size:1.3rem; cursor:pointer; line-height:1; padding:0;">&times;</button>
       </div>
@@ -1697,8 +1699,19 @@
                       </select>
                     </div>
                   </div>
+                  <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-size: 0.65rem;">Mensaje para la ventanita de bienvenida (opcional)</label>
+                    <textarea id="trial-modal-message" class="form-control" rows="2" placeholder="Ej: ¡Te ganaste 7 días gratis por ser parte de la selva hace un mes! 🐒"></textarea>
+                  </div>
+                  <div class="form-group" style="margin-bottom:0;">
+                    <label style="font-size: 0.65rem;" title="Solo la pueden reclamar cuentas con al menos esta antigüedad. 0 = cualquiera.">Antigüedad mínima de cuenta (días, 0 = cualquiera)</label>
+                    <input type="number" min="0" step="1" id="trial-modal-min-account-age" class="form-control" placeholder="0">
+                  </div>
                   <label style="display:flex; align-items:center; gap:8px; font-size:0.75rem; color:#ccc; cursor:pointer;">
                     <input type="checkbox" id="trial-modal-active" checked> Activa
+                  </label>
+                  <label style="display:flex; align-items:center; gap:8px; font-size:0.75rem; color:#ccc; cursor:pointer;" title="La destaca en la ventanita que invita a Premium al ingresar (con su propio mensaje y botón para reclamarla directo).">
+                    <input type="checkbox" id="trial-modal-featured"> ⭐ Destacar en la ventanita de bienvenida
                   </label>
                   <div style="display:flex; gap:10px; margin-top:4px;">
                     <button id="btn-trial-modal-delete" onclick="window.deleteTrialOfferFromModal()" class="btn btn-danger-outline" style="display:none; width:40px; flex-shrink:0; align-items:center; justify-content:center; border-radius:8px;" title="Eliminar"><span class="material-symbols-outlined" style="font-size: 1.1rem;">delete</span></button>
@@ -2492,12 +2505,20 @@
   <!-- Modal público de Planes Premium -->
   <div id="premium-plans-modal" class="modal-overlay" style="display:none; z-index:30500; background:rgba(0,0,0,0.9); align-items:center; justify-content:center;">
     <div style="background:#111; border-radius:16px; max-width:760px; width:94%; max-height:85vh; border:1px solid rgba(255,255,255,0.1); display:flex; flex-direction:column; overflow:hidden;">
-      <div style="display:flex; justify-content:space-between; align-items:center; padding:18px 20px; border-bottom:1px solid rgba(255,255,255,0.08); flex-shrink:0;">
-        <div>
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; padding:18px 20px; border-bottom:1px solid rgba(255,255,255,0.08); flex-shrink:0; gap:10px; flex-wrap:wrap;">
+        <div style="min-width:0;">
           <h2 id="premium-modal-title" style="color:#fff; margin:0; font-size:1.1rem;">🌴 Hazte Premium</h2>
           <p id="premium-modal-subtitle" style="color:#888; margin:4px 0 0; font-size:0.75rem;">Sin publicidad, acceso VIP y más.</p>
         </div>
-        <button onclick="window.closePremiumModal()" style="background:none; border:none; color:#888; font-size:1.4rem; cursor:pointer; line-height:1;">&times;</button>
+        <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
+          <!-- Solo aparece si hay algo en Recompensas — ver _applyPremiumModalTab()
+               en main.js. Arranca oculto para no parpadear antes de saberlo. -->
+          <div id="premium-modal-tabs" style="display:none; gap:3px; background:rgba(255,255,255,0.06); border-radius:20px; padding:3px;">
+            <button id="premium-tab-plans" onclick="window.switchPremiumModalTab('plans')" style="border:none; border-radius:16px; padding:6px 12px; font-size:0.7rem; font-weight:800; cursor:pointer; background:var(--primary,#FF6600); color:#000;">💰 Planes</button>
+            <button id="premium-tab-rewards" onclick="window.switchPremiumModalTab('rewards')" style="border:none; border-radius:16px; padding:6px 12px; font-size:0.7rem; font-weight:800; cursor:pointer; background:transparent; color:#aaa;">🎁 Recompensas</button>
+          </div>
+          <button onclick="window.closePremiumModal()" style="background:none; border:none; color:#888; font-size:1.4rem; cursor:pointer; line-height:1;">&times;</button>
+        </div>
       </div>
       <!-- Todo lo de abajo del título (recompensas + planes) scrollea junto,
            como un solo bloque — antes #premium-plans-grid tenía su PROPIO

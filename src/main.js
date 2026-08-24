@@ -3139,6 +3139,18 @@ const _trialFormatoDuracion = (hours) => {
     return `${hours} hora${hours !== 1 ? 's' : ''}`;
 };
 
+// Antigüedad mínima de cuenta (minAccountAgeDays) — permite reservar una
+// oferta para usuarios "de hace rato" (ej. regalarles una semana a los que
+// se unieron hace más de 30 días) usando users/{uid}.createdAt, que ya se
+// guarda en trackAccountLogin(). 0/undefined = cualquiera puede reclamarla.
+const _trialCumpleAntiguedad = (offer) => {
+    const minDays = offer?.minAccountAgeDays || 0;
+    if (minDays <= 0) return true;
+    if (!window.currentUserCreatedAt) return false;
+    const ageDays = (Date.now() - window.currentUserCreatedAt) / (24 * 60 * 60 * 1000);
+    return ageDays >= minDays;
+};
+
 // Mismo motivo que _plansReadyPromise: el modal puede abrirse antes de que
 // esto termine de cargar.
 let _resolveTrialOffersReady;
@@ -3227,8 +3239,12 @@ window.openTrialOfferModal = (id) => {
     setVal('trial-modal-duration-unit', dur.unit);
     setVal('trial-modal-cadence-amount', cad.amount);
     setVal('trial-modal-cadence-unit', cad.unit);
+    setVal('trial-modal-message', offer?.message || '');
+    setVal('trial-modal-min-account-age', offer?.minAccountAgeDays || 0);
     const activeCheck = document.getElementById('trial-modal-active');
     if (activeCheck) activeCheck.checked = offer ? !!offer.active : true;
+    const featuredCheck = document.getElementById('trial-modal-featured');
+    if (featuredCheck) featuredCheck.checked = offer ? !!offer.featured : false;
 
     _selectedTrialModalIcon = offer?.icon || _trialIcon(offer?.durationHours || 24);
     _renderTrialIconPicker(_selectedTrialModalIcon);
@@ -3253,6 +3269,9 @@ window.saveTrialOfferFromModal = () => {
     const cadAmount = Math.max(1, parseFloat(document.getElementById('trial-modal-cadence-amount')?.value) || 1);
     const cadUnit = document.getElementById('trial-modal-cadence-unit')?.value || 'days';
     const active = document.getElementById('trial-modal-active')?.checked ?? true;
+    const message = (document.getElementById('trial-modal-message')?.value || '').trim();
+    const minAccountAgeDays = Math.max(0, parseInt(document.getElementById('trial-modal-min-account-age')?.value, 10) || 0);
+    const featured = document.getElementById('trial-modal-featured')?.checked ?? false;
 
     if (!window.trialOffers) window.trialOffers = [];
     let offer = editingTrialOfferId ? window.trialOffers.find(o => o.id === editingTrialOfferId) : null;
@@ -3265,6 +3284,9 @@ window.saveTrialOfferFromModal = () => {
     offer.cadenceHours = _trialHoras(cadAmount, cadUnit);
     offer.active = active;
     offer.icon = _selectedTrialModalIcon;
+    offer.message = message;
+    offer.minAccountAgeDays = minAccountAgeDays;
+    offer.featured = featured;
 
     window.saveTrialOffers();
     window.renderTrialOffersList();
@@ -3292,8 +3314,8 @@ window.renderTrialOffersList = () => {
         <div onclick="window.openTrialOfferModal('${o.id}')" style="display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); cursor: pointer; transition: 0.2s;">
             <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; opacity: ${o.active ? '1' : '0.4'};">${o.icon || _trialIcon(o.durationHours || 24)}</div>
             <div style="flex: 1; min-width: 0;">
-                <p style="color: white; font-size: 0.78rem; font-weight: 800; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${_escTrialHtml(o.name)}</p>
-                <p style="color: #888; font-size: 0.65rem; margin: 2px 0 0;">Dura ${_trialFormatoDuracion(o.durationHours || 24)} · se repite cada ${_trialFormatoDuracion(o.cadenceHours || 168)}</p>
+                <p style="color: white; font-size: 0.78rem; font-weight: 800; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${_escTrialHtml(o.name)}${o.featured ? ' ⭐' : ''}</p>
+                <p style="color: #888; font-size: 0.65rem; margin: 2px 0 0;">Dura ${_trialFormatoDuracion(o.durationHours || 24)} · se repite cada ${_trialFormatoDuracion(o.cadenceHours || 168)}${o.minAccountAgeDays ? ` · cuenta con ${o.minAccountAgeDays}+ días` : ''}</p>
             </div>
             <span style="width: 8px; height: 8px; border-radius: 50%; background: ${o.active ? '#2ecc71' : '#666'}; flex-shrink: 0;" title="${o.active ? 'Activa' : 'Inactiva'}"></span>
         </div>
@@ -3430,6 +3452,10 @@ window.renderStreakMilestonesList = () => {
 window.claimFreeTrial = async (offerId) => {
     const offer = (window.trialOffers || []).find(o => o.id === offerId);
     if (!offer || !offer.active) return;
+    if (!_trialCumpleAntiguedad(offer)) {
+        if (window.showToast) window.showToast(`Esta prueba es para cuentas con ${offer.minAccountAgeDays}+ días de antigüedad.`, 'info');
+        return;
+    }
 
     const user = auth.currentUser;
     if (!user) {
@@ -3492,7 +3518,7 @@ window.renderFreeTrialBanner = (isAlreadyPaid) => {
     // gris con ✓ de la fila de arriba; repetirlo acá con un cartel "Usada"
     // solo era ruido en el modal.
     const activas = (window.trialOffers || []).filter(o => {
-        if (!o.active) return false;
+        if (!o.active || !_trialCumpleAntiguedad(o)) return false;
         const lastClaim = trialClaims[o.id];
         const cadenceMs = (o.cadenceHours || 0) * 60 * 60 * 1000;
         return !(lastClaim && (trialNow - lastClaim) < cadenceMs);
@@ -3516,17 +3542,57 @@ window.renderFreeTrialBanner = (isAlreadyPaid) => {
     if (typeof window._updateRewardsSectionVisibility === 'function') window._updateRewardsSectionVisibility();
 };
 
+// --- Toggle Planes / Recompensas del modal "Hazte Premium" ---
+// Antes Recompensas (pruebas gratis + racha + invitar amigos) y los planes
+// pagos vivían apilados en el mismo scroll — con varias recompensas activas
+// a la vez quedaba larguísimo y costaba distinguir "esto es gratis" de "esto
+// se paga". Ahora son dos pestañas junto al título; el toggle solo se muestra
+// si hay algo para ver en Recompensas (si no hay nada, va directo a Planes).
+let _premiumModalTab = 'plans';
+
+window.switchPremiumModalTab = (tab) => {
+    _premiumModalTab = tab;
+    window._applyPremiumModalTab();
+};
+
+window._applyPremiumModalTab = () => {
+    const tabsBar = document.getElementById('premium-modal-tabs');
+    const rewardsSection = document.getElementById('rewards-section');
+    const plansGrid = document.getElementById('premium-plans-grid');
+    if (!tabsBar || !rewardsSection || !plansGrid) return;
+
+    if (rewardsSection.dataset.hasContent !== '1') {
+        tabsBar.style.display = 'none';
+        rewardsSection.style.display = 'none';
+        plansGrid.style.display = 'grid';
+        return;
+    }
+
+    tabsBar.style.display = 'flex';
+    const showRewards = _premiumModalTab === 'rewards';
+    rewardsSection.style.display = showRewards ? 'block' : 'none';
+    plansGrid.style.display = showRewards ? 'none' : 'grid';
+
+    const btnPlans = document.getElementById('premium-tab-plans');
+    const btnRewards = document.getElementById('premium-tab-rewards');
+    if (btnPlans) { btnPlans.style.background = showRewards ? 'transparent' : 'var(--primary,#FF6600)'; btnPlans.style.color = showRewards ? '#aaa' : '#000'; }
+    if (btnRewards) { btnRewards.style.background = showRewards ? 'var(--primary,#FF6600)' : 'transparent'; btnRewards.style.color = showRewards ? '#000' : '#aaa'; }
+};
+
 // #free-trial-offers y #streak-detail viven juntos adentro de #rewards-section
 // ("🎁 Recompensas"), separados de los planes pagos — pero cada uno se
 // muestra u oculta de forma independiente, así que hace falta este chequeo
-// aparte para saber si el contenedor común tiene que aparecer o no.
+// aparte para saber si el contenedor común tiene que aparecer o no. Guarda
+// el resultado en dataset.hasContent en vez de tocar el display directo: el
+// display real ahora lo decide _applyPremiumModalTab() según la pestaña activa.
 window._updateRewardsSectionVisibility = () => {
     const section = document.getElementById('rewards-section');
     if (!section) return;
     const trialVisible = document.getElementById('free-trial-offers')?.style.display !== 'none';
     const streakVisible = document.getElementById('streak-detail')?.style.display !== 'none';
     const referralVisible = document.getElementById('referral-card')?.style.display !== 'none';
-    section.style.display = (trialVisible || streakVisible || referralVisible) ? 'block' : 'none';
+    section.dataset.hasContent = (trialVisible || streakVisible || referralVisible) ? '1' : '0';
+    window._applyPremiumModalTab();
 };
 
 // El plan Gratuito antes era una tarjeta fija en el código (no se veía ni
@@ -3754,6 +3820,10 @@ window.openPremiumModal = (movie) => {
     }
     const modal = document.getElementById('premium-plans-modal');
     if (modal) modal.style.display = 'flex';
+
+    // Siempre arranca en "Planes" — si quedó en "Recompensas" de una
+    // apertura anterior, confundía porque no era obvio que había otra pestaña.
+    _premiumModalTab = 'plans';
 
     // Si loadPlansConfig/loadTrialOffers todavía no terminaron (típico si se
     // abre esto apenas carga la página — el botón flotante nuevo lo hace muy
@@ -4156,9 +4226,29 @@ window.requestPlanInterest = async (planId) => {
     }
 };
 
+// De todas las ofertas de prueba gratis marcadas "featured" (destacar en la
+// ventanita de bienvenida), elige la primera que el usuario actual puede
+// reclamar: activa, cumple la antigüedad de cuenta pedida y no está en
+// cooldown. Se usa para personalizar el mensaje de maybeShowPremiumPromo.
+window._pickFeaturedTrialOffer = () => {
+    const userTier = window.currentUserTier || 'free';
+    if (userTier === 'premium' || userTier === 'admin') return null;
+    const claims = window.currentUserFreeTrialClaims || {};
+    const now = Date.now();
+    return (window.trialOffers || []).find(o => {
+        if (!o.active || !o.featured || !_trialCumpleAntiguedad(o)) return false;
+        const lastClaim = claims[o.id];
+        const cadenceMs = (o.cadenceHours || 0) * 60 * 60 * 1000;
+        return !(lastClaim && (now - lastClaim) < cadenceMs);
+    }) || null;
+};
+
 // Ventanita "invitación a Premium" para usuarios free — aparece sola una vez
 // por día como máximo (respetando el dismiss) y solo si hay algún plan activo.
-window.maybeShowPremiumPromo = () => {
+// Si hay una oferta de prueba gratis destacada y el usuario califica (ver
+// _pickFeaturedTrialOffer), usa el mensaje de esa oferta y ofrece reclamarla
+// directo desde acá en vez del texto genérico de "Ver planes".
+window.maybeShowPremiumPromo = async () => {
     try {
         const banner = document.getElementById('premium-promo-banner');
         if (!banner) return;
@@ -4173,6 +4263,26 @@ window.maybeShowPremiumPromo = () => {
         const dismissedAt = Number(localStorage.getItem('selva_premium_promo_dismissed') || 0);
         const oneDay = 24 * 60 * 60 * 1000;
         if (Date.now() - dismissedAt < oneDay) return;
+
+        // Puede llamarse apenas cargan los planes, antes de que terminen de
+        // llegar las pruebas gratis — sin esto, a veces mostraría el texto
+        // genérico aunque hubiera una oferta destacada esperando.
+        if (window._trialOffersReadyPromise) await window._trialOffersReadyPromise;
+
+        const titleEl = document.getElementById('premium-promo-title');
+        const msgEl = document.getElementById('premium-promo-message');
+        const ctaBtn = document.getElementById('premium-promo-cta');
+        const featured = window._pickFeaturedTrialOffer();
+
+        if (featured) {
+            if (titleEl) titleEl.textContent = `${featured.icon || '🎁'} ${featured.name}`;
+            if (msgEl) msgEl.textContent = featured.message || `Te regalamos ${_trialFormatoDuracion(featured.durationHours || 24)} de Premium.`;
+            if (ctaBtn) { ctaBtn.textContent = 'Probar 🎁'; ctaBtn.onclick = () => window.claimFreeTrial(featured.id); }
+        } else {
+            if (titleEl) titleEl.textContent = '🍿 Mírala sin publicidad';
+            if (msgEl) msgEl.textContent = 'Pásate a Premium y disfrutá SelvaFlix sin anuncios ni interrupciones.';
+            if (ctaBtn) { ctaBtn.textContent = 'Ver planes'; ctaBtn.onclick = () => window.openPremiumModal(); }
+        }
 
         banner.style.display = 'block';
     } catch (e) {
@@ -10376,6 +10486,7 @@ window.refreshUserTier = async (uid) => {
         window.currentUserTier = 'free'; window.currentUserPremiumUntil = null; window.currentUserPremiumGrantedAt = null;
         window.currentUserActivePlanId = null;
         window.currentUserFreeTrialClaims = {};
+        window.currentUserCreatedAt = null;
         window.currentStreakCount = 0;
         window.currentStreakClaimedMilestones = [];
         return window.currentUserTier;
@@ -10390,6 +10501,9 @@ window.refreshUserTier = async (uid) => {
         window.currentUserPremiumGrantedAt = expired ? null : (data?.premiumGrantedAt || null);
         window.currentUserActivePlanId = expired ? null : (data?.activePlanId || null);
         window.currentUserFreeTrialClaims = data?.freeTrialClaims || {};
+        // Antigüedad de cuenta, para las ofertas con minAccountAgeDays (regalar
+        // días solo a usuarios "de hace rato" y para la ventanita de bienvenida).
+        window.currentUserCreatedAt = data?.createdAt || null;
         // La racha se corta sola si pasó más de 1 día desde el último "visto" —
         // no hace falta borrarla en Firestore, con no mostrarla alcanza (el
         // próximo registerStreakProgress la resetea a mano al detectar el salto).
@@ -10406,6 +10520,7 @@ window.refreshUserTier = async (uid) => {
         window.currentUserPremiumGrantedAt = null;
         window.currentUserActivePlanId = null;
         window.currentUserFreeTrialClaims = {};
+        window.currentUserCreatedAt = null;
         window.currentStreakCount = 0;
         window.currentStreakClaimedMilestones = [];
     }

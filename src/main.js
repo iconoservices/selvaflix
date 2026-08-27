@@ -1318,14 +1318,19 @@ function handleRouting() {
     showView('admin-view');
     renderInventory();
     // loadMetrics vive en el módulo de Analíticas, que se baja recién con
-    // cargarAnaliticas() (import() perezoso) — antes esto llamaba a
-    // window.loadMetrics() directo, y si el admin entraba a #admin sin haber
-    // abierto nunca la pestaña Analíticas en esa sesión, tiraba "loadMetrics
-    // is not a function" y cortaba el resto de esta rama (badge de mensajes,
-    // conteo de Premium, ocultar el contenedor de anuncios).
-    cargarAnaliticas().then(() => window.loadMetrics()).catch(e => {
-        console.error('No se pudo cargar el módulo de Analíticas:', e);
-    });
+    // cargarAnaliticas() (import() perezoso). Hace consultas de rango PESADAS
+    // sobre Firestore (~30s incluso con la conexión caliente) y solo alimenta
+    // 2 widgets del Resumen (Más Visto / Actividad Reciente) — así que se
+    // dispara en segundo plano, cuando el hilo está libre, sin bloquear el
+    // resto del panel (catálogo, mensajes, Premium, anuncios).
+    const _cargarMetricasDiferido = () => cargarAnaliticas()
+        .then(() => window.loadMetrics())
+        .catch(e => console.error('No se pudo cargar el módulo de Analíticas:', e));
+    if ('requestIdleCallback' in window) {
+        requestIdleCallback(_cargarMetricasDiferido, { timeout: 4000 });
+    } else {
+        setTimeout(_cargarMetricasDiferido, 800);
+    }
     if (typeof window.loadAdminMessages === 'function') window.loadAdminMessages(); // refresca el punto de "sin leer" del sidebar
     if (typeof window.loadPremiumCount === 'function') window.loadPremiumCount();
 
@@ -1933,16 +1938,28 @@ function renderInventory() {
   _allInventoryItems = [...movieDatabase.trending].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   _inventoryPage = 1;
 
-  // Cargar reportes primero para que el contador y filtro funcionen
+  // La tabla y los contadores salen YA de lo que hay en memoria: no dependen
+  // de Firestore. Antes esto esperaba a loadReports() antes de pintar nada, y
+  // si esa consulta se colgaba (handshake frío de Firestore, red mala) el
+  // catálogo quedaba en blanco 20-40s. Los reportes solo alimentan el contador
+  // "en curación" y habilitan el filtro "reportados", así que van aparte.
+  _updateDetailedStats(_allInventoryItems);
+
+  // ✅ FIX NAVEGACIÓN: En lugar de renderizar el default 'all', usamos lo que esté en los selectores
+  // para que al volver del player se mantengan los filtros aplicados.
+  if (window.filterInventoryByCategory) {
+      window.filterInventoryByCategory();
+  } else {
+      _renderInventoryRows(_allInventoryItems.filter(m => m.status !== 'review' && m.status !== 'waiting'));
+  }
+
   window.loadReports().then(() => {
-    _updateDetailedStats(_allInventoryItems);
-    
-    // ✅ FIX NAVEGACIÓN: En lugar de renderizar el default 'all', usamos lo que esté en los selectores
-    // para que al volver del player se mantengan los filtros aplicados.
-    if (window.filterInventoryByCategory) {
-        window.filterInventoryByCategory();
-    } else {
-        _renderInventoryRows(_allInventoryItems.filter(m => m.status !== 'review' && m.status !== 'waiting'));
+    // loadReports() ya llama a _updateDetailedStats() cuando estamos en admin;
+    // solo hace falta re-filtrar si el admin está mirando justo "reportados"
+    // (los IDs recién ahora están disponibles).
+    const cat = document.getElementById('inventory-filter');
+    if (cat && cat.value === 'reported' && window.filterInventoryByCategory) {
+      window.filterInventoryByCategory();
     }
   });
 }

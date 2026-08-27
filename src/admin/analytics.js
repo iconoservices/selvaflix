@@ -15,10 +15,10 @@
  * Chart.js es global (viene por <script> en index.html).
  */
 
-let db, collection, query, where, orderBy, getDocs;
+let db, collection, query, where, orderBy, getDocs, supabase;
 
 export function init(deps) {
-  ({ db, collection, query, where, orderBy, getDocs } = deps);
+  ({ db, collection, query, where, orderBy, getDocs, supabase } = deps);
 }
 
 // Estado propio de Analíticas: vivía suelto en main.js pero solo lo usa esto.
@@ -139,19 +139,21 @@ window.renderDayChart = () => {
 };
 
 // 👥 Usuarios Únicos por Día (DAU) — mismos buckets que "Actividad por Día"
-// (día/semana/mes según el rango, ver _computeTimeBuckets) pero contando
-// visitorId DISTINTOS por bucket, no eventos. Si un bucket junta varios días
-// (semana/mes) hay que UNIR los sets, no sumar sus tamaños: alguien que
-// visitó el lunes y el martes de la misma semana es 1 usuario único esa
-// semana, no 2 — sumar los tamaños lo contaría dos veces.
+// (día/semana/mes según el rango, ver _computeTimeBuckets). byDay[k].visitors
+// es el conteo de visitantes DISTINTOS de ese día, que ya calculó Postgres
+// (count(distinct visitor_id) en admin_metrics). Para buckets de un solo día
+// (rangos ≤ 31 días) es exacto. Para buckets semana/mes se suman los uniques
+// diarios: alguien que entró lunes y martes de la misma semana cuenta 2 en vez
+// de 1 — es una aproximación por arriba, aceptable para este gráfico (antes se
+// unían los Sets de IDs, pero con ~200k filas/mes ya no se bajan al navegador).
 window.renderDAUChart = (timeBuckets, byDay) => {
   const el = document.getElementById('metrics-dau-chart');
   if (!el) return;
 
   const buckets = timeBuckets.buckets.map(b => {
-    const union = new Set();
-    b.keys.forEach(k => { const v = byDay[k]; if (v) v.visitorIds.forEach(id => union.add(id)); });
-    return { label: b.label, dau: union.size };
+    let dau = 0;
+    b.keys.forEach(k => { const v = byDay[k]; if (v) dau += (v.visitors || 0); });
+    return { label: b.label, dau };
   });
 
   if (buckets.length === 0 || buckets.every(b => b.dau === 0)) {
@@ -359,15 +361,14 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
   const totalPlays = document.getElementById('stat-total-plays');
   const totalUniqueEl = document.getElementById('stat-unique-visitors');
   const growthEl = document.getElementById('stat-growth');
-  const growthLabel = document.getElementById('stat-growth-label');
   const peakEl = document.getElementById('stat-peak-hour');
+  const returningEl = document.getElementById('stat-returning-visitors');
+  const returningPctEl = document.getElementById('stat-returning-pct');
 
   if (log) log.innerText = "Sincronizando con la selva... 📡";
   if (logDash) logDash.innerText = "Sincronizando con la selva... 📡";
 
   try {
-    // await window.loadReports();
-    
     // Si no hay fechas, usar mes actual por defecto
     if (!startDateStr || !endDateStr) {
         const now = new Date();
@@ -381,130 +382,112 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
     }
 
     const start = new Date(startDateStr);
-    start.setHours(0,0,0,0);
+    start.setHours(0, 0, 0, 0);
     const end = new Date(endDateStr);
-    end.setHours(23,59,59,999);
+    end.setHours(23, 59, 59, 999);
 
     const rangeDuration = end.getTime() - start.getTime();
     const prevStart = new Date(start.getTime() - rangeDuration - 1);
     const prevEnd = new Date(start.getTime() - 1);
 
-    const metricsQuery = query(
-      collection(db, "user_activity"),
-      where("timestamp", ">=", start.getTime()),
-      where("timestamp", "<=", end.getTime()),
-      orderBy("timestamp", "desc")
-    );
-    const prevQuery = query(
-      collection(db, "user_activity"),
-      where("timestamp", ">=", prevStart.getTime()),
-      where("timestamp", "<=", prevEnd.getTime())
-    );
-    const geoQuery = query(
-      collection(db, "analytics_geo"),
-      where("ts", ">=", start.getTime()),
-      where("ts", "<=", end.getTime())
-    );
-
-    // Estas 3 consultas de Firestore no dependen entre sí, así que van en paralelo
-    // (Promise.all) en vez de una atrás de la otra — antes cada .then() esperaba
-    // a que termine la anterior y el panel tardaba la SUMA de las 3, no el máximo.
-    // El conteo de tokens push (colección "users" completa) NO depende del rango
-    // de fechas, así que se pide aparte y una sola vez por apertura de pestaña
-    // (ver window._loadFcmSubsCount) en vez de re-descargar TODOS los usuarios
-    // cada vez que cambiás de Hoy a 7 días a Este mes, etc.
-    const [snap, prevSnap, geoSnap] = await Promise.all([
-      getDocs(metricsQuery),
-      getDocs(prevQuery).catch(e => { console.error("Error calculando crecimiento:", e); return null; }),
-      getDocs(geoQuery).catch(e => { console.warn("Error cargando analíticas geo:", e); return null; }),
+    // 📦 AGREGACIÓN EN EL SERVIDOR (Postgres / Supabase).
+    // user_activity y analytics_geo se migraron a Supabase el 2026-08-19
+    // (commit b0c42cf) pero ESTA función quedó sin migrar y siguió leyendo la
+    // colección de Firestore, que ya nadie escribe: los números estaban
+    // congelados en esa fecha. Y no alcanza con leerlas de Supabase "crudo":
+    // son ~200k filas/mes y PostgREST corta la respuesta en 1000 filas. La
+    // función SQL admin_metrics() agrupa todo del lado de la base y devuelve un
+    // JSON chico. Correr una sola vez el SQL de sql/admin_metrics.sql en el
+    // editor SQL de Supabase.
+    const [rpcRes, logRes, geoTotalRes] = await Promise.all([
+      supabase.rpc('admin_metrics', {
+        p_start: start.toISOString(),
+        p_end: end.toISOString(),
+        p_prev_start: prevStart.toISOString(),
+        p_prev_end: prevEnd.toISOString(),
+        p_tz_offset_min: -new Date().getTimezoneOffset(), // hora local del admin p/ el pico
+      }),
+      // Log reciente: con 30 filas alcanza y entra en el tope de 1000 de PostgREST.
+      supabase.from('user_activity')
+        .select('ts, action, details, platform')
+        .neq('action', 'manual_seed')
+        .gte('ts', start.toISOString()).lte('ts', end.toISOString())
+        .order('ts', { ascending: false })
+        .limit(30),
+      // Denominador para los % del desglose geográfico (lo cuenta Postgres).
+      supabase.from('analytics_geo')
+        .select('ts', { count: 'exact', head: true })
+        .eq('type', 'visit')
+        .gte('ts', start.toISOString()).lte('ts', end.toISOString()),
     ]);
 
-    const rawData = [];
-    snap.forEach(doc => rawData.push(doc.data()));
-    // 🚜 "manual_seed" es al admin agregando películas (Descubrir/Carga Masiva),
-    // no una visita real. Sin este filtro, cada carga masiva infla "Visitas".
-    const data = rawData.filter(d => d.action !== 'manual_seed');
-    window._lastMetricsData = data; // Disponible para el modal de detalle de visitantes
+    if (rpcRes.error) throw rpcRes.error;
+    const M = rpcRes.data || {};
 
-    if (data.length === 0) {
-      if (log) log.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);"><p>Sin actividad registrada en este periodo.</p></div>';
-      if (logDash) logDash.innerHTML = '<div style="text-align:center; padding:10px; color:var(--admin-text-muted);">Sin actividad registrada.</div>';
-      if (popularListDash) popularListDash.innerHTML = '<tr><td colspan="2" style="text-align:center; padding: 15px;">Sin datos.</td></tr>';
-      [totalVisits, totalPlays, totalUniqueEl, growthEl, peakEl].forEach(el => { if(el) el.innerText = '0'; });
-      return;
-    }
-
-    // 👥 Stats Base
-    // "Visitas" = solo page_view (una carga de página/navegación real).
-    // "Reproducciones" = solo play_start (la reproducción efectivamente arrancó).
-    // Antes se usaba data.length (TODOS los eventos, incluido watch_attempt Y
-    // play_start del mismo click) y por eso el número salía disparado: ver una
-    // sola película ya sumaba 2-3 "visitas".
-    const uniqueVisitors = new Set(data.filter(d => d.visitorId).map(d => d.visitorId));
-    const pageViews = data.filter(d => d.action === 'page_view').length;
-    const plays = data.filter(d => d.action === 'play_start').length;
+    // ── KPIs ──────────────────────────────────────────────────────────────
+    const pageViews = M.pageViews || 0;
+    const plays = M.plays || 0;
+    const uniqueCount = M.uniqueVisitors || 0;
 
     if (totalVisits) totalVisits.innerText = pageViews;
     if (totalPlays) totalPlays.innerText = plays;
-    if (totalUniqueEl) totalUniqueEl.innerText = uniqueVisitors.size;
+    if (totalUniqueEl) totalUniqueEl.innerText = uniqueCount;
 
-    // 🔁 RECURRENTES — como la "tasa de clientes que vuelven" de un negocio,
-    // pero medida con lo que ya tenemos: de los visitantes del período, qué
-    // % apareció en más de un día distinto (no un solo visitorId con varios
-    // eventos el mismo día, que no cuenta como "volvió"). visitorId es un ID
-    // fijo por dispositivo en localStorage (ver getVisitorId en main.js), así
-    // que sobrevive entre visitas del mismo aparato sin pedir login.
-    const returningEl = document.getElementById('stat-returning-visitors');
-    const returningPctEl = document.getElementById('stat-returning-pct');
-    if (returningEl || returningPctEl) {
-      const diasPorVisitante = {};
-      data.forEach(d => {
-        if (!d.visitorId) return;
-        const day = d.date || new Date(d.timestamp).toISOString().split('T')[0];
-        if (!diasPorVisitante[d.visitorId]) diasPorVisitante[d.visitorId] = new Set();
-        diasPorVisitante[d.visitorId].add(day);
-      });
-      const recurrentes = Object.values(diasPorVisitante).filter(dias => dias.size > 1).length;
-      const pct = uniqueVisitors.size > 0 ? Math.round((recurrentes / uniqueVisitors.size) * 100) : 0;
-      if (returningEl) returningEl.innerText = recurrentes;
-      if (returningPctEl) returningPctEl.innerText = `${pct}%`;
+    // Breakdown por visitante para el modal "Detalle de visitantes"
+    // (lo lee renderVisitorDetailTable en main.js). Top 500 por última actividad.
+    window._lastVisitorBreakdown = Array.isArray(M.visitors) ? M.visitors : [];
+    window._lastMetricsData = window._lastVisitorBreakdown; // compat con lectores viejos
+
+    if ((pageViews + plays + uniqueCount) === 0) {
+      if (log) log.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);"><p>Sin actividad registrada en este periodo.</p></div>';
+      if (logDash) logDash.innerHTML = '<div style="text-align:center; padding:10px; color:var(--admin-text-muted);">Sin actividad registrada.</div>';
+      if (popularListDash) popularListDash.innerHTML = '<tr><td colspan="2" style="text-align:center; padding: 15px;">Sin datos.</td></tr>';
+      if (popularList) popularList.innerHTML = '<tr><td colspan="2" style="text-align:center; padding: 20px;">No hay datos.</td></tr>';
+      [growthEl, peakEl].forEach(el => { if (el) el.innerText = '0'; });
+      if (returningEl) returningEl.innerText = '0';
+      if (returningPctEl) returningPctEl.innerText = '0%';
+      return;
     }
 
-    // 🚀 CRECIMIENTO (Comparativa vs periodo anterior similar, sobre Visitas reales)
-    if (growthEl && prevSnap) {
-        const prevPageViews = prevSnap.docs.filter(d => d.data().action === 'page_view').length;
-        if (prevPageViews === 0) {
-            growthEl.innerText = 'New';
-            growthEl.style.color = '#2ECC71';
-        } else {
-            const diff = ((pageViews - prevPageViews) / prevPageViews) * 100;
-            growthEl.innerText = `${diff > 0 ? '+' : ''}${Math.round(diff)}%`;
-            growthEl.style.color = diff >= 0 ? '#2ECC71' : '#E74C3C';
-        }
+    // ── Recurrentes ───────────────────────────────────────────────────────
+    // % de visitantes del período que aparecieron en más de un día distinto.
+    const recurrentes = M.returningVisitors || 0;
+    if (returningEl) returningEl.innerText = recurrentes;
+    if (returningPctEl) returningPctEl.innerText = `${uniqueCount > 0 ? Math.round((recurrentes / uniqueCount) * 100) : 0}%`;
+
+    // ── Crecimiento vs período anterior similar (sobre page_views) ─────────
+    const prevPageViews = (M.prevPageViews == null) ? null : (M.prevPageViews || 0);
+    if (growthEl && prevPageViews !== null) {
+      if (prevPageViews === 0) {
+        growthEl.innerText = 'New';
+        growthEl.style.color = '#2ECC71';
+      } else {
+        const diff = ((pageViews - prevPageViews) / prevPageViews) * 100;
+        growthEl.innerText = `${diff > 0 ? '+' : ''}${Math.round(diff)}%`;
+        growthEl.style.color = diff >= 0 ? '#2ECC71' : '#E74C3C';
+      }
     }
 
-    // ⚡ PICO MÁXIMO (Hora con más tráfico)
-    const hours = {};
-    data.forEach(d => {
-        const hour = new Date(d.timestamp).getHours();
-        hours[hour] = (hours[hour] || 0) + 1;
-    });
-    const peakHour = Object.entries(hours).sort((a,b) => b[1] - a[1])[0];
-    if (peakEl && peakHour) {
-        peakEl.innerText = `${peakHour[0]}:00 hs`;
-    }
-
-    // 📅 Actividad por Día/Semana/Mes (agrupa según el largo del rango para que
-    // "Este año" no intente pintar 365 barras/puntos ilegibles) + modo línea.
+    // ── byDay / byHour (ya vienen agrupados por Postgres) ─────────────────
+    // M.byDay: [{ day:'YYYY-MM-DD', total, plays, visitors }]
     const byDay = {};
-    data.forEach(d => {
-      const day = d.date || new Date(d.timestamp).toISOString().split('T')[0];
-      if (!byDay[day]) byDay[day] = { total: 0, plays: 0, visitorIds: new Set() };
-      if (d.action === 'page_view') byDay[day].total++;
-      if (d.action === 'play_start') byDay[day].plays++;
-      if (d.visitorId) byDay[day].visitorIds.add(d.visitorId);
+    (M.byDay || []).forEach(r => {
+      byDay[r.day] = { total: r.total || 0, plays: r.plays || 0, visitors: r.visitors || 0 };
     });
 
+    // M.byHour: [{ hour:0..23, total }]
+    const byHour = new Array(24).fill(0);
+    (M.byHour || []).forEach(r => {
+      const h = Number(r.hour);
+      if (h >= 0 && h < 24) byHour[h] = r.total || 0;
+    });
+
+    // ⚡ Pico máximo (hora con más tráfico)
+    let peakH = 0;
+    for (let h = 1; h < 24; h++) if (byHour[h] > byHour[peakH]) peakH = h;
+    if (peakEl && byHour[peakH] > 0) peakEl.innerText = `${peakH}:00 hs`;
+
+    // 📅 Actividad por Día/Semana/Mes (buckets según el largo del rango).
     const timeBuckets = window._computeTimeBuckets(start, end);
     window.renderDAUChart(timeBuckets, byDay);
     _dayChartBuckets = timeBuckets.buckets.map(b => {
@@ -514,23 +497,16 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
     });
     window.renderDayChart();
 
-    // Mapa fecha -> índice de bucket, usado abajo para el desglose por título
-    // en la tabla de Popularidad (saber no solo el total sino CUÁNDO se dio).
+    // Mapa fecha -> índice de bucket, para el desglose por título en Popularidad.
     const bucketIndexByDay = {};
     timeBuckets.buckets.forEach((b, i) => b.keys.forEach(k => { bucketIndexByDay[k] = i; }));
 
     // 🕒 Actividad por Hora (Peak Map)
     const hourChart = document.getElementById('metrics-hour-chart');
     if (hourChart) {
-      const byHour = new Array(24).fill(0).map(() => ({ total: 0 }));
-      data.forEach(d => {
-        const h = new Date(d.timestamp).getHours();
-        byHour[h].total++;
-      });
-      const maxH = Math.max(...byHour.map(v => v.total), 1);
-
-      hourChart.innerHTML = byHour.map((info, h) => {
-        const height = (info.total / maxH) * 100;
+      const maxH = Math.max(...byHour, 1);
+      hourChart.innerHTML = byHour.map((total, h) => {
+        const height = (total / maxH) * 100;
         const label = h.toString().padStart(2, '0');
         return `
           <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; height:100%;">
@@ -543,7 +519,7 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
       }).join('');
     }
 
-    // Log Reciente
+    // 🕒 Log Reciente (30 filas traídas aparte de la agregación)
     const buildLogRow = (d) => {
       const date = new Date(d.timestamp).toLocaleTimeString();
       let color = "#2ECC71"; // green
@@ -554,30 +530,30 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
 
       return `<div style="margin-bottom: 5px; border-bottom: 1px solid #222; padding-bottom: 2px;">
                 <span style="color: #666;">[${date}]</span>
-                <span style="color: ${color}; font-weight: bold;">${emoji} ${d.action.toUpperCase()}</span>:
+                <span style="color: ${color}; font-weight: bold;">${emoji} ${(d.action || '').toUpperCase()}</span>:
                 <span style="color: #eee;">${d.details?.title || d.details?.page || 'N/A'}</span>
                 <span style="font-size: 0.6rem; color: #444;"> (${d.platform})</span>
             </div>`;
     };
+    const recentRows = (logRes.data || []).map(r => ({
+      timestamp: r.ts ? Date.parse(r.ts) : 0,
+      action: r.action || 'unknown',
+      details: r.details || {},
+      platform: r.platform || 'Desconocido',
+    }));
+    if (log) log.innerHTML = recentRows.slice(0, 30).map(buildLogRow).join('') || '<div style="text-align:center; padding:20px; color:var(--text-muted);">Sin eventos recientes.</div>';
+    if (logDash) logDash.innerHTML = recentRows.slice(0, 8).map(buildLogRow).join('') || '<div style="text-align:center; padding:10px; color:var(--admin-text-muted);">Sin eventos recientes.</div>';
 
-    if (log) log.innerHTML = data.slice(0, 30).map(buildLogRow).join('');
-    if (logDash) logDash.innerHTML = data.slice(0, 8).map(buildLogRow).join('');
-
-    // Popularidad (Conteo por título + desglose por día/semana/mes del rango
-    // elegido, para saber no solo el total sino CUÁNDO se dieron esas reproducciones)
+    // 🏆 Popularidad — M.popular: [{ title, count, lastMs, byDay:{'YYYY-MM-DD':n} }]
     const counts = {};
-    data.forEach(d => {
-      if (d.action === 'play_start' && d.details?.title) {
-        const t = d.details.title;
-        if (!counts[t]) counts[t] = { count: 0, last: 0, byBucket: new Array(_dayChartBuckets.length).fill(0) };
-        counts[t].count++;
-        if (d.timestamp > counts[t].last) counts[t].last = d.timestamp;
-        const dayKey = d.date || new Date(d.timestamp).toISOString().split('T')[0];
-        const bIdx = bucketIndexByDay[dayKey];
-        if (bIdx !== undefined && counts[t].byBucket[bIdx] !== undefined) counts[t].byBucket[bIdx]++;
-      }
+    (M.popular || []).forEach(p => {
+      const byBucket = new Array(_dayChartBuckets.length).fill(0);
+      Object.entries(p.byDay || {}).forEach(([day, n]) => {
+        const bIdx = bucketIndexByDay[day];
+        if (bIdx !== undefined && byBucket[bIdx] !== undefined) byBucket[bIdx] += Number(n) || 0;
+      });
+      counts[p.title] = { count: p.count || 0, last: p.lastMs || 0, byBucket };
     });
-
     const sortedPopularAll = Object.entries(counts).sort((a, b) => b[1].count - a[1].count);
 
     // Fila simple sin desglose, para el widget compacto del Panel (Dashboard)
@@ -608,14 +584,15 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
         `;
     };
 
-    popularList.innerHTML = sortedPopularAll.slice(0, 10).map(buildPopularRowDetailed).join('') || '<tr><td colspan="2" style="text-align:center; padding: 20px;">No hay datos.</td></tr>';
+    if (popularList) popularList.innerHTML = sortedPopularAll.slice(0, 10).map(buildPopularRowDetailed).join('') || '<tr><td colspan="2" style="text-align:center; padding: 20px;">No hay datos.</td></tr>';
     if (popularListDash) popularListDash.innerHTML = sortedPopularAll.slice(0, 5).map(buildPopularRowSimple).join('') || '<tr><td colspan="2" style="text-align:center; padding: 15px;">Sin datos.</td></tr>';
 
-    // Dispositivos (Chart simple)
+    // 📱 Dispositivos — M.devices: [{ platform, total }]
     if (deviceChart) {
       const platforms = {};
-      data.forEach(d => { platforms[d.platform] = (platforms[d.platform] || 0) + 1; });
-      const max = Math.max(...Object.values(platforms));
+      (M.devices || []).forEach(r => { platforms[r.platform || 'Desconocido'] = r.total || 0; });
+      const vals = Object.values(platforms);
+      const max = vals.length ? Math.max(...vals) : 1;
 
       deviceChart.innerHTML = Object.entries(platforms).map(([plat, count]) => {
         const width = (count / max) * 100;
@@ -633,55 +610,47 @@ window.loadMetrics = async (startDateStr, endDateStr) => {
       }).join('');
     }
 
-    // 🌍 ANALÍTICAS GEOGRÁFICAS (Fase 14)
-    if (geoSnap) {
-        const geoData = [];
-        geoSnap.forEach(d => geoData.push(d.data()));
+    // 🌍 ANALÍTICAS GEOGRÁFICAS — M.geoCountries / M.geoCities: { nombre: conteo }
+    const geoCountries = M.geoCountries || {};
+    const geoCities = M.geoCities || {};
+    const geoTotal = geoTotalRes.error ? 0 : (geoTotalRes.count || 0);
+    if (Object.keys(geoCountries).length || Object.keys(geoCities).length) {
+      window.renderGeoChart('metrics-geo-countries', 'Países', geoCountries, 'met_countries');
+      window.renderGeoChart('metrics-geo-cities', 'Ciudades', geoCities, 'met_cities');
 
-        const geoStats = { countries: {}, cities: {} };
-        geoData.forEach(d => {
-            if (d.type === 'visit') {
-                geoStats.countries[d.country] = (geoStats.countries[d.country] || 0) + 1;
-                geoStats.cities[d.city] = (geoStats.cities[d.city] || 0) + 1;
-            }
-        });
-
-        // Gráficas en pestaña Métricas
-        window.renderGeoChart('metrics-geo-countries', 'Países', geoStats.countries, 'met_countries');
-        window.renderGeoChart('metrics-geo-cities', 'Ciudades', geoStats.cities, 'met_cities');
-
-        // Tabla de Desglose en Métricas
-        const geoTableBody = document.getElementById('metrics-geo-table-body');
-        if (geoTableBody) {
-            const topCons = Object.entries(geoStats.countries).sort((a,b) => b[1] - a[1]).slice(0, 5);
-            geoTableBody.innerHTML = topCons.map(([name, count]) => `
+      const geoTableBody = document.getElementById('metrics-geo-table-body');
+      if (geoTableBody) {
+        const topCons = Object.entries(geoCountries).sort((a, b) => b[1] - a[1]).slice(0, 5);
+        const denom = Math.max(geoTotal, ...Object.values(geoCountries), 1);
+        geoTableBody.innerHTML = topCons.map(([name, count]) => `
                 <tr>
                     <td style="font-weight: bold; color: white;">${name}</td>
                     <td style="text-align: center;">${count}</td>
                     <td style="text-align: center; color: var(--primary);">
-                        ${((count / Math.max(geoData.length, 1)) * 100).toFixed(1)}%
+                        ${((count / denom) * 100).toFixed(1)}%
                     </td>
                 </tr>
             `).join('') || '<tr><td colspan="3" style="text-align:center;">Sin datos geográficos.</td></tr>';
-        }
+      }
     }
 
-    // La sección de "Links Reportados" ha sido removida del panel de Métricas
-    // ya que esta información se gestiona desde los filtros del "Inventario".
   } catch (err) {
     console.error("Error loading metrics:", err);
+    const faltaRPC = err && (err.code === 'PGRST202' || err.code === '42883' || /admin_metrics/.test(err.message || ''));
+    const msg = faltaRPC
+      ? 'Falta la función <code>admin_metrics</code> en Supabase. Corré una vez el SQL de <b>sql/admin_metrics.sql</b> en el editor SQL de Supabase y reintentá.'
+      : `Error: ${err.message || err}`;
     if (log) {
       log.innerHTML = `
             <div style="text-align:center; padding: 20px;">
-                <p style="color: #E74C3C; font-weight:bold;">¡Fallo la conexión con las métricas! 🐒</p>
-                <p style="font-size:0.7rem; color:var(--text-muted); margin-top:5px;">Error: ${err.message}</p>
-                <p style="font-size:0.65rem; color:#666; margin-top:10px;">💡 Si es la primera vez, necesitas crear un índice en Firebase Console:<br>Colección "user_activity" → campo "timestamp" descendente.</p>
+                <p style="color: #E74C3C; font-weight:bold;">¡No se pudieron cargar las métricas! 🐒</p>
+                <p style="font-size:0.7rem; color:var(--text-muted); margin-top:5px;">${msg}</p>
                 <button class="btn btn-secondary" style="margin-top:15px; padding:6px 15px; font-size:0.7rem;" onclick="window.loadMetrics()">Reintentar 🔄</button>
             </div>
         `;
     }
     if (logDash) {
-      logDash.innerHTML = `<div style="text-align:center; padding:10px; color:#E74C3C; font-size:0.7rem;">Fallo la conexión con las métricas 🐒</div>`;
+      logDash.innerHTML = `<div style="text-align:center; padding:10px; color:#E74C3C; font-size:0.7rem;">No se pudieron cargar las métricas 🐒</div>`;
     }
   }
 };

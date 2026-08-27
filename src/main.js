@@ -2207,7 +2207,7 @@ let _analiticasPromesa = null;
 const cargarAnaliticas = () => {
   if (!_analiticasPromesa) {
     _analiticasPromesa = import('./admin/analytics.js').then(m => {
-      m.init({ db, collection, query, where, orderBy, getDocs });
+      m.init({ db, collection, query, where, orderBy, getDocs, supabase });
       return m;
     }).catch(e => {
       _analiticasPromesa = null; // que un fallo de red no lo deje roto para siempre
@@ -5732,37 +5732,27 @@ window.renderVisitorDetailTable = () => {
   const countEl = document.getElementById('visitor-detail-count');
   if (!tbody) return;
 
-  if (!window._lastMetricsData || window._lastMetricsData.length === 0) {
+  // Ya viene agrupado por visitante desde Postgres (admin_metrics -> 'visitors',
+  // top 500 por última actividad). Antes esto agrupaba a mano un array de eventos
+  // crudos (window._lastMetricsData), que ya no se baja al navegador.
+  const rows = Array.isArray(window._lastVisitorBreakdown) ? window._lastVisitorBreakdown : [];
+
+  if (rows.length === 0) {
     tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px;">No hay actividad cargada. Cierra este panel y aplica un rango de fechas en Analíticas primero.</td></tr>`;
     if (countEl) countEl.innerText = '';
     return;
   }
 
-  const byVisitor = {};
-  window._lastMetricsData.forEach(d => {
-    const vid = d.visitorId || 'anónimo';
-    if (!byVisitor[vid]) {
-      byVisitor[vid] = { platform: d.platform || '—', first: d.timestamp, last: d.timestamp, events: 0, plays: 0, titles: new Set() };
-    }
-    const v = byVisitor[vid];
-    v.events++;
-    if (d.action === 'play_start' || d.action === 'watch_attempt') v.plays++;
-    if (d.timestamp < v.first) v.first = d.timestamp;
-    if (d.timestamp > v.last) v.last = d.timestamp;
-    if (d.details?.title) v.titles.add(d.details.title);
-  });
+  if (countEl) countEl.innerText = `${rows.length} visitante(s) con actividad en este rango${rows.length >= 500 ? ' (top 500)' : ''}`;
 
-  const rows = Object.entries(byVisitor).sort((a, b) => b[1].last - a[1].last);
-  if (countEl) countEl.innerText = `${rows.length} visitante(s) único(s) en este rango`;
-
-  tbody.innerHTML = rows.map(([vid, v]) => `
+  tbody.innerHTML = rows.map(v => `
     <tr>
-      <td style="font-family:monospace; font-size:0.7rem; color:var(--admin-text-muted);">${vid.slice(0, 18)}</td>
-      <td>${v.platform}</td>
-      <td style="text-align:center;">${v.events}</td>
-      <td style="text-align:center; color:var(--admin-accent-orange); font-weight:800;">${v.plays}</td>
-      <td style="font-size:0.72rem;">${new Date(v.first).toLocaleString()}</td>
-      <td style="font-size:0.72rem;">${new Date(v.last).toLocaleString()}</td>
+      <td style="font-family:monospace; font-size:0.7rem; color:var(--admin-text-muted);">${String(v.vid || 'anónimo').slice(0, 18)}</td>
+      <td>${v.platform || '—'}</td>
+      <td style="text-align:center;">${v.events || 0}</td>
+      <td style="text-align:center; color:var(--admin-accent-orange); font-weight:800;">${v.plays || 0}</td>
+      <td style="font-size:0.72rem;">${v.firstMs ? new Date(v.firstMs).toLocaleString() : '—'}</td>
+      <td style="font-size:0.72rem;">${v.lastMs ? new Date(v.lastMs).toLocaleString() : '—'}</td>
     </tr>
   `).join('') || `<tr><td colspan="6" style="text-align:center; padding:30px;">Sin datos.</td></tr>`;
 };

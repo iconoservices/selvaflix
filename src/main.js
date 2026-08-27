@@ -9670,6 +9670,20 @@ document.addEventListener('DOMContentLoaded', () => {
   if (refParam) localStorage.setItem('selva_pending_ref', refParam);
 
   // Nota: handleRouting se dispara automáticamente cuando loadSelvaFlixData termina de cargar
+
+  // 🔥⏱️ Calentar la conexión Firestore para el admin. En una visita con caché
+  // caliente (lo normal) el boot NO toca Firestore, así que la primera lectura
+  // de la sesión la hace el panel al entrar a #admin — y paga entero el
+  // handshake del WebChannel (medido: 20-40s con red mala, y las 4+ lecturas
+  // del admin se apilan detrás). Si ya hay sesión de admin, adelantamos esa
+  // primera lectura al idle post-boot: loadReports() es liviana (limit 100) y
+  // el catálogo la necesita igual, así que además queda pre-cargada.
+  if (localStorage.getItem('selva_admin_auth') === 'true' && typeof window.loadReports === 'function') {
+    const _calentarFirestore = () => window.loadReports().catch(() => {});
+    if ('requestIdleCallback' in window) requestIdleCallback(_calentarFirestore, { timeout: 5000 });
+    else setTimeout(_calentarFirestore, 1200);
+  }
+
   // ⚡ Cargar Publicidad al Inicio (Para todos los usuarios)
   window.loadAdConfig();
   // 💎 Cargar Planes Premium (para la ventanita de invitación y el modal público)

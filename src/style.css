@@ -6106,9 +6106,11 @@ body.admin-locked {
     background: #000;
   }
 
-  /* El hero estorba con el player puesto: se oculta y manda el vídeo */
+  /* El hero deja de ser bloque, pero su imagen se queda de fondo ambiente
+     (misma idea que en escritorio) detrás del contenido que va bajo el
+     player. */
   #detail-view.con-player-acoplado #detail-hero {
-    display: none !important;
+    display: block !important;
   }
 
   .player-modal.player-acoplado {
@@ -6265,28 +6267,54 @@ body.admin-locked {
   display: none !important;
 }
 
-/* ─── Ruta única #detail/slug: sin "ficha previa" ────────────────────
-   Con el player acoplado (estás viendo) el hero viejo y el botón PLAY
-   sobran: el reproductor ya trae portada, título y play. Quedan Mi Lista /
-   Descargar / Reportar / Compartir como barra de acciones del título, más
-   la sinopsis / episodios / relacionados debajo. Si se cierra el player
-   (X), la ficha completa vuelve a aparecer como estaba. */
-#detail-view.con-player-acoplado #detail-hero {
-  display: none !important;
-}
+/* ─── Ruta única #detail/slug ───────────────────────────────────────
+   El hero lindo (imagen de fondo + título + degradé arriba) se queda tal
+   cual estaba. Lo único que se saca con el player acoplado es el botón
+   PLAY, que ahora sobra porque el reproductor ya arranca solo. */
 #detail-view.con-player-acoplado #detail-btn-play {
   display: none !important;
 }
-#detail-view.con-player-acoplado #detail-actions {
-  padding-top: 14px !important;
+
+/* Los 4 botones (Mi Lista / Descargar / Reportar / Compartir) en una sola
+   fila, repartidos por igual. flex:1 + min-width:0 para que ninguno se coma
+   a los otros; texto compacto para que entren hasta en celular. */
+#detail-actions-row {
+  width: 100%;
+  flex-wrap: nowrap !important;
+}
+#detail-actions-row > button {
+  flex: 1 1 0 !important;
+  min-width: 0 !important;
+  padding-left: 6px !important;
+  padding-right: 6px !important;
+  gap: 4px !important;
+  font-size: 12px !important;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+}
+#detail-actions-row > button .material-symbols-outlined {
+  font-size: 16px !important;
+  flex-shrink: 0;
 }
 
-/* Escritorio: sin el hero (que antes ocupaba la fila 1 a todo el ancho), el
-   muelle del player ya no arranca en la fila 2 — sube a la 1 para quedar a la
-   par de la botonera de la izquierda y no dejar un hueco negro arriba. */
+/* Escritorio: el reproductor queda en su fila (2), pero se sube un poco con
+   margen negativo para que su borde superior caiga sobre el backdrop del hero
+   (a la altura del título, que va abajo a la izquierda y no choca) — así no
+   queda tanto aire arriba a la derecha. Y se corre a la izquierda dejando
+   espacio libre a la derecha para que los botones flotantes de compartir/
+   descargar no se le monten encima. */
 @media (min-width: 1024px) {
+  #detail-view.con-player-acoplado #detail-hero {
+    height: min(24vh, 210px) !important;
+  }
   #detail-view.con-player-acoplado #detail-player-dock {
-    grid-row: 1 / span 20 !important;
+    margin-top: -120px;
+    z-index: 5;
+  }
+  #detail-view.con-player-acoplado main {
+    max-width: 1320px !important;
+    padding-right: 96px !important;
   }
 }
 

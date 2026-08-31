@@ -665,32 +665,27 @@
              player se oculta el hero (y su título), así que lo mostramos aquí. -->
         <h2 id="detail-dock-title"></h2>
 
-        <!-- Actions -->
+        <!-- Actions: los 4 botones en una sola fila (PLAY oculto cuando el
+             player ya está acoplado). -->
         <section id="detail-actions" class="px-margin-mobile py-md flex flex-col gap-sm" style="padding: 16px;">
           <button id="detail-btn-play" data-tvnav class="w-full h-12 bg-primary-container text-on-primary-container rounded-lg font-label-md text-label-md flex items-center justify-center gap-sm active:scale-95 transition-transform bloom-effect" style="background-color: #ff571a; color: #521300; border-radius: 8px; height: 48px; border: none; cursor: pointer; font-weight: 600; width: 100%;">
             <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
             PLAY
           </button>
-          <div style="display: flex; gap: 8px;">
-            <button id="detail-btn-list" data-tvnav class="flex-1 h-12 bg-surface-container-highest text-on-surface rounded-lg font-label-md text-label-md flex items-center justify-center gap-sm active:scale-95 transition-transform" style="background-color: #353534; color: #e5e2e1; border-radius: 8px; height: 48px; border: none; cursor: pointer; font-weight: 600;">
+          <div id="detail-actions-row" style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button id="detail-btn-list" data-tvnav class="flex-1 h-12 bg-surface-container-highest text-on-surface rounded-lg font-label-md text-label-md flex items-center justify-center gap-sm active:scale-95 transition-transform" style="background-color: #353534; color: #e5e2e1; border-radius: 8px; height: 48px; border: none; cursor: pointer; font-weight: 600; min-width: 0;">
               <span class="material-symbols-outlined">add</span>
               MI LISTA
             </button>
-            <button id="detail-btn-download" data-tvnav class="flex-1 h-12 text-on-surface rounded-lg font-label-md text-label-md flex items-center justify-center gap-sm active:scale-95 transition-transform" style="background-color: #2a2a2a; color: #e5e2e1; border-radius: 8px; height: 48px; border: 1px solid #5c4037; cursor: pointer; font-weight: 600;">
+            <button id="detail-btn-download" data-tvnav class="flex-1 h-12 text-on-surface rounded-lg font-label-md text-label-md flex items-center justify-center gap-sm active:scale-95 transition-transform" style="background-color: #2a2a2a; color: #e5e2e1; border-radius: 8px; height: 48px; border: 1px solid #5c4037; cursor: pointer; font-weight: 600; min-width: 0;">
               <span class="material-symbols-outlined" style="font-size:18px;">download</span>
               DESCARGAR
             </button>
-          </div>
-        </section>
-
-        <!-- Reportar / Compartir: mismo estilo que MI LISTA y DESCARGAR de arriba -->
-        <section style="padding: 0 16px 16px;">
-          <div style="display: flex; gap: 8px;">
-            <button id="detail-btn-report" data-tvnav onclick="window.detailReportMovie && window.detailReportMovie()" class="flex-1 h-12 rounded-lg font-label-md text-label-md flex items-center justify-center gap-sm active:scale-95 transition-transform" style="background-color: rgba(231,76,60,0.15); color: #ff6b6b; border-radius: 8px; height: 48px; border: 1px solid rgba(231,76,60,0.3); cursor: pointer; font-weight: 600;">
+            <button id="detail-btn-report" data-tvnav onclick="window.detailReportMovie && window.detailReportMovie()" class="flex-1 h-12 rounded-lg font-label-md text-label-md flex items-center justify-center gap-sm active:scale-95 transition-transform" style="background-color: rgba(231,76,60,0.15); color: #ff6b6b; border-radius: 8px; height: 48px; border: 1px solid rgba(231,76,60,0.3); cursor: pointer; font-weight: 600; min-width: 0;">
               <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1; font-size:18px;">flag</span>
               REPORTAR
             </button>
-            <button id="detail-btn-share" data-tvnav onclick="window.detailShareMovie && window.detailShareMovie()" class="flex-1 h-12 rounded-lg font-label-md text-label-md flex items-center justify-center gap-sm active:scale-95 transition-transform" style="background-color: rgba(39,174,96,0.15); color: #4ecb82; border-radius: 8px; height: 48px; border: 1px solid rgba(39,174,96,0.3); cursor: pointer; font-weight: 600;">
+            <button id="detail-btn-share" data-tvnav onclick="window.detailShareMovie && window.detailShareMovie()" class="flex-1 h-12 rounded-lg font-label-md text-label-md flex items-center justify-center gap-sm active:scale-95 transition-transform" style="background-color: rgba(39,174,96,0.15); color: #4ecb82; border-radius: 8px; height: 48px; border: 1px solid rgba(39,174,96,0.3); cursor: pointer; font-weight: 600; min-width: 0;">
               <span class="material-symbols-outlined" style="font-size:18px;">link</span>
               COMPARTIR
             </button>

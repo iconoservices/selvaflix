@@ -580,7 +580,13 @@ async function limpiarDuplicadosDeCatalogo({ manual = false } = {}) {
   // más reciente por createdAt).
   const STATUS_RANK = { healthy: 3, waiting: 2, review: 1, broken: 0 };
   const rankOf = (m) => STATUS_RANK[m.status] ?? 1;
+  // Un título con enlace propio del admin (y que no esté marcado roto) es una
+  // acción deliberada: no se puede perder porque un scrapeo duplicado sin link
+  // aparezca "más sano" o "más nuevo". Ese gana el desempate por encima de todo.
+  const tieneLinkPropio = (m) => !!(m.embed && String(m.embed).trim()) && m.status !== 'broken';
   const isBetter = (a, b) => {
+    const la = tieneLinkPropio(a), lb = tieneLinkPropio(b);
+    if (la !== lb) return la;
     const ra = rankOf(a), rb = rankOf(b);
     if (ra !== rb) return ra > rb;
     return (a.createdAt || 0) > (b.createdAt || 0);
@@ -8351,6 +8357,12 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
     // 🎬 Autoplay: la ruta única #detail/slug abre el reproductor apenas se
     // monta la ficha (clic en una tarjeta, link compartido o recarga).
     if (opts.autoPlay) {
+        // Poner la ficha en "modo reproductor" YA — sin esperar a que el player
+        // termine de arrancar (chequeo VIP + preroll pueden tardar 1-2s). Así
+        // no se ve el flash del hero grande con el botón PLAY antes del video;
+        // el hueco del dock queda como placeholder hasta que el player entra.
+        // Si el player falla del todo, SelvaStream.close() → desacoplar() lo saca.
+        document.getElementById('detail-view')?.classList.add('con-player-acoplado');
         window.openPlayer(movie.id);
     }
 };

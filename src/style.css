@@ -6273,6 +6273,33 @@ body.admin-locked {
   display: none !important;
 }
 
+/* Mientras el player arranca (chequeo VIP + preroll), el hueco del dock se
+   ve como un placeholder oscuro con el logo latiendo, en vez de un salto de
+   layout o un recuadro blanco. En cuanto acoplar() mete el modal, deja de
+   estar :empty y esto desaparece. */
+#detail-view.con-player-acoplado #detail-player-dock:empty {
+  aspect-ratio: 16 / 9;
+  min-height: 180px;
+  background: #0a0a0a;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#detail-view.con-player-acoplado #detail-player-dock:empty::after {
+  content: "SELVAFLIX";
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.14);
+  animation: dock-pulse 1.4s ease-in-out infinite;
+}
+@keyframes dock-pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
 /* Los 4 botones (Mi Lista / Descargar / Reportar / Compartir) en una sola
    fila, repartidos por igual. flex:1 + min-width:0 para que ninguno se coma
    a los otros; texto compacto para que entren hasta en celular. */

@@ -370,18 +370,18 @@
 
 
 
-    <main id="home-view">
-
-      <!-- Columna lateral de géneros (solo escritorio ≥1025px; en celular/tablet
-           se usa la barra horizontal #genre-bar de más abajo) -->
-      <aside id="genre-rail" class="genre-rail" aria-label="Géneros">
-        <span class="genre-rail-title">Géneros</span>
-        <button class="cinepulse-genre-chip genre-rail-item active" data-genre="" data-tvnav onclick="window.setGenre('')">
-          <span class="material-symbols-outlined">grid_view</span><span class="genre-rail-label">Todos</span>
-        </button>
-        <button class="cinepulse-genre-chip genre-rail-item" data-genre="28" data-tvnav onclick="window.setGenre('28')">
-          <span class="material-symbols-outlined">local_fire_department</span><span class="genre-rail-label">Acción</span>
-        </button>
+    <!-- Columna lateral de géneros (solo escritorio ≥1025px; en celular/tablet
+         se usa la barra horizontal #genre-bar de más abajo). Fuera de
+         #home-view a propósito: así sigue visible también en la ficha /
+         reproductor (position:fixed, no afecta el layout). -->
+    <aside id="genre-rail" class="genre-rail" aria-label="Géneros">
+      <span class="genre-rail-title">Géneros</span>
+      <button class="cinepulse-genre-chip genre-rail-item active" data-genre="" data-tvnav onclick="window.setGenre('')">
+        <span class="material-symbols-outlined">grid_view</span><span class="genre-rail-label">Todos</span>
+      </button>
+      <button class="cinepulse-genre-chip genre-rail-item" data-genre="28" data-tvnav onclick="window.setGenre('28')">
+        <span class="material-symbols-outlined">local_fire_department</span><span class="genre-rail-label">Acción</span>
+      </button>
         <button class="cinepulse-genre-chip genre-rail-item" data-genre="35" data-tvnav onclick="window.setGenre('35')">
           <span class="material-symbols-outlined">sentiment_very_satisfied</span><span class="genre-rail-label">Comedia</span>
         </button>
@@ -406,7 +406,9 @@
         <button class="cinepulse-genre-chip genre-rail-item" data-genre="10402" data-tvnav onclick="window.setGenre('10402')">
           <span class="material-symbols-outlined">music_note</span><span class="genre-rail-label">Música</span>
         </button>
-      </aside>
+    </aside>
+
+    <main id="home-view">
 
       <!-- Hero Banner CinePulse Desktop Style -->
       <section class="cinepulse-hero" id="hero-section" style="display: none;">

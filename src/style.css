@@ -6298,6 +6298,31 @@ body.admin-locked {
   flex-shrink: 0;
 }
 
+/* En celular no entran los 4 con texto en una fila: se dejan solo los íconos
+   (el texto sigue en el DOM para lectores de pantalla). */
+@media (max-width: 560px) {
+  #detail-actions-row > button {
+    font-size: 0 !important;
+  }
+  #detail-actions-row > button .material-symbols-outlined {
+    font-size: 20px !important;
+  }
+}
+
+/* Escritorio: la barra superior y la columna de géneros quedan visibles sobre
+   la ficha, así que el contenido del detalle se corre para no meterse debajo
+   (56px arriba por la navbar fija, 92px a la izquierda por la columna). El
+   botón de "atrás" propio de la ficha sobra: está el logo/Home de la navbar. */
+@media (min-width: 1025px) {
+  #detail-view {
+    padding-left: 92px;
+    padding-top: 56px;
+  }
+  #detail-header {
+    display: none !important;
+  }
+}
+
 /* Escritorio: el reproductor queda en su fila (2), pero se sube un poco con
    margen negativo para que su borde superior caiga sobre el backdrop del hero
    (a la altura del título, que va abajo a la izquierda y no choca) — así no

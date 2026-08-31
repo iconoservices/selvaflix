@@ -711,6 +711,15 @@ window.setFilter = (type) => {
   _currentGenre = '';   // reset genre on main filter change
   _currentYear = '';    // reset año on main filter change
 
+  // Si se llamó desde la ficha (la barra superior ahora se ve ahí en
+  // escritorio), primero salimos del reproductor y de la vista de detalle.
+  const _detailEl = document.getElementById('detail-view');
+  if (_detailEl && _detailEl.style.display !== 'none') {
+    if (typeof SelvaStream !== 'undefined') SelvaStream.close();
+    if (window.location.hash) history.replaceState(null, '', window.location.pathname + window.location.search);
+    showView('home-view');
+  }
+
   marcarNavEscritorio(type);
   sincronizarContinuarViendo(type);
   marcarNavMovil(type);
@@ -767,6 +776,16 @@ window.syncGenreActive = (genreId) => {
 window.setGenre = (genreId) => {
   _currentGenre = genreId;
   window.syncGenreActive(genreId);
+
+  // Igual que setFilter: si tocaron un género desde la columna estando en la
+  // ficha, volvemos al home antes de filtrar.
+  const _detailEl = document.getElementById('detail-view');
+  if (_detailEl && _detailEl.style.display !== 'none') {
+    if (typeof SelvaStream !== 'undefined') SelvaStream.close();
+    if (window.location.hash) history.replaceState(null, '', window.location.pathname + window.location.search);
+    showView('home-view');
+  }
+
   initApp(_currentFilter, genreId, _currentYear);
 };
 
@@ -1093,6 +1112,12 @@ function showView(active) {
   // que no existen en el DOM). Con el selector viejo esto nunca ocultaba nada en ninguna vista.
   const navbar = document.querySelector('.navbar-cinepulse');
   const bottomNav = document.querySelector('.mobile-nav-cinepulse');
+  const genreRail = document.getElementById('genre-rail');
+  const esEscritorio = window.innerWidth >= 1024;
+
+  // La columna de géneros (escritorio) acompaña a home Y a la ficha; solo se
+  // esconde en el panel admin. En celular ni existe (CSS).
+  if (genreRail) genreRail.style.display = (active === 'admin-view') ? 'none' : '';
 
   // Ocultar todo primero
   if (adminEl) adminEl.style.display = 'none';
@@ -1129,7 +1154,10 @@ function showView(active) {
     if (bottomNav) bottomNav.style.display = 'none';
   } else if (active === 'detail-view') {
     if (detailEl) detailEl.style.display = 'block';
-    if (navbar) navbar.style.display = 'none';
+    // En escritorio la barra superior (logo, Home/Películas/Series…, buscador,
+    // perfil) se queda visible sobre la ficha/reproductor, como en lamovie.
+    // En celular sí se oculta: no hay espacio y el player va a pantalla.
+    if (navbar) navbar.style.display = esEscritorio ? '' : 'none';
     if (bottomNav) bottomNav.style.display = 'none';
     window.scrollTo(0, 0);
   } else if (active === 'my-list-view') {

@@ -513,6 +513,11 @@ export const SelvaStream = {
         }
         // Título nuevo = nadie eligió nada a mano todavía en ESTA película.
         this._fuenteElegidaAMano = false;
+        // Título nuevo = todavía no sabemos si tiene enlace propio del admin.
+        // Cuando lo tiene, Vimeus/DiPelis se suman como alternativas pero NO
+        // se ponen delante ni pisan la reproducción (el enlace prioritario
+        // manda salvo que muera, y ahí el rescate salta solo a la siguiente).
+        this._oficialManda = false;
         this.currentPlayerMovie = movie;
         // Arrancamos sin fuente en curso: el about:blank de más abajo dispara un
         // load y, con una fuente vieja aquí, el rescate saltaba al servidor
@@ -609,6 +614,7 @@ export const SelvaStream = {
                     isPublic: true,
                     lang: 'propio'
                 };
+                this._oficialManda = true;
                 const publicas = this.buildPublicStreams('series');
                 this.lastScrapedStreams = [oficial, ...publicas];
                 this.currentEpisodeId = `s${season}e${episode}`;
@@ -641,6 +647,7 @@ export const SelvaStream = {
             // porque el enlace propio metía anuncios encima del video; se
             // reactiva sabiendo eso, ya que las fuentes públicas también los
             // tienen. Quedan detrás como alternativa por si el enlace muere.
+            this._oficialManda = true;
             const tipo = ['series', 'tv', 'anime'].includes(movie.type) ? 'series' : 'movie';
             const publicas = this.buildPublicStreams(tipo);
             this.lastScrapedStreams = [oficial, ...publicas];
@@ -1329,9 +1336,19 @@ export const SelvaStream = {
                 // arrancaban primero — se veía Vimeus listado como "Mejor
                 // Calidad" pero nunca se reproducía. El bug real (Vimeus
                 // marcado como bloqueado en pleno anuncio) va por otro lado.
-                this.lastScrapedStreams = [nuevaFuente, ...(this.lastScrapedStreams || [])];
-                if (!this._fuenteElegidaAMano) {
-                    this.handleExternalStream(nuevaFuente);
+                if (this._oficialManda) {
+                    // Hay enlace propio del admin: Vimeus entra como alternativa
+                    // (segunda de la lista, detrás del "Servidor Oficial") y NO
+                    // se pisa la reproducción. Si el oficial muere, siguienteFuente
+                    // salta a Vimeus solo.
+                    const lista = [...(this.lastScrapedStreams || [])];
+                    lista.splice(1, 0, nuevaFuente);
+                    this.lastScrapedStreams = lista;
+                } else {
+                    this.lastScrapedStreams = [nuevaFuente, ...(this.lastScrapedStreams || [])];
+                    if (!this._fuenteElegidaAMano) {
+                        this.handleExternalStream(nuevaFuente);
+                    }
                 }
                 this.renderControls();
                 return;
@@ -1380,12 +1397,21 @@ export const SelvaStream = {
             // no tiene el título), DiPelis reemplaza a lo que haya arrancado
             // instantáneo (RepelisHD/FlixLatam).
             const lista = [...(this.lastScrapedStreams || [])];
-            const idxVimeus = lista.findIndex(s => s.providerName === 'Vimeus');
-            lista.splice(idxVimeus === -1 ? 0 : idxVimeus + 1, 0, nuevaFuente);
-            this.lastScrapedStreams = lista;
+            if (this._oficialManda) {
+                // Con enlace propio del admin, DiPelis va detrás del oficial
+                // (y de Vimeus si ya entró) como alternativa, sin pisar la
+                // reproducción.
+                const idxVimeus = lista.findIndex(s => s.providerName === 'Vimeus');
+                lista.splice(idxVimeus === -1 ? 1 : idxVimeus + 1, 0, nuevaFuente);
+                this.lastScrapedStreams = lista;
+            } else {
+                const idxVimeus = lista.findIndex(s => s.providerName === 'Vimeus');
+                lista.splice(idxVimeus === -1 ? 0 : idxVimeus + 1, 0, nuevaFuente);
+                this.lastScrapedStreams = lista;
 
-            if (!this._fuenteElegidaAMano && this.streamActual?.providerName !== 'Vimeus') {
-                this.handleExternalStream(nuevaFuente);
+                if (!this._fuenteElegidaAMano && this.streamActual?.providerName !== 'Vimeus') {
+                    this.handleExternalStream(nuevaFuente);
+                }
             }
 
             this.renderControls();
@@ -1450,6 +1476,7 @@ export const SelvaStream = {
         if (queryType === 'series') {
             const episodeOverride = this.getEpisodeOverride(movie, season, episode);
             if (episodeOverride) {
+                this._oficialManda = true;
                 const cleanEmbed = this.limpiarEmbed(episodeOverride);
                 this.lastScrapedStreams = [{
                     url: cleanEmbed,
@@ -1467,6 +1494,7 @@ export const SelvaStream = {
 
         // PRIORIDAD 1: Link Manual de Administrador (Vía Panel Admin)
         if (movie && movie.embed && (movie.embed.startsWith('http') || movie.embed.includes('<iframe'))) {
+            this._oficialManda = true;
             const cleanEmbed = this.limpiarEmbed(movie.embed);
 
             console.log("💎 Usando Link Manual Oficial");

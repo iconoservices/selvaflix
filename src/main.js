@@ -1194,7 +1194,8 @@ function _tvNavMove(direction) {
 
   if (isRail(current)) {
     const idx = railItems.indexOf(current);
-    if (direction === 'up') return goTo(railItems[idx - 1]);
+    if (direction === 'up') return goTo(railItems[idx - 1]
+      || document.querySelector('.nav-desktop-links [data-tvnav]'));
     if (direction === 'down') return goTo(railItems[idx + 1] || exitTarget());
     if (direction === 'right') return goTo(exitTarget());
     return; // left: ya está en el borde

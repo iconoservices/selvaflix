@@ -539,11 +539,9 @@ export const SelvaStream = {
         // Aviso de doble toque/clic para pantalla completa (ambas vistas).
         this.mostrarAvisoPantalla();
 
-        // Empujamos /play al historial para que "atrás" cierre el player sin salir del detalle
-        const currentHash = window.location.hash.substring(1);
-        if (currentHash.startsWith('detail/') && !currentHash.endsWith('/play')) {
-            history.pushState(null, '', `#${currentHash}/play`);
-        }
+        // Ruta única #detail/slug: abrir el player NO toca la URL. "Atrás" del
+        // navegador sale de la ficha (a home/browse); para cerrar solo el
+        // player y quedarse en la info está la X (window.closePlayer).
 
         // Check if Admin
         const isAdmin = localStorage.getItem('selva_admin_auth') === 'true';

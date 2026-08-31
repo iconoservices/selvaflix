@@ -6265,6 +6265,31 @@ body.admin-locked {
   display: none !important;
 }
 
+/* ─── Ruta única #detail/slug: sin "ficha previa" ────────────────────
+   Con el player acoplado (estás viendo) el hero viejo y el botón PLAY
+   sobran: el reproductor ya trae portada, título y play. Quedan Mi Lista /
+   Descargar / Reportar / Compartir como barra de acciones del título, más
+   la sinopsis / episodios / relacionados debajo. Si se cierra el player
+   (X), la ficha completa vuelve a aparecer como estaba. */
+#detail-view.con-player-acoplado #detail-hero {
+  display: none !important;
+}
+#detail-view.con-player-acoplado #detail-btn-play {
+  display: none !important;
+}
+#detail-view.con-player-acoplado #detail-actions {
+  padding-top: 14px !important;
+}
+
+/* Escritorio: sin el hero (que antes ocupaba la fila 1 a todo el ancho), el
+   muelle del player ya no arranca en la fila 2 — sube a la 1 para quedar a la
+   par de la botonera de la izquierda y no dejar un hueco negro arriba. */
+@media (min-width: 1024px) {
+  #detail-view.con-player-acoplado #detail-player-dock {
+    grid-row: 1 / span 20 !important;
+  }
+}
+
 @media (max-width: 1023px) {
 
   /* En celular NO va el botón de agrandar (⛶): la pantalla completa se hace

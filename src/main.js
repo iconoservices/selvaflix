@@ -538,7 +538,7 @@ async function loadSelvaFlixData() {
   // ⚠️ En un reload con caché caliente (< 15 min) esta función corre de forma
   // SÍNCRONA durante la evaluación del módulo, y llega hasta aquí ANTES de que
   // más abajo se defina window.openMovieDetail (y openPlayer). Si enrutáramos ya,
-  // en la ruta /detail/.../play la llamada a openMovieDetail sería undefined, la
+  // en la ruta #detail/slug la llamada a openMovieDetail sería undefined, la
   // ficha se quedaba en "Cargando..." (pantalla negra) y el player nunca abría.
   // Diferir un microtask deja terminar la carga del módulo: las funciones ya
   // existen y la ruta se resuelve bien. En la primera visita (sin caché) el
@@ -1313,10 +1313,12 @@ window.goToMyList = async () => {
 function handleRouting() {
   const hash = window.location.hash.substring(1) || '';
 
-  // El player-modal es un overlay independiente del hash, así que hay que cerrarlo
-  // a mano en cuanto la ruta deja de ser /play. Si no, se queda encima de la app
-  // (invisible pero comiéndose los clics) y con el scroll del body bloqueado.
-  if (!hash.endsWith('/play')) {
+  // El player-modal es un overlay independiente del hash. Con la ruta única
+  // #detail/slug (abre ficha + player juntos) hay que cerrarlo en cuanto la
+  // ruta deja de ser una ficha — atrás del navegador, home, un link externo.
+  // Si no, se queda encima de la app (invisible pero comiéndose los clics) y
+  // con el scroll del body bloqueado.
+  if (!hash.startsWith('detail/')) {
     if (typeof SelvaStream !== 'undefined') SelvaStream.close();
     // Este es el único punto por el que SIEMPRE pasa un cierre del player (atrás
     // del navegador, un link, closePlayer()...), así que es el lugar correcto
@@ -1328,20 +1330,14 @@ function handleRouting() {
   if (genreBar) genreBar.style.display = 'flex'; // Siempre visible
 
   if (hash.startsWith('detail/')) {
-    // Puede ser detail/slug, detail/id, o detail/slug/play
-    const parts = hash.replace('detail/', '').split('/');
-    const slugOrId = parts[0];
-    const isPlayRoute = parts[1] === 'play';
-
-    if (isPlayRoute) {
-      // Ruta /play → mostrar detail Y abrir player (si la peli ya está cargada)
-      showView('detail-view');
-      if (slugOrId) window.openMovieDetail(slugOrId, { autoPlay: true });
-    } else {
-      // Ruta normal de detalle (el player ya se cerró arriba)
-      showView('detail-view');
-      if (slugOrId) window.openMovieDetail(slugOrId);
-    }
+    // Ruta única: #detail/slug (o detail/id). El "/play" viejo de links
+    // compartidos se tolera y cae en lo mismo. Monta la ficha Y abre el
+    // reproductor de una: la ficha queda como panel de info alrededor del
+    // player (escritorio: acoplado al lado; celular: player a pantalla
+    // completa con la ficha detrás, que reaparece al cerrarlo con la X).
+    const slugOrId = hash.replace('detail/', '').split('/')[0];
+    showView('detail-view');
+    if (slugOrId) window.openMovieDetail(slugOrId, { autoPlay: true });
   } else if (hash === 'admin') {
     const isAdminAuthenticated = localStorage.getItem('selva_admin_auth') === 'true';
     if (!isAdminAuthenticated) {
@@ -7862,20 +7858,15 @@ window.addEventListener('keydown', (e) => {
     }
 });
 
-// Cierra el player correctamente y vuelve al detalle de la película
+// Cierra SOLO el reproductor. Con la ruta única #detail/slug el player ya no
+// empuja "/play" al historial, así que cerrar es solo cerrar: quedás en la
+// ficha (sinopsis, episodios, reportar, y el botón Play para reabrirlo). Para
+// salir del todo, atrás del navegador. Si por lo que sea llegamos acá sin
+// estar en una ficha, retrocedemos para no dejar el overlay fantasma.
 window.closePlayer = () => {
     clearTimeout(_streakWatchTimer); // cerró antes de los 2min: no cuenta para la racha
     if (typeof SelvaStream !== 'undefined') SelvaStream.close();
-    // Volvemos al detalle. IMPORTANTE: history.back(), no window.location.hash =
-    // — abrir el player ya empujó "detail/slug/play" al historial (ver
-    // SelvaStream.open), así que reescribir el hash acá EMPUJABA una entrada
-    // nueva "detail/slug" encima, duplicándola. Con esa pila, el botón atrás
-    // FÍSICO del teléfono retrocedía un paso y caía otra vez en
-    // "detail/slug/play" — el player se reabría en vez de seguir para atrás
-    // (loop reportado en PWA instalada). history.back() consume la entrada de
-    // /play en vez de apilar una nueva, así que no queda duplicado.
-    const currentHash = window.location.hash.substring(1);
-    if (currentHash.includes('/play') || !currentHash.startsWith('detail/')) {
+    if (!window.location.hash.substring(1).startsWith('detail/')) {
         history.back();
     }
 };
@@ -8329,8 +8320,8 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
 
     console.log('🎬 Detail view opened for:', movie.title);
 
-    // 🎬 Autoplay: si llegamos por la ruta /play (enlace compartido o recarga),
-    // abrir el reproductor automáticamente una vez montada la ficha.
+    // 🎬 Autoplay: la ruta única #detail/slug abre el reproductor apenas se
+    // monta la ficha (clic en una tarjeta, link compartido o recarga).
     if (opts.autoPlay) {
         window.openPlayer(movie.id);
     }

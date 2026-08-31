@@ -663,6 +663,189 @@
   transform: scale(1.05);
 }
 
+/* ─── HERO: GRILLA DE 6 MINIATURAS (solo escritorio ≥1025px) ─── */
+.cinepulse-hero-thumbs-wrap {
+  display: none; /* se activa en la media query de escritorio */
+  position: absolute;
+  z-index: 10;
+  right: var(--margin-desktop);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 400px;
+  max-width: 36vw;
+}
+
+.cinepulse-hero-thumbs-label {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--on-surface-variant);
+  margin-bottom: var(--spacing-sm);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
+.cinepulse-hero-thumbs {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.cinepulse-hero-thumb {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  cursor: pointer;
+  background: rgba(20, 20, 20, 0.6);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cinepulse-hero-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.cinepulse-hero-thumb:hover {
+  transform: translateY(-2px);
+}
+
+.cinepulse-hero-thumb:hover img {
+  opacity: 1;
+}
+
+.cinepulse-hero-thumb.active {
+  border-color: var(--primary);
+  box-shadow: 0 0 18px rgba(255, 102, 0, 0.55);
+}
+
+.cinepulse-hero-thumb.active img {
+  opacity: 1;
+}
+
+@media (min-width: 1025px) {
+  .cinepulse-hero-thumbs-wrap {
+    display: block;
+  }
+  /* Reservamos la mitad izquierda para el texto para que no pase por debajo
+     de la grilla. */
+  #hero-section .cinepulse-hero-content {
+    max-width: 44rem;
+  }
+}
+
+/* ─── COLUMNA LATERAL DE GÉNEROS (escritorio ≥1025px) ─────────── */
+.genre-rail {
+  display: none; /* se activa en la media query de escritorio */
+}
+
+@media (min-width: 1025px) {
+  .genre-rail {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    position: fixed;
+    left: 0;
+    top: 0;                   /* llega hasta arriba del todo */
+    bottom: 0;
+    width: 92px;
+    padding: 14px 8px 24px;
+    background: rgba(8, 8, 8, 0.97);
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    overflow-y: auto;
+    scrollbar-width: none;
+    z-index: 1001;           /* por encima de la navbar (1000) */
+  }
+  .genre-rail::-webkit-scrollbar { display: none; }
+
+  .genre-rail-title {
+    font-family: var(--font-display);
+    font-size: 0.58rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--on-surface-variant);
+    text-align: center;
+    margin-bottom: 6px;
+  }
+
+  /* Selectores con .genre-rail delante para ganarle en especificidad a las
+     reglas de .cinepulse-genre-chip (las miniaturas comparten esa clase para
+     que el JS de "activo" alcance a las dos barras). */
+  .genre-rail .genre-rail-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    width: 100%;
+    padding: 10px 2px;
+    border: none;
+    border-radius: var(--radius-md);
+    background: transparent;
+    box-shadow: none;
+    color: var(--on-surface-variant);
+    cursor: pointer;
+    white-space: normal;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .genre-rail .genre-rail-item .material-symbols-outlined { font-size: 1.4rem; }
+  .genre-rail-label {
+    font-family: var(--font-body);
+    font-size: 0.62rem;
+    font-weight: 600;
+    line-height: 1.1;
+    text-align: center;
+  }
+  .genre-rail .genre-rail-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--on-surface);
+    transform: none;
+  }
+  .genre-rail .genre-rail-item.active {
+    background: rgba(255, 102, 0, 0.12);
+    color: var(--primary);
+    box-shadow: none;
+  }
+  /* Marca vertical izquierda en el género activo, como en la referencia */
+  .genre-rail .genre-rail-item.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 34px;
+    border-radius: 0 3px 3px 0;
+    background: var(--primary);
+    box-shadow: 0 0 10px rgba(255, 102, 0, 0.7);
+  }
+
+  /* El contenido del home se corre a la derecha para dejar la columna */
+  #home-view {
+    padding-left: 92px;
+  }
+  /* La navbar fija arranca después de la columna para que el logo alinee */
+  .navbar-cinepulse {
+    padding-left: calc(92px + 2%);
+  }
+  /* La barra horizontal de géneros no se usa en escritorio */
+  #genre-bar {
+    display: none !important;
+  }
+}
+
 /* ─── CINEPULSE GENRE CHIPS ────────────────────────────── */
 .cinepulse-genre-section {
   padding: 0 var(--margin-desktop);

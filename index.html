@@ -371,7 +371,43 @@
 
 
     <main id="home-view">
-      
+
+      <!-- Columna lateral de géneros (solo escritorio ≥1025px; en celular/tablet
+           se usa la barra horizontal #genre-bar de más abajo) -->
+      <aside id="genre-rail" class="genre-rail" aria-label="Géneros">
+        <span class="genre-rail-title">Géneros</span>
+        <button class="cinepulse-genre-chip genre-rail-item active" data-genre="" data-tvnav onclick="window.setGenre('')">
+          <span class="material-symbols-outlined">grid_view</span><span class="genre-rail-label">Todos</span>
+        </button>
+        <button class="cinepulse-genre-chip genre-rail-item" data-genre="28" data-tvnav onclick="window.setGenre('28')">
+          <span class="material-symbols-outlined">local_fire_department</span><span class="genre-rail-label">Acción</span>
+        </button>
+        <button class="cinepulse-genre-chip genre-rail-item" data-genre="35" data-tvnav onclick="window.setGenre('35')">
+          <span class="material-symbols-outlined">sentiment_very_satisfied</span><span class="genre-rail-label">Comedia</span>
+        </button>
+        <button class="cinepulse-genre-chip genre-rail-item" data-genre="18" data-tvnav onclick="window.setGenre('18')">
+          <span class="material-symbols-outlined">theater_comedy</span><span class="genre-rail-label">Drama</span>
+        </button>
+        <button class="cinepulse-genre-chip genre-rail-item" data-genre="16" data-tvnav onclick="window.setGenre('16')">
+          <span class="material-symbols-outlined">animation</span><span class="genre-rail-label">Animación</span>
+        </button>
+        <button class="cinepulse-genre-chip genre-rail-item" data-genre="27" data-tvnav onclick="window.setGenre('27')">
+          <span class="material-symbols-outlined">skull</span><span class="genre-rail-label">Terror</span>
+        </button>
+        <button class="cinepulse-genre-chip genre-rail-item" data-genre="10749" data-tvnav onclick="window.setGenre('10749')">
+          <span class="material-symbols-outlined">favorite</span><span class="genre-rail-label">Romance</span>
+        </button>
+        <button class="cinepulse-genre-chip genre-rail-item" data-genre="878" data-tvnav onclick="window.setGenre('878')">
+          <span class="material-symbols-outlined">rocket_launch</span><span class="genre-rail-label">Sci-Fi</span>
+        </button>
+        <button class="cinepulse-genre-chip genre-rail-item" data-genre="9648" data-tvnav onclick="window.setGenre('9648')">
+          <span class="material-symbols-outlined">quiz</span><span class="genre-rail-label">Misterio</span>
+        </button>
+        <button class="cinepulse-genre-chip genre-rail-item" data-genre="10402" data-tvnav onclick="window.setGenre('10402')">
+          <span class="material-symbols-outlined">music_note</span><span class="genre-rail-label">Música</span>
+        </button>
+      </aside>
+
       <!-- Hero Banner CinePulse Desktop Style -->
       <section class="cinepulse-hero" id="hero-section" style="display: none;">
         <img id="cinepulse-hero-img" class="cinepulse-hero-bg" src="" alt="">
@@ -396,7 +432,7 @@
           <div class="cinepulse-hero-buttons">
             <button id="cinepulse-hero-play" class="cinepulse-btn-primary" data-tvnav>
               <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
-              Reproducir
+              Ver ahora
             </button>
             <button id="cinepulse-hero-list" class="cinepulse-btn-secondary" data-tvnav>
               <span class="material-symbols-outlined">add</span>
@@ -404,21 +440,25 @@
             </button>
           </div>
         </div>
+        <div class="cinepulse-hero-thumbs-wrap">
+          <span id="cinepulse-hero-thumbs-label" class="cinepulse-hero-thumbs-label"></span>
+          <div id="cinepulse-hero-thumbs" class="cinepulse-hero-thumbs"></div>
+        </div>
       </section>
 
       <!-- Genre Chips CinePulse Style -->
       <div class="cinepulse-genre-section" id="genre-bar">
         <div class="cinepulse-genre-chips">
-          <button class="cinepulse-genre-chip active" id="genre-all" data-tvnav onclick="window.setGenre('')">Todos</button>
-          <button class="cinepulse-genre-chip" data-tvnav onclick="window.setGenre('28')">Acción</button>
-          <button class="cinepulse-genre-chip" data-tvnav onclick="window.setGenre('35')">Comedia</button>
-          <button class="cinepulse-genre-chip" data-tvnav onclick="window.setGenre('18')">Drama</button>
-          <button class="cinepulse-genre-chip" data-tvnav onclick="window.setGenre('16')">Animación</button>
-          <button class="cinepulse-genre-chip" data-tvnav onclick="window.setGenre('27')">Terror</button>
-          <button class="cinepulse-genre-chip" data-tvnav onclick="window.setGenre('10749')">Romance</button>
-          <button class="cinepulse-genre-chip" data-tvnav onclick="window.setGenre('878')">Sci-Fi</button>
-          <button class="cinepulse-genre-chip" data-tvnav onclick="window.setGenre('9648')">Misterio</button>
-          <button class="cinepulse-genre-chip" data-tvnav onclick="window.setGenre('10402')">Música</button>
+          <button class="cinepulse-genre-chip active" id="genre-all" data-genre="" data-tvnav onclick="window.setGenre('')">Todos</button>
+          <button class="cinepulse-genre-chip" data-genre="28" data-tvnav onclick="window.setGenre('28')">Acción</button>
+          <button class="cinepulse-genre-chip" data-genre="35" data-tvnav onclick="window.setGenre('35')">Comedia</button>
+          <button class="cinepulse-genre-chip" data-genre="18" data-tvnav onclick="window.setGenre('18')">Drama</button>
+          <button class="cinepulse-genre-chip" data-genre="16" data-tvnav onclick="window.setGenre('16')">Animación</button>
+          <button class="cinepulse-genre-chip" data-genre="27" data-tvnav onclick="window.setGenre('27')">Terror</button>
+          <button class="cinepulse-genre-chip" data-genre="10749" data-tvnav onclick="window.setGenre('10749')">Romance</button>
+          <button class="cinepulse-genre-chip" data-genre="878" data-tvnav onclick="window.setGenre('878')">Sci-Fi</button>
+          <button class="cinepulse-genre-chip" data-genre="9648" data-tvnav onclick="window.setGenre('9648')">Misterio</button>
+          <button class="cinepulse-genre-chip" data-genre="10402" data-tvnav onclick="window.setGenre('10402')">Música</button>
         </div>
       </div>
 

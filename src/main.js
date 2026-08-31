@@ -344,6 +344,11 @@ const TMDB_IMG_URL = 'https://image.tmdb.org/t/p/w500';
 let movieDatabase = { trending: [] };
 let heroPool = [];
 let currentHeroIndex = 0;
+// Grilla de 6 miniaturas del hero (solo escritorio). Son "sets" que rotan:
+// Tendencia -> Estrenos -> Más vistas en SelvaFlix. Al terminar de recorrer las
+// 6 de un set, salta al siguiente. currentHeroIndex indexa dentro del set activo.
+let _heroSets = [];
+let _heroSetIndex = 0;
 
 // Editor de Episodios (Series/Anime): links manuales opcionales por capítulo
 // puntual, clave "{temporada}-{episodio}" (ej. "1-1") → URL. Declarado acá
@@ -731,11 +736,9 @@ window.setFilter = (type) => {
   const genreBar = document.getElementById('genre-bar');
   if (genreBar) {
     genreBar.style.display = (type === 'movies' || type === 'series' || type === 'anime') ? 'flex' : 'none';
-    // Ojo: las chips son .cinepulse-genre-chip, no .filter-btn (esa clase no
-    // existe en el HTML) — con el selector viejo esto nunca sacaba el
-    // "active" de la chip anterior al cambiar de género.
-    genreBar.querySelectorAll('.cinepulse-genre-chip').forEach(b => b.classList.remove('active'));
-    document.getElementById('genre-all')?.classList.add('active');
+    // Al cambiar de sección el género vuelve a "Todos". Sincroniza las dos
+    // barras (la horizontal #genre-bar y la columna lateral #genre-rail).
+    window.syncGenreActive('');
   }
   poblarFiltroAnios();
   document.querySelectorAll('.year-filter-select').forEach(sel => { sel.value = ''; });
@@ -751,21 +754,19 @@ window.setFilter = (type) => {
   window.scrollTo({ top: filterOffset - 80, behavior: 'smooth' });
 };
 
+// Marca el género activo en las DOS barras a la vez: la horizontal (#genre-bar,
+// celular/tablet) y la columna lateral (#genre-rail, escritorio). Cada botón
+// lleva data-genre con el id de TMDb ('' = Todos).
+window.syncGenreActive = (genreId) => {
+  const g = genreId || '';
+  document.querySelectorAll('.cinepulse-genre-chip').forEach(b => {
+    b.classList.toggle('active', (b.dataset.genre || '') === g);
+  });
+};
+
 window.setGenre = (genreId) => {
   _currentGenre = genreId;
-
-  // Update genre pill active state
-  const genreBar = document.getElementById('genre-bar');
-  if (genreBar) {
-    genreBar.querySelectorAll('.cinepulse-genre-chip').forEach(b => b.classList.remove('active'));
-    // Find clicked button (match by onclick attr genreId)
-    genreBar.querySelectorAll('.cinepulse-genre-chip').forEach(b => {
-      const oc = b.getAttribute('onclick') || '';
-      if (oc.includes(`'${genreId}'`) || (genreId === '' && b.id === 'genre-all')) {
-        b.classList.add('active');
-      }
-    });
-  }
+  window.syncGenreActive(genreId);
   initApp(_currentFilter, genreId, _currentYear);
 };
 
@@ -1164,35 +1165,75 @@ function _tvNavMove(direction) {
 
   const current = document.activeElement;
   if (!items.includes(current)) {
-    items[0].focus();
-    items[0].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    // Primer toque de flecha: entrar por el botón "Ver ahora" del hero (o la
+    // primera tarjeta del catálogo). Antes entraba por el primer [data-tvnav]
+    // del DOM, que ahora es la columna de géneros — y desde ahí las flechas
+    // se quedaban dando vueltas en el menú sin llegar nunca a las películas.
+    const seed = document.getElementById('cinepulse-hero-play')
+      || document.querySelector('#main-content [data-tvnav]')
+      || items[0];
+    seed.focus();
+    seed.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     return;
+  }
+
+  // La columna de géneros es una lista vertical fija pegada a la izquierda: si
+  // entra en el cálculo espacial normal, sus ítems quedan siempre "cerca" en
+  // vertical y ArrowDown/Right desde el hero o las tarjetas caía ahí en vez de
+  // avanzar por el catálogo. Se maneja aparte.
+  const isRail = (el) => el.classList && el.classList.contains('genre-rail-item');
+  const railItems = items.filter(isRail);
+  const goTo = (el) => {
+    if (!el) return;
+    el.focus();
+    el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+  };
+  const exitTarget = () => document.getElementById('cinepulse-hero-play')
+    || document.querySelector('#main-content [data-tvnav]')
+    || items.find(el => !isRail(el));
+
+  if (isRail(current)) {
+    const idx = railItems.indexOf(current);
+    if (direction === 'up') return goTo(railItems[idx - 1]);
+    if (direction === 'down') return goTo(railItems[idx + 1] || exitTarget());
+    if (direction === 'right') return goTo(exitTarget());
+    return; // left: ya está en el borde
   }
 
   const curRect = current.getBoundingClientRect();
   const curCx = curRect.left + curRect.width / 2;
   const curCy = curRect.top + curRect.height / 2;
 
-  let best = null, bestScore = Infinity;
-  items.forEach(el => {
-    if (el === current) return;
-    const r = el.getBoundingClientRect();
-    const dx = (r.left + r.width / 2) - curCx;
-    const dy = (r.top + r.height / 2) - curCy;
+  // Fuera de la columna, los ítems de géneros solo son candidatos al ir hacia
+  // la izquierda (movimiento deliberado hacia el menú). Para arriba/abajo/
+  // derecha se ignoran.
+  const pool = (direction === 'left') ? items : items.filter(el => !isRail(el));
 
-    let valid = false, score = 0;
-    if (direction === 'left' && dx < -5 && Math.abs(dy) < curRect.height * 0.6) { valid = true; score = Math.abs(dx) + Math.abs(dy) * 3; }
-    else if (direction === 'right' && dx > 5 && Math.abs(dy) < curRect.height * 0.6) { valid = true; score = Math.abs(dx) + Math.abs(dy) * 3; }
-    else if (direction === 'up' && dy < -5) { valid = true; score = Math.abs(dy) + Math.abs(dx) * 2; }
-    else if (direction === 'down' && dy > 5) { valid = true; score = Math.abs(dy) + Math.abs(dx) * 2; }
+  // Dos pasadas: primero exigiendo que el destino esté "en línea" con el origen
+  // (banda vertical para izq/der); si no hay nada así, una pasada relajada que
+  // acepta el más cercano en esa dirección aunque no esté alineado.
+  const pick = (relaxed) => {
+    let best = null, bestScore = Infinity;
+    const band = curRect.height * 0.6;
+    pool.forEach(el => {
+      if (el === current) return;
+      const r = el.getBoundingClientRect();
+      const dx = (r.left + r.width / 2) - curCx;
+      const dy = (r.top + r.height / 2) - curCy;
 
-    if (valid && score < bestScore) { bestScore = score; best = el; }
-  });
+      let valid = false, score = 0;
+      if (direction === 'left' && dx < -5 && (relaxed || Math.abs(dy) < band)) { valid = true; score = Math.abs(dx) + Math.abs(dy) * (relaxed ? 1 : 3); }
+      else if (direction === 'right' && dx > 5 && (relaxed || Math.abs(dy) < band)) { valid = true; score = Math.abs(dx) + Math.abs(dy) * (relaxed ? 1 : 3); }
+      else if (direction === 'up' && dy < -5) { valid = true; score = Math.abs(dy) + Math.abs(dx) * 2; }
+      else if (direction === 'down' && dy > 5) { valid = true; score = Math.abs(dy) + Math.abs(dx) * 2; }
 
-  if (best) {
-    best.focus();
-    best.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
-  }
+      if (valid && score < bestScore) { bestScore = score; best = el; }
+    });
+    return best;
+  };
+
+  const best = pick(false) || pick(true);
+  if (best) goTo(best);
 }
 
 document.addEventListener('keydown', (e) => {
@@ -1644,7 +1685,7 @@ window.closeMobileSearch = () => {
 // se re-muestra solo cada 10s por startHeroAutoRotation) y las filas de
 // "Continuar viendo"/"Mi Lista" quedaban pisando los resultados en vez de
 // dejar solo la lista filtrada.
-const _searchExtraSectionIds = ['hero-section', 'genre-bar', 'continue-watching-row', 'my-list-row'];
+const _searchExtraSectionIds = ['hero-section', 'genre-bar', 'genre-rail', 'continue-watching-row', 'my-list-row'];
 let _isSearchActive = false;
 let _preSearchDisplay = null;
 
@@ -9167,7 +9208,12 @@ async function updateHeroCarousel() {
   const section = document.getElementById('hero-section');
   if (!section) return;
 
-  const item = heroPool[currentHeroIndex % heroPool.length];
+  // El hero muestra el ítem activo del "set" de miniaturas en curso. Si por lo
+  // que sea no hay sets armados, cae al pool Elite de siempre.
+  const activeSet = (_heroSets[_heroSetIndex] && _heroSets[_heroSetIndex].items.length)
+    ? _heroSets[_heroSetIndex].items
+    : heroPool;
+  const item = activeSet[currentHeroIndex % activeSet.length];
   if (!item) return;
 
   // Buscar backdrop: si no tiene, lo busca de TMDB al vuelo
@@ -9231,26 +9277,77 @@ async function updateHeroCarousel() {
     };
     
     const isFav = window._myListIds && window._myListIds.has(item.id);
-    heroList.innerHTML = isFav 
+    heroList.innerHTML = isFav
       ? '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 1;">check</span> En Mi Lista'
       : '<span class="material-symbols-outlined">add</span> Mi Lista';
   }
+
+  renderHeroThumbs(activeSet);
+}
+
+// Grilla de 6 miniaturas a la derecha del hero (escritorio). Solo re-pinta el
+// HTML cuando cambia el set (evita que las imágenes parpadeen en cada rotación);
+// entre medio nada más mueve el resaltado de la miniatura activa.
+function renderHeroThumbs(activeSet) {
+  const box = document.getElementById('cinepulse-hero-thumbs');
+  if (!box) return;
+  if (!activeSet || activeSet.length < 2) { box.style.display = 'none'; return; }
+  box.style.display = '';
+
+  const active = currentHeroIndex % activeSet.length;
+  const setLabel = (_heroSets[_heroSetIndex] && _heroSets[_heroSetIndex].label) || '';
+  const key = setLabel + '|' + activeSet.map(m => m.id).join(',');
+
+  if (box.dataset.key !== key) {
+    box.dataset.key = key;
+    const label = document.getElementById('cinepulse-hero-thumbs-label');
+    if (label) label.textContent = setLabel;
+    box.innerHTML = activeSet.map((m, i) => {
+      const img = m.backdrop || m.img
+        || (m.poster_path ? 'https://image.tmdb.org/t/p/w300' + m.poster_path : '/icon_192.png');
+      const safeTitle = (m.title || '').replace(/"/g, '&quot;');
+      return `<button class="cinepulse-hero-thumb" data-idx="${i}" title="${safeTitle}" aria-label="${safeTitle}">
+        <img src="${img}" alt="" loading="lazy" onerror="this.src='/icon_192.png'">
+      </button>`;
+    }).join('');
+    box.querySelectorAll('.cinepulse-hero-thumb').forEach(btn => {
+      btn.onclick = () => {
+        currentHeroIndex = parseInt(btn.dataset.idx, 10) || 0;
+        updateHeroCarousel();
+        startHeroAutoRotation(); // reinicia el reloj para que no salte enseguida
+      };
+    });
+  }
+
+  box.querySelectorAll('.cinepulse-hero-thumb').forEach((btn, i) => {
+    btn.classList.toggle('active', i === active);
+  });
 }
 
 function startHeroAutoRotation() {
   if (heroTimer) clearInterval(heroTimer);
   heroTimer = setInterval(() => {
     if (_isSearchActive) return;
-    if (heroPool.length > 3) {
-      currentHeroIndex = (currentHeroIndex + 1) % heroPool.length;
-      const section = document.getElementById('hero-section');
-      if (section) {
-        section.style.opacity = '0.5';
-        updateHeroCarousel(); // Ya es async internamente
-        setTimeout(() => {
-          section.style.opacity = '1';
-        }, 500);
-      }
+    const activeSet = (_heroSets[_heroSetIndex] && _heroSets[_heroSetIndex].items.length)
+      ? _heroSets[_heroSetIndex].items
+      : heroPool;
+    if (activeSet.length < 2) return;
+
+    currentHeroIndex++;
+    if (currentHeroIndex >= activeSet.length) {
+      // Terminamos de recorrer este set: saltamos al siguiente (Tendencia ->
+      // Estrenos -> Más vistas -> ...).
+      currentHeroIndex = 0;
+      if (_heroSets.length > 1) _heroSetIndex = (_heroSetIndex + 1) % _heroSets.length;
+    }
+
+    const section = document.getElementById('hero-section');
+    if (section) {
+      section.style.opacity = '0.5';
+      updateHeroCarousel(); // Ya es async internamente
+      setTimeout(() => {
+        section.style.opacity = '1';
+      }, 500);
     }
   }, 10000); // Rota cada 10 segundos
 }
@@ -9388,6 +9485,38 @@ function initApp(filterType = '', genreId = '', year = '') {
   // Limitamos el pool de rotación para que sea "Elite"
   heroPool = heroPool.slice(0, filterType ? 10 : 15);
 
+  // --- Sets de la grilla de 6 miniaturas del hero (v2.43) ---
+  // Rotan solas: Tendencia (las 6 mejores del pool Elite) -> Estrenos (lo último
+  // que entró) -> Más vistas en SelvaFlix (por reproducciones locales). La grilla
+  // solo se pinta en escritorio; en celular el hero sigue igual que antes.
+  {
+    const poolThumbs = allContent.filter(c => !esRoto(c) && c.type !== 'live');
+    const setTendencia = heroPool.slice(0, 6);
+    const setNuevos = [...poolThumbs]
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+      .slice(0, 6);
+    const totalPlays = poolThumbs.reduce((n, c) => n + (playCounts[c.tmdbId] || playCounts[c.id] || 0), 0);
+    const setVistos = (totalPlays > 0
+      ? [...poolThumbs].sort((a, b) =>
+          (playCounts[b.tmdbId] || playCounts[b.id] || 0) - (playCounts[a.tmdbId] || playCounts[a.id] || 0))
+      : [...poolThumbs].sort((a, b) => {
+          const r = x => { const v = parseFloat(x.rating || 0); return (v >= 9.5 || v <= 0) ? 5 : v; };
+          return r(b) - r(a);
+        })
+    ).slice(0, 6);
+
+    _heroSets = [
+      { label: 'Tendencia', items: setTendencia },
+      { label: 'Estrenos', items: setNuevos },
+      { label: 'Más vistas en SelvaFlix', items: setVistos },
+    ].filter(s => s.items.length === 6);
+    if (_heroSets.length === 0 && heroPool.length) {
+      _heroSets = [{ label: 'Tendencia', items: heroPool.slice(0, 6) }];
+    }
+    _heroSetIndex = 0;
+    currentHeroIndex = 0;
+  }
+
   // Hero Carousel Priority (v2.40)
   const heroSection = document.getElementById('hero-section');
   if (heroPool.length > 0) {
@@ -9461,17 +9590,44 @@ function initApp(filterType = '', genreId = '', year = '') {
     if (container) container.innerHTML = ''; // Los skeletons cumplieron su misión
 
     // --- NUEVO ORDEN DE PORTADA (v2.42) ---
+    // TMDB devuelve 10.0 (o 0) para títulos con 1-2 votos o data scrapeada a
+    // medias. Para rankear por "calidad" los tratamos como sin puntuar (5.0
+    // neutro) así no acaparan "Recomendadas" por encima de películas realmente
+    // bien valoradas.
+    const calidad = (c) => {
+      const r = parseFloat(c.rating || 0);
+      return (r >= 9.5 || r <= 0) ? 5.0 : r;
+    };
+
     // 1. Recomendadas (La Vieja Confiable: Mix Rating + Popularidad)
     const recommended = [...allContent]
-      .map(c => ({ 
-        ...c, 
-        score: (parseFloat(c.rating || 0)) + (Math.log10((playCounts[c.tmdbId] || playCounts[c.id] || 0) + 1) * 3) 
+      .map(c => ({
+        ...c,
+        score: calidad(c) + (Math.log10((playCounts[c.tmdbId] || playCounts[c.id] || 0) + 1) * 3)
       }))
       .sort((a, b) => b.score - a.score)
       .slice(0, 12);
     if (recommended.length > 0) renderRow('Recomendadas para ti', recommended);
 
-    // 2. Tendencias en la Selva (Local plays, with fallback to top-rated mixed catalog if no plays yet)
+    // 1.5 Estrenos <año> — lo nuevo y actual. Primero lo de este año ordenado
+    // por lo último que entró al catálogo; si todavía hay poco de este año
+    // (arranque de temporada) se abre al año anterior y se llama "Novedades".
+    const anioActual = new Date().getFullYear();
+    let estrenos = [...allContent]
+      .filter(c => c.type !== 'live' && Number(c.year) === anioActual)
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    let estrenosTitulo = `Estrenos ${anioActual}`;
+    if (estrenos.length < 6) {
+      estrenos = [...allContent]
+        .filter(c => c.type !== 'live' && Number(c.year) >= anioActual - 1)
+        .sort((a, b) => (Number(b.year) - Number(a.year)) || ((b.createdAt || 0) - (a.createdAt || 0)));
+      estrenosTitulo = 'Novedades en la Selva';
+    }
+    estrenos = estrenos.slice(0, 12);
+    if (estrenos.length >= 4) renderRow(estrenosTitulo, estrenos);
+
+    // 2. Tendencias en la Selva (Local plays, with fallback to newest additions if no plays yet)
+    const yaEnRecom = new Set(recommended.map(c => c.id));
     let popularity = [...allContent]
       .filter(c => c.type !== 'live')
       .map(c => ({ ...c, plays: playCounts[c.tmdbId] || playCounts[c.id] || 0 }))
@@ -9480,14 +9636,14 @@ function initApp(filterType = '', genreId = '', year = '') {
       .slice(0, 12);
 
     // selva_play_counts es solo de ESTE navegador — con pocas reproducciones
-    // locales (o recién instalado) la fila se quedaba con 1 o 2 títulos nada
-    // más. Se completa con los mejor puntuados del catálogo hasta llegar a
-    // 12, sin perder el orden real de lo más reproducido acá arriba.
+    // locales (o recién instalado) la fila se quedaba con 1 o 2 títulos. Antes
+    // se rellenaba con los mejor puntuados y quedaba idéntica a "Recomendadas".
+    // Ahora se completa con los estrenos (lo último que entró al catálogo),
+    // salteando lo que ya está arriba, para que sean dos filas distintas.
     if (popularity.length < 12) {
-      const yaIncluidos = new Set(popularity.map(c => c.id));
       const relleno = [...allContent]
-        .filter(c => c.type !== 'live' && !yaIncluidos.has(c.id))
-        .sort((a, b) => parseFloat(b.rating || 0) - parseFloat(a.rating || 0));
+        .filter(c => c.type !== 'live' && !yaEnRecom.has(c.id) && !popularity.some(p => p.id === c.id))
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
       for (const c of relleno) {
         if (popularity.length >= 12) break;
         popularity.push(c);

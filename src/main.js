@@ -9323,7 +9323,9 @@ function renderHeroThumbs(activeSet) {
     const label = document.getElementById('cinepulse-hero-thumbs-label');
     if (label) label.textContent = setLabel;
     box.innerHTML = activeSet.map((m, i) => {
-      const img = m.backdrop || m.img
+      // Póster vertical primero (la grilla es 2:3); el backdrop apaisado solo
+      // como respaldo.
+      const img = m.img || m.backdrop
         || (m.poster_path ? 'https://image.tmdb.org/t/p/w300' + m.poster_path : '/icon_192.png');
       const safeTitle = (m.title || '').replace(/"/g, '&quot;');
       return `<button class="cinepulse-hero-thumb" data-idx="${i}" title="${safeTitle}" aria-label="${safeTitle}">

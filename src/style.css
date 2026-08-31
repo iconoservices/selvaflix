@@ -671,8 +671,8 @@
   right: var(--margin-desktop);
   top: 50%;
   transform: translateY(-50%);
-  width: 400px;
-  max-width: 36vw;
+  width: 420px;
+  max-width: 40vw;
 }
 
 .cinepulse-hero-thumbs-label {
@@ -689,13 +689,13 @@
 
 .cinepulse-hero-thumbs {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  grid-template-columns: repeat(3, 1fr); /* 3 arriba y 3 abajo */
+  gap: 10px;
 }
 
 .cinepulse-hero-thumb {
   position: relative;
-  aspect-ratio: 16 / 10;
+  aspect-ratio: 2 / 3; /* póster vertical */
   padding: 0;
   border: 2px solid transparent;
   border-radius: var(--radius-md);
@@ -6091,26 +6091,24 @@ body.admin-locked {
    ------------------------------------------------------------------ */
 @media (max-width: 1023px) {
 
-  /* La barra superior es fixed y va a z-index 1000, así que el player pegado
-     arriba quedaba recortado. Lo bajamos por debajo de ella.
-     Ojo PWA: en modo instalado (standalone) la barra crece con el status bar
-     del teléfono (--safe-top: 44px en iOS), así que el offset tiene que
-     incluirlo. En el navegador --safe-top vale 0 y esto queda igual que antes
-     (56px), por eso no afecta a la versión web. */
+  /* En celular la barra superior se oculta en la ficha, así que el player
+     puede ir casi pegado arriba (solo el safe-area del notch en PWA + un
+     pelín de aire). Antes reservaba 56px para la navbar y quedaba un hueco
+     negro grande arriba. */
   #detail-view.con-player-acoplado #detail-player-dock {
     display: block;
     position: sticky;
-    top: calc(56px + var(--safe-top, 0px));
-    margin-top: calc(56px + var(--safe-top, 0px));
+    top: calc(8px + var(--safe-top, 0px));
+    margin-top: calc(8px + var(--safe-top, 0px));
     z-index: 60;
     background: #000;
   }
 
-  /* El hero deja de ser bloque, pero su imagen se queda de fondo ambiente
-     (misma idea que en escritorio) detrás del contenido que va bajo el
-     player. */
+  /* En celular, con el player acoplado el hero (que muestra el póster vertical
+     a 574px) ocupaba media pantalla arriba. Se oculta: manda el reproductor,
+     y el título va en #detail-dock-title justo debajo. */
   #detail-view.con-player-acoplado #detail-hero {
-    display: block !important;
+    display: none !important;
   }
 
   .player-modal.player-acoplado {

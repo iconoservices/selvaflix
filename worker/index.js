@@ -3,6 +3,7 @@
  * Soluciona el error de descarga activando un puente binario.
  * v1.7: + /flix/catalog (catálogo de SelvaFlix cacheado en el borde, corta el egress de Supabase).
  * v1.8: + /flix/admin/* (escrituras al catálogo con service_role; habilita RLS en `movies`).
+ * v1.8.1: CORS — permitir el header x-selva-admin en el preflight.
  */
 
 export default {
@@ -11,7 +12,7 @@ export default {
         const corsHeaders = {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, x-selva-auth, Range',
+            'Access-Control-Allow-Headers': 'Content-Type, x-selva-auth, x-selva-admin, Range',
             'Access-Control-Expose-Headers': 'Content-Length, Content-Range'
         };
 
@@ -593,7 +594,7 @@ export default {
             if (url.pathname === '/beat/trending') return new Response(JSON.stringify(await fetchYouTubeDirect(null, true)), { headers: corsHeaders });
             if (url.pathname === '/img') return fetch(`https://i.ytimg.com/vi/${url.searchParams.get('v')}/mqdefault.jpg`, { headers: { "User-Agent": "Mozilla/5.0" } });
 
-            return new Response(JSON.stringify({ status: 'IconoSVC Bunker Ready', v: '1.8' }), { headers: corsHeaders });
+            return new Response(JSON.stringify({ status: 'IconoSVC Bunker Ready', v: '1.8.1' }), { headers: corsHeaders });
 
         } catch (error) {
             return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders });

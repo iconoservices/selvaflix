@@ -1,6 +1,7 @@
 /**
- * 🥥 ICONOSERVICES MASTER-WORKER v1.6 - "Edición Búnker & Contrabando"
+ * 🥥 ICONOSERVICES MASTER-WORKER v1.7 - "Edición Búnker & Contrabando"
  * Soluciona el error de descarga activando un puente binario.
+ * v1.7: + /flix/catalog (catálogo de SelvaFlix cacheado en el borde, corta el egress de Supabase).
  */
 
 export default {
@@ -379,6 +380,69 @@ export default {
                 });
             }
 
+            // --- 🎬 RUTA: CATALOG (catálogo completo, cacheado en el borde) ---
+            // La app bajaba la tabla `movies` ENTERA (~9900 filas, select *)
+            // desde Supabase en CADA visita fresca. El Service Worker dejó de
+            // cachear supabase.co a propósito (arreglaba el bug del catálogo con
+            // 5-20 títulos), así que el egress del plan gratis (5 GB/mes) se fue
+            // al 219% y Supabase amenaza con devolver 402 pasado el 24-sep-2026.
+            //
+            // Acá el Worker baja el catálogo UNA vez cada 5 min por colo y lo
+            // sirve desde la caché de Cloudflare. Supabase pasa de "una descarga
+            // por visitante" a "una cada 5 min por región" → egress ↓ ~95%.
+            // Los cambios en vivo del admin siguen llegando por Supabase Realtime
+            // (suscripción directa en main.js), no dependen de este TTL.
+            if (url.pathname === '/flix/catalog') {
+                const SUPA_URL = env.SUPABASE_URL || 'https://qeknzamdwchswjcqpsfg.supabase.co';
+                // anon/publishable key: solo lectura, ya es pública (está en el
+                // bundle del sitio). Se puede sobreescribir con un secreto.
+                const SUPA_KEY = env.SUPABASE_ANON_KEY || 'sb_publishable_AGxSpKunPMIykRYd-4Ul9Q_yydotynM';
+
+                const cache = caches.default;
+                const cacheKey = `${url.origin}/flix/catalog`;
+                const cached = await cache.match(cacheKey);
+                if (cached) return cached;
+
+                const PAGE = 1000;
+                const rows = [];
+                let failed = false;
+                for (let from = 0; ; from += PAGE) {
+                    const r = await fetch(
+                        `${SUPA_URL}/rest/v1/movies?select=*&order=id.asc&offset=${from}&limit=${PAGE}`,
+                        { headers: { apikey: SUPA_KEY, Authorization: `Bearer ${SUPA_KEY}` } }
+                    );
+                    if (!r.ok) { failed = true; break; }
+                    const chunk = await r.json();
+                    if (!Array.isArray(chunk)) { failed = true; break; }
+                    rows.push(...chunk);
+                    if (chunk.length < PAGE) break;
+                }
+
+                // Nunca cachear (ni servir) un catálogo vacío o a medias: es
+                // exactamente el modo de falla que dejó al sitio con 5 títulos.
+                if (failed || rows.length === 0) {
+                    const stale = await cache.match(cacheKey);
+                    if (stale) return stale;
+                    return new Response(
+                        JSON.stringify({ error: 'No se pudo armar el catálogo desde Supabase' }),
+                        { status: 502, headers: corsHeaders }
+                    );
+                }
+
+                // corsHeaders acá es seguro de cachear: Allow-Origin es un '*'
+                // fijo, no un origen reflejado que varíe por request.
+                const resp = new Response(JSON.stringify(rows), {
+                    headers: {
+                        ...corsHeaders,
+                        'Content-Type': 'application/json',
+                        'Cache-Control': 'public, max-age=300, s-maxage=300',
+                        'X-Selva-Catalog-Count': String(rows.length)
+                    }
+                });
+                await cache.put(cacheKey, resp.clone());
+                return resp;
+            }
+
             // ═══════════════════════════════════════════════════════════════
             //  RUTAS /beat/* y /img  →  NO son de SelvaFlix (otra app, YouTube).
             //  Este worker está compartido: borrar algo de acá rompe ese
@@ -456,7 +520,7 @@ export default {
             if (url.pathname === '/beat/trending') return new Response(JSON.stringify(await fetchYouTubeDirect(null, true)), { headers: corsHeaders });
             if (url.pathname === '/img') return fetch(`https://i.ytimg.com/vi/${url.searchParams.get('v')}/mqdefault.jpg`, { headers: { "User-Agent": "Mozilla/5.0" } });
 
-            return new Response(JSON.stringify({ status: 'IconoSVC Bunker Ready', v: '1.6' }), { headers: corsHeaders });
+            return new Response(JSON.stringify({ status: 'IconoSVC Bunker Ready', v: '1.7' }), { headers: corsHeaders });
 
         } catch (error) {
             return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders });

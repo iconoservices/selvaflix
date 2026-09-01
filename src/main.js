@@ -95,7 +95,32 @@ function movieToSupaRow(m) {
 // PostgREST corta en 1000 filas por pedido si no le decís lo contrario —
 // con 1897 títulos (y creciendo) hace falta paginar con .range() hasta
 // que una página vuelva con menos de PAGE_SIZE, o se pierden los últimos.
+//
+// 2026-09-01: la carga inicial del catálogo entero (~9900 filas) en CADA
+// visita reventó el egress del plan gratis de Supabase (219% de 5 GB, con
+// aviso de HTTP 402 pasado el 24-sep). Ahora el catálogo se baja del Worker
+// (/flix/catalog), que lo cachea 5 min en el borde de Cloudflare → Supabase
+// lo sirve una vez cada 5 min por región en vez de una vez por visitante.
+// Si el Worker falla, se cae al camino viejo (paginación directa a Supabase).
 async function supaFetchAllMovieRows() {
+  try {
+    const r = await fetch(`${SelvaStream.MASTER_WORKER_URL}/flix/catalog`, {
+      headers: { 'x-selva-auth': SelvaStream.AUTH_TOKEN }
+    });
+    if (r.ok) {
+      const rows = await r.json();
+      if (Array.isArray(rows) && rows.length > 0) return rows;
+      console.warn('Catálogo del Worker vacío/ inválido — caigo a Supabase directo');
+    } else {
+      console.warn(`Worker /flix/catalog respondió ${r.status} — caigo a Supabase directo`);
+    }
+  } catch (e) {
+    console.warn('Worker /flix/catalog falló — caigo a Supabase directo:', e?.message || e);
+  }
+  return supaFetchAllMovieRowsDirect();
+}
+
+async function supaFetchAllMovieRowsDirect() {
   const PAGE_SIZE = 1000;
   const rows = [];
   let from = 0;

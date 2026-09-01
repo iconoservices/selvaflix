@@ -8103,14 +8103,25 @@ window.handleCardClick = (id, fallbackTitle) => {
 // matchear si el catálogo fusionó un duplicado después de que se guardó el
 // progreso).
 window.resumeContinueWatching = (id, fallbackTitle, season, episode, lastTime) => {
-    let movie = movieDatabase?.trending?.find(m => m.id === id);
+    const cat = movieDatabase?.trending || [];
+    // La migración a Supabase cambió los IDs, así que el movieId guardado en
+    // el historial casi nunca matchea ya. Se prueba en cascada: id exacto →
+    // slug del id → título exacto → título normalizado (sin tildes/mayúsculas)
+    // → slug del título. Recién si NADA matchea, se avisa (antes se navegaba a
+    // #detail/<id-muerto> y caía en "Contenido no encontrado").
+    const nt = window.normalizeText;
+    let movie = cat.find(m => m.id === id)
+        || cat.find(m => slugify(m.title, m.year) === id);
     if (!movie && fallbackTitle) {
-        movie = movieDatabase?.trending?.find(
-            m => (m.title || '').toLowerCase().trim() === fallbackTitle.toLowerCase().trim()
-        );
+        const ftExact = fallbackTitle.toLowerCase().trim();
+        const ftNorm = nt(fallbackTitle);
+        const ftSlug = slugify(fallbackTitle);
+        movie = cat.find(m => (m.title || '').toLowerCase().trim() === ftExact)
+            || cat.find(m => nt(m.title) === ftNorm)
+            || cat.find(m => slugify(m.title, m.year) === ftSlug || slugify(m.title) === ftSlug);
     }
     if (!movie) {
-        window.location.hash = `detail/${id}`;
+        if (window.showToast) window.showToast('Ese título ya no está en el catálogo 🌴', 'error');
         return;
     }
 
@@ -11933,19 +11944,19 @@ window.loadContinueWatching = async () => {
         // Sin barra de progreso: solo mostramos qué se empezó a ver, sin
         // pretender saber en qué minuto quedó (eso solo es fiable con el
         // <video> nativo, que es la minoría de las reproducciones reales).
+        const nt = window.normalizeText;
         grid.innerHTML = history.map(h => {
-            // La tarjeta es horizontal (card-horizontal-*), así que le pega mejor
-            // el banner (16:9) que el póster (2:3) — antes usaba el póster siempre
-            // y quedaba recortado/forzado. Para entradas viejas que se guardaron
-            // antes de este cambio (sin "backdrop" en el historial), se busca el
-            // dato actual en el catálogo ya cargado en memoria en vez de esperar
-            // a que el usuario vea algo de nuevo para que se "autorepare".
-            const movieActual = movieDatabase.trending.find(m => m.id === h.movieId);
+            // El movieId del historial casi nunca matchea tras la migración a
+            // Supabase — se busca también por título normalizado y se usa el ID
+            // ACTUAL del catálogo para que "Continuar viendo" siempre resuelva.
+            const movieActual = movieDatabase.trending.find(m => m.id === h.movieId)
+                || movieDatabase.trending.find(m => nt(m.title) === nt(h.title));
+            const idParaResumir = movieActual?.id || h.movieId;
             const raw = h.backdrop || movieActual?.backdrop || h.poster || movieActual?.img;
             const img = (raw && raw.startsWith('http')) ? raw : 'https://image.tmdb.org/t/p/w300' + (raw || h.poster_path);
             const safeTitle = (h.title || '').replace(/'/g, "\\'");
             return `
-                <div class="card-horizontal-container" tabindex="0" role="button" data-tvnav onclick="window.resumeContinueWatching('${h.movieId}', '${safeTitle}', ${h.season || 0}, ${h.episode || 0}, ${h.lastTime || 0})">
+                <div class="card-horizontal-container" tabindex="0" role="button" data-tvnav onclick="window.resumeContinueWatching('${idParaResumir}', '${safeTitle}', ${h.season || 0}, ${h.episode || 0}, ${h.lastTime || 0})">
                     <div class="card-horizontal-media">
                         <img src="${img}" alt="${h.title}" loading="lazy" onerror="this.src='/icon_192.png'">
                     </div>

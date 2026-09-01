@@ -6042,10 +6042,10 @@ body.admin-locked {
     height: auto !important;
     z-index: auto !important;
     backdrop-filter: none !important;
-    border-radius: 8px;
+    border-radius: 0;
     overflow: hidden;
-    border: 1px solid rgba(255,255,255,0.10);
-    box-shadow: 0 18px 50px rgba(0,0,0,0.55);
+    border: none;
+    box-shadow: none;
     animation: none;
   }
 
@@ -6058,6 +6058,10 @@ body.admin-locked {
      completa. */
   .player-modal.player-acoplado:not(.player-expandido) {
     padding-bottom: 56px;
+    /* La caja negra = solo el video (16:9). La franja de abajo con los
+       controles (‹ / FUENTES VIP / NO CARGA / ⛶) queda transparente, sobre
+       el fondo de la página — se ven "fuera" del reproductor. */
+    background: transparent !important;
   }
 }
 
@@ -6365,7 +6369,6 @@ body.admin-locked {
   aspect-ratio: 16 / 9;
   min-height: 180px;
   background: #0a0a0a;
-  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;

@@ -100,8 +100,17 @@ async function supaFetchAllMovieRows() {
   const rows = [];
   let from = 0;
   while (true) {
-    const { data, error } = await supabase.from('movies').select('*').range(from, from + PAGE_SIZE - 1);
-    if (error) { console.error('Error trayendo catálogo de Supabase:', error); break; }
+    let data, error;
+    // Un reintento por página: un fallo puntual de red/rate-limit no debería
+    // cortar la paginación y devolver medio catálogo (que después pisaba el
+    // caché bueno).
+    for (let intento = 0; intento < 2; intento++) {
+      ({ data, error } = await supabase.from('movies').select('*').range(from, from + PAGE_SIZE - 1));
+      if (!error) break;
+      console.warn(`Supabase catálogo: fallo página ${from}-${from + PAGE_SIZE - 1} (intento ${intento + 1})`, error.message || error);
+      await new Promise(r => setTimeout(r, 600));
+    }
+    if (error) { console.error('Error trayendo catálogo de Supabase, corte en la página', from, error); break; }
     rows.push(...(data || []));
     if (!data || data.length < PAGE_SIZE) break;
     from += PAGE_SIZE;
@@ -477,6 +486,17 @@ async function loadSelvaFlixData() {
           if (esPrimeraEntrega) {
             esPrimeraEntrega = false;
             const moviesArray = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+            // 🛡️ Si Supabase devolvió una lista corta (paginación cortada a
+            // mitad, rate limit) y YA teníamos un catálogo grande en el caché
+            // rehidratado, NO lo pisamos con la versión chica — antes eso
+            // dejaba el sitio con 5 títulos hasta el próximo refresh.
+            const yaTeniamos = Array.isArray(movieDatabase.trending) ? movieDatabase.trending.length : 0;
+            if (moviesArray.length < 500 && yaTeniamos > moviesArray.length) {
+              console.warn(`⚠️ Supabase devolvió solo ${moviesArray.length} títulos (ya teníamos ${yaTeniamos}). Se mantiene el catálogo anterior.`);
+              if (window.resumePendingExports) window.resumePendingExports();
+              resolve();
+              return;
+            }
             movieDatabase.trending = moviesArray;
             localStorage.setItem(CACHE_KEY, JSON.stringify(movieDatabase));
             localStorage.setItem(CACHE_TIME_KEY, Date.now().toString());
@@ -487,6 +507,7 @@ async function loadSelvaFlixData() {
 
           // Cambios en vivo (no la carga inicial): parchea en memoria en vez
           // de releer las 215 de nuevo, y refresca solo lo que esté a la vista.
+          if (typeof snapshot.docChanges !== 'function') return; // entrega rara (HMR/doble init)
           snapshot.docChanges().forEach((change) => {
             const data = { id: change.doc.id, ...change.doc.data() };
             const idx = movieDatabase.trending.findIndex(m => m.id === data.id);
@@ -539,7 +560,13 @@ async function loadSelvaFlixData() {
     _updateDetailedStats(movieDatabase.trending);
   }
 
-  limpiarDuplicadosDeCatalogo();
+  // El limpiador de duplicados BORRA documentos de la DB. Que corra solo en
+  // cada visita (para cualquiera) es peligroso: una carga parcial + un bug de
+  // agrupado y se come el catálogo. Ahora solo se auto-ejecuta para el admin;
+  // el resto usa el botón manual del panel. (Ver red de seguridad interna.)
+  if (localStorage.getItem('selva_admin_auth') === 'true') {
+    limpiarDuplicadosDeCatalogo();
+  }
 
   // Nota: handleRouting ya sabe si es la primera vez al revisar el DOM
   // ✅ Disparar anuncios automáticos si corresponde
@@ -578,6 +605,16 @@ window.updateAdminUI = () => {
 // duplicados reales (que no agrega nada nuevo, solo saca copias repetidas).
 async function limpiarDuplicadosDeCatalogo({ manual = false } = {}) {
   if (!Array.isArray(movieDatabase.trending)) return;
+
+  // 🛡️ RED DE SEGURIDAD: nunca borrar en base a un catálogo chico. Si una
+  // carga de Supabase falló a medias (paginación cortada, rate limit) y
+  // movieDatabase.trending quedó con 5-100 títulos en vez de ~10k, este
+  // limpiador veía "duplicados" fantasma y borraba de la DB de verdad.
+  // El catálogo real tiene miles de títulos; menos de 500 = carga parcial.
+  if (!manual && movieDatabase.trending.length < 500) {
+    console.warn(`🛡️ limpiarDuplicadosDeCatalogo: catálogo con solo ${movieDatabase.trending.length} títulos — carga parcial, no se toca nada.`);
+    return;
+  }
 
   // --- AUTOMATIC DUPLICATE CLEANER ---
   // getDocs(moviesCol) no lleva orderBy, así que el orden en que Firestore

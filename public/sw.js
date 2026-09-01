@@ -1,6 +1,6 @@
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
-console.log('🌴 SW Check: Script cargado (v2.64)');
+console.log('🌴 SW Check: Script cargado (v2.65)');
 
 const firebaseConfig = {
     apiKey: "AIzaSyCABaNkvUlMjBatNh0Giih01IDH4sNbt1Q",
@@ -33,7 +33,7 @@ messaging.onBackgroundMessage((payload) => {
    4. Blindaje contra Opaque Responses (CORS).
 */
 
-const CACHE_NAME = 'selvaflix-cache-v2.64';
+const CACHE_NAME = 'selvaflix-cache-v2.65';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
@@ -82,8 +82,15 @@ self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
     const isImage = event.request.destination === 'image';
 
-    // EXCLUSIÓN: Datos en tiempo real (Firebase/TMDB) -> Siempre a la Red Directo (No cachear)
-    if (url.origin.includes('firebase') || url.origin.includes('themoviedb.org')) {
+    // EXCLUSIÓN: Datos en tiempo real -> SIEMPRE a la red, nunca cachear ni
+    // servir de caché. Sin `supabase.co` acá, el catálogo (~10k títulos) se
+    // cacheaba y, ante un corte de red puntual, el SW servía una respuesta
+    // vieja/parcial → el sitio quedaba con 5-20 títulos hasta borrar datos.
+    // Firestore sigue en la lista por si vuelve a usarse; TMDB por las imágenes.
+    if (url.hostname.includes('supabase.co') ||
+        url.origin.includes('firebase') ||
+        url.origin.includes('themoviedb.org') ||
+        url.hostname.includes('firestore')) {
         return;
     }
 

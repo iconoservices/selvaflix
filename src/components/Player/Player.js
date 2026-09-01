@@ -104,7 +104,9 @@ export const SelvaStream = {
             </div>
 
             <div class="video-layout">
-                <div class="video-container">
+                <div class="video-container" id="player-video-tap" tabindex="0" role="button" data-tvnav
+                     title="Enfocar el video (para el play del control)"
+                     onclick="try{document.getElementById('player-iframe')?.contentWindow?.focus();}catch(e){}">
                     <div id="player-loader" class="loader-overlay">
                         <div class="loader-logo">SELVAFLIX</div>
                         <div class="loader-text">Explorando la selva...</div>
@@ -824,6 +826,13 @@ export const SelvaStream = {
         if (menu) menu.classList.toggle('active');
         // Solo actualiza la lista VIP, no re-dibuja los controles completos
         this.renderVipMenuList();
+        // Al abrir con teclado/control: dejar el foco en la primera fuente para
+        // poder recorrerlas con las flechas y elegir con Enter.
+        if (menu && menu.classList.contains('active')) {
+            setTimeout(() => document.querySelector('#vip-menu-list .stream-card-vip')?.focus(), 60);
+        } else {
+            document.getElementById('floating-sources-btn')?.focus();
+        }
     },
 
     renderVipMenuList() {
@@ -935,7 +944,7 @@ export const SelvaStream = {
                     const accent = isSuggested ? '#FF6600' : (isPublicLink ? '#00f2ff' : '#2ECC71');
 
                     return `
-                        <div class="stream-card-vip${isPlaying ? ' is-playing' : ''}" style="--vip-accent:${accent};"
+                        <div class="stream-card-vip${isPlaying ? ' is-playing' : ''}" style="--vip-accent:${accent};" tabindex="0" role="button" data-tvnav
                              onclick='if(event.target.closest("button")) return; SelvaStream.toggleVipMenu(); SelvaStream.elegirFuenteManual(${realIndex === -1 ? JSON.stringify(s).replace(/'/g, "&apos;") : `SelvaStream.lastScrapedStreams[${realIndex}]`})'>
                             <div class="vip-card-head">
                                 <span class="vip-provider">${s.providerName || 'SERVIDOR'}</span>

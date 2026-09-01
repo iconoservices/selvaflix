@@ -447,8 +447,12 @@ async function loadSelvaFlixData() {
     try {
       hydratedObject = JSON.parse(cachedStored);
 
-      // ️ Vigía Inteligente: Validar que el objeto tenga cara y ojos
-      if (!hydratedObject || !Array.isArray(hydratedObject.trending)) {
+      // ️ Vigía Inteligente: Validar que el objeto tenga cara y ojos.
+      // El length < 100 atrapa un caché que quedó vacío o parcial por un fetch
+      // de Supabase cortado — sin esto, ese caché "válido" (un array, aunque
+      // tenga 0-5 títulos) se rehidrataba y el `if (!hydratedObject)` de abajo
+      // daba false → NUNCA se volvía a pedir el catálogo. El real tiene ~10k.
+      if (!hydratedObject || !Array.isArray(hydratedObject.trending) || hydratedObject.trending.length < 100) {
         throw new Error("Caché incompleto o corrupto");
       }
 
@@ -498,8 +502,17 @@ async function loadSelvaFlixData() {
               return;
             }
             movieDatabase.trending = moviesArray;
-            localStorage.setItem(CACHE_KEY, JSON.stringify(movieDatabase));
-            localStorage.setItem(CACHE_TIME_KEY, Date.now().toString());
+            // Solo persistir en localStorage si la lista es "de verdad" (el
+            // catálogo real tiene ~10k). Un fetch parcial de 5-400 títulos se
+            // usa en memoria para esta sesión pero NO se cachea — si no, en el
+            // próximo reload se rehidrataba ese caché chico y ya no se pedía
+            // nada más (bug de "se queda cargando").
+            if (moviesArray.length >= 500) {
+              localStorage.setItem(CACHE_KEY, JSON.stringify(movieDatabase));
+              localStorage.setItem(CACHE_TIME_KEY, Date.now().toString());
+            } else {
+              console.warn(`⚠️ Catálogo parcial (${moviesArray.length}) — usado en memoria pero NO cacheado.`);
+            }
             if (window.resumePendingExports) window.resumePendingExports();
             resolve();
             return;
@@ -1235,8 +1248,22 @@ function showView(active) {
 // con mouse/touch no nota ninguna diferencia. Todo elemento marcado con
 // [data-tvnav] entra en el "mapa" de navegación.
 function _tvNavItems() {
+  // Con el menú de FUENTES VIP abierto, la navegación se queda DENTRO de él
+  // (las tarjetas de servidor y nada más) — si no, las flechas saltaban entre
+  // la lista y los controles del player que quedan por detrás.
+  const vipMenu = document.getElementById('side-vip-menu');
+  const vipAbierto = vipMenu && vipMenu.classList.contains('active');
+  if (vipAbierto) {
+    const cards = Array.from(vipMenu.querySelectorAll('.stream-card-vip'))
+      .filter(el => el.offsetParent !== null);
+    if (cards.length) return cards;
+  }
   return Array.from(document.querySelectorAll('[data-tvnav]'))
-    .filter(el => el.offsetParent !== null); // solo lo visible en pantalla
+    .filter(el => el.offsetParent !== null) // solo lo visible en pantalla
+    // El drawer de fuentes queda en el DOM aunque esté cerrado (se esconde con
+    // transform, no display:none): sus tarjetas no deben contar cuando no está
+    // abierto.
+    .filter(el => vipAbierto || !el.classList.contains('stream-card-vip'));
 }
 
 // Busca, entre los ítems navegables, el más cercano en la dirección pedida
@@ -1335,7 +1362,10 @@ document.addEventListener('keydown', (e) => {
   if (dirMap[e.key]) {
     const active = document.activeElement;
     const onTvItem = active?.matches?.('[data-tvnav]');
-    const nothingFocused = !active || active === document.body;
+    // Un <iframe> con foco (el usuario "entró" al video del proveedor) cuenta
+    // como "nada enfocado": las flechas vuelven a mover la navegación de
+    // SelvaFlix en vez de quedar atrapadas dentro del reproductor ajeno.
+    const nothingFocused = !active || active === document.body || active.tagName === 'IFRAME';
     // No interceptar flechas si el foco está en el buscador u otro input:
     // ahí las flechas deben mover el cursor de texto, no la selva.
     const inTextInput = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
@@ -8004,6 +8034,13 @@ window.addEventListener('hashchange', handleRouting);
 // Soporte para Tecla Escape (Laptop/Desktop)
 window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+        // Si el menú de FUENTES VIP está abierto, Escape lo cierra a él, no el
+        // player entero.
+        const vipMenu = document.getElementById('side-vip-menu');
+        if (vipMenu && vipMenu.classList.contains('active')) {
+            if (typeof SelvaStream !== 'undefined') SelvaStream.toggleVipMenu();
+            return;
+        }
         const modal = document.getElementById('player-modal');
         if (modal && modal.style.display !== 'none') {
             window.closePlayer();

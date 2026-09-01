@@ -10021,7 +10021,11 @@ window.renderTVHub = function(dbLiveItems = []) {
       category: 'deportes',
       categoryLabel: 'Deportes ⚽',
       img: 'https://www.google.com/s2/favicons?domain=espn.com&sz=128',
-      embed: 'https://freetv.studio/channel/ESPN.us',
+      // Señal real de ESPN Brasil (https, con CORS) -- la de EEUU/Latam no
+      // encontré una fuente abierta funcional. Queda en portugués, pero es
+      // contenido deportivo real en vez del link a la página de FreeTV
+      // (que mostraba anuncios de terceros en vez de reproducir el canal).
+      embed: 'https://cdn.jmvstream.com/w/LVW-9715/LVW9715_12B26T62tm/playlist.m3u8',
       description: 'El líder mundial en deportes. Partidos en vivo, fútbol, básquet y análisis deportivo.'
     },
     {

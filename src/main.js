@@ -506,7 +506,17 @@ async function loadSelvaFlixData() {
             if (window.filterInventoryByCategory) window.filterInventoryByCategory();
             else renderInventory();
           } else if (document.getElementById('home-view')?.style.display === 'block' && typeof initApp === 'function') {
-            initApp();
+            // Re-render por cambio en vivo: respetar la vista actual en vez de
+            // volver siempre al home (antes un update de Firestore te sacaba de
+            // Colecciones / Películas / Series de golpe).
+            const _h = location.hash.substring(1);
+            if (_h === 'colecciones' || _h === 'franquicias' || _h.startsWith('colecciones/')) {
+              initApp('colecciones', '');
+            } else if (['movies', 'series', 'anime'].includes(_h)) {
+              initApp(_h, '');
+            } else {
+              initApp();
+            }
           }
         }, (error) => {
           // Si falla ANTES de la primera entrega, es un error real de carga (se
@@ -679,6 +689,7 @@ window.selvaFlixDataReady = loadSelvaFlixData();
 let _currentFilter = '';   // 'movies' | 'series' | 'live' | ''
 let _currentGenre = '';   // TMDB genre id string or ''
 let _currentYear = '';    // año como string, o '' para todos
+let _coleccionActiva = ''; // nombre de la colección abierta (#colecciones/<slug>), o '' para la grilla
 
 // Los enlaces de escritorio (Home / Películas / Series) llevan su propia clase
 // y nadie los actualizaba: "Home" se quedaba naranja aunque estuvieras en Series.
@@ -686,7 +697,7 @@ function marcarNavEscritorio(tipo) {
   const enlaces = document.querySelectorAll('.nav-desktop-links .nav-link-cinepulse');
   if (!enlaces.length) return;
 
-  const destino = { '': 'Home', 'movies': 'Películas', 'series': 'Series', 'anime': 'Anime', 'franquicias': 'Franquicias' }[tipo || ''];
+  const destino = { '': 'Home', 'movies': 'Películas', 'series': 'Series', 'anime': 'Anime', 'colecciones': 'Colecciones', 'franquicias': 'Colecciones' }[tipo || ''];
   enlaces.forEach(a => {
     a.classList.toggle('active', a.textContent.trim() === destino);
   });
@@ -695,7 +706,7 @@ function marcarNavEscritorio(tipo) {
 // La barra inferior de móvil solo se marcaba desde el enrutado, así que al
 // cambiar de pestaña con setFilter se quedaba siempre en "Inicio".
 function marcarNavMovil(tipo) {
-  const mapa = { '': 'btn-nav-home', 'movies': 'btn-nav-movies', 'series': 'btn-nav-series', 'anime': 'btn-nav-anime', 'franquicias': 'btn-nav-franquicias' };
+  const mapa = { '': 'btn-nav-home', 'movies': 'btn-nav-movies', 'series': 'btn-nav-series', 'anime': 'btn-nav-anime', 'colecciones': 'btn-nav-franquicias', 'franquicias': 'btn-nav-franquicias' };
   Object.values(mapa).forEach(id => document.getElementById(id)?.classList.remove('active'));
   document.getElementById(mapa[tipo || ''])?.classList.add('active');
 }
@@ -716,6 +727,7 @@ window.setFilter = (type) => {
   _currentFilter = type;
   _currentGenre = '';   // reset genre on main filter change
   _currentYear = '';    // reset año on main filter change
+  _coleccionActiva = ''; // "Colecciones" desde el nav = grilla, no una colección puntual
 
   // Si se llamó desde la ficha (la barra superior ahora se ve ahí en
   // escritorio), primero salimos del reproductor y de la vista de detalle.
@@ -1423,7 +1435,17 @@ function handleRouting() {
     window.loadMyList();
   } else {
     showView('home-view');
-    const hashVal = hash || '';
+    let hashVal = hash || '';
+
+    // Colecciones: #colecciones (grilla de tarjetas) o #colecciones/<slug>
+    // (una colección puntual). #franquicias se acepta como alias viejo.
+    _coleccionActiva = '';
+    if (hashVal === 'franquicias') {
+      hashVal = 'colecciones';
+    } else if (hashVal.startsWith('colecciones/')) {
+      _coleccionActiva = decodeURIComponent(hashVal.slice('colecciones/'.length));
+      hashVal = 'colecciones';
+    }
 
     // Top filters
     const idMap = { '': 'filter-all', 'movies': 'filter-movies', 'series': 'filter-series', 'anime': 'filter-anime' };
@@ -1431,8 +1453,8 @@ function handleRouting() {
     document.getElementById(idMap[hashVal])?.classList.add('active');
 
     // Bottom nav (Mobile)
-    const btmMap = { '': 'btn-nav-home', 'movies': 'btn-nav-movies', 'series': 'btn-nav-series', 'anime': 'btn-nav-anime' };
-    ['btn-nav-home', 'btn-nav-movies', 'btn-nav-series', 'btn-nav-anime'].forEach(id => document.getElementById(id)?.classList.remove('active'));
+    const btmMap = { '': 'btn-nav-home', 'movies': 'btn-nav-movies', 'series': 'btn-nav-series', 'anime': 'btn-nav-anime', 'colecciones': 'btn-nav-franquicias' };
+    ['btn-nav-home', 'btn-nav-movies', 'btn-nav-series', 'btn-nav-anime', 'btn-nav-franquicias'].forEach(id => document.getElementById(id)?.classList.remove('active'));
     document.getElementById(btmMap[hashVal])?.classList.add('active');
 
     // Nav de escritorio (también al llegar por URL directa o botón atrás)
@@ -2003,6 +2025,50 @@ function renderGallery(title, groups) {
   if (container.children.length === 0) {
     container.innerHTML = '<p style="padding:80px;text-align:center;color:var(--text-muted);">La selva está vacía por aquí... 🌿</p>';
   }
+}
+
+// Grilla de "Colecciones" (antes "Franquicias"): una tarjeta por colección con
+// mosaico de 4 pósters + nombre + conteo. Clic → #colecciones/<slug> abre esa
+// colección con renderGallery. Estilo inspirado en las "Colecciones" de LaMovie.
+function renderColeccionesGrid(movies) {
+  const container = document.getElementById('main-content');
+  if (!container) return;
+
+  const map = new Map();
+  for (const m of movies) {
+    const nombre = m.franchise.trim();
+    if (!map.has(nombre)) map.set(nombre, []);
+    map.get(nombre).push(m);
+  }
+
+  const cols = [...map.entries()]
+    .map(([nombre, items]) => ({ nombre, items }))
+    .sort((a, b) => b.items.length - a.items.length || a.nombre.localeCompare(b.nombre));
+
+  const poster = (m) => m.img || m.poster || m.backdrop || '/icon_192.png';
+
+  container.innerHTML = `
+    <section class="cinepulse-section">
+      <h2 class="cinepulse-section-title">Colecciones</h2>
+      <div class="colecciones-grid">
+        ${cols.map(c => {
+          const posters = c.items.slice(0, 4).map(poster);
+          while (posters.length < 4) posters.push(posters[posters.length - 1] || '/icon_192.png');
+          const slug = encodeURIComponent(c.nombre);
+          const nombreSafe = c.nombre.replace(/</g, '&lt;');
+          return `
+            <button class="coleccion-card" onclick="window.location.hash='colecciones/${slug}'" title="${nombreSafe}">
+              <div class="coleccion-mosaic">
+                ${posters.map(p => `<img src="${p}" alt="" loading="lazy" onerror="this.src='/icon_192.png'">`).join('')}
+              </div>
+              <div class="coleccion-info">
+                <span class="coleccion-name">${nombreSafe}</span>
+                <span class="coleccion-count">${c.items.length} película${c.items.length === 1 ? '' : 's'}</span>
+              </div>
+            </button>`;
+        }).join('')}
+      </div>
+    </section>`;
 }
 
 
@@ -9609,17 +9675,27 @@ function initApp(filterType = '', genreId = '', year = '') {
       if (container) container.innerHTML = '<p style="padding:80px;text-align:center;color:var(--text-muted);">Todavía no hay anime en la selva. ⛩️🌴</p>';
     }
 
-  } else if (filterType === 'franquicias') {
+  } else if (filterType === 'colecciones' || filterType === 'franquicias') {
     const conFranquicia = allContent.filter(c => c.franchise && c.franchise.trim());
-    const nombres = [...new Set(conFranquicia.map(c => c.franchise.trim()))].sort((a, b) => a.localeCompare(b));
-    const groups = nombres.map(nombre => ({
-      label: nombre,
-      items: conFranquicia.filter(c => c.franchise.trim() === nombre)
-    }));
-    if (groups.length > 0) {
-      renderGallery('Franquicias', groups);
-    } else {
-      if (container) container.innerHTML = '<p style="padding:80px;text-align:center;color:var(--text-muted);">Todavía no hay franquicias armadas en la selva. 🌴</p>';
+    // _coleccionActiva trae el nombre de UNA colección (#colecciones/<slug>);
+    // vacío = grilla de todas. Se usa una var de módulo y no el 2º parámetro
+    // porque initApp ya reserva ese para filtrar por id de género de TMDB.
+    const nombrePedido = (_coleccionActiva || '').trim();
+
+    if (nombrePedido) {
+      const items = conFranquicia.filter(c => c.franchise.trim().toLowerCase() === nombrePedido.toLowerCase());
+      if (items.length > 0) {
+        renderGallery(nombrePedido, [{ label: nombrePedido, items }]);
+        // Enlace para volver a la grilla de colecciones
+        const cont = document.getElementById('main-content');
+        if (cont) cont.insertAdjacentHTML('afterbegin', `<a href="#colecciones" class="coleccion-volver">‹ Todas las colecciones</a>`);
+      } else if (container) {
+        container.innerHTML = '<p style="padding:80px;text-align:center;color:var(--text-muted);">Esa colección ya no está. <a href="#colecciones" style="color:var(--primary);">Ver todas</a></p>';
+      }
+    } else if (conFranquicia.length > 0) {
+      renderColeccionesGrid(conFranquicia);
+    } else if (container) {
+      container.innerHTML = '<p style="padding:80px;text-align:center;color:var(--text-muted);">Todavía no hay colecciones armadas en la selva. 🌴</p>';
     }
 
   } else if (filterType === 'live') {

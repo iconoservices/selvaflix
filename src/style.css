@@ -1089,6 +1089,90 @@
   display: none;
 }
 
+/* ─── COLECCIONES (grilla de tarjetas, ex "Franquicias") ───────── */
+.colecciones-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 18px;
+}
+@media (max-width: 640px) {
+  .colecciones-grid { grid-template-columns: 1fr; }
+}
+
+.coleccion-card {
+  display: flex;
+  align-items: stretch;
+  padding: 0;
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.06));
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  overflow: hidden;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+.coleccion-card:hover,
+.coleccion-card:focus-visible {
+  transform: translateY(-3px);
+  border-color: var(--primary);
+  background: rgba(255, 102, 0, 0.06);
+  outline: none;
+}
+
+.coleccion-mosaic {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  width: 120px;
+  flex-shrink: 0;
+  aspect-ratio: 1;
+  background: #0a0a0a;
+}
+.coleccion-mosaic img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.coleccion-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 14px 16px;
+  min-width: 0;
+}
+.coleccion-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--on-surface);
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.coleccion-count {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.coleccion-volver {
+  display: inline-block;
+  margin: 0 var(--margin-desktop) 4px;
+  color: var(--on-surface-variant);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+.coleccion-volver:hover { color: var(--primary); }
+@media (max-width: 768px) {
+  .coleccion-volver { margin-left: var(--margin-mobile); margin-right: var(--margin-mobile); }
+}
+
 /* ─── CINEPULSE FOOTER ────────────────────────────── */
 .cinepulse-footer {
   background: var(--surface-container-lowest);

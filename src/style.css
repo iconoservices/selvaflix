@@ -6691,3 +6691,32 @@ body.admin-locked {
   line-height: 1.6;
   max-width: 380px;
 }
+
+/* 📡 TV EN VIVO HUB STYLES (v2.45) */
+.tv-channel-card:hover {
+  transform: translateY(-5px);
+  border-color: var(--primary) !important;
+  box-shadow: 0 10px 30px rgba(255, 102, 0, 0.2);
+}
+
+.tv-channel-card:active {
+  transform: scale(0.98);
+}
+
+.match-card:hover {
+  transform: translateY(-5px);
+  border-color: var(--primary) !important;
+  box-shadow: 0 12px 35px rgba(255, 102, 0, 0.25);
+}
+
+.match-card:hover img {
+  transform: scale(1.08);
+}
+
+@keyframes pulse {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.2); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+

@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",
-    "firebase": "^12.10.0"
+    "firebase": "^12.10.0",
+    "hls.js": "^1.7.1"
   }
 }

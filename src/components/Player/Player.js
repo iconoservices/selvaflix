@@ -1,8 +1,9 @@
-/* 
+/*
    🦅 SelvaStream Engine v1.0
    Arquitecto: Antigravity
    Misión: Encapsulamiento de reproducción segura y premium.
 */
+import Hls from 'hls.js';
 
 export const SelvaStream = {
     currentPlayerMovie: null,

@@ -8063,7 +8063,12 @@ window.addEventListener('keydown', (e) => {
 window.closePlayer = () => {
     clearTimeout(_streakWatchTimer); // cerró antes de los 2min: no cuenta para la racha
     if (typeof SelvaStream !== 'undefined') SelvaStream.close();
-    if (!window.location.hash.substring(1).startsWith('detail/')) {
+    // "En Vivo" (canales/partidos) abre el player desde #live sin pasar por
+    // #detail/slug -- sin esta excepción, cerrar el player disparaba
+    // history.back() y sacaba al usuario de la app entera en vez de dejarlo
+    // en el hub de TV en vivo.
+    const hash = window.location.hash.substring(1);
+    if (!hash.startsWith('detail/') && hash !== 'live') {
         history.back();
     }
 };
@@ -8811,12 +8816,12 @@ async function discoverContent(topic) {
     ];
 
     const peruvianChannels = [
-      { name: "Latina TV", img: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Latina_Televisi%C3%B3n_logo.svg/1024px-Latina_Televisi%C3%B3n_logo.svg.png", embed: "https://ejemplo.com/m3u8-player?url=https://stream.latina.pe/live.m3u8" },
-      { name: "América TV", img: "https://logodownload.org/wp-content/uploads/2018/11/america-tv-logo.png", embed: "https://ejemplo.com/m3u8-player?url=https://stream.america.pe/live.m3u8" },
-      { name: "Panamericana", img: "https://upload.wikimedia.org/wikipedia/commons/4/45/Panamericana_Televisi%C3%B3n_-_Logo_2016.png", embed: "https://ejemplo.com/m3u8-player?url=https://stream.panamericana.pe/live.m3u8" },
-      { name: "ATV", img: "https://upload.wikimedia.org/wikipedia/commons/c/c5/ATV_Red_Nacional.png", embed: "https://stream.atv.pe/live.m3u8" },
-      { name: "Willax", img: "https://willax.tv/img/willax-logo.png", embed: "https://stream.willax.tv/live.m3u8" },
-      { name: "TV Perú", img: "https://upload.wikimedia.org/wikipedia/commons/2/29/TV_Per%C3%BA_logo_2020.png", embed: "https://stream.tvperu.gob.pe/live.m3u8" }
+      { name: "Latina TV", img: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Latina_Televisi%C3%B3n_logo.svg/1024px-Latina_Televisi%C3%B3n_logo.svg.png", embed: "https://redirector.rudo.video/hls-video/567ffde3fa319fadf3419efda25619456231dfea/latina/latina.smil/playlist.m3u8" },
+      { name: "América TV", img: "https://logodownload.org/wp-content/uploads/2018/11/america-tv-logo.png", embed: "http://190.93.224.42/AMERICA-TV/index.m3u8" },
+      { name: "Panamericana", img: "https://upload.wikimedia.org/wikipedia/commons/4/45/Panamericana_Televisi%C3%B3n_-_Logo_2016.png", embed: "http://190.93.224.42/PANAMERICANA/index.m3u8" },
+      { name: "ATV", img: "https://upload.wikimedia.org/wikipedia/commons/c/c5/ATV_Red_Nacional.png", embed: "https://d19e55ehz2il4i.cloudfront.net/ts:abr.m3u8" },
+      { name: "Willax", img: "https://willax.tv/img/willax-logo.png", embed: "http://190.93.224.42/WILLAX/index.m3u8" },
+      { name: "TV Perú", img: "https://upload.wikimedia.org/wikipedia/commons/2/29/TV_Per%C3%BA_logo_2020.png", embed: "http://190.93.224.42/TV-PERU/index.m3u8" }
     ];
 
     status.innerText = "📺 Categorías y Canales Sugeridos:";
@@ -9699,7 +9704,9 @@ function initApp(filterType = '', genreId = '', year = '') {
 
   // Hero Carousel Priority (v2.40)
   const heroSection = document.getElementById('hero-section');
-  if (heroPool.length > 0) {
+  if (filterType === 'live' || filterType === 'tv') {
+    if (heroSection) heroSection.style.display = 'none';
+  } else if (heroPool.length > 0) {
     if (heroSection) {
         heroSection.style.display = 'flex';
         heroSection.style.minHeight = window.innerWidth <= 768 ? '300px' : '550px';
@@ -9889,6 +9896,323 @@ window.suggestTVChannels = () => {
         </div>
       </div>
   `).join('');
+};
+
+// ⚽ GENERADOR DINÁMICO DE BANDERAS Y ESCUDOS PARA PARTIDOS
+window.getFlagOrLogo = function(name) {
+  if (!name) return 'https://via.placeholder.com/100/222/fff?text=VS';
+  const clean = name.toLowerCase().trim();
+  
+  const map = {
+    'peru': 'https://flagcdn.com/w160/pe.png',
+    'perú': 'https://flagcdn.com/w160/pe.png',
+    'argentina': 'https://flagcdn.com/w160/ar.png',
+    'españa': 'https://flagcdn.com/w160/es.png',
+    'espana': 'https://flagcdn.com/w160/es.png',
+    'francia': 'https://flagcdn.com/w160/fr.png',
+    'inglaterra': 'https://flagcdn.com/w160/gb-eng.png',
+    'brasil': 'https://flagcdn.com/w160/br.png',
+    'colombia': 'https://flagcdn.com/w160/co.png',
+    'chile': 'https://flagcdn.com/w160/cl.png',
+    'mexico': 'https://flagcdn.com/w160/mx.png',
+    'méxico': 'https://flagcdn.com/w160/mx.png',
+    'suiza': 'https://flagcdn.com/w160/ch.png',
+    'eeuu': 'https://flagcdn.com/w160/us.png',
+    'usa': 'https://flagcdn.com/w160/us.png',
+    'alemania': 'https://flagcdn.com/w160/de.png',
+    'italia': 'https://flagcdn.com/w160/it.png',
+    'portugal': 'https://flagcdn.com/w160/pt.png',
+    'uruguay': 'https://flagcdn.com/w160/uy.png',
+    'universitario': 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e0/Universitario_de_Deportes_logo.svg/300px-Universitario_de_Deportes_logo.svg.png',
+    'alianza lima': 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Alianza_Lima_logo.svg/300px-Alianza_Lima_logo.svg.png',
+    'sporting cristal': 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/Sporting_Cristal_logo.svg/300px-Sporting_Cristal_logo.svg.png',
+    'real madrid': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/56/Real_Madrid_CF.svg/300px-Real_Madrid_CF.svg.png',
+    'barcelona': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/FC_Barcelona_%28crest%29.svg/300px-FC_Barcelona_%28crest%29.svg.png',
+    'manchester city': 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/eb/Manchester_City_FC_badge.svg/300px-Manchester_City_FC_badge.svg.png'
+  };
+
+  return map[clean] || 'https://via.placeholder.com/100/222/fff?text=' + encodeURIComponent(name.slice(0, 3).toUpperCase());
+};
+
+// 📡 TV EN VIVO HUB (v2.47)
+window.renderTVHub = function(dbLiveItems = []) {
+  const container = document.getElementById('main-content');
+  if (!container) return;
+
+  const presets = [
+    {
+      id: 'live-latina',
+      title: 'Latina Televisión',
+      category: 'peru',
+      categoryLabel: 'Perú 🇵🇪',
+      img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Latina_Televisi%C3%B3n_logo.svg/1024px-Latina_Televisi%C3%B3n_logo.svg.png',
+      embed: 'https://redirector.rudo.video/hls-video/567ffde3fa319fadf3419efda25619456231dfea/latina/latina.smil/playlist.m3u8',
+      description: 'Señal en vivo HD de Latina Televisión Perú. Noticias, entretenimiento y programas estelares.'
+    },
+    {
+      id: 'live-america',
+      title: 'América TV',
+      category: 'peru',
+      categoryLabel: 'Perú 🇵🇪',
+      img: 'https://logodownload.org/wp-content/uploads/2018/11/america-tv-logo.png',
+      // OJO: este CDN solo tiene http (puerto 443 rechaza conexión) -- en
+      // producción (https) el navegador lo bloquea por contenido mixto.
+      // Anda en local (dev es http). Para producción hay que pasarlo por
+      // MASTER_WORKER_URL como proxy, igual que otras fuentes.
+      embed: 'http://190.93.224.42/AMERICA-TV/index.m3u8',
+      description: 'Canal líder de la televisión peruana. Telenovelas, producciones nacionales y noticias.'
+    },
+    {
+      id: 'live-panamericana',
+      title: 'Panamericana TV',
+      category: 'peru',
+      categoryLabel: 'Perú 🇵🇪',
+      img: 'https://upload.wikimedia.org/wikipedia/commons/4/45/Panamericana_Televisi%C3%B3n_-_Logo_2016.png',
+      // Mismo caso que América TV: CDN solo http, sin https. Anda en local,
+      // en producción necesita proxy por MASTER_WORKER_URL.
+      embed: 'http://190.93.224.42/PANAMERICANA/index.m3u8',
+      description: 'Señal en vivo de Panamericana Televisión. Información, espectáculos y deportes.'
+    },
+    {
+      id: 'live-atv',
+      title: 'ATV Noticias',
+      category: 'peru',
+      categoryLabel: 'Perú 🇵🇪',
+      img: 'https://upload.wikimedia.org/wikipedia/commons/c/c5/ATV_Red_Nacional.png',
+      embed: 'https://d19e55ehz2il4i.cloudfront.net/ts:abr.m3u8',
+      description: 'Andina de Televisión ATV. Noticias 24 horas y entretenimiento en vivo.'
+    },
+    {
+      id: 'live-willax',
+      title: 'Willax Televisión',
+      category: 'peru',
+      categoryLabel: 'Perú 🇵🇪',
+      img: 'https://willax.tv/img/willax-logo.png',
+      // Mismo caso que América TV: CDN solo http, sin https. Anda en local,
+      // en producción necesita proxy por MASTER_WORKER_URL.
+      embed: 'http://190.93.224.42/WILLAX/index.m3u8',
+      description: 'Willax TV en vivo. Periodismo de opinión, actualidad y entretenimiento.'
+    },
+    {
+      id: 'live-tvperu',
+      title: 'TV Perú Cultural',
+      category: 'peru',
+      categoryLabel: 'Perú 🇵🇪',
+      img: 'https://upload.wikimedia.org/wikipedia/commons/2/29/TV_Per%C3%BA_logo_2020.png',
+      // Mismo caso que América TV: CDN solo http, sin https. Anda en local,
+      // en producción necesita proxy por MASTER_WORKER_URL.
+      embed: 'http://190.93.224.42/TV-PERU/index.m3u8',
+      description: 'Televisión Nacional del Perú. Cultura, documentales y cobertura nacional en vivo.'
+    },
+    {
+      id: 'live-espn',
+      title: 'ESPN Deportes',
+      category: 'deportes',
+      categoryLabel: 'Deportes ⚽',
+      img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/ESPN_wordmark.svg/1200px-ESPN_wordmark.svg.png',
+      embed: 'https://freetv.studio/channel/ESPN.us',
+      description: 'El líder mundial en deportes. Partidos en vivo, fútbol, básquet y análisis deportivo.'
+    },
+    {
+      id: 'live-tn',
+      title: 'TN Todo Noticias',
+      category: 'noticias',
+      categoryLabel: 'Noticias 📡',
+      img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/TN_Logo.svg/1200px-TN_Logo.svg.png',
+      embed: 'https://freetv.studio/channel/TN.ar',
+      description: 'Noticias 24 horas en vivo de Latinoamérica e información internacional de último minuto.'
+    },
+    {
+      id: 'live-cinecanal',
+      title: 'Cinecanal HD',
+      category: 'cine',
+      categoryLabel: 'Cine 🍿',
+      img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Cinecanal_logo.png/640px-Cinecanal_logo.png',
+      embed: 'https://freetv.studio/channel/Cinecanal.cl',
+      description: 'Las mejores películas de Hollywood 24/7 en español latino sin comerciales.'
+    },
+    {
+      id: 'live-freetv',
+      title: 'FreeTV Studio (Hub Mundial)',
+      category: 'freetv',
+      categoryLabel: 'Mundo 🌐',
+      img: 'https://freetv.studio/favicon.ico',
+      embed: 'https://freetv.studio/',
+      description: 'Directorio de más de 7,000 canales de televisión pública en vivo de todo el mundo.'
+    }
+  ];
+
+  const dbTitles = new Set(dbLiveItems.map(i => (i.title || '').toLowerCase().trim()));
+  const filteredPresets = presets.filter(p => !dbTitles.has(p.title.toLowerCase().trim()));
+
+  const allChannels = [
+    ...dbLiveItems.map(i => ({
+      id: i.id,
+      title: i.title,
+      category: i.category || 'general',
+      categoryLabel: i.categoryLabel || 'Canales 📡',
+      img: i.img || i.poster || 'https://via.placeholder.com/400x225/111/fff?text=LIVE+TV',
+      embed: i.embed,
+      description: i.description || i.synopsis || 'Canal de TV transmitiendo en vivo en SelvaFlix.'
+    })),
+    ...filteredPresets
+  ];
+
+  const html = `
+    <div class="tv-hub-container" style="padding: 20px 0; max-width: 1400px; margin: 0 auto;">
+      
+      <!-- Banner Hero TV -->
+      <div class="tv-hub-hero" style="background: linear-gradient(135deg, rgba(255,102,0,0.2) 0%, rgba(20,20,20,0.95) 100%), url('https://images.unsplash.com/photo-1593784991095-a205069470b6?auto=format&fit=crop&w=1200&q=80') center/cover; border-radius: 20px; padding: 35px 30px; border: 1px solid rgba(255,102,0,0.3); box-shadow: 0 20px 50px rgba(0,0,0,0.6); margin-bottom: 30px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 20px;">
+        <div style="max-width: 650px;">
+          <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(255,82,82,0.15); border: 1px solid rgba(255,82,82,0.4); color: #FF5252; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 12px;">
+            <span style="width: 8px; height: 8px; background: #FF5252; border-radius: 50%; animation: pulse 1.4s infinite;"></span>
+            TV EN VIVO & AGENDA DEPORTIVA
+          </div>
+          <h1 style="color: white; font-size: 2.2rem; font-weight: 900; margin: 0 0 10px 0; font-family: 'Sora', sans-serif; letter-spacing: -0.5px;">
+            Televisión & Partidos en Vivo ⚽📺
+          </h1>
+          <p style="color: #bbb; font-size: 0.95rem; line-height: 1.5; margin: 0;">
+            Sigue los encuentros deportivos divididos por partido, tus canales peruanos preferidos, noticias 24/7 y más de 7,000 señales abiertas en vivo.
+          </p>
+        </div>
+        
+        <div style="display: flex; flex-direction: column; gap: 12px; min-width: 240px;">
+          <button onclick="window.openFreeTVModal('https://freetv.studio/')" class="cinepulse-btn-primary" style="padding: 14px 22px; font-size: 0.9rem; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(45deg, #FF6600, #FF3300); border: none; border-radius: 12px; cursor: pointer; color: white; box-shadow: 0 8px 25px rgba(255,102,0,0.4);">
+            <span class="material-symbols-outlined">public</span>
+            Explorar FreeTV (+7000 Canales)
+          </button>
+          ${localStorage.getItem('selva_admin_auth') === 'true' ? `
+            <button onclick="location.hash='admin'" class="cinepulse-btn-secondary" style="padding: 10px 18px; font-size: 0.8rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 6px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 10px; cursor: pointer; color: #ddd;">
+              ⚙️ Gestionar / Añadir Canales
+            </button>
+          ` : ''}
+        </div>
+      </div>
+
+      <!-- Filtros de Categoría de TV -->
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+        <h2 style="color: white; font-size: 1.4rem; font-weight: 900; margin: 0; display: flex; align-items: center; gap: 8px;">
+          📺 Todos los Canales de Televisión
+        </h2>
+      </div>
+
+      <div class="tv-category-chips" style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 15px; margin-bottom: 25px; scrollbar-width: none;">
+        <button class="cinepulse-genre-chip active tv-cat-btn" data-cat="all" onclick="window.filterTVCategory('all', this)">
+          📺 Todos
+        </button>
+        <button class="cinepulse-genre-chip tv-cat-btn" data-cat="deportes" onclick="window.filterTVCategory('deportes', this)">
+          ⚽ Deportes & Partidos
+        </button>
+        <button class="cinepulse-genre-chip tv-cat-btn" data-cat="peru" onclick="window.filterTVCategory('peru', this)">
+          🇵🇪 Perú Nacional
+        </button>
+        <button class="cinepulse-genre-chip tv-cat-btn" data-cat="noticias" onclick="window.filterTVCategory('noticias', this)">
+          📡 Noticias
+        </button>
+        <button class="cinepulse-genre-chip tv-cat-btn" data-cat="cine" onclick="window.filterTVCategory('cine', this)">
+          🍿 Cine & Series
+        </button>
+        <button class="cinepulse-genre-chip tv-cat-btn" data-cat="freetv" onclick="window.filterTVCategory('freetv', this)">
+          🌐 FreeTV Global
+        </button>
+      </div>
+
+      <!-- Grilla de Canales -->
+      <div id="tv-channels-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">
+        ${allChannels.map(ch => `
+          <div class="tv-channel-card" data-category="${ch.category}" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 16px; transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease; display: flex; flex-direction: column; justify-content: space-between; cursor: pointer; position: relative; overflow: hidden;" data-tvnav onclick='window.playLiveChannel(${JSON.stringify(ch).replace(/'/g, "&apos;")})'>
+            
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+              <span style="display: inline-flex; align-items: center; gap: 5px; color: #FF5252; font-size: 0.65rem; font-weight: 800; background: rgba(255,82,82,0.12); padding: 3px 8px; border-radius: 12px; border: 1px solid rgba(255,82,82,0.3);">
+                <span style="width: 6px; height: 6px; background: #FF5252; border-radius: 50%; animation: pulse 1.4s infinite;"></span>
+                EN VIVO
+              </span>
+              <span style="font-size: 0.65rem; color: var(--primary); font-weight: 700; background: rgba(255,102,0,0.1); padding: 3px 8px; border-radius: 10px;">
+                ${ch.categoryLabel || 'Live TV'}
+              </span>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 12px;">
+              <div style="width: 55px; height: 55px; border-radius: 12px; background: #000; display: flex; align-items: center; justify-content: center; padding: 6px; border: 1px solid rgba(255,255,255,0.1); flex-shrink: 0;">
+                <img src="${ch.img}" alt="${ch.title}" style="max-width: 100%; max-height: 100%; object-fit: contain;" onerror="this.src='https://via.placeholder.com/100/111/fff?text=TV';">
+              </div>
+              <div style="flex: 1; overflow: hidden;">
+                <h3 style="color: white; font-size: 1rem; font-weight: 800; margin: 0 0 4px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                  ${ch.title}
+                </h3>
+                <p style="color: #888; font-size: 0.75rem; margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.3;">
+                  ${ch.description}
+                </p>
+              </div>
+            </div>
+
+            <button style="width: 100%; background: rgba(255,102,0,0.15); border: 1px solid var(--primary); color: white; padding: 10px; border-radius: 10px; font-weight: 800; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: background 0.2s;" onmouseover="this.style.background='var(--primary)'" onmouseout="this.style.background='rgba(255,102,0,0.15)'">
+              <span class="material-symbols-outlined" style="font-size: 1rem; font-variation-settings: 'FILL' 1;">play_arrow</span>
+              Sintonizar Canal
+            </button>
+          </div>
+        `).join('')}
+      </div>
+
+    </div>
+  `;
+
+  container.innerHTML = html;
+};
+
+window.filterTVCategory = function(category, btnEl) {
+  document.querySelectorAll('.tv-cat-btn').forEach(b => b.classList.remove('active'));
+  if (btnEl) btnEl.classList.add('active');
+
+  const matchesSection = document.getElementById('tv-matches-section');
+  if (matchesSection) {
+    if (category === 'all' || category === 'deportes') {
+      matchesSection.style.display = 'block';
+    } else {
+      matchesSection.style.display = 'none';
+    }
+  }
+
+  const cards = document.querySelectorAll('.tv-channel-card');
+  cards.forEach(card => {
+    if (category === 'all' || card.dataset.category === category) {
+      card.style.display = 'flex';
+    } else {
+      card.style.display = 'none';
+    }
+  });
+};
+
+window.playLiveChannel = function(ch) {
+  const channelObj = {
+    id: ch.id || 'live-' + slugify(ch.title),
+    title: ch.title,
+    type: 'live',
+    img: ch.img,
+    embed: ch.embed,
+    synopsis: ch.description || `Transmisión en vivo de ${ch.title}.`,
+    genres: ['TV', 'Live']
+  };
+
+  const dbItem = movieDatabase?.trending?.find(m => m.id === ch.id || (m.title && m.title.toLowerCase().trim() === ch.title.toLowerCase().trim()));
+  if (dbItem) {
+    window.handleCardClick(dbItem.id);
+  } else {
+    SelvaStream.open(channelObj);
+  }
+};
+
+window.openFreeTVModal = function(url = 'https://freetv.studio/') {
+  const channelObj = {
+    id: 'freetv-studio-hub',
+    title: 'FreeTV Studio — TV Mundial en Vivo',
+    type: 'live',
+    img: 'https://freetv.studio/favicon.ico',
+    embed: url,
+    synopsis: 'Acceso a miles de canales de televisión pública en vivo de más de 175 países.',
+    genres: ['TV', 'Live', 'Mundo']
+  };
+  SelvaStream.open(channelObj);
 };
 
 window.discoverM3U = async () => {

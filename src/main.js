@@ -747,7 +747,7 @@ function marcarNavEscritorio(tipo) {
   const enlaces = document.querySelectorAll('.nav-desktop-links .nav-link-cinepulse');
   if (!enlaces.length) return;
 
-  const destino = { '': 'Home', 'movies': 'Películas', 'series': 'Series', 'anime': 'Anime', 'colecciones': 'Colecciones', 'franquicias': 'Colecciones', 'mylist': 'Mi Lista' }[tipo || ''];
+  const destino = { '': 'Home', 'movies': 'Películas', 'series': 'Series', 'anime': 'Anime', 'live': 'En Vivo', 'colecciones': 'Colecciones', 'franquicias': 'Colecciones', 'mylist': 'Mi Lista' }[tipo || ''];
   enlaces.forEach(a => {
     a.classList.toggle('active', a.textContent.trim() === destino);
   });
@@ -756,7 +756,7 @@ function marcarNavEscritorio(tipo) {
 // La barra inferior de móvil solo se marcaba desde el enrutado, así que al
 // cambiar de pestaña con setFilter se quedaba siempre en "Inicio".
 function marcarNavMovil(tipo) {
-  const mapa = { '': 'btn-nav-home', 'movies': 'btn-nav-movies', 'series': 'btn-nav-series', 'anime': 'btn-nav-anime', 'colecciones': 'btn-nav-franquicias', 'franquicias': 'btn-nav-franquicias', 'mylist': 'btn-nav-mylist' };
+  const mapa = { '': 'btn-nav-home', 'movies': 'btn-nav-movies', 'series': 'btn-nav-series', 'anime': 'btn-nav-anime', 'live': 'btn-nav-live', 'colecciones': 'btn-nav-franquicias', 'franquicias': 'btn-nav-franquicias', 'mylist': 'btn-nav-mylist' };
   Object.values(mapa).forEach(id => document.getElementById(id)?.classList.remove('active'));
   document.getElementById(mapa[tipo || ''])?.classList.add('active');
 }
@@ -1530,8 +1530,8 @@ function handleRouting() {
     document.getElementById(idMap[hashVal])?.classList.add('active');
 
     // Bottom nav (Mobile)
-    const btmMap = { '': 'btn-nav-home', 'movies': 'btn-nav-movies', 'series': 'btn-nav-series', 'anime': 'btn-nav-anime', 'colecciones': 'btn-nav-franquicias' };
-    ['btn-nav-home', 'btn-nav-movies', 'btn-nav-series', 'btn-nav-anime', 'btn-nav-franquicias'].forEach(id => document.getElementById(id)?.classList.remove('active'));
+    const btmMap = { '': 'btn-nav-home', 'movies': 'btn-nav-movies', 'series': 'btn-nav-series', 'anime': 'btn-nav-anime', 'live': 'btn-nav-live', 'colecciones': 'btn-nav-franquicias' };
+    ['btn-nav-home', 'btn-nav-movies', 'btn-nav-series', 'btn-nav-anime', 'btn-nav-live', 'btn-nav-franquicias'].forEach(id => document.getElementById(id)?.classList.remove('active'));
     document.getElementById(btmMap[hashVal])?.classList.add('active');
 
     // Nav de escritorio (también al llegar por URL directa o botón atrás)
@@ -1926,6 +1926,12 @@ function _renderCardsInto(container, data, isTrending = false) {
               <div class="cinepulse-card-content">
                 <h3 class="cinepulse-card-title">${item.title}</h3>
                 <div class="cinepulse-card-meta">
+                  ${item.type === 'live' ? `
+                  <span style="display:flex;align-items:center;gap:5px;color:#FF5252;font-weight:700;font-size:0.7rem;text-transform:uppercase;">
+                    <span style="width:8px;height:8px;border-radius:50%;background:#FF5252;animation:pulse 1.4s infinite;"></span>
+                    En vivo
+                  </span>
+                  ` : `
                   ${item.year ? `<span class="cinepulse-card-year">${item.year}</span>` : ''}
                   <span class="cinepulse-card-genre">${genre}</span>
                   ${item.rating ? `
@@ -1933,6 +1939,7 @@ function _renderCardsInto(container, data, isTrending = false) {
                     <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1; font-size: 12px;">star</span>
                     ${(parseFloat(item.rating) || 0).toFixed(1)}
                   </span>` : ''}
+                  `}
                 </div>
               </div>
             </div>
@@ -9582,34 +9589,6 @@ function initApp(filterType = '', genreId = '', year = '') {
   }
   poblarFiltroAnios();
 
-  // --- NUCLEAR CLEANUP (v2.29) ---
-  // Hacemos desaparecer lo que el cache del HTML se niega a soltar
-  const elementsToHide = [
-    'filter-live',             // Boton en la barra principal
-    'btn-discover-live',       // Boton en admin
-    'nav-live-tv'              // Posible nav link
-  ];
-  elementsToHide.forEach(id => {
-      const el = document.getElementById(id);
-      if (el) {
-          console.log(`🧹 Nuclear Cleanup: Ocultando ${id}`);
-          el.style.display = 'none';
-          el.remove(); // Directamente al basurero de la selva
-      }
-  });
-
-  // Limpiar selects (m-type y inventory-type-filter)
-  ['m-type', 'inventory-type-filter'].forEach(id => {
-      const sel = document.getElementById(id);
-      if (sel) {
-          const opt = sel.querySelector('option[value="live"]');
-          if (opt) {
-              console.log(`🧹 Nuclear Cleanup: Borrando "live" de ${id}`);
-              opt.remove();
-          }
-      }
-  });
-  
   // Limpiar stats de admin
   const liveStat = document.getElementById('count-live')?.parentElement;
   if (liveStat && liveStat.innerText.includes('Live')) {
@@ -9793,10 +9772,10 @@ function initApp(filterType = '', genreId = '', year = '') {
       container.innerHTML = '<p style="padding:80px;text-align:center;color:var(--text-muted);">Todavía no hay colecciones armadas en la selva. 🌴</p>';
     }
 
-  } else if (filterType === 'live') {
-    // Categoría eliminada
-    window.goToHome();
-    return;
+  } else if (filterType === 'live' || filterType === 'tv') {
+    const live = allContent.filter(c => c.type === 'live' || c.type === 'tv');
+    renderTVHub(live);
+
   } else {
     if (container) container.innerHTML = ''; // Los skeletons cumplieron su misión
 
@@ -9861,6 +9840,12 @@ function initApp(filterType = '', genreId = '', year = '') {
       }
     }
     if (popularity.length > 0) renderRow('Tendencias en la Selva', popularity);
+
+    // 2.5 Canales en Vivo — señal abierta (TV, noticias, etc). Solo aparece
+    // si hay contenido tipo 'live' cargado; si el catálogo no tiene ninguno
+    // todavía, la fila simplemente no se pinta.
+    const liveChannels = allContent.filter(c => c.type === 'live' && !esRoto(c));
+    if (liveChannels.length > 0) renderRow('📡 Canales en Vivo', liveChannels);
 
     // 3. Categorías Estándar
     const movies = allContent.filter(c => c.type === 'movie' || !c.type).slice(0, 12);

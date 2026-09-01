@@ -254,6 +254,7 @@
         <a class="nav-link-cinepulse" href="#movies" data-tvnav onclick="window.setFilter('movies'); return false;">Películas</a>
         <a class="nav-link-cinepulse" href="#series" data-tvnav onclick="window.setFilter('series'); return false;">Series</a>
         <a class="nav-link-cinepulse" href="#anime" data-tvnav onclick="window.setFilter('anime'); return false;">Anime</a>
+        <a class="nav-link-cinepulse" href="#live" data-tvnav onclick="window.setFilter('live'); return false;">En Vivo</a>
         <a class="nav-link-cinepulse" href="#colecciones" data-tvnav onclick="window.setFilter('colecciones'); return false;">Colecciones</a>
         <a class="nav-link-cinepulse" href="#mylist" data-tvnav onclick="window.goToMyList(); return false;">Mi Lista</a>
       </div>
@@ -335,6 +336,10 @@
     <button id="btn-nav-anime" onclick="window.setFilter('anime')" class="nav-item nav-item-cinepulse">
       <span class="material-symbols-outlined">bolt</span>
       <span>Anime</span>
+    </button>
+    <button id="btn-nav-live" onclick="window.setFilter('live')" class="nav-item nav-item-cinepulse">
+      <span class="material-symbols-outlined">sensors</span>
+      <span>En Vivo</span>
     </button>
     <button id="btn-nav-franquicias" onclick="window.setFilter('colecciones')" class="nav-item nav-item-cinepulse">
       <span class="material-symbols-outlined">collections_bookmark</span>
@@ -1037,6 +1042,7 @@
                     <option value="movie">🎬 Pelis</option>
                     <option value="series">🏆 Series</option>
                     <option value="anime">⛩️ Anime</option>
+                    <option value="live">📡 En Vivo</option>
                   </select>
                   <select id="inventory-filter" class="form-control" onchange="window.filterInventoryByCategory()">
                     <option value="all">Salud: Todas</option>
@@ -2213,6 +2219,7 @@
                     <option value="movie">🎬 Película</option>
                     <option value="series">🏆 Serie</option>
                     <option value="anime">⛩️ Anime</option>
+                    <option value="live">📡 En Vivo</option>
                   </select>
                 </div>
                 <div class="form-group" style="margin-bottom:0;">

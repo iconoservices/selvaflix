@@ -6661,6 +6661,78 @@ window.updateTMDBBulkBar = () => {
   } else {
     toolbar.style.display = 'none';
   }
+  window.renderTMDBSelectedList();
+};
+
+// Lista de los títulos tildados en el buscador de TMDb: una línea compacta
+// por cada uno (miniatura + título + año + badge). Al tocar la línea se
+// despliega la info (sinopsis, IDs, tipo) para revisarla antes de darle
+// "Agregar seleccionadas". No agrega nada por sí sola.
+window._tmdbExpandedRows = window._tmdbExpandedRows || new Set();
+
+window.renderTMDBSelectedList = () => {
+  const box = document.getElementById('tmdb-selected-list');
+  if (!box) return;
+  const indices = Array.from(document.querySelectorAll('.tmdb-bulk-check:checked'))
+    .map(cb => parseInt(cb.dataset.index, 10))
+    .filter(i => !Number.isNaN(i));
+
+  if (indices.length === 0) {
+    box.style.display = 'none';
+    box.innerHTML = '';
+    window._tmdbExpandedRows.clear();
+    return;
+  }
+
+  box.style.display = 'flex';
+  box.innerHTML = indices.map(index => {
+    const m = _tmdbLastResults[index];
+    if (!m) return '';
+    const title = _escHtml(m.title || m.name || 'Sin Título');
+    const year = (m.release_date || m.first_air_date || '').split('-')[0] || '—';
+    const type = _tmdbTipo(m);
+    const tipoLabel = type === 'series' ? 'Serie' : type === 'anime' ? 'Anime' : 'Peli';
+    const thumb = m.poster_path ? (TMDB_IMG_URL + m.poster_path) : 'https://via.placeholder.com/40x60?text=%3F';
+    const open = window._tmdbExpandedRows.has(index);
+
+    let badge = '<span style="color:#00f2ff;">🔗 Externo</span>';
+    if (m._esVimeus) badge = '<span style="color:#2ECC71;">🟢 Vimeus</span>';
+    else if (m._esRespaldo) badge = '<span style="color:#FFB800;">🍿 Respaldo</span>';
+
+    const synopsis = _escHtml(m.overview || m.synopsis || 'Sin sinopsis en TMDb.');
+
+    return `
+      <div style="border:1px solid rgba(255,255,255,0.08); border-radius:8px; overflow:hidden; background:rgba(255,255,255,0.02);">
+        <div onclick="window.toggleTMDBSelectedRow(${index})" style="display:flex; align-items:center; gap:10px; padding:6px 8px; cursor:pointer;">
+          <img src="${thumb}" alt="" style="width:34px; height:51px; border-radius:4px; object-fit:cover; flex:0 0 auto;" onerror="this.src='https://via.placeholder.com/40x60?text=%3F'">
+          <div style="flex:1; min-width:0;">
+            <div style="font-size:0.8rem; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${title}">${title}</div>
+            <div style="font-size:0.66rem; color:var(--text-muted);">[${tipoLabel}] · ${year} · ${badge}</div>
+          </div>
+          <button type="button" title="Quitar de la selección" onclick="event.stopPropagation(); window.unselectTMDBItem(${index})" style="flex:0 0 auto; background:none; border:none; color:#E74C3C; font-size:1rem; cursor:pointer; padding:2px 6px;">✕</button>
+          <span style="flex:0 0 auto; color:var(--text-muted); font-size:0.8rem; transform:rotate(${open ? 90 : 0}deg); transition:transform .15s;">▸</span>
+        </div>
+        <div style="display:${open ? 'block' : 'none'}; padding:0 10px 10px 52px; font-size:0.72rem; color:var(--text-muted); line-height:1.4;">
+          <p style="margin:4px 0;">${synopsis}</p>
+          <p style="margin:4px 0;">TMDb ID: <b style="color:#ccc;">${m.id || '—'}</b>${m.vote_average ? ` · ⭐ ${Number(m.vote_average).toFixed(1)}` : ''}</p>
+          <button type="button" onclick="window.selectTMDBMovie(${index})" style="margin-top:4px; background:rgba(255,140,0,0.15); color:var(--primary); border:1px solid rgba(255,140,0,0.35); border-radius:5px; padding:3px 10px; font-size:0.7rem; cursor:pointer;">Cargar en el formulario de abajo</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+};
+
+window.toggleTMDBSelectedRow = (index) => {
+  if (window._tmdbExpandedRows.has(index)) window._tmdbExpandedRows.delete(index);
+  else window._tmdbExpandedRows.add(index);
+  window.renderTMDBSelectedList();
+};
+
+window.unselectTMDBItem = (index) => {
+  const cb = document.querySelector(`.tmdb-bulk-check[data-index="${index}"]`);
+  if (cb) cb.checked = false;
+  window._tmdbExpandedRows.delete(index);
+  window.updateTMDBBulkBar();
 };
 
 window.toggleAllTMDBCheckboxes = (checked) => {

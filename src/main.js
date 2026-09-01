@@ -143,12 +143,46 @@ async function supaFetchAllMovieRowsDirect() {
   return rows;
 }
 
+// --- Escrituras al catálogo (Fase 2, 2026-09-01) ---
+// Con RLS activado en `movies`, la anon key de Supabase SOLO lee. Agregar,
+// editar y borrar pelis pasa por el Worker (/flix/admin/*), que lo hace con
+// service_role. El Worker pide una "clave de admin" que NO está en el bundle:
+// se tipea una vez y queda en localStorage. Mientras RLS siga apagado, el
+// Worker igual funciona (cae a la anon key), así que este cambio es seguro
+// de desplegar ANTES de correr el SQL.
+async function adminWorkerCall(path, payload, _retried) {
+  const res = await fetch(`${SelvaStream.MASTER_WORKER_URL}/flix/admin/${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-selva-auth': SelvaStream.AUTH_TOKEN,
+      'x-selva-admin': localStorage.getItem('selva_admin_key') || ''
+    },
+    body: JSON.stringify(payload)
+  });
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+
+  if (res.status === 403 && !_retried) {
+    // El Worker rechazó la clave (o todavía no había ninguna). Pedirla y
+    // reintentar una vez.
+    localStorage.removeItem('selva_admin_key');
+    const k = (prompt('🔑 Clave de administrador (para editar el catálogo):') || '').trim();
+    if (!k) throw new Error('Se necesita la clave de administrador para editar el catálogo');
+    localStorage.setItem('selva_admin_key', k);
+    return adminWorkerCall(path, payload, true);
+  }
+  if (!res.ok) throw new Error((data && data.error) || `Worker admin respondió ${res.status}`);
+  return data;
+}
+
 async function supaAddMovie(movieData) {
   const row = movieToSupaRow(movieData);
   row.id = movieData.id || (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}${Math.random().toString(36).slice(2)}`);
-  const { data: inserted, error } = await supabase.from('movies').insert(row).select('id').single();
-  if (error) throw error;
-  return { id: inserted.id };
+  const out = await adminWorkerCall('movie-insert', { row });
+  const inserted = Array.isArray(out) ? out[0] : out;
+  return { id: (inserted && inserted.id) || row.id };
 }
 
 // Mergea (no pisa) — igual que updateDoc de Firestore, que solo toca los
@@ -164,19 +198,12 @@ async function supaUpdateMovie(id, patch) {
     else if (k === 'title' || k === 'type' || k === 'status') cols[k] = v;
     else dataPatch[k] = v;
   }
-  if (Object.keys(dataPatch).length > 0) {
-    const { error } = await supabase.rpc('merge_movie_data', { p_id: id, p_patch: dataPatch });
-    if (error) throw error;
-  }
-  if (Object.keys(cols).length > 0) {
-    const { error } = await supabase.from('movies').update(cols).eq('id', id);
-    if (error) throw error;
-  }
+  if (Object.keys(dataPatch).length > 0) await adminWorkerCall('movie-merge', { id, patch: dataPatch });
+  if (Object.keys(cols).length > 0) await adminWorkerCall('movie-update', { id, cols });
 }
 
 async function supaDeleteMovie(id) {
-  const { error } = await supabase.from('movies').delete().eq('id', id);
-  if (error) throw error;
+  await adminWorkerCall('movie-delete', { id });
 }
 
 // Emula el onSnapshot de Firestore: primera entrega = snapshot.docs (catálogo
@@ -5398,8 +5425,7 @@ window.migrarCatalogoASupabase = async () => {
     try {
       const row = movieToSupaRow(m);
       row.id = m.id;
-      const { error } = await supabase.from('movies').upsert(row);
-      if (error) throw error;
+      await adminWorkerCall('movie-upsert', { row }); // Fase 2: escrituras vía Worker (RLS)
       migrados++;
     } catch (e) {
       console.error('Error migrando', m.title, e);
@@ -11190,9 +11216,13 @@ async function trackAccountLogin(user) {
             ...(referredBy ? { referredBy } : {}),
         }, { merge: true });
 
+        // Fase 2: NO guardar el email acá. La tabla user_activity es de solo-
+        // agregar y hasta ahora estaba abierta a lectura anónima → cualquiera
+        // con la anon key podía listar los emails de todos los que se logueaban.
+        // El uid ya queda guardado y con eso se resuelve el email en Firebase.
         await supabase.from('user_activity').insert({
             action: 'login',
-            details: { email: user.email || 'sin-email' },
+            details: {},
             platform: navigator.platform,
             user_agent: navigator.userAgent.substring(0, 80),
             visitor_id: getVisitorId(),

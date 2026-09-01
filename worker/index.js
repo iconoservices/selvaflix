@@ -1,7 +1,8 @@
 /**
- * 🥥 ICONOSERVICES MASTER-WORKER v1.7 - "Edición Búnker & Contrabando"
+ * 🥥 ICONOSERVICES MASTER-WORKER v1.8 - "Edición Búnker & Contrabando"
  * Soluciona el error de descarga activando un puente binario.
  * v1.7: + /flix/catalog (catálogo de SelvaFlix cacheado en el borde, corta el egress de Supabase).
+ * v1.8: + /flix/admin/* (escrituras al catálogo con service_role; habilita RLS en `movies`).
  */
 
 export default {
@@ -443,6 +444,78 @@ export default {
                 return resp;
             }
 
+            // --- 🔐 RUTAS: /flix/admin/*  (escrituras al catálogo) ---
+            // Con RLS activado (ver sql/rls_phase2.sql), la anon key de Supabase
+            // SOLO puede leer la tabla `movies`. Agregar / editar / borrar pelis
+            // pasa por acá:
+            //   • se valida contra ADMIN_KEY — un secreto que NO está en el
+            //     bundle del sitio, lo tipea el admin una vez (queda en su
+            //     localStorage). Distinto del AUTH_TOKEN, que sí es público.
+            //   • se ejecuta con SUPABASE_SERVICE_ROLE, que saltea RLS.
+            // Si SERVICE_ROLE todavía no está configurado, cae a la anon key
+            // para no romper el admin ANTES de que se termine de armar la Fase 2
+            // (mientras RLS siga apagado, la anon key escribe igual).
+            if (url.pathname.startsWith('/flix/admin/')) {
+                const adminKey = request.headers.get('x-selva-admin') || url.searchParams.get('admin');
+                // Solo se exige ADMIN_KEY si el secreto ya está cargado en
+                // Cloudflare. Así el rollout no rompe nada: se despliega el
+                // Worker y el sitio, después se carga el secreto. OJO: hay que
+                // cargar ADMIN_KEY y SUPABASE_SERVICE_ROLE ANTES de correr
+                // sql/rls_phase2.sql, o el admin queda sin poder editar.
+                if (env.ADMIN_KEY && adminKey !== env.ADMIN_KEY) {
+                    return new Response(JSON.stringify({ error: 'Admin no autorizado' }), { status: 403, headers: corsHeaders });
+                }
+
+                const SUPA_URL = env.SUPABASE_URL || 'https://qeknzamdwchswjcqpsfg.supabase.co';
+                const WRITE_KEY = env.SUPABASE_SERVICE_ROLE || env.SUPABASE_ANON_KEY || 'sb_publishable_AGxSpKunPMIykRYd-4Ul9Q_yydotynM';
+                const sHeaders = { apikey: WRITE_KEY, Authorization: `Bearer ${WRITE_KEY}`, 'Content-Type': 'application/json' };
+
+                let payload = {};
+                try { payload = await request.json(); } catch { payload = {}; }
+
+                // Tras una escritura, tirar la copia cacheada del catálogo (solo
+                // en este colo) para que el cambio se vea sin esperar los 5 min.
+                // Realtime igual empuja el cambio a las pestañas abiertas.
+                const bust = () => caches.default.delete(`${url.origin}/flix/catalog`);
+
+                let target, method, extraPrefer;
+                if (url.pathname === '/flix/admin/movie-insert') {
+                    target = `${SUPA_URL}/rest/v1/movies`; method = 'POST'; extraPrefer = 'return=representation';
+                } else if (url.pathname === '/flix/admin/movie-upsert') {
+                    target = `${SUPA_URL}/rest/v1/movies`; method = 'POST'; extraPrefer = 'resolution=merge-duplicates';
+                } else if (url.pathname === '/flix/admin/movie-update') {
+                    target = `${SUPA_URL}/rest/v1/movies?id=eq.${encodeURIComponent(payload.id || '')}`; method = 'PATCH';
+                } else if (url.pathname === '/flix/admin/movie-delete') {
+                    target = `${SUPA_URL}/rest/v1/movies?id=eq.${encodeURIComponent(payload.id || '')}`; method = 'DELETE';
+                } else if (url.pathname === '/flix/admin/movie-merge') {
+                    target = `${SUPA_URL}/rest/v1/rpc/merge_movie_data`; method = 'POST';
+                } else {
+                    return new Response(JSON.stringify({ error: 'ruta admin desconocida' }), { status: 404, headers: corsHeaders });
+                }
+
+                const init = { method, headers: { ...sHeaders } };
+                if (extraPrefer) init.headers.Prefer = extraPrefer;
+                if (method === 'POST' && url.pathname === '/flix/admin/movie-merge') {
+                    init.body = JSON.stringify({ p_id: payload.id, p_patch: payload.patch || {} });
+                } else if (method === 'POST') {
+                    init.body = JSON.stringify(payload.row || {});
+                } else if (method === 'PATCH') {
+                    init.body = JSON.stringify(payload.cols || {});
+                }
+
+                const r = await fetch(target, init);
+                const body = await r.text();
+                if (r.ok) { try { await bust(); } catch {} }
+                // PostgREST devuelve 204 sin cuerpo en update/delete/merge; una
+                // Response con status 204 NO puede llevar body → normalizamos a
+                // 200 y devolvemos lo que haya (o {} si vino vacío).
+                const okNoBody = r.ok && (!body || [204, 205, 304].includes(r.status));
+                return new Response(okNoBody ? '{}' : (body || JSON.stringify({ error: `Supabase ${r.status}` })), {
+                    status: r.ok ? 200 : r.status,
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                });
+            }
+
             // ═══════════════════════════════════════════════════════════════
             //  RUTAS /beat/* y /img  →  NO son de SelvaFlix (otra app, YouTube).
             //  Este worker está compartido: borrar algo de acá rompe ese
@@ -520,7 +593,7 @@ export default {
             if (url.pathname === '/beat/trending') return new Response(JSON.stringify(await fetchYouTubeDirect(null, true)), { headers: corsHeaders });
             if (url.pathname === '/img') return fetch(`https://i.ytimg.com/vi/${url.searchParams.get('v')}/mqdefault.jpg`, { headers: { "User-Agent": "Mozilla/5.0" } });
 
-            return new Response(JSON.stringify({ status: 'IconoSVC Bunker Ready', v: '1.7' }), { headers: corsHeaders });
+            return new Response(JSON.stringify({ status: 'IconoSVC Bunker Ready', v: '1.8' }), { headers: corsHeaders });
 
         } catch (error) {
             return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders });

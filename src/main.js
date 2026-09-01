@@ -9416,6 +9416,11 @@ window.confirmBatchSeed = async () => {
 async function updateHeroCarousel() {
   if (!heroPool || heroPool.length === 0) return;
   if (_isSearchActive) return; // no reaparecer el banner mientras hay una búsqueda activa
+  // El timer de rotación (startHeroAutoRotation) sigue corriendo aunque el
+  // usuario haya navegado a "En Vivo" (esa vista oculta este hero y usa el
+  // suyo propio) -- sin este chequeo, cada tick del intervalo volvía a poner
+  // display:flex acá y el hero de películas parpadeaba encima del hub de TV.
+  if (_currentFilter === 'live' || _currentFilter === 'tv') return;
   const section = document.getElementById('hero-section');
   if (!section) return;
 
@@ -9586,6 +9591,12 @@ function renderSkeletons() {
 
 function initApp(filterType = '', genreId = '', year = '') {
   if (!movieDatabase.trending.length) return;
+  // window.setFilter() ya lo hace, pero handleRouting() (navegación por hash
+  // directa, ej. entrar a #live por URL) llama initApp() de largo sin pasar
+  // por ahí -- sin esto, _currentFilter quedaba desincronizado y el guard de
+  // updateHeroCarousel() (que evita que el hero de películas reaparezca
+  // encima de la vista En Vivo) nunca se activaba.
+  _currentFilter = filterType;
 
   const container = document.getElementById('main-content');
   if (container) {
@@ -9945,7 +9956,7 @@ window.renderTVHub = function(dbLiveItems = []) {
       title: 'Latina Televisión',
       category: 'peru',
       categoryLabel: 'Perú 🇵🇪',
-      img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Latina_Televisi%C3%B3n_logo.svg/1024px-Latina_Televisi%C3%B3n_logo.svg.png',
+      img: 'https://www.google.com/s2/favicons?domain=latina.pe&sz=128',
       embed: 'https://redirector.rudo.video/hls-video/567ffde3fa319fadf3419efda25619456231dfea/latina/latina.smil/playlist.m3u8',
       description: 'Señal en vivo HD de Latina Televisión Perú. Noticias, entretenimiento y programas estelares.'
     },
@@ -9954,7 +9965,7 @@ window.renderTVHub = function(dbLiveItems = []) {
       title: 'América TV',
       category: 'peru',
       categoryLabel: 'Perú 🇵🇪',
-      img: 'https://logodownload.org/wp-content/uploads/2018/11/america-tv-logo.png',
+      img: 'https://www.google.com/s2/favicons?domain=americatv.pe&sz=128',
       // OJO: este CDN solo tiene http (puerto 443 rechaza conexión) -- en
       // producción (https) el navegador lo bloquea por contenido mixto.
       // Anda en local (dev es http). Para producción hay que pasarlo por
@@ -9967,7 +9978,7 @@ window.renderTVHub = function(dbLiveItems = []) {
       title: 'Panamericana TV',
       category: 'peru',
       categoryLabel: 'Perú 🇵🇪',
-      img: 'https://upload.wikimedia.org/wikipedia/commons/4/45/Panamericana_Televisi%C3%B3n_-_Logo_2016.png',
+      img: 'https://www.google.com/s2/favicons?domain=panamericana.pe&sz=128',
       // Mismo caso que América TV: CDN solo http, sin https. Anda en local,
       // en producción necesita proxy por MASTER_WORKER_URL.
       embed: 'http://190.93.224.42/PANAMERICANA/index.m3u8',
@@ -9978,7 +9989,7 @@ window.renderTVHub = function(dbLiveItems = []) {
       title: 'ATV Noticias',
       category: 'peru',
       categoryLabel: 'Perú 🇵🇪',
-      img: 'https://upload.wikimedia.org/wikipedia/commons/c/c5/ATV_Red_Nacional.png',
+      img: 'https://www.google.com/s2/favicons?domain=atv.pe&sz=128',
       embed: 'https://d19e55ehz2il4i.cloudfront.net/ts:abr.m3u8',
       description: 'Andina de Televisión ATV. Noticias 24 horas y entretenimiento en vivo.'
     },
@@ -9987,7 +9998,7 @@ window.renderTVHub = function(dbLiveItems = []) {
       title: 'Willax Televisión',
       category: 'peru',
       categoryLabel: 'Perú 🇵🇪',
-      img: 'https://willax.tv/img/willax-logo.png',
+      img: 'https://www.google.com/s2/favicons?domain=willax.tv&sz=128',
       // Mismo caso que América TV: CDN solo http, sin https. Anda en local,
       // en producción necesita proxy por MASTER_WORKER_URL.
       embed: 'http://190.93.224.42/WILLAX/index.m3u8',
@@ -9998,7 +10009,7 @@ window.renderTVHub = function(dbLiveItems = []) {
       title: 'TV Perú Cultural',
       category: 'peru',
       categoryLabel: 'Perú 🇵🇪',
-      img: 'https://upload.wikimedia.org/wikipedia/commons/2/29/TV_Per%C3%BA_logo_2020.png',
+      img: 'https://www.google.com/s2/favicons?domain=tvperu.gob.pe&sz=128',
       // Mismo caso que América TV: CDN solo http, sin https. Anda en local,
       // en producción necesita proxy por MASTER_WORKER_URL.
       embed: 'http://190.93.224.42/TV-PERU/index.m3u8',
@@ -10009,7 +10020,7 @@ window.renderTVHub = function(dbLiveItems = []) {
       title: 'ESPN Deportes',
       category: 'deportes',
       categoryLabel: 'Deportes ⚽',
-      img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/ESPN_wordmark.svg/1200px-ESPN_wordmark.svg.png',
+      img: 'https://www.google.com/s2/favicons?domain=espn.com&sz=128',
       embed: 'https://freetv.studio/channel/ESPN.us',
       description: 'El líder mundial en deportes. Partidos en vivo, fútbol, básquet y análisis deportivo.'
     },
@@ -10018,7 +10029,7 @@ window.renderTVHub = function(dbLiveItems = []) {
       title: 'TN Todo Noticias',
       category: 'noticias',
       categoryLabel: 'Noticias 📡',
-      img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/TN_Logo.svg/1200px-TN_Logo.svg.png',
+      img: 'https://www.google.com/s2/favicons?domain=tn.com.ar&sz=128',
       embed: 'https://freetv.studio/channel/TN.ar',
       description: 'Noticias 24 horas en vivo de Latinoamérica e información internacional de último minuto.'
     },
@@ -10027,7 +10038,7 @@ window.renderTVHub = function(dbLiveItems = []) {
       title: 'Cinecanal HD',
       category: 'cine',
       categoryLabel: 'Cine 🍿',
-      img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Cinecanal_logo.png/640px-Cinecanal_logo.png',
+      img: 'https://www.google.com/s2/favicons?domain=cinecanal.com&sz=128',
       embed: 'https://freetv.studio/channel/Cinecanal.cl',
       description: 'Las mejores películas de Hollywood 24/7 en español latino sin comerciales.'
     },
@@ -10060,7 +10071,35 @@ window.renderTVHub = function(dbLiveItems = []) {
 
   const html = `
     <div class="tv-hub-container" style="padding: 20px 0; max-width: 1400px; margin: 0 auto;">
-      
+
+      <!-- Banner Hero TV -->
+      <div class="tv-hub-hero" style="background: linear-gradient(135deg, rgba(255,102,0,0.2) 0%, rgba(20,20,20,0.95) 100%), url('https://images.unsplash.com/photo-1593784991095-a205069470b6?auto=format&fit=crop&w=1200&q=80') center/cover; border-radius: 20px; padding: 35px 30px; border: 1px solid rgba(255,102,0,0.3); box-shadow: 0 20px 50px rgba(0,0,0,0.6); margin-bottom: 30px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 20px;">
+        <div style="max-width: 650px;">
+          <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(255,82,82,0.15); border: 1px solid rgba(255,82,82,0.4); color: #FF5252; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 12px;">
+            <span style="width: 8px; height: 8px; background: #FF5252; border-radius: 50%; animation: pulse 1.4s infinite;"></span>
+            TV EN VIVO & AGENDA DEPORTIVA
+          </div>
+          <h1 style="color: white; font-size: 2.2rem; font-weight: 900; margin: 0 0 10px 0; font-family: 'Sora', sans-serif; letter-spacing: -0.5px;">
+            Televisión & Partidos en Vivo ⚽📺
+          </h1>
+          <p style="color: #bbb; font-size: 0.95rem; line-height: 1.5; margin: 0;">
+            Sigue los encuentros deportivos divididos por partido, tus canales peruanos preferidos, noticias 24/7 y más de 7,000 señales abiertas en vivo.
+          </p>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 12px; min-width: 240px;">
+          <button onclick="window.openFreeTVModal('https://freetv.studio/')" class="cinepulse-btn-primary" style="padding: 14px 22px; font-size: 0.9rem; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(45deg, #FF6600, #FF3300); border: none; border-radius: 12px; cursor: pointer; color: white; box-shadow: 0 8px 25px rgba(255,102,0,0.4);">
+            <span class="material-symbols-outlined">public</span>
+            Explorar FreeTV (+7000 Canales)
+          </button>
+          ${localStorage.getItem('selva_admin_auth') === 'true' ? `
+            <button onclick="location.hash='admin'" class="cinepulse-btn-secondary" style="padding: 10px 18px; font-size: 0.8rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 6px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 10px; cursor: pointer; color: #ddd;">
+              ⚙️ Gestionar / Añadir Canales
+            </button>
+          ` : ''}
+        </div>
+      </div>
+
       <!-- Filtros de Categoría de TV -->
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
         <h2 style="color: white; font-size: 1.4rem; font-weight: 900; margin: 0; display: flex; align-items: center; gap: 8px;">
@@ -10106,7 +10145,7 @@ window.renderTVHub = function(dbLiveItems = []) {
 
             <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 12px;">
               <div style="width: 55px; height: 55px; border-radius: 12px; background: #000; display: flex; align-items: center; justify-content: center; padding: 6px; border: 1px solid rgba(255,255,255,0.1); flex-shrink: 0;">
-                <img src="${ch.img}" alt="${ch.title}" style="max-width: 100%; max-height: 100%; object-fit: contain;" onerror="this.src='https://via.placeholder.com/100/111/fff?text=TV';">
+                <img src="${ch.img}" alt="${ch.title}" style="max-width: 100%; max-height: 100%; object-fit: contain;" onerror="this.onerror=null;this.src='/icon_192.png';">
               </div>
               <div style="flex: 1; overflow: hidden;">
                 <h3 style="color: white; font-size: 1rem; font-weight: 800; margin: 0 0 4px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">

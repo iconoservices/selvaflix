@@ -1353,6 +1353,12 @@ function handleRouting() {
   // Si no, se queda encima de la app (invisible pero comiéndose los clics) y
   // con el scroll del body bloqueado.
   if (!hash.startsWith('detail/')) {
+    // Ocultar la ficha ANTES de cerrar el player: SelvaStream.close() llama a
+    // desacoplar(), que le saca la clase con-player-acoplado a #detail-view.
+    // Si la ficha sigue visible en ese instante, se ve un frame con el hero
+    // grande + botón PLAY (la "previa" vieja) antes de que showView la tape.
+    const _detailEl = document.getElementById('detail-view');
+    if (_detailEl) _detailEl.style.display = 'none';
     if (typeof SelvaStream !== 'undefined') SelvaStream.close();
     // Este es el único punto por el que SIEMPRE pasa un cierre del player (atrás
     // del navegador, un link, closePlayer()...), así que es el lugar correcto

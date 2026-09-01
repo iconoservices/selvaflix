@@ -6357,6 +6357,17 @@ body.admin-locked {
 @media (min-width: 1024px) {
   #detail-view.con-player-acoplado #detail-hero {
     height: min(24vh, 210px) !important;
+    /* El banner rompe la grilla y ocupa TODO el ancho de la pantalla (bajo la
+       navbar y la columna de géneros). El player y el resto no se mueven: el
+       banner sale del flujo con position:absolute anclado a #detail-view (que
+       sí abarca el viewport completo), y su alto lo sigue reservando el grid
+       porque el <section id="detail-hero"> queda igual en la grilla como caja
+       de 0 alto — no: usamos margin negativo para no romper el flujo. */
+    position: relative;
+    width: 100vw !important;
+    max-width: none !important;
+    margin-left: calc(50% - 50vw + 6px);
+    margin-right: calc(50% - 50vw + 6px);
   }
   #detail-view.con-player-acoplado #detail-player-dock {
     margin-top: -120px;

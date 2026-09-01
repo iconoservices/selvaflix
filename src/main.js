@@ -734,7 +734,7 @@ function marcarNavEscritorio(tipo) {
   const enlaces = document.querySelectorAll('.nav-desktop-links .nav-link-cinepulse');
   if (!enlaces.length) return;
 
-  const destino = { '': 'Home', 'movies': 'Películas', 'series': 'Series', 'anime': 'Anime', 'colecciones': 'Colecciones', 'franquicias': 'Colecciones' }[tipo || ''];
+  const destino = { '': 'Home', 'movies': 'Películas', 'series': 'Series', 'anime': 'Anime', 'colecciones': 'Colecciones', 'franquicias': 'Colecciones', 'mylist': 'Mi Lista' }[tipo || ''];
   enlaces.forEach(a => {
     a.classList.toggle('active', a.textContent.trim() === destino);
   });
@@ -743,7 +743,7 @@ function marcarNavEscritorio(tipo) {
 // La barra inferior de móvil solo se marcaba desde el enrutado, así que al
 // cambiar de pestaña con setFilter se quedaba siempre en "Inicio".
 function marcarNavMovil(tipo) {
-  const mapa = { '': 'btn-nav-home', 'movies': 'btn-nav-movies', 'series': 'btn-nav-series', 'anime': 'btn-nav-anime', 'colecciones': 'btn-nav-franquicias', 'franquicias': 'btn-nav-franquicias' };
+  const mapa = { '': 'btn-nav-home', 'movies': 'btn-nav-movies', 'series': 'btn-nav-series', 'anime': 'btn-nav-anime', 'colecciones': 'btn-nav-franquicias', 'franquicias': 'btn-nav-franquicias', 'mylist': 'btn-nav-mylist' };
   Object.values(mapa).forEach(id => document.getElementById(id)?.classList.remove('active'));
   document.getElementById(mapa[tipo || ''])?.classList.add('active');
 }
@@ -1252,9 +1252,14 @@ function _tvNavMove(direction) {
     // primera tarjeta del catálogo). Antes entraba por el primer [data-tvnav]
     // del DOM, que ahora es la columna de géneros — y desde ahí las flechas
     // se quedaban dando vueltas en el menú sin llegar nunca a las películas.
-    const seed = document.getElementById('cinepulse-hero-play')
-      || document.querySelector('#main-content [data-tvnav]')
+    // `items` ya viene filtrado a lo VISIBLE. Entramos por el primer ítem que
+    // no sea de la columna de géneros: en el home es "Ver ahora"/una tarjeta,
+    // en la ficha/reproductor es "Mi Lista"/un control del player, en Mi Lista
+    // una tarjeta. (Antes se apuntaba fijo a #cinepulse-hero-play, que en la
+    // ficha está oculto — el foco no se movía nunca.)
+    const seed = items.find(el => !el.classList || !el.classList.contains('genre-rail-item'))
       || items[0];
+    if (!seed) return;
     seed.focus();
     seed.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     return;
@@ -1324,7 +1329,8 @@ document.addEventListener('keydown', (e) => {
   const dirMap = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
   const homeVisible = document.getElementById('home-view')?.style.display !== 'none';
   const detailVisible = document.getElementById('detail-view')?.style.display !== 'none';
-  if (!homeVisible && !detailVisible) return; // por ahora, solo home + ficha (ver Analíticas/Catálogo para admin)
+  const myListVisible = document.getElementById('my-list-view')?.style.display !== 'none';
+  if (!homeVisible && !detailVisible && !myListVisible) return; // home + ficha + Mi Lista
 
   if (dirMap[e.key]) {
     const active = document.activeElement;
@@ -1389,6 +1395,8 @@ window.goToMyList = async () => {
   // pushState no dispara hashchange, así que handleRouting no corre: cerramos aquí
   if (typeof SelvaStream !== 'undefined') SelvaStream.close();
   showView('my-list-view');
+  marcarNavEscritorio('mylist');
+  marcarNavMovil('mylist');
   window.scrollTo(0, 0);
   await window.loadMyList();
 };
@@ -1468,6 +1476,8 @@ function handleRouting() {
     if (adGlobalContainer) adGlobalContainer.style.display = 'none';
   } else if (hash === 'mylist') {
     showView('my-list-view');
+    marcarNavEscritorio('mylist');
+    marcarNavMovil('mylist');
     window.scrollTo(0, 0);
     window.loadMyList();
   } else {
@@ -11991,7 +12001,7 @@ window.loadMyList = async () => {
         // con un duplicado más tarde. Se pasa el título para que handleCardClick
         // pueda autorepararse por nombre en vez de mandar a "Contenido no encontrado".
         const safeTitle = (m.title || "").replace(/'/g, "\\'");
-        return `<div class="mylist-card" onclick="window.handleCardClick('${m.movieId}', '${safeTitle}')"><div class="mylist-card-bg" style="background-image:url('${p}');"></div><div class="mylist-card-gradient"></div><div class="mylist-card-overlay"><button class="mylist-play-btn" onclick="event.stopPropagation();window.handleCardClick('${m.movieId}', '${safeTitle}')"><span class="material-symbols-outlined">play_arrow</span></button><button class="mylist-remove-btn" onclick="event.stopPropagation();window.toggleMyList('${m.movieId}',this)"><span class="material-symbols-outlined">close</span></button></div><div class="mylist-card-title">${m.title}</div></div>`;
+        return `<div class="mylist-card" tabindex="0" role="button" data-tvnav onclick="window.handleCardClick('${m.movieId}', '${safeTitle}')"><div class="mylist-card-bg" style="background-image:url('${p}');"></div><div class="mylist-card-gradient"></div><div class="mylist-card-overlay"><button class="mylist-play-btn" onclick="event.stopPropagation();window.handleCardClick('${m.movieId}', '${safeTitle}')"><span class="material-symbols-outlined">play_arrow</span></button><button class="mylist-remove-btn" onclick="event.stopPropagation();window.toggleMyList('${m.movieId}',this)"><span class="material-symbols-outlined">close</span></button></div><div class="mylist-card-title">${m.title}</div></div>`;
     };
     const empty = `<div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:rgba(255,255,255,0.3);"><span class="material-symbols-outlined" style="font-size:48px;display:block;margin-bottom:12px;">bookmarks</span><p style="font-family:'Sora',sans-serif;font-size:1rem;margin:0;">Tu selva esta vacia...</p></div>`;
     const setGrids = (html) => {

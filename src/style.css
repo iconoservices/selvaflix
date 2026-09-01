@@ -6433,6 +6433,12 @@ body.admin-locked {
   #detail-header {
     display: none !important;
   }
+  /* Mi Lista es una vista normal (no un modal flotante): deja lugar a la
+     columna de géneros como el resto. (!important: el <section> trae
+     padding: 80px 0 120px inline.) */
+  #my-list-view {
+    padding-left: 92px !important;
+  }
 }
 
 /* Escritorio: el reproductor queda en su fila (2), pero se sube un poco con

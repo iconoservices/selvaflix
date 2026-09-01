@@ -74,23 +74,23 @@ export const SelvaStream = {
         if (document.getElementById('player-back-btn')) return;
 
         modal.innerHTML = `
-            <div class="player-back-arrow" id="player-back-btn" title="Atrás (Esc)">
+            <div class="player-back-arrow" id="player-back-btn" title="Atrás (Esc)" tabindex="0" role="button" data-tvnav>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
             </div>
 
             <!-- Floating Top Controls (Fuentes y Selectores de Serie) -->
             <div id="player-top-controls" class="player-top-controls">
                 <div id="player-controls-root"></div>
-                <button id="floating-sources-btn" class="sources-btn-modern" onclick="SelvaStream.toggleVipMenu()">
+                <button id="floating-sources-btn" class="sources-btn-modern" data-tvnav onclick="SelvaStream.toggleVipMenu()">
                      📡 FUENTES VIP
                 </button>
                 <!-- Cuando el servidor responde pero con su página de error (no
                      tiene el título), el iframe "carga" bien y el vigilante no
                      puede darse cuenta. Esto deja saltar de un toque en vez de
                      ir a bucear al menú de fuentes. -->
-                <button id="player-next-source-btn" class="sources-btn-modern" title="Este servidor no carga"
+                <button id="player-next-source-btn" class="sources-btn-modern" title="Este servidor no carga" data-tvnav
                         onclick="SelvaStream.siguienteFuente(SelvaStream.streamActual)">⏭ NO CARGA</button>
-                <button id="player-expand-btn" class="sources-btn-modern" title="Pantalla completa"
+                <button id="player-expand-btn" class="sources-btn-modern" title="Pantalla completa" data-tvnav
                         onclick="SelvaStream.alternarPantalla()">⛶</button>
             </div>
 

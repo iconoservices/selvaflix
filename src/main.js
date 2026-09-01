@@ -10061,34 +10061,6 @@ window.renderTVHub = function(dbLiveItems = []) {
   const html = `
     <div class="tv-hub-container" style="padding: 20px 0; max-width: 1400px; margin: 0 auto;">
       
-      <!-- Banner Hero TV -->
-      <div class="tv-hub-hero" style="background: linear-gradient(135deg, rgba(255,102,0,0.2) 0%, rgba(20,20,20,0.95) 100%), url('https://images.unsplash.com/photo-1593784991095-a205069470b6?auto=format&fit=crop&w=1200&q=80') center/cover; border-radius: 20px; padding: 35px 30px; border: 1px solid rgba(255,102,0,0.3); box-shadow: 0 20px 50px rgba(0,0,0,0.6); margin-bottom: 30px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 20px;">
-        <div style="max-width: 650px;">
-          <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(255,82,82,0.15); border: 1px solid rgba(255,82,82,0.4); color: #FF5252; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 12px;">
-            <span style="width: 8px; height: 8px; background: #FF5252; border-radius: 50%; animation: pulse 1.4s infinite;"></span>
-            TV EN VIVO & AGENDA DEPORTIVA
-          </div>
-          <h1 style="color: white; font-size: 2.2rem; font-weight: 900; margin: 0 0 10px 0; font-family: 'Sora', sans-serif; letter-spacing: -0.5px;">
-            Televisión & Partidos en Vivo ⚽📺
-          </h1>
-          <p style="color: #bbb; font-size: 0.95rem; line-height: 1.5; margin: 0;">
-            Sigue los encuentros deportivos divididos por partido, tus canales peruanos preferidos, noticias 24/7 y más de 7,000 señales abiertas en vivo.
-          </p>
-        </div>
-        
-        <div style="display: flex; flex-direction: column; gap: 12px; min-width: 240px;">
-          <button onclick="window.openFreeTVModal('https://freetv.studio/')" class="cinepulse-btn-primary" style="padding: 14px 22px; font-size: 0.9rem; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(45deg, #FF6600, #FF3300); border: none; border-radius: 12px; cursor: pointer; color: white; box-shadow: 0 8px 25px rgba(255,102,0,0.4);">
-            <span class="material-symbols-outlined">public</span>
-            Explorar FreeTV (+7000 Canales)
-          </button>
-          ${localStorage.getItem('selva_admin_auth') === 'true' ? `
-            <button onclick="location.hash='admin'" class="cinepulse-btn-secondary" style="padding: 10px 18px; font-size: 0.8rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 6px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 10px; cursor: pointer; color: #ddd;">
-              ⚙️ Gestionar / Añadir Canales
-            </button>
-          ` : ''}
-        </div>
-      </div>
-
       <!-- Filtros de Categoría de TV -->
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
         <h2 style="color: white; font-size: 1.4rem; font-weight: 900; margin: 0; display: flex; align-items: center; gap: 8px;">

@@ -332,6 +332,53 @@ export default {
                 return new Response(JSON.stringify(data), { status: r.status, headers: corsHeaders });
             }
 
+            // --- 📡 RUTA: LIVE-PROXY (streams http en https) ---
+            // Varios CDNs de TV en vivo (ej. canales peruanos en 190.93.224.42)
+            // no tienen HTTPS -- el navegador los bloquea por "contenido mixto"
+            // cuando SelvaFlix corre en https. Este proxy reescribe el
+            // manifiesto HLS para que cada sub-playlist y segmento TAMBIEN pase
+            // por aca (si solo se proxea el manifiesto raiz, hls.js resuelve las
+            // rutas relativas de adentro contra el host http original y se
+            // vuelve a bloquear). Los .ts/.aac binarios solo se retransmiten tal
+            // cual, en streaming, sin cargarlos enteros en memoria del worker.
+            if (url.pathname === '/flix/live-proxy') {
+                const targetUrl = url.searchParams.get('url');
+                if (!targetUrl) return new Response('Falta el parametro url', { status: 400, headers: corsHeaders });
+
+                let target;
+                try { target = new URL(targetUrl); } catch { return new Response('URL invalida', { status: 400, headers: corsHeaders }); }
+
+                const upstream = await fetch(target.toString(), { headers: { 'User-Agent': 'Mozilla/5.0' } });
+                if (!upstream.ok || !upstream.body) {
+                    return new Response('Origen no respondio: ' + upstream.status, { status: 502, headers: corsHeaders });
+                }
+
+                const isManifest = target.pathname.endsWith('.m3u8');
+                if (!isManifest) {
+                    // Segmento binario: pasa directo en streaming (pipe), no se
+                    // reescribe nada.
+                    return new Response(upstream.body, {
+                        headers: { ...corsHeaders, 'Content-Type': upstream.headers.get('Content-Type') || 'video/mp2t' }
+                    });
+                }
+
+                const text = await upstream.text();
+                const proxyBase = `${url.origin}/flix/live-proxy`;
+                const rewritten = text.split('\n').map(line => {
+                    const trimmed = line.trim();
+                    if (!trimmed || trimmed.startsWith('#')) return line;
+                    // Es una URI (sub-playlist o segmento), relativa o absoluta:
+                    // resolverla contra la URL origen y volver a pasarla por
+                    // este mismo proxy para que siga siendo https de punta a punta.
+                    const resolved = new URL(trimmed, target).toString();
+                    return `${proxyBase}?url=${encodeURIComponent(resolved)}`;
+                }).join('\n');
+
+                return new Response(rewritten, {
+                    headers: { ...corsHeaders, 'Content-Type': 'application/vnd.apple.mpegurl' }
+                });
+            }
+
             // ═══════════════════════════════════════════════════════════════
             //  RUTAS /beat/* y /img  →  NO son de SelvaFlix (otra app, YouTube).
             //  Este worker está compartido: borrar algo de acá rompe ese

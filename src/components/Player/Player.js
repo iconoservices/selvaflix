@@ -1598,6 +1598,15 @@ export const SelvaStream = {
                 if (srcMatch) finalUrl = srcMatch[1];
             }
 
+            // Algunos CDNs de canales En Vivo (Perú) no tienen https -- si
+            // SelvaFlix corre en https (producción), el navegador bloquea esa
+            // fuente por "contenido mixto". Se reescribe para que pase por el
+            // proxy del worker (/flix/live-proxy), que la reescribe y sirve de
+            // vuelta ya en https.
+            if (finalUrl.startsWith('http://') && location.protocol === 'https:') {
+                finalUrl = `${this.MASTER_WORKER_URL}/flix/live-proxy?url=${encodeURIComponent(finalUrl)}&key=${this.AUTH_TOKEN}`;
+            }
+
             const isHls = finalUrl.includes('.m3u8');
             const isDirectVideo = isHls || finalUrl.endsWith('.mp4') || finalUrl.endsWith('.mkv') || stream.name?.includes('[RD+]') || stream.title?.includes('[RD+]');
 

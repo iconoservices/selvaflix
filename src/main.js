@@ -45,6 +45,15 @@ try {
 }
 const auth = getAuth(app); // 🚪 El guardián de la selva
 
+// Cuentas dueñas del panel. El acceso al #admin y el botón del menú se gatean
+// contra esto (identidad real de Firebase), no contra una contraseña en el
+// bundle. Las ESCRITURAS del catálogo van aparte, por el Worker con ADMIN_KEY.
+const ADMIN_EMAILS = ['jnmcsky@gmail.com'];
+window._esCuentaAdmin = () => {
+  const email = (auth.currentUser?.email || '').toLowerCase();
+  return ADMIN_EMAILS.includes(email) || window.currentUserTier === 'admin';
+};
+
 // --- Supabase (catálogo de películas) ---
 // Firestore se quedó sin cuota gratis (millones de lecturas/día leyendo el
 // catálogo entero por sesión, ver 2026-08-19) — la colección "movies" se
@@ -656,20 +665,50 @@ async function loadSelvaFlixData() {
 // Backdoor removed by Architect Antigravity 🌴
 // Access only via #admin password check.
 window.updateAdminUI = () => {
-  // El botón "Admin Panel" del menú de perfil aparece si:
-  //  - ya se autenticó en #admin en este navegador (selva_admin_auth), O
-  //  - la cuenta logueada tiene tier 'admin' en Firestore (así el dueño lo
-  //    ve sin tener que acordarse de escribir #admin a mano). El candado de
-  //    contraseña de #admin sigue estando igual la primera vez.
-  const ADMIN_EMAILS = ['jnmcsky@gmail.com'];
-  const email = (auth.currentUser?.email || '').toLowerCase();
+  // El botón "Admin Panel" del menú de perfil aparece si esta cuenta es la
+  // dueña (email/tier de Firebase) o si ya entró antes en este navegador.
   const isAdmin = localStorage.getItem('selva_admin_auth') === 'true'
-    || window.currentUserTier === 'admin'
-    || ADMIN_EMAILS.includes(email);
+    || window._esCuentaAdmin();
   const dot = document.getElementById('admin-status-dot');
   if (dot) dot.style.display = isAdmin ? 'block' : 'none';
   const adminMenuBtn = document.getElementById('admin-panel-menu-btn');
   if (adminMenuBtn) adminMenuBtn.style.display = isAdmin ? 'flex' : 'none';
+};
+
+// Entrada a la ruta #admin. Gatea contra la cuenta de Firebase (no una
+// contraseña en el bundle). Si Firebase todavía no resolvió la sesión, espera.
+window._enterAdminRoute = async () => {
+  if (localStorage.getItem('selva_admin_auth') !== 'true') {
+    try { if (window._authReadyPromise) await window._authReadyPromise; } catch (e) {}
+    if (!window._esCuentaAdmin()) {
+      alert('🔒 El panel es solo para la cuenta de administrador.\nIniciá sesión con esa cuenta y volvé a entrar.');
+      window.goToHome();
+      return;
+    }
+    localStorage.setItem('selva_admin_auth', 'true');
+    window.updateAdminUI();
+  }
+
+  sessionStorage.setItem('selva_admin_active', '1');
+  showView('admin-view');
+  renderInventory();
+
+  // loadMetrics (módulo de Analíticas, import perezoso) hace consultas PESADAS
+  // a Firestore (~30s) y solo alimenta 2 widgets → se difiere para no bloquear
+  // el resto del panel.
+  const _cargarMetricasDiferido = () => cargarAnaliticas()
+    .then(() => window.loadMetrics())
+    .catch(e => console.error('No se pudo cargar el módulo de Analíticas:', e));
+  if ('requestIdleCallback' in window) requestIdleCallback(_cargarMetricasDiferido, { timeout: 4000 });
+  else setTimeout(_cargarMetricasDiferido, 800);
+
+  if (typeof window.loadAdminMessages === 'function') window.loadAdminMessages();
+  if (typeof window.loadPremiumCount === 'function') window.loadPremiumCount();
+
+  // Esconder el contenedor de anuncios de red (fixed, z-index altísimo) que
+  // podría tapar botones reales del panel.
+  const adGlobalContainer = document.getElementById('ad-global-container');
+  if (adGlobalContainer) adGlobalContainer.style.display = 'none';
 };
 // Ya no siembra títulos "famosos" automáticamente: se agregaban solos sin que
 // el admin lo pidiera, y si alguno se borraba a propósito (ej. "Friends"),
@@ -1527,44 +1566,7 @@ function handleRouting() {
     showView('detail-view');
     if (slugOrId) window.openMovieDetail(slugOrId, { autoPlay: true });
   } else if (hash === 'admin') {
-    const isAdminAuthenticated = localStorage.getItem('selva_admin_auth') === 'true';
-    if (!isAdminAuthenticated) {
-        const password = prompt("🔒 Área Restringida. Introduce la contraseña de administrador:");
-        if (password === "adminselvaflix") {
-            localStorage.setItem('selva_admin_auth', 'true');
-            window.updateAdminUI();
-            alert("✅ Acceso Concedido.");
-        } else {
-            alert("❌ Contraseña incorrecta. Volviendo a la selva.");
-            window.goToHome();
-            return;
-        }
-    }
-    sessionStorage.setItem('selva_admin_active', '1');
-    showView('admin-view');
-    renderInventory();
-    // loadMetrics vive en el módulo de Analíticas, que se baja recién con
-    // cargarAnaliticas() (import() perezoso). Hace consultas de rango PESADAS
-    // sobre Firestore (~30s incluso con la conexión caliente) y solo alimenta
-    // 2 widgets del Resumen (Más Visto / Actividad Reciente) — así que se
-    // dispara en segundo plano, cuando el hilo está libre, sin bloquear el
-    // resto del panel (catálogo, mensajes, Premium, anuncios).
-    const _cargarMetricasDiferido = () => cargarAnaliticas()
-        .then(() => window.loadMetrics())
-        .catch(e => console.error('No se pudo cargar el módulo de Analíticas:', e));
-    if ('requestIdleCallback' in window) {
-        requestIdleCallback(_cargarMetricasDiferido, { timeout: 4000 });
-    } else {
-        setTimeout(_cargarMetricasDiferido, 800);
-    }
-    if (typeof window.loadAdminMessages === 'function') window.loadAdminMessages(); // refresca el punto de "sin leer" del sidebar
-    if (typeof window.loadPremiumCount === 'function') window.loadPremiumCount();
-
-    // 🔒 Si ya se habían inyectado anuncios de red (navegando el sitio público
-    // antes de entrar al admin), ese contenedor queda fixed + z-index altísimo
-    // y puede tapar botones reales del portal. Se esconde mientras estemos acá.
-    const adGlobalContainer = document.getElementById('ad-global-container');
-    if (adGlobalContainer) adGlobalContainer.style.display = 'none';
+    window._enterAdminRoute();
   } else if (hash === 'mylist') {
     showView('my-list-view');
     marcarNavEscritorio('mylist');

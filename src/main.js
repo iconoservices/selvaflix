@@ -661,8 +661,11 @@ window.updateAdminUI = () => {
   //  - la cuenta logueada tiene tier 'admin' en Firestore (así el dueño lo
   //    ve sin tener que acordarse de escribir #admin a mano). El candado de
   //    contraseña de #admin sigue estando igual la primera vez.
+  const ADMIN_EMAILS = ['jnmcsky@gmail.com'];
+  const email = (auth.currentUser?.email || '').toLowerCase();
   const isAdmin = localStorage.getItem('selva_admin_auth') === 'true'
-    || window.currentUserTier === 'admin';
+    || window.currentUserTier === 'admin'
+    || ADMIN_EMAILS.includes(email);
   const dot = document.getElementById('admin-status-dot');
   if (dot) dot.style.display = isAdmin ? 'block' : 'none';
   const adminMenuBtn = document.getElementById('admin-panel-menu-btn');
@@ -11835,6 +11838,7 @@ onAuthStateChanged(auth, async (user) => {
 
         trackAccountLogin(user); // 📊 No bloqueante: registra cuenta + login para el panel de Usuarios
         await window.refreshUserTier(user.uid); // 💎 cachea el tier real (Firestore) antes de cualquier chequeo premium
+        window.updateAdminUI(); // ya hay email + tier → mostrar el botón de Admin si corresponde
 
         // Si los anuncios ya se habían inyectado como invitado (antes de saber
         // que este login es Premium), se esconden ahora que ya lo sabemos.

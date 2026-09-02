@@ -6770,7 +6770,9 @@ window.renderTMDBSelectedList = () => {
             <button type="button" onclick="window.previewServerLink(window._tmdbBank[${index}]?.embed||'')" style="flex:1; background:rgba(255,140,0,0.15); color:var(--primary); border:1px solid rgba(255,140,0,0.35); border-radius:6px; padding:6px; font-size:0.7rem; cursor:pointer;">▶ Probar enlace</button>
             <button type="button" onclick="window.probarFuentesTmdbUno(${index})" style="flex:1; background:rgba(0,242,255,0.12); color:#00f2ff; border:1px solid rgba(0,242,255,0.3); border-radius:6px; padding:6px; font-size:0.7rem; cursor:pointer;">🔎 Probar fuentes</button>
           </div>
+          <button type="button" onclick="window.serversPublicosTmdbUno(${index})" style="width:100%; margin-top:6px; background:rgba(46,204,113,0.14); color:#2ecc71; border:1px solid rgba(46,204,113,0.35); border-radius:6px; padding:6px; font-size:0.7rem; cursor:pointer;">🌐 Servidores públicos (RepelisHD / PelisMart / FlixLatam)</button>
           <div id="tmdb-fuentes-uno-${index}" style="margin-top:6px;"></div>
+          <div id="tmdb-srv-uno-${index}" style="margin-top:6px;"></div>
           <label style="${L}">Enlace de Descarga (opcional, MP4/M3U8 directo)</label>
           <input type="text" value="${V('downloadUrl')}" placeholder="https://... (archivo descargable directo)" style="${S}"
                  oninput="window.setTmdbField(${index},'downloadUrl',this.value)">
@@ -6843,6 +6845,46 @@ window.unselectTMDBItem = (index) => {
   delete window._tmdbBank[index];
   window._tmdbExpanded.delete(index);
   window.updateTMDBBulkBar();
+};
+
+// "Servidores públicos" para UN título de la lista: arma las mismas URLs que
+// checkAdminPublicServers (RepelisHD / PelisMart / FlixLatam) para el imdb de
+// esa peli y deja elegir una con "Usar" (la mete en el campo Enlace de Video).
+window.serversPublicosTmdbUno = async (index) => {
+  const m = _tmdbLastResults[index];
+  const cont = document.getElementById(`tmdb-srv-uno-${index}`);
+  if (!m || !cont) return;
+  cont.innerHTML = '<p style="color:#2ecc71; font-size:0.7rem; margin:4px 0;">🌐 Buscando servidores públicos...</p>';
+  const type = window._tmdbBank[index]?.type || _tmdbTipo(m);
+  const isTv = ['series', 'tv', 'anime'].includes(type);
+  let imdbId = '';
+  try {
+    const dt = isTv ? 'tv' : 'movie';
+    imdbId = (await fetch(`${TMDB_URL}/${dt}/${m.id}/external_ids?api_key=${TMDB_API_KEY}`).then(r => r.json())).imdb_id || '';
+  } catch (e) { /* sin imdb */ }
+  if (!imdbId) { cont.innerHTML = '<p style="color:#e74c3c; font-size:0.68rem; margin:4px 0;">Sin IMDb ID para este título.</p>'; return; }
+
+  const q = encodeURIComponent(m.title || m.name || '');
+  const servers = [];
+  if (!isTv) servers.push({ name: '🎬 RepelisHD', url: `https://verhdlink.cam/movie/${imdbId}` });
+  servers.push({ name: '🍿 PelisMart', url: isTv ? `https://pelismart.mov/vidurl/${imdbId}-1x01/` : `https://pelismart.mov/vidurl/${imdbId}/`, search: `https://pelismart.mov/search?s=${q}` });
+  servers.push({ name: '🇲🇽 FlixLatam', url: isTv ? `https://flixlatam.com/vidurl/${imdbId}-1x01/` : `https://flixlatam.com/vidurl/${imdbId}/`, search: `https://flixlatam.com/search?s=${q}` });
+
+  cont.innerHTML = servers.map(s => `
+    <div style="display:flex; align-items:center; gap:6px; padding:5px 7px; border:1px solid rgba(255,255,255,0.08); border-radius:6px; margin-bottom:4px;">
+      <span style="flex:1; font-size:0.68rem; font-weight:700; color:#00f2ff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${s.name}</span>
+      <button type="button" onclick="window.previewServerLink('${s.url}')" title="Vista previa" style="background:rgba(255,255,255,0.08); border:none; color:#ccc; border-radius:4px; padding:3px 6px; font-size:0.65rem; cursor:pointer;">👁️</button>
+      ${s.search ? `<button type="button" onclick="window.open('${s.search}','_blank','noopener')" title="Página real" style="background:rgba(255,255,255,0.08); border:none; color:#ccc; border-radius:4px; padding:3px 6px; font-size:0.65rem; cursor:pointer;">🔍</button>` : ''}
+      <button type="button" onclick="window.usarServidorTmdbUno(${index},'${s.url}')" style="background:#2ecc71; border:none; color:#000; font-weight:800; border-radius:4px; padding:3px 8px; font-size:0.65rem; cursor:pointer;">Usar</button>
+    </div>
+  `).join('') + (isTv ? '<p style="color:#aaa; font-size:0.62rem; margin:2px 0 0;">Series: la URL usa T1E1 por defecto.</p>' : '');
+};
+
+window.usarServidorTmdbUno = (index, url) => {
+  window.setTmdbField(index, 'embed', url);
+  const inp = document.querySelector(`#tmdb-selected-list [oninput*="setTmdbField(${index},'embed'"]`);
+  if (inp) inp.value = url;
+  if (window.showToast) window.showToast('Enlace puesto en "Enlace de Video" ✓', 'success');
 };
 
 // "Probar fuentes" para UN título (reusa _checkFuentesDeTitulo/_renderFuentesList).

@@ -2632,7 +2632,7 @@ window.openUploadDrawer = () => {
 
   // Reset de la cola de alta desde TMDb
   window._tmdbBank = {};
-  window._tmdbEditIdx = null;
+  window._tmdbExpanded && window._tmdbExpanded.clear();
   const tmdbSelList = document.getElementById('tmdb-selected-list');
   if (tmdbSelList) { tmdbSelList.innerHTML = ''; tmdbSelList.style.display = 'none'; }
   const tmdbBulkTb = document.getElementById('tmdb-bulk-toolbar');
@@ -6672,58 +6672,49 @@ window.updateTMDBBulkBar = () => {
   window.renderTMDBSelectedList();
 };
 
-// ─── Cola de alta desde TMDb ────────────────────────────────────────────────
-// Los títulos tildados en el buscador se listan abajo, una línea por cada uno.
-// Al tocar una línea, ESE título se carga en el MISMO formulario grande de
-// abajo (Origen de Video, Info General, Reparto, todos los botones: Fijar
-// Enlace, Buscar Torrents, Probar, editor de episodios, etc.) — no se duplica
-// nada. Le das "Guardar en la selección" y pasa al siguiente. Cuando están
-// todos listos, "Agregar todos" los sube juntos.
-window._tmdbBank = window._tmdbBank || {};   // index -> foto del formulario
-window._tmdbEditIdx = (window._tmdbEditIdx === undefined) ? null : window._tmdbEditIdx;
+// ─── Lista de seleccionados de TMDb, con editor desplegable por título ──────
+// Cada título tildado en el buscador sale como una línea. Al tocarla se
+// despliega ADENTRO de esa misma línea el formulario completo de esa peli
+// (Origen de Video, Info General, Reparto, Metadatos) para editarlo ahí
+// mismo. Lo editado se guarda en window._tmdbBank[index] y al darle
+// "Agregar todos" cada peli se sube con esos datos.
+window._tmdbBank = window._tmdbBank || {};
+window._tmdbExpanded = window._tmdbExpanded || new Set();
 
-// Campos del formulario grande que se guardan/restauran por título.
-const _TMDB_FORM_FIELDS = [
-  ['title', 'm-title', 'val'], ['originalTitle', 'm-original-title', 'val'],
-  ['img', 'm-img', 'val'], ['backdrop', 'm-backdrop', 'val'],
-  ['tmdbId', 'm-tmdb-id', 'val'], ['imdbId', 'm-imdb-id', 'val'],
-  ['embed', 'm-embed', 'val'], ['downloadUrl', 'm-download-url', 'val'],
-  ['franchise', 'm-franchise', 'val'], ['preferredProvider', 'm-preferred-provider', 'val'],
-  ['year', 'm-year', 'val'], ['rating', 'm-rating', 'val'],
-  ['type', 'm-type', 'val'], ['status', 'm-status', 'val'], ['lang', 'm-lang', 'val'],
-  ['synopsis', 'm-synopsis', 'val'], ['director', 'm-director', 'val'],
-  ['cast', 'm-cast', 'val'], ['genres', 'm-genres', 'val'],
-  ['alternativeTitles', 'm-alternative-titles', 'val'],
-  ['releaseDate', 'm-release-date', 'val'],
-  ['pinned', 'm-pinned', 'chk'], ['isVIP', 'm-is-vip', 'chk'],
-  ['showCountdown', 'm-show-countdown', 'chk']
-];
-
-function _readMovieForm() {
-  const out = {};
-  for (const [key, id, kind] of _TMDB_FORM_FIELDS) {
-    const el = document.getElementById(id);
-    if (!el) continue;
-    out[key] = kind === 'chk' ? !!el.checked : el.value;
-  }
-  out._episodes = JSON.parse(JSON.stringify(_currentEpisodesMap || {}));
-  return out;
+function _tmdbInitBank(m) {
+  const date = m.release_date || m.first_air_date || '';
+  return {
+    embed: '', downloadUrl: '',
+    title: m.title || m.name || '',
+    originalTitle: m.original_title || m.original_name || '',
+    synopsis: m.overview || '',
+    director: '', cast: '', genres: '',
+    year: date.split('-')[0] || String(new Date().getFullYear()),
+    rating: m.vote_average ? Number(m.vote_average).toFixed(1) : '8.0',
+    type: _tmdbTipo(m),
+    lang: document.getElementById('discover-lang')?.value || 'es-MX',
+    franchise: '', isVIP: false
+  };
 }
 
-function _applyMovieForm(data) {
-  for (const [key, id, kind] of _TMDB_FORM_FIELDS) {
-    const el = document.getElementById(id);
-    if (!el || data[key] === undefined) continue;
-    if (kind === 'chk') el.checked = !!data[key];
-    else el.value = data[key] ?? '';
+window.setTmdbField = (index, key, value) => {
+  if (!window._tmdbBank[index]) {
+    const m = _tmdbLastResults[index];
+    window._tmdbBank[index] = m ? _tmdbInitBank(m) : {};
   }
-  _currentEpisodesMap = JSON.parse(JSON.stringify(data._episodes || {}));
-  if (typeof window.toggleEpisodesCardVisibility === 'function') window.toggleEpisodesCardVisibility();
-  const p = document.getElementById('m-img-preview');
-  if (p && data.img) p.src = data.img;
-  const bp = document.getElementById('m-backdrop-preview');
-  if (bp) bp.src = data.backdrop || data.img || 'https://via.placeholder.com/600x338/111/555?text=Sin+Banner';
-  if (typeof window.updateMiniPlayer === 'function') window.updateMiniPlayer();
+  window._tmdbBank[index][key] = value;
+  // refrescar solo el estado de la línea, sin re-renderizar el editor (para
+  // no perder el foco del input mientras se escribe)
+  const badge = document.getElementById(`tmdb-row-estado-${index}`);
+  if (badge) badge.innerHTML = _tmdbEstadoLinea(index);
+};
+
+function _tmdbEstadoLinea(index) {
+  const b = window._tmdbBank[index];
+  if (!b) return '<span style="color:var(--text-muted);">○ sin tocar</span>';
+  return b.embed
+    ? '<span style="color:#2ECC71;">✓ con enlace</span>'
+    : '<span style="color:#FFB800;">✎ editado · sin enlace</span>';
 }
 
 window.renderTMDBSelectedList = () => {
@@ -6733,119 +6724,148 @@ window.renderTMDBSelectedList = () => {
     .map(cb => parseInt(cb.dataset.index, 10))
     .filter(i => !Number.isNaN(i));
 
-  // limpiar el banco de índices que ya no están tildados
   Object.keys(window._tmdbBank).forEach(k => { if (!indices.includes(+k)) delete window._tmdbBank[k]; });
-  if (window._tmdbEditIdx != null && !indices.includes(window._tmdbEditIdx)) window._tmdbEditIdx = null;
 
   if (indices.length === 0) {
     box.style.display = 'none';
     box.innerHTML = '';
+    window._tmdbExpanded.clear();
     return;
   }
 
+  const S = 'width:100%; box-sizing:border-box; background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.14); border-radius:6px; color:#eee; font-size:0.75rem; padding:6px 8px; margin-top:3px;';
+  const L = 'display:block; font-size:0.62rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em; margin-top:9px;';
+  const H = 'margin:14px 0 2px; font-size:0.72rem; font-weight:800; color:var(--primary); text-transform:uppercase; letter-spacing:.03em;';
+
   box.style.display = 'flex';
-  box.innerHTML = `
-    <p style="margin:0 0 2px; font-size:0.66rem; color:var(--text-muted);">
-      Tocá un título para cargarlo abajo en el formulario, completalo y dale
-      "Guardar en la selección". Cuando estén todos, "Agregar todos".
-    </p>
-  ` + indices.map(index => {
+  box.innerHTML = indices.map(index => {
     const m = _tmdbLastResults[index];
     if (!m) return '';
+    const b = window._tmdbBank[index] || _tmdbInitBank(m);
     const title = _escHtml(m.title || m.name || 'Sin Título');
-    const year = (m.release_date || m.first_air_date || '').split('-')[0] || '—';
     const thumb = m.poster_path ? (TMDB_IMG_URL + m.poster_path) : 'https://via.placeholder.com/40x60?text=%3F';
-    const banked = window._tmdbBank[index];
-    const editing = window._tmdbEditIdx === index;
-
-    let estado = '<span style="color:var(--text-muted);">○ sin completar</span>';
-    if (banked) {
-      estado = banked.embed
-        ? '<span style="color:#2ECC71;">✓ listo · ▶ con enlace</span>'
-        : '<span style="color:#FFB800;">✓ guardado · sin enlace</span>';
-    }
-    if (editing) estado = '<span style="color:var(--primary);">✎ editando abajo…</span>';
+    const open = window._tmdbExpanded.has(index);
+    const V = (k) => String(b[k] ?? '').replace(/"/g, '&quot;');
+    const opt = (k, v, t) => `<option value="${v}"${b[k] === v ? ' selected' : ''}>${t}</option>`;
 
     return `
-      <div onclick="window.editTmdbInForm(${index})"
-           style="display:flex; align-items:center; gap:10px; padding:7px 9px; cursor:pointer;
-                  border:1px solid ${editing ? 'var(--primary)' : 'rgba(255,255,255,0.08)'};
-                  border-radius:8px; background:${editing ? 'rgba(255,140,0,0.08)' : 'rgba(255,255,255,0.02)'};">
-        <img src="${thumb}" alt="" style="width:34px; height:51px; border-radius:4px; object-fit:cover; flex:0 0 auto;" onerror="this.src='https://via.placeholder.com/40x60?text=%3F'">
-        <div style="flex:1; min-width:0;">
-          <div style="font-size:0.8rem; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${title}">${title}</div>
-          <div style="font-size:0.66rem;">${estado} <span style="color:var(--text-muted);">· ${year}</span></div>
+      <div style="border:1px solid ${open ? 'var(--primary)' : 'rgba(255,255,255,0.08)'}; border-radius:9px; overflow:hidden; background:rgba(255,255,255,0.02);">
+        <div onclick="window.toggleTmdbRow(${index})" style="display:flex; align-items:center; gap:10px; padding:7px 9px; cursor:pointer;">
+          <img src="${thumb}" alt="" style="width:34px; height:51px; border-radius:4px; object-fit:cover; flex:0 0 auto;" onerror="this.src='https://via.placeholder.com/40x60?text=%3F'">
+          <div style="flex:1; min-width:0;">
+            <div style="font-size:0.82rem; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${title}">${title}</div>
+            <div id="tmdb-row-estado-${index}" style="font-size:0.66rem;">${_tmdbEstadoLinea(index)}</div>
+          </div>
+          <button type="button" title="Quitar" onclick="event.stopPropagation(); window.unselectTMDBItem(${index})" style="flex:0 0 auto; background:none; border:none; color:#E74C3C; font-size:1rem; cursor:pointer; padding:2px 6px;">✕</button>
+          <span style="flex:0 0 auto; color:var(--text-muted); font-size:0.85rem; transform:rotate(${open ? 90 : 0}deg); transition:transform .15s;">▸</span>
         </div>
-        <button type="button" title="Quitar de la selección" onclick="event.stopPropagation(); window.unselectTMDBItem(${index})" style="flex:0 0 auto; background:none; border:none; color:#E74C3C; font-size:1rem; cursor:pointer; padding:2px 6px;">✕</button>
+
+        <div style="display:${open ? 'block' : 'none'}; padding:0 11px 13px;">
+
+          <p style="${H}">▶ Origen de Video y Enlaces</p>
+          <label style="${L}">Enlace de Video (Embed / M3U8 / URL)</label>
+          <input type="text" value="${V('embed')}" placeholder="https://..." style="${S}"
+                 oninput="window.setTmdbField(${index},'embed',this.value)">
+          <div style="display:flex; gap:6px; margin-top:6px;">
+            <button type="button" onclick="window.previewServerLink(window._tmdbBank[${index}]?.embed||'')" style="flex:1; background:rgba(255,140,0,0.15); color:var(--primary); border:1px solid rgba(255,140,0,0.35); border-radius:6px; padding:6px; font-size:0.7rem; cursor:pointer;">▶ Probar enlace</button>
+            <button type="button" onclick="window.probarFuentesTmdbUno(${index})" style="flex:1; background:rgba(0,242,255,0.12); color:#00f2ff; border:1px solid rgba(0,242,255,0.3); border-radius:6px; padding:6px; font-size:0.7rem; cursor:pointer;">🔎 Probar fuentes</button>
+          </div>
+          <div id="tmdb-fuentes-uno-${index}" style="margin-top:6px;"></div>
+          <label style="${L}">Enlace de Descarga (opcional, MP4/M3U8 directo)</label>
+          <input type="text" value="${V('downloadUrl')}" placeholder="https://... (archivo descargable directo)" style="${S}"
+                 oninput="window.setTmdbField(${index},'downloadUrl',this.value)">
+
+          <p style="${H}">ℹ️ Información General</p>
+          <label style="${L}">Título</label>
+          <input type="text" value="${V('title')}" style="${S}" oninput="window.setTmdbField(${index},'title',this.value)">
+          <label style="${L}">Título original</label>
+          <input type="text" value="${V('originalTitle')}" style="${S}" oninput="window.setTmdbField(${index},'originalTitle',this.value)">
+          <label style="${L}">Sinopsis</label>
+          <textarea rows="3" style="${S} resize:vertical;" oninput="window.setTmdbField(${index},'synopsis',this.value)">${_escHtml(b.synopsis || '')}</textarea>
+          <label style="${L}">Director</label>
+          <input type="text" value="${V('director')}" placeholder="(si lo dejás vacío se completa solo)" style="${S}" oninput="window.setTmdbField(${index},'director',this.value)">
+
+          <p style="${H}">👥 Reparto y Géneros</p>
+          <label style="${L}">Reparto principal (separado por comas)</label>
+          <input type="text" value="${V('cast')}" placeholder="Actor 1, Actor 2..." style="${S}" oninput="window.setTmdbField(${index},'cast',this.value)">
+          <label style="${L}">Géneros / etiquetas (separados por comas)</label>
+          <input type="text" value="${V('genres')}" placeholder="Acción, Drama..." style="${S}" oninput="window.setTmdbField(${index},'genres',this.value)">
+
+          <p style="${H}">⚙️ Metadatos</p>
+          <div style="display:flex; gap:8px;">
+            <div style="flex:1;"><label style="${L}">Año</label>
+              <input type="text" value="${V('year')}" style="${S}" oninput="window.setTmdbField(${index},'year',this.value)"></div>
+            <div style="flex:1;"><label style="${L}">Calificación</label>
+              <input type="text" value="${V('rating')}" style="${S}" oninput="window.setTmdbField(${index},'rating',this.value)"></div>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <div style="flex:1;"><label style="${L}">Tipo</label>
+              <select style="${S}" onchange="window.setTmdbField(${index},'type',this.value)">
+                ${opt('type','movie','Película')}${opt('type','series','Serie')}${opt('type','anime','Anime')}
+              </select></div>
+            <div style="flex:1;"><label style="${L}">Idioma</label>
+              <select style="${S}" onchange="window.setTmdbField(${index},'lang',this.value)">
+                ${opt('lang','es-MX','Latino')}${opt('lang','es-ES','Castellano')}${opt('lang','en','Inglés / Sub')}
+              </select></div>
+          </div>
+          <label style="${L}">Franquicia (opcional)</label>
+          <input type="text" value="${V('franchise')}" placeholder="ej: Marvel" style="${S}" oninput="window.setTmdbField(${index},'franchise',this.value)">
+          <label style="display:flex; align-items:center; gap:7px; margin-top:11px; font-size:0.74rem; color:#ccc; cursor:pointer;">
+            <input type="checkbox" ${b.isVIP ? 'checked' : ''} onchange="window.setTmdbField(${index},'isVIP',this.checked)">
+            Estreno VIP / Premium
+          </label>
+
+          <p style="margin:11px 0 0; font-size:0.64rem; color:var(--text-muted);">
+            TMDb ID ${m.id || '—'} · el IMDb id y los títulos alternativos se completan solos al "Agregar todos".
+          </p>
+        </div>
       </div>
     `;
   }).join('');
 };
 
-// Carga un título de la cola en el formulario grande de abajo. Antes guarda
-// lo que haya del título que se estaba editando.
-window.editTmdbInForm = async (index) => {
-  if (window._tmdbEditIdx != null && window._tmdbEditIdx !== index) {
-    window._tmdbBank[window._tmdbEditIdx] = _readMovieForm();
+window.toggleTmdbRow = (index) => {
+  if (window._tmdbExpanded.has(index)) window._tmdbExpanded.delete(index);
+  else {
+    // asegurar que exista el banco al abrir (así "Agregar todos" usa lo editado)
+    if (!window._tmdbBank[index]) {
+      const m = _tmdbLastResults[index];
+      if (m) window._tmdbBank[index] = _tmdbInitBank(m);
+    }
+    window._tmdbExpanded.add(index);
   }
-  window._tmdbEditIdx = index;
-
-  if (window._tmdbBank[index]) {
-    _applyMovieForm(window._tmdbBank[index]);
-  } else {
-    // Primera vez: traer datos frescos de TMDb al formulario (misma función
-    // que al hacer clic en un resultado). selectTMDBMovie hace un alert al
-    // final; lo silenciamos solo para este caso.
-    const _alert = window.alert; window.alert = () => {};
-    try { await window.selectTMDBMovie(index); } finally { window.alert = _alert; }
-    document.getElementById('m-status') && (document.getElementById('m-status').value = 'review');
-    document.getElementById('m-db-id') && (document.getElementById('m-db-id').value = '');
-  }
-
-  const submitBtn = document.getElementById('submit-btn');
-  if (submitBtn) submitBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px; vertical-align:middle;">playlist_add_check</span> Guardar en la selección';
-  const cancel = document.getElementById('cancel-edit');
-  if (cancel) cancel.style.display = 'none';
-
   window.renderTMDBSelectedList();
-  document.querySelector('.tmdb-import-card')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-  if (window.showToast) window.showToast(`Editando "${_tmdbLastResults[index]?.title || _tmdbLastResults[index]?.name || ''}" — completá y "Guardar en la selección"`, 'info');
 };
 
 window.unselectTMDBItem = (index) => {
   const cb = document.querySelector(`.tmdb-bulk-check[data-index="${index}"]`);
   if (cb) cb.checked = false;
   delete window._tmdbBank[index];
-  if (window._tmdbEditIdx === index) window._tmdbEditIdx = null;
+  window._tmdbExpanded.delete(index);
   window.updateTMDBBulkBar();
 };
 
-// Guarda en el banco lo que hay ahora en el formulario para el título en
-// edición y salta al siguiente sin completar. Lo llama submitMovieForm
-// cuando se está en modo cola. Devuelve true si consumió el submit.
-window._tmdbBankCurrentAndAdvance = () => {
-  const idx = window._tmdbEditIdx;
-  if (idx == null) return false;
-  window._tmdbBank[idx] = _readMovieForm();
-
-  const pendientes = Array.from(document.querySelectorAll('.tmdb-bulk-check:checked'))
-    .map(cb => parseInt(cb.dataset.index, 10))
-    .filter(i => !Number.isNaN(i) && !window._tmdbBank[i]);
-
-  window._tmdbEditIdx = null;
-  window.renderTMDBSelectedList();
-
-  if (pendientes.length > 0) {
-    window.editTmdbInForm(pendientes[0]);
-    if (window.showToast) window.showToast(`Guardado ✓ — te faltan ${pendientes.length}`, 'success');
-  } else {
-    if (typeof window.openUploadDrawer === 'function') { /* dejar el form como está */ }
-    const submitBtn = document.getElementById('submit-btn');
-    if (submitBtn) submitBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px; vertical-align:middle;">playlist_add</span> Guardar';
-    if (window.showToast) window.showToast('Todos guardados ✓ — ahora dale "Agregar todos"', 'success');
-    document.getElementById('tmdb-selected-list')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+// "Probar fuentes" para UN título (reusa _checkFuentesDeTitulo/_renderFuentesList).
+window.probarFuentesTmdbUno = async (index) => {
+  const m = _tmdbLastResults[index];
+  const cont = document.getElementById(`tmdb-fuentes-uno-${index}`);
+  if (!m || !cont) return;
+  cont.innerHTML = '<p style="color:var(--primary); font-size:0.7rem; margin:4px 0;">🔍 Probando fuentes...</p>';
+  const type = window._tmdbBank[index]?.type || _tmdbTipo(m);
+  let imdbId = '';
+  try {
+    const dt = (type === 'series' || type === 'anime') ? 'tv' : 'movie';
+    imdbId = (await fetch(`${TMDB_URL}/${dt}/${m.id}/external_ids?api_key=${TMDB_API_KEY}`).then(r => r.json())).imdb_id || '';
+  } catch (e) { /* sin imdb */ }
+  try {
+    const res = await _checkFuentesDeTitulo({ tmdbId: String(m.id), imdbId, title: m.title || m.name, type });
+    const ok = res.filter(r => r.ok).length;
+    cont.innerHTML = `<div style="border:1px solid rgba(255,255,255,0.08); border-radius:6px; padding:6px 8px;">
+      <p style="font-size:0.66rem; color:var(--text-muted); margin:0 0 5px;">${ok}/${res.length} fuentes disponibles</p>
+      <div style="display:flex; flex-direction:column; gap:4px;">${_renderFuentesList(res, null)}</div></div>`;
+  } catch (e) {
+    cont.innerHTML = `<p style="color:#E74C3C; font-size:0.66rem; margin:4px 0;">Error: ${_escHtml(e.message || String(e))}</p>`;
   }
-  return true;
 };
 
 window.toggleAllTMDBCheckboxes = (checked) => {
@@ -6865,12 +6885,6 @@ window.addSelectedTMDBMovies = async () => {
   const indices = checks.map(cb => parseInt(cb.dataset.index, 10));
   const btn = document.querySelector('#tmdb-bulk-toolbar button.btn-add-selected');
   if (btn) btn.disabled = true;
-
-  // Si hay un título abierto en el formulario grande, guardarlo al banco antes.
-  if (window._tmdbEditIdx != null) {
-    window._tmdbBank[window._tmdbEditIdx] = _readMovieForm();
-    window._tmdbEditIdx = null;
-  }
 
   let ok = 0, fail = 0, omitidos = 0;
   for (let i = 0; i < indices.length; i++) {
@@ -6922,37 +6936,35 @@ window.addSelectedTMDBMovies = async () => {
         vimeusFantasma = estado === 'fantasma';
       } catch (e) { /* se queda sin verificar, igual que si fallara en el alta manual */ }
 
-      // Si el admin completó este título en el formulario grande, esa "foto"
-      // (b) pisa lo que trae TMDb. Si no lo tocó, se usa TMDb tal cual.
-      const b = window._tmdbBank?.[indices[i]] || null;
-      const pick = (bankVal, fallback) => (bankVal != null && bankVal !== '') ? bankVal : fallback;
+      // Lo que el admin editó en la línea desplegable de esta peli (b) pisa
+      // lo que trae TMDb. Si no la tocó, va TMDb tal cual.
+      const b = window._tmdbBank?.[indices[i]] || {};
+      const pick = (v, fb) => (v != null && v !== '') ? v : fb;
 
       const movieData = {
-        title: pick(b?.title, title),
-        original_title: pick(b?.originalTitle, m.original_title || m.original_name || ''),
-        director: pick(b?.director, director),
-        synopsis: pick(b?.synopsis, m.overview || ''),
-        cast: b?.cast || '',
-        alternative_titles: (b?.alternativeTitles ? (() => { try { return JSON.parse(b.alternativeTitles); } catch { return altTitles; } })() : altTitles),
-        img: pick(b?.img, imgUrl),
-        backdrop: pick(b?.backdrop, m.backdrop_path ? (TMDB_IMG_URL + m.backdrop_path) : ''),
-        pinned: !!b?.pinned,
-        tmdbId: pick(b?.tmdbId, String(m.id)),
-        imdbId: pick(b?.imdbId, imdbId),
-        embed: b?.embed || '',
-        downloadUrl: b?.downloadUrl || '',
-        franchise: b?.franchise || '',
-        preferredProvider: b?.preferredProvider || '',
-        genres: b?.genres || '',
-        year: pick(b?.year, date.split('-')[0]),
-        rating: pick(b?.rating, m.vote_average ? m.vote_average.toFixed(1) : '8.0'),
-        type: pick(b?.type, type),
-        lang: b?.lang || document.getElementById('discover-lang')?.value || 'es-MX',
-        status: b?.status || 'review',
-        isVIP: !!b?.isVIP,
-        releaseDate: b?.releaseDate ? new Date(b.releaseDate).getTime() : null,
-        showCountdown: b ? (b.showCountdown !== false) : true,
-        episodes: (b && (pick(b?.type, type) === 'series' || pick(b?.type, type) === 'anime')) ? (b._episodes || {}) : {},
+        title: pick(b.title, title),
+        original_title: pick(b.originalTitle, m.original_title || m.original_name || ''),
+        director: pick(b.director, director),
+        synopsis: pick(b.synopsis, m.overview || ''),
+        cast: b.cast || '',
+        genres: b.genres || '',
+        alternative_titles: altTitles,
+        img: imgUrl,
+        backdrop: m.backdrop_path ? (TMDB_IMG_URL + m.backdrop_path) : '',
+        pinned: false,
+        tmdbId: String(m.id),
+        imdbId,
+        embed: b.embed || '',
+        downloadUrl: b.downloadUrl || '',
+        franchise: b.franchise || '',
+        year: pick(b.year, date.split('-')[0]),
+        rating: pick(b.rating, m.vote_average ? m.vote_average.toFixed(1) : '8.0'),
+        type: pick(b.type, type),
+        lang: b.lang || document.getElementById('discover-lang')?.value || 'es-MX',
+        status: 'review',
+        isVIP: !!b.isVIP,
+        releaseDate: null,
+        showCountdown: true,
         vimeusDisponible,
         vimeusFantasma,
         createdAt: Date.now(),
@@ -6970,7 +6982,7 @@ window.addSelectedTMDBMovies = async () => {
   if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px; vertical-align:middle;">playlist_add</span> Agregar todos'; }
 
   window._tmdbBank = {};
-  window._tmdbEditIdx = null;
+  window._tmdbExpanded && window._tmdbExpanded.clear();
   localStorage.removeItem('selvaflix_full_database');
   localStorage.removeItem('selvaflix_cache_timestamp');
   await loadSelvaFlixData();
@@ -10709,13 +10721,6 @@ window.submitMovieForm = async () => {
 
   if (!title) { window.showToast('¡Falta el título! 🌴', 'error'); return; }
   if (!img) { window.showToast('¡Falta la imagen del póster!', 'error'); return; }
-
-  // Modo cola de TMDb: "Guardar" no crea la peli, la guarda en la selección
-  // y pasa al siguiente título. El alta real la hace "Agregar todos".
-  if (!dbId && window._tmdbEditIdx != null) {
-    window._tmdbBankCurrentAndAdvance();
-    return;
-  }
 
   const submitBtn = document.getElementById('submit-btn');
   if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '<span class="material-symbols-outlined">hourglass_empty</span> Saving...'; }

@@ -656,7 +656,13 @@ async function loadSelvaFlixData() {
 // Backdoor removed by Architect Antigravity 🌴
 // Access only via #admin password check.
 window.updateAdminUI = () => {
-  const isAdmin = localStorage.getItem('selva_admin_auth') === 'true';
+  // El botón "Admin Panel" del menú de perfil aparece si:
+  //  - ya se autenticó en #admin en este navegador (selva_admin_auth), O
+  //  - la cuenta logueada tiene tier 'admin' en Firestore (así el dueño lo
+  //    ve sin tener que acordarse de escribir #admin a mano). El candado de
+  //    contraseña de #admin sigue estando igual la primera vez.
+  const isAdmin = localStorage.getItem('selva_admin_auth') === 'true'
+    || window.currentUserTier === 'admin';
   const dot = document.getElementById('admin-status-dot');
   if (dot) dot.style.display = isAdmin ? 'block' : 'none';
   const adminMenuBtn = document.getElementById('admin-panel-menu-btn');
@@ -11521,6 +11527,7 @@ window.refreshUserTier = async (uid) => {
         const rawTier = data?.tier || 'free';
         const expired = rawTier === 'premium' && data?.premiumUntil && data.premiumUntil < Date.now();
         window.currentUserTier = expired ? 'free' : rawTier;
+        if (typeof window.updateAdminUI === 'function') window.updateAdminUI(); // mostrar el botón de Admin si esta cuenta es admin
         window.currentUserPremiumUntil = expired ? null : (data?.premiumUntil || null);
         window.currentUserPremiumGrantedAt = expired ? null : (data?.premiumGrantedAt || null);
         window.currentUserActivePlanId = expired ? null : (data?.activePlanId || null);

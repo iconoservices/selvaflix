@@ -520,32 +520,35 @@ function mostrarOverlayMantenimiento() {
 
   const ov = document.createElement('div');
   ov.id = 'selva-mantenimiento';
-  // Tarjeta flotante centrada abajo, NO tapa la pantalla. Sin backdrop: el
-  // header/nav de SelvaFlix quedan visibles y usables detrás.
-  ov.style.cssText = 'position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:99999;width:calc(100% - 32px);max-width:420px;box-sizing:border-box;padding:20px 22px;border-radius:16px;border:1px solid #2e7d32;background:#0f1a12;box-shadow:0 12px 40px rgba(0,0,0,.55);font-family:system-ui,-apple-system,sans-serif;color:#e8f5e9;';
+  // Backdrop oscuro semi-transparente que centra una TARJETA flotante en el
+  // medio. No es pantalla completa sólida: el sitio se ve difuminado detrás.
+  ov.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(3,10,5,.74);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);font-family:system-ui,-apple-system,sans-serif;';
   ov.innerHTML = `
-    <button id="selva-mant-close" aria-label="Cerrar" style="position:absolute;top:8px;right:10px;background:none;border:0;color:#7ba87f;font-size:20px;line-height:1;cursor:pointer;padding:4px;">&times;</button>
-    <div style="font-size:30px;line-height:1;margin-bottom:8px;">🌴🔧</div>
-    <h1 style="font-size:17px;margin:0 0 6px;">Estamos haciendo mantenimiento</h1>
-    <p style="font-size:13.5px;line-height:1.5;color:#a5d6a7;margin:0 0 4px;">
-      SelvaFlix vuelve el <strong>${SELVA_MANTENIMIENTO_HASTA}</strong>.
-    </p>
-    <p style="font-size:12.5px;line-height:1.5;color:#7ba87f;margin:0 0 14px;">
-      Dejanos tu correo y te avisamos apenas esté de vuelta 👇
-    </p>
-    <form id="selva-mant-form" style="display:flex;gap:8px;flex-wrap:wrap;">
-      <input id="selva-mant-email" type="email" required placeholder="tucorreo@ejemplo.com"
-        style="flex:1;min-width:170px;padding:11px 13px;border-radius:10px;border:1px solid #2e7d32;background:#0b120d;color:#e8f5e9;font-size:14px;outline:none;">
-      <button type="submit"
-        style="padding:11px 18px;border:0;border-radius:10px;background:#43a047;color:#fff;font-size:14px;font-weight:600;cursor:pointer;">
-        Avisame
-      </button>
-    </form>
-    <p id="selva-mant-msg" style="font-size:12.5px;min-height:16px;margin:10px 0 0;color:#a5d6a7;"></p>`;
+    <div style="position:relative;width:100%;max-width:440px;box-sizing:border-box;padding:34px 28px 30px;border-radius:20px;border:1px solid #2e7d32;background:#0f1a12;box-shadow:0 24px 70px rgba(0,0,0,.6);color:#e8f5e9;text-align:center;">
+      <button id="selva-mant-close" aria-label="Cerrar" style="position:absolute;top:10px;right:12px;background:none;border:0;color:#7ba87f;font-size:22px;line-height:1;cursor:pointer;padding:4px;">&times;</button>
+      <div style="font-size:44px;line-height:1;margin-bottom:14px;">🌴🔧</div>
+      <h1 style="font-size:21px;margin:0 0 10px;">Estamos haciendo mantenimiento</h1>
+      <p style="font-size:14.5px;line-height:1.55;color:#a5d6a7;margin:0 0 6px;">
+        SelvaFlix vuelve el <strong>${SELVA_MANTENIMIENTO_HASTA}</strong>.
+      </p>
+      <p style="font-size:13px;line-height:1.55;color:#7ba87f;margin:0 0 20px;">
+        Dejanos tu correo y te avisamos apenas esté de vuelta 👇
+      </p>
+      <form id="selva-mant-form" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+        <input id="selva-mant-email" type="email" required placeholder="tucorreo@ejemplo.com"
+          style="flex:1;min-width:180px;padding:12px 14px;border-radius:10px;border:1px solid #2e7d32;background:#0b120d;color:#e8f5e9;font-size:14px;outline:none;">
+        <button type="submit"
+          style="padding:12px 20px;border:0;border-radius:10px;background:#43a047;color:#fff;font-size:14px;font-weight:600;cursor:pointer;">
+          Avisame
+        </button>
+      </form>
+      <p id="selva-mant-msg" style="font-size:13px;min-height:17px;margin:12px 0 0;color:#a5d6a7;"></p>
+    </div>`;
   document.body.appendChild(ov);
   if (window.hideSplashScreen) window.hideSplashScreen(true);
 
   ov.querySelector('#selva-mant-close').addEventListener('click', () => ov.remove());
+  ov.addEventListener('click', (e) => { if (e.target === ov) ov.remove(); }); // clic afuera cierra
 
   const form = ov.querySelector('#selva-mant-form');
   const msg = ov.querySelector('#selva-mant-msg');
@@ -650,6 +653,9 @@ async function loadSelvaFlixData() {
               return;
             }
             movieDatabase.trending = moviesArray;
+            // Si el catálogo llegó (tarde, por Realtime o un reintento), sacar
+            // la tarjeta de mantenimiento que se hubiera mostrado con [].
+            if (moviesArray.length > 0) document.getElementById('selva-mantenimiento')?.remove();
             // Solo persistir en localStorage si la lista es "de verdad" (el
             // catálogo real tiene ~10k). Un fetch parcial de 5-400 títulos se
             // usa en memoria para esta sesión pero NO se cachea — si no, en el

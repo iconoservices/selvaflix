@@ -120,6 +120,17 @@ async function supaFetchAllMovieRows() {
       const rows = await r.json();
       if (Array.isArray(rows) && rows.length > 0) return rows;
       console.warn('Catálogo del Worker vacío/ inválido — caigo a Supabase directo');
+    } else if (r.status === 503) {
+      // 503 = el Worker no tiene el binding CATALOG_KV todavía (mal
+      // configurado, no es que Supabase esté caído) → sí conviene el directo.
+      console.warn('Worker /flix/catalog 503 (sin KV) — caigo a Supabase directo');
+    } else if (r.status >= 500) {
+      // 500/502/504 = Supabase caído o restringido por egress. Pegarle
+      // directo desde cada navegador NO va a andar (mismo 402) y encima
+      // multiplica el egress que causó el corte — que es el espiral que
+      // reventó la cuota. Devolvemos vacío → sale la tarjeta de mantenimiento.
+      console.warn(`Worker /flix/catalog respondió ${r.status} — Supabase caído, NO caigo a directo`);
+      return [];
     } else {
       console.warn(`Worker /flix/catalog respondió ${r.status} — caigo a Supabase directo`);
     }
@@ -223,27 +234,35 @@ async function supaDeleteMovie(id) {
 // en vivo de otras pestañas/dispositivos hasta que se refresque el caché.
 function supaOnSnapshotMovies(callback) {
   let cancelado = false;
+  let channel = null;
+
+  const abrirCanalRealtime = () => {
+    if (cancelado || channel) return;
+    channel = supabase
+      .channel('movies-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'movies' }, (payload) => {
+        const tipo = payload.eventType === 'INSERT' ? 'added' : payload.eventType === 'DELETE' ? 'removed' : 'modified';
+        const row = payload.eventType === 'DELETE' ? payload.old : payload.new;
+        if (!row) return;
+        callback({
+          docs: [],
+          docChanges: () => [{ type: tipo, doc: { id: row.id, data: () => supaRowToMovie(row) } }]
+        });
+      })
+      .subscribe();
+  };
 
   (async () => {
     const rows = await supaFetchAllMovieRows();
     if (cancelado) return;
     callback({ docs: rows.map(row => ({ id: row.id, data: () => supaRowToMovie(row) })) });
+    // Si el catálogo vino vacío, Supabase está caído/restringido: abrir el
+    // websocket de Realtime solo lo pone a reconectar en loop para siempre
+    // (ruido + egress en una cuota ya excedida). Se abre solo si hay catálogo.
+    if (rows.length > 0) abrirCanalRealtime();
   })();
 
-  const channel = supabase
-    .channel('movies-changes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'movies' }, (payload) => {
-      const tipo = payload.eventType === 'INSERT' ? 'added' : payload.eventType === 'DELETE' ? 'removed' : 'modified';
-      const row = payload.eventType === 'DELETE' ? payload.old : payload.new;
-      if (!row) return;
-      callback({
-        docs: [],
-        docChanges: () => [{ type: tipo, doc: { id: row.id, data: () => supaRowToMovie(row) } }]
-      });
-    })
-    .subscribe();
-
-  return () => { cancelado = true; supabase.removeChannel(channel); };
+  return () => { cancelado = true; if (channel) supabase.removeChannel(channel); };
 }
 
 // BUG CRÍTICO corregido acá (encontrado 2026-08-19): collection()/doc() de
@@ -487,6 +506,71 @@ if (yearSelect || mYearSelect) {
   }
 }
 
+// ── Pantalla de mantenimiento ────────────────────────────────────────────────
+// Supabase cortó la base por egress (plan gratis, 5 GB/mes). Mientras la cuota
+// no se restablezca, un visitante NUEVO (sin caché) recibe el catálogo vacío y
+// veía el sitio en blanco. Esto muestra una tarjeta en vez del vacío y junta
+// mails para avisar cuando vuelva. Cambiá SELVA_MANTENIMIENTO_HASTA cuando
+// sepas la fecha exacta del reset (Supabase → Organization → Billing).
+const SELVA_MANTENIMIENTO_HASTA = '12 de septiembre';
+
+function mostrarOverlayMantenimiento() {
+  if (document.getElementById('selva-mantenimiento')) return;      // ya está
+  if (Array.isArray(movieDatabase?.trending) && movieDatabase.trending.length > 0) return; // hay catálogo, no molestar
+
+  const ov = document.createElement('div');
+  ov.id = 'selva-mantenimiento';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;background:#0b0f0c;background:radial-gradient(circle at 50% 30%,#12321f,#0b0f0c 70%);overflow:auto;';
+  ov.innerHTML = `
+    <div style="max-width:440px;width:100%;text-align:center;font-family:system-ui,-apple-system,sans-serif;color:#e8f5e9;">
+      <div style="font-size:52px;line-height:1;margin-bottom:16px;">🌴🔧</div>
+      <h1 style="font-size:22px;margin:0 0 10px;">Estamos haciendo mantenimiento</h1>
+      <p style="font-size:15px;line-height:1.5;color:#a5d6a7;margin:0 0 6px;">
+        SelvaFlix vuelve el <strong>${SELVA_MANTENIMIENTO_HASTA}</strong>.
+      </p>
+      <p style="font-size:13px;line-height:1.5;color:#7ba87f;margin:0 0 22px;">
+        Dejanos tu correo y te avisamos apenas esté de vuelta 👇
+      </p>
+      <form id="selva-mant-form" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+        <input id="selva-mant-email" type="email" required placeholder="tucorreo@ejemplo.com"
+          style="flex:1;min-width:200px;padding:12px 14px;border-radius:10px;border:1px solid #2e7d32;background:#0f1a12;color:#e8f5e9;font-size:14px;outline:none;">
+        <button type="submit"
+          style="padding:12px 20px;border:0;border-radius:10px;background:#43a047;color:#fff;font-size:14px;font-weight:600;cursor:pointer;">
+          Avisame
+        </button>
+      </form>
+      <p id="selva-mant-msg" style="font-size:13px;min-height:18px;margin:12px 0 0;color:#a5d6a7;"></p>
+    </div>`;
+  document.body.appendChild(ov);
+  if (window.hideSplashScreen) window.hideSplashScreen(true);
+
+  const form = ov.querySelector('#selva-mant-form');
+  const msg = ov.querySelector('#selva-mant-msg');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = ov.querySelector('#selva-mant-email').value.trim();
+    if (!email) return;
+    msg.textContent = 'Guardando…';
+    try {
+      // Los visitantes son anónimos → Firestore los rechaza (exige auth).
+      // Se guardan por el Worker, que está arriba, en KV.
+      const r = await fetch(`${SelvaStream.MASTER_WORKER_URL}/flix/waitlist`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-selva-auth': SelvaStream.AUTH_TOKEN },
+        body: JSON.stringify({ email })
+      });
+      if (!r.ok) throw new Error('worker ' + r.status);
+      form.style.display = 'none';
+      msg.textContent = '¡Listo! Te escribimos cuando SelvaFlix vuelva. 🌴';
+      try { localStorage.setItem('selva_waitlist_email', email); } catch {}
+    } catch (err) {
+      console.error('maintenance signup falló:', err);
+      msg.textContent = 'No se pudo guardar. Probá de nuevo en un rato.';
+    }
+  });
+}
+window.mostrarOverlayMantenimiento = mostrarOverlayMantenimiento;
+
 async function loadSelvaFlixData() {
   const CACHE_KEY = 'selvaflix_full_database';
   const CACHE_TIME_KEY = 'selvaflix_cache_timestamp';
@@ -625,6 +709,7 @@ async function loadSelvaFlixData() {
     } catch (error) {
       console.error("❌ Error en la expedición de datos:", error);
       if (window.showToast) window.showToast("⚠️ Error cargando la selva: " + error.message, "error");
+      mostrarOverlayMantenimiento(); // catálogo no cargó → tarjeta en vez de blanco
       return; // Muerte súbita
     }
   }
@@ -654,6 +739,12 @@ async function loadSelvaFlixData() {
   // Diferir un microtask deja terminar la carga del módulo: las funciones ya
   // existen y la ruta se resuelve bien. En la primera visita (sin caché) el
   // await del fetch ya daba ese margen; este fix cubre el reload cacheado.
+  // Si tras toda la carga no hay ni un título (Supabase caído + sin caché),
+  // mostrar la tarjeta de mantenimiento en vez de un home vacío.
+  if (!Array.isArray(movieDatabase?.trending) || movieDatabase.trending.length === 0) {
+    mostrarOverlayMantenimiento();
+  }
+
   queueMicrotask(() => {
     handleRouting();
     // 🚀 Ocultar splash una vez resuelta la ruta

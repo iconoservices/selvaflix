@@ -1,13 +1,98 @@
 /**
- * 🥥 ICONOSERVICES MASTER-WORKER v1.8 - "Edición Búnker & Contrabando"
+ * 🥥 ICONOSERVICES MASTER-WORKER v1.9 - "Edición Búnker & Contrabando"
  * Soluciona el error de descarga activando un puente binario.
  * v1.7: + /flix/catalog (catálogo de SelvaFlix cacheado en el borde, corta el egress de Supabase).
  * v1.8: + /flix/admin/* (escrituras al catálogo con service_role; habilita RLS en `movies`).
  * v1.8.1: CORS — permitir el header x-selva-admin en el preflight.
+ * v1.9: /flix/catalog pasa a KV global + refresh por Cron + gzip + sirve-viejo-siempre.
+ *       Antes cacheaba en caches.default (por-colo, se evicta solo): en cada miss
+ *       —y cuando Supabase daba 402 por egress— el navegador caía a bajar la tabla
+ *       `movies` ENTERA directo de Supabase. Espiral: miss → todos a Supabase →
+ *       egress al 228% → 402 → el Worker no puede rellenar → más directo.
+ *
+ *       ⚙️  REQUIERE (una sola vez, en el dashboard de Cloudflare → este Worker):
+ *         1. Settings → Bindings → add → KV Namespace:
+ *              Variable name: CATALOG_KV
+ *              KV namespace:  (creá uno nuevo, ej. "selva-catalog")
+ *         2. Settings → Triggers → Cron Triggers → add:
+ *              0 3 * * *        (refresca el catálogo 1 vez al día, 3am UTC)
+ *              — las ediciones del admin YA refrescan KV al instante (ver bust()),
+ *                así que el Cron es solo una red de seguridad contra drift.
+ *         3. Deploy.
+ *       Sin el binding CATALOG_KV la ruta /flix/catalog responde 503 y el sitio
+ *       cae al camino viejo (directo a Supabase) — no rompe nada, solo no mejora.
  */
 
+// ═══ Catálogo cacheado (KV global + refresh por Cron) ══════════════════════════
+const CATALOG_KV_KEY = 'catalog:v2';           // valor = JSON del catálogo, gzipeado
+const CATALOG_REFRESH_MIN_MS = 90_000;         // tras escritura del admin, refrescar como mucho 1 vez / 90 s
+
+async function gzipBytes(str) {
+    const compressed = new Response(str).body.pipeThrough(new CompressionStream('gzip'));
+    return new Uint8Array(await new Response(compressed).arrayBuffer());
+}
+
+// Baja la tabla `movies` paginando. Es la ÚNICA función que genera egress de
+// catálogo en Supabase — todo lo demás sale de KV.
+async function fetchCatalogFromSupabase(env) {
+    const SUPA_URL = env.SUPABASE_URL || 'https://qeknzamdwchswjcqpsfg.supabase.co';
+    const SUPA_KEY = env.SUPABASE_ANON_KEY || 'sb_publishable_AGxSpKunPMIykRYd-4Ul9Q_yydotynM';
+    const PAGE = 1000;
+    const rows = [];
+    for (let from = 0; ; from += PAGE) {
+        const r = await fetch(
+            `${SUPA_URL}/rest/v1/movies?select=*&order=id.asc&offset=${from}&limit=${PAGE}`,
+            { headers: { apikey: SUPA_KEY, Authorization: `Bearer ${SUPA_KEY}`, 'Accept-Encoding': 'gzip, br' } }
+        );
+        if (!r.ok) throw new Error(`Supabase respondió ${r.status}: ${(await r.text()).slice(0, 200)}`);
+        const chunk = await r.json();
+        if (!Array.isArray(chunk)) throw new Error('Supabase no devolvió un array');
+        rows.push(...chunk);
+        if (chunk.length < PAGE) break;
+    }
+    if (rows.length === 0) throw new Error('catálogo vacío');
+    return rows;
+}
+
+// Baja el catálogo y lo deja gzipeado en KV con metadata {count, at}.
+async function refreshCatalogKV(env) {
+    const rows = await fetchCatalogFromSupabase(env);
+    const gz = await gzipBytes(JSON.stringify(rows));
+    await env.CATALOG_KV.put(CATALOG_KV_KEY, gz, { metadata: { count: rows.length, at: Date.now() } });
+    return rows.length;
+}
+
+// Lee SOLO la metadata de la copia en KV (sin traer el valor) para saber su edad.
+async function catalogKVMeta(env) {
+    const { keys } = await env.CATALOG_KV.list({ prefix: CATALOG_KV_KEY });
+    return keys.find(k => k.name === CATALOG_KV_KEY)?.metadata || null;
+}
+
+function catalogResponse(gz, meta, corsHeaders) {
+    return new Response(gz, {
+        headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+            'Content-Encoding': 'gzip',
+            'Cache-Control': 'public, max-age=600, s-maxage=600',
+            'X-Selva-Catalog-Count': String(meta?.count ?? ''),
+            'X-Selva-Catalog-Age-Sec': meta?.at ? String(Math.round((Date.now() - meta.at) / 1000)) : ''
+        }
+    });
+}
+
 export default {
-    async fetch(request, env) {
+    // Cron Trigger: refresca la copia del catálogo en KV desde un solo lugar.
+    async scheduled(event, env, ctx) {
+        if (!env.CATALOG_KV) return;
+        ctx.waitUntil(
+            refreshCatalogKV(env)
+                .then(n => console.log(`cron: catálogo KV refrescado (${n} filas)`))
+                .catch(e => console.error('cron: refresh de catálogo falló —', e.message))
+        );
+    },
+
+    async fetch(request, env, ctx) {
         const url = new URL(request.url);
         const corsHeaders = {
             'Access-Control-Allow-Origin': '*',
@@ -382,67 +467,99 @@ export default {
                 });
             }
 
-            // --- 🎬 RUTA: CATALOG (catálogo completo, cacheado en el borde) ---
-            // La app bajaba la tabla `movies` ENTERA (~9900 filas, select *)
-            // desde Supabase en CADA visita fresca. El Service Worker dejó de
-            // cachear supabase.co a propósito (arreglaba el bug del catálogo con
-            // 5-20 títulos), así que el egress del plan gratis (5 GB/mes) se fue
-            // al 219% y Supabase amenaza con devolver 402 pasado el 24-sep-2026.
-            //
-            // Acá el Worker baja el catálogo UNA vez cada 5 min por colo y lo
-            // sirve desde la caché de Cloudflare. Supabase pasa de "una descarga
-            // por visitante" a "una cada 5 min por región" → egress ↓ ~95%.
-            // Los cambios en vivo del admin siguen llegando por Supabase Realtime
+            // --- 🎬 RUTA: CATALOG (catálogo completo, cacheado en KV global) ---
+            // 3 niveles:
+            //   L1  caches.default  — por-colo, TTL 10 min, absorbe casi todo.
+            //   L2  KV (CATALOG_KV) — GLOBAL, no se evicta. Lo refresca el Cron
+            //       1 vez al día + cada escritura del admin. Si Supabase cae/402 se
+            //       sigue sirviendo esta copia PARA SIEMPRE → el Worker nunca
+            //       devuelve error → el navegador nunca cae a pegarle directo a
+            //       Supabase (que es lo que reventó el egress).
+            //   L3  KV vacío (primer arranque) — se construye en el momento.
+            // Los cambios en vivo del admin llegan por Supabase Realtime
             // (suscripción directa en main.js), no dependen de este TTL.
             if (url.pathname === '/flix/catalog') {
-                const SUPA_URL = env.SUPABASE_URL || 'https://qeknzamdwchswjcqpsfg.supabase.co';
-                // anon/publishable key: solo lectura, ya es pública (está en el
-                // bundle del sitio). Se puede sobreescribir con un secreto.
-                const SUPA_KEY = env.SUPABASE_ANON_KEY || 'sb_publishable_AGxSpKunPMIykRYd-4Ul9Q_yydotynM';
+                if (!env.CATALOG_KV) {
+                    // Sin el binding no hay dónde cachear de forma durable. Se
+                    // avisa con 503 (no 5xx "de Supabase") y el sitio cae al
+                    // camino viejo (paginación directa). Ver cabecera del archivo.
+                    return new Response(
+                        JSON.stringify({ error: 'CATALOG_KV no está vinculado en este Worker' }),
+                        { status: 503, headers: corsHeaders }
+                    );
+                }
 
                 const cache = caches.default;
-                const cacheKey = `${url.origin}/flix/catalog`;
-                const cached = await cache.match(cacheKey);
-                if (cached) return cached;
+                const cacheKey = new Request(`${url.origin}/flix/catalog`);
+                const hit = await cache.match(cacheKey);
+                if (hit) return hit;
 
-                const PAGE = 1000;
-                const rows = [];
-                let failed = false;
-                for (let from = 0; ; from += PAGE) {
-                    const r = await fetch(
-                        `${SUPA_URL}/rest/v1/movies?select=*&order=id.asc&offset=${from}&limit=${PAGE}`,
-                        { headers: { apikey: SUPA_KEY, Authorization: `Bearer ${SUPA_KEY}` } }
-                    );
-                    if (!r.ok) { failed = true; break; }
-                    const chunk = await r.json();
-                    if (!Array.isArray(chunk)) { failed = true; break; }
-                    rows.push(...chunk);
-                    if (chunk.length < PAGE) break;
-                }
+                let gz = await env.CATALOG_KV.get(CATALOG_KV_KEY, { type: 'arrayBuffer' });
+                let meta = gz ? await catalogKVMeta(env) : null;
 
-                // Nunca cachear (ni servir) un catálogo vacío o a medias: es
-                // exactamente el modo de falla que dejó al sitio con 5 títulos.
-                if (failed || rows.length === 0) {
-                    const stale = await cache.match(cacheKey);
-                    if (stale) return stale;
-                    return new Response(
-                        JSON.stringify({ error: 'No se pudo armar el catálogo desde Supabase' }),
-                        { status: 502, headers: corsHeaders }
-                    );
-                }
-
-                // corsHeaders acá es seguro de cachear: Allow-Origin es un '*'
-                // fijo, no un origen reflejado que varíe por request.
-                const resp = new Response(JSON.stringify(rows), {
-                    headers: {
-                        ...corsHeaders,
-                        'Content-Type': 'application/json',
-                        'Cache-Control': 'public, max-age=300, s-maxage=300',
-                        'X-Selva-Catalog-Count': String(rows.length)
+                if (!gz) {
+                    // L3: KV vacío → construir ahora (única vez que /flix/catalog
+                    // toca Supabase en línea).
+                    try {
+                        await refreshCatalogKV(env);
+                        gz = await env.CATALOG_KV.get(CATALOG_KV_KEY, { type: 'arrayBuffer' });
+                        meta = await catalogKVMeta(env);
+                    } catch (e) {
+                        return new Response(
+                            JSON.stringify({ error: 'Catálogo no disponible todavía', detail: e.message }),
+                            { status: 502, headers: corsHeaders }
+                        );
                     }
-                });
-                await cache.put(cacheKey, resp.clone());
+                }
+
+                const resp = catalogResponse(gz, meta, corsHeaders);
+                ctx.waitUntil(cache.put(cacheKey, resp.clone()));
                 return resp;
+            }
+
+            // --- 📭 RUTA: WAITLIST (mails de la pantalla de mantenimiento) ---
+            // Mientras Supabase está cortado por egress, el sitio muestra una
+            // tarjeta "volvemos el X" y junta mails para avisar. Firestore no
+            // sirve acá (exige request.auth y los visitantes son anónimos), así
+            // que se guardan en KV, uno por clave: waitlist:<ts>-<rand>.
+            // GET  /flix/waitlist?admin=<ADMIN_KEY>  → lista los mails juntados.
+            if (url.pathname === '/flix/waitlist') {
+                if (!env.CATALOG_KV) {
+                    return new Response(JSON.stringify({ error: 'CATALOG_KV no vinculado' }), { status: 503, headers: corsHeaders });
+                }
+                if (request.method === 'POST') {
+                    let body = {};
+                    try { body = await request.json(); } catch {}
+                    const email = String(body.email || '').trim().slice(0, 160);
+                    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                        return new Response(JSON.stringify({ error: 'email inválido' }), { status: 400, headers: corsHeaders });
+                    }
+                    const key = `waitlist:${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+                    await env.CATALOG_KV.put(key, email, {
+                        expirationTtl: 60 * 60 * 24 * 60, // 60 días, de sobra
+                        metadata: { at: Date.now(), ua: (request.headers.get('user-agent') || '').slice(0, 120) }
+                    });
+                    return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+                }
+                if (request.method === 'GET') {
+                    const adminKey = request.headers.get('x-selva-admin') || url.searchParams.get('admin');
+                    if (env.ADMIN_KEY && adminKey !== env.ADMIN_KEY) {
+                        return new Response(JSON.stringify({ error: 'no autorizado' }), { status: 403, headers: corsHeaders });
+                    }
+                    const out = [];
+                    let cursor;
+                    do {
+                        const page = await env.CATALOG_KV.list({ prefix: 'waitlist:', cursor });
+                        for (const k of page.keys) {
+                            const email = await env.CATALOG_KV.get(k.name);
+                            if (email) out.push({ email, at: k.metadata?.at || null });
+                        }
+                        cursor = page.list_complete ? null : page.cursor;
+                    } while (cursor);
+                    out.sort((a, b) => (b.at || 0) - (a.at || 0));
+                    return new Response(JSON.stringify({ count: out.length, signups: out }), { headers: corsHeaders });
+                }
+                return new Response(JSON.stringify({ error: 'método no permitido' }), { status: 405, headers: corsHeaders });
             }
 
             // --- 🔐 RUTAS: /flix/admin/*  (escrituras al catálogo) ---
@@ -474,10 +591,21 @@ export default {
                 let payload = {};
                 try { payload = await request.json(); } catch { payload = {}; }
 
-                // Tras una escritura, tirar la copia cacheada del catálogo (solo
-                // en este colo) para que el cambio se vea sin esperar los 5 min.
-                // Realtime igual empuja el cambio a las pestañas abiertas.
-                const bust = () => caches.default.delete(`${url.origin}/flix/catalog`);
+                // Tras una escritura: tirar el caché L1 de este colo y refrescar
+                // la copia de KV — pero como mucho 1 vez cada 90 s (un rato de
+                // edición del admin son muchas escrituras y cada refresh baja el
+                // catálogo entero). Realtime igual empuja el cambio a las
+                // pestañas abiertas al instante.
+                const bust = async () => {
+                    try { await caches.default.delete(new Request(`${url.origin}/flix/catalog`)); } catch {}
+                    if (!env.CATALOG_KV) return;
+                    try {
+                        const meta = await catalogKVMeta(env);
+                        if (!meta?.at || Date.now() - meta.at > CATALOG_REFRESH_MIN_MS) {
+                            await refreshCatalogKV(env);
+                        }
+                    } catch (e) { console.error('KV refresh tras escritura falló:', e.message); }
+                };
 
                 let target, method, extraPrefer;
                 if (url.pathname === '/flix/admin/movie-insert') {
@@ -594,7 +722,7 @@ export default {
             if (url.pathname === '/beat/trending') return new Response(JSON.stringify(await fetchYouTubeDirect(null, true)), { headers: corsHeaders });
             if (url.pathname === '/img') return fetch(`https://i.ytimg.com/vi/${url.searchParams.get('v')}/mqdefault.jpg`, { headers: { "User-Agent": "Mozilla/5.0" } });
 
-            return new Response(JSON.stringify({ status: 'IconoSVC Bunker Ready', v: '1.8.1' }), { headers: corsHeaders });
+            return new Response(JSON.stringify({ status: 'IconoSVC Bunker Ready', v: '1.9' }), { headers: corsHeaders });
 
         } catch (error) {
             return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders });

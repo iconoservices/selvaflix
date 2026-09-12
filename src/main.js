@@ -512,7 +512,7 @@ if (yearSelect || mYearSelect) {
 // Esto muestra una TARJETA (no una pantalla completa: el sitio queda visible
 // detrás) avisando y juntando mails. Cambiá SELVA_MANTENIMIENTO_HASTA cuando
 // sepas la fecha exacta del reset (Supabase → Organization → Billing).
-const SELVA_MANTENIMIENTO_HASTA = '12 de septiembre';
+const SELVA_MANTENIMIENTO_HASTA = '13 de septiembre';
 
 function mostrarOverlayMantenimiento() {
   if (document.getElementById('selva-mantenimiento')) return;      // ya está

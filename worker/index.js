@@ -35,8 +35,8 @@ async function gzipBytes(str) {
 // Baja la tabla `movies` paginando. Es la ÚNICA función que genera egress de
 // catálogo en Supabase — todo lo demás sale de KV.
 async function fetchCatalogFromSupabase(env) {
-    const SUPA_URL = env.SUPABASE_URL || 'https://qeknzamdwchswjcqpsfg.supabase.co';
-    const SUPA_KEY = env.SUPABASE_ANON_KEY || 'sb_publishable_AGxSpKunPMIykRYd-4Ul9Q_yydotynM';
+    const SUPA_URL = env.SUPABASE_URL || 'https://rkihmlggmjhxbzeieirl.supabase.co';
+    const SUPA_KEY = env.SUPABASE_ANON_KEY || 'sb_publishable_Yd_Nf6FPN8uQdTyIAlha8g_3FDy0hrS';
     const PAGE = 1000;
     const rows = [];
     for (let from = 0; ; from += PAGE) {
@@ -584,8 +584,8 @@ export default {
                     return new Response(JSON.stringify({ error: 'Admin no autorizado' }), { status: 403, headers: corsHeaders });
                 }
 
-                const SUPA_URL = env.SUPABASE_URL || 'https://qeknzamdwchswjcqpsfg.supabase.co';
-                const WRITE_KEY = env.SUPABASE_SERVICE_ROLE || env.SUPABASE_ANON_KEY || 'sb_publishable_AGxSpKunPMIykRYd-4Ul9Q_yydotynM';
+                const SUPA_URL = env.SUPABASE_URL || 'https://rkihmlggmjhxbzeieirl.supabase.co';
+                const WRITE_KEY = env.SUPABASE_SERVICE_ROLE || env.SUPABASE_ANON_KEY || 'sb_publishable_Yd_Nf6FPN8uQdTyIAlha8g_3FDy0hrS';
                 const sHeaders = { apikey: WRITE_KEY, Authorization: `Bearer ${WRITE_KEY}`, 'Content-Type': 'application/json' };
 
                 let payload = {};

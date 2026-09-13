@@ -62,6 +62,29 @@ export const SelvaStream = {
     },
 
     /**
+     * Alterna la directiva de robots para ocultar el reproductor de los buscadores (Google / DMCA bots).
+     * @param {boolean} hideFromBots
+     */
+    setRobotsShield(hideFromBots) {
+        try {
+            let meta = document.getElementById('meta-robots') || document.querySelector('meta[name="robots"]');
+            if (!meta) {
+                meta = document.createElement('meta');
+                meta.name = 'robots';
+                meta.id = 'meta-robots';
+                document.head.appendChild(meta);
+            }
+            if (hideFromBots) {
+                meta.content = 'noindex, nofollow, noarchive, nosnippet';
+            } else {
+                meta.content = 'index, follow';
+            }
+        } catch (e) {
+            console.warn('⚠️ Error al ajustar escudo de robots:', e);
+        }
+    },
+
+    /**
      * Inyecta el HTML del reproductor en el contenedor base (Búnker).
      */
     init() {
@@ -528,6 +551,7 @@ export const SelvaStream = {
         clearTimeout(this._vigilante);
         this.streamActual = null;
         this.init();
+        this.setRobotsShield(true);
         const modal = document.getElementById('player-modal');
         modal.style.display = 'flex';
 
@@ -994,6 +1018,7 @@ export const SelvaStream = {
     },
 
     close() {
+        this.setRobotsShield(false);
         const modal = document.getElementById('player-modal');
         const iframe = document.getElementById('player-iframe');
         const nativePlayer = document.getElementById('native-video-player');
@@ -1004,7 +1029,10 @@ export const SelvaStream = {
         this.streamActual = null;
 
         if (modal) modal.style.display = 'none';
-        if (iframe) window.setIframeSource('player-iframe', '');
+        if (iframe) {
+            iframe.removeAttribute('src');
+            window.setIframeSource('player-iframe', 'about:blank');
+        }
 
         if (nativePlayer) {
             nativePlayer.pause();

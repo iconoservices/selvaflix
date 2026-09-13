@@ -103,6 +103,18 @@ export default {
 
         if (request.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
+        // 🛡️ Escudo Anti-Bot / Anti-Scraper / Anti-DMCA
+        const userAgent = (request.headers.get('user-agent') || '').toLowerCase();
+        const botSignatures = [
+            'googlebot', 'bingbot', 'yandexbot', 'baiduspider', 'slurp',
+            'duckduckbot', 'bytespider', 'gptbot', 'claudebot', 'ccbot',
+            'ahrefsbot', 'semrushbot', 'dotbot', 'mj12bot', 'curl', 'wget',
+            'python-requests', 'headlesschrome', 'phantomjs', 'selenium', 'puppeteer'
+        ];
+        if (botSignatures.some(bot => userAgent.includes(bot))) {
+            return new Response(JSON.stringify({ error: 'Acceso Denegado' }), { status: 403, headers: corsHeaders });
+        }
+
         const authToken = request.headers.get('x-selva-auth') || url.searchParams.get('key');
         if (authToken !== env.AUTH_TOKEN) {
             return new Response(JSON.stringify({ error: 'Acceso Denegado' }), { status: 403, headers: corsHeaders });

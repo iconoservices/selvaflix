@@ -111,13 +111,33 @@ function movieToSupaRow(m) {
 // (/flix/catalog), que lo cachea 5 min en el borde de Cloudflare → Supabase
 // lo sirve una vez cada 5 min por región en vez de una vez por visitante.
 // Si el Worker falla, se cae al camino viejo (paginación directa a Supabase).
+// El Worker guarda el catálogo gzipeado en KV y lo sirve con Content-Encoding:
+// gzip, pero en producción el navegador recibe los bytes SIN descomprimir
+// (empiezan con 1f 8b) y r.json() reventaba → cada visita en frío caía al
+// camino directo de Supabase: 10 pedidos secuenciales de 1000 filas (~6 s+ en
+// celular, y encima egress que ya nos costó un 402). Se lee el cuerpo crudo y,
+// si es gzip, se descomprime acá; si el navegador ya lo había descomprimido,
+// se parsea como texto normal.
+async function leerCatalogoDelWorker(resp) {
+  const buf = new Uint8Array(await resp.arrayBuffer());
+  let texto;
+  if (buf.length > 2 && buf[0] === 0x1f && buf[1] === 0x8b) {
+    if (typeof DecompressionStream === 'undefined') throw new Error('sin DecompressionStream');
+    const flujo = new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'));
+    texto = await new Response(flujo).text();
+  } else {
+    texto = new TextDecoder().decode(buf);
+  }
+  return JSON.parse(texto);
+}
+
 async function supaFetchAllMovieRows() {
   try {
     const r = await fetch(`${SelvaStream.MASTER_WORKER_URL}/flix/catalog`, {
       headers: { 'x-selva-auth': SelvaStream.AUTH_TOKEN }
     });
     if (r.ok) {
-      const rows = await r.json();
+      const rows = await leerCatalogoDelWorker(r);
       if (Array.isArray(rows) && rows.length > 0) return rows;
       console.warn('Catálogo del Worker vacío/ inválido — caigo a Supabase directo');
     } else if (r.status === 503) {
@@ -142,25 +162,36 @@ async function supaFetchAllMovieRows() {
 
 async function supaFetchAllMovieRowsDirect() {
   const PAGE_SIZE = 1000;
-  const rows = [];
-  let from = 0;
-  while (true) {
+  const TANDA = 5; // páginas en paralelo: antes eran una por una (~0,5 s cada una)
+
+  // Un reintento por página: un fallo puntual de red/rate-limit no debería
+  // cortar la paginación y devolver medio catálogo (que después pisaba el
+  // caché bueno).
+  const traerPagina = async (from) => {
     let data, error;
-    // Un reintento por página: un fallo puntual de red/rate-limit no debería
-    // cortar la paginación y devolver medio catálogo (que después pisaba el
-    // caché bueno).
     for (let intento = 0; intento < 2; intento++) {
       ({ data, error } = await supabase.from('movies').select('*').range(from, from + PAGE_SIZE - 1));
       if (!error) break;
       console.warn(`Supabase catálogo: fallo página ${from}-${from + PAGE_SIZE - 1} (intento ${intento + 1})`, error.message || error);
       await new Promise(r => setTimeout(r, 600));
     }
-    if (error) { console.error('Error trayendo catálogo de Supabase, corte en la página', from, error); break; }
-    rows.push(...(data || []));
-    if (!data || data.length < PAGE_SIZE) break;
-    from += PAGE_SIZE;
+    if (error) console.error('Error trayendo catálogo de Supabase, corte en la página', from, error);
+    return { data: error ? null : (data || []), error };
+  };
+
+  const rows = [];
+  let from = 0;
+  while (true) {
+    const tanda = await Promise.all(
+      Array.from({ length: TANDA }, (_, k) => traerPagina(from + k * PAGE_SIZE))
+    );
+    for (const pag of tanda) {
+      if (pag.error) return rows; // corta en la primera página fallida (mantiene el orden)
+      rows.push(...pag.data);
+      if (pag.data.length < PAGE_SIZE) return rows;
+    }
+    from += TANDA * PAGE_SIZE;
   }
-  return rows;
 }
 
 // --- Escrituras al catálogo (Fase 2, 2026-09-01) ---
@@ -486,7 +517,15 @@ window.hideSplashScreen = (force = false) => {
 };
 
 // Fallback de seguridad: Si en 5 segundos no se ha quitado, lo quitamos a la fuerza
-setTimeout(() => window.hideSplashScreen(true), 5000);
+setTimeout(() => {
+  window.hideSplashScreen(true);
+  // Si el catálogo todavía no llegó (red lenta), no dejar la home en blanco:
+  // esqueletos hasta que handleRouting() pinte lo real.
+  if (!movieDatabase?.trending?.length && typeof renderSkeletons === 'function') {
+    const c = document.getElementById('main-content');
+    if (c && !c.children.length) renderSkeletons();
+  }
+}, 5000);
 
 // --- Notificaciones UI Premium (Toasts) ---
 // 🍿 Movido a ./ui/toasts.js (define window.showToast). Ver import arriba.

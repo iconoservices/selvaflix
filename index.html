@@ -1198,9 +1198,9 @@
               </div>
               <p style="font-size:0.68rem; color:var(--admin-text-muted); margin:-6px 0 14px;">Cuenta visitas desde que se activó este contador — no hay datos históricos de antes.</p>
 
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+              <div class="admin-users-head" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
                 <h2 class="admin-title" style="margin:0; display:flex; align-items:center; gap:8px;">👥 Cuentas Registradas</h2>
-                <div style="display:flex; align-items:center; gap:10px;">
+                <div class="admin-users-head-tools" style="display:flex; align-items:center; gap:10px;">
                   <input type="text" id="admin-users-search" class="form-control" placeholder="Buscar por nombre o email..." style="width:220px;" oninput="window.filterUsersTable(this.value)">
                   <span id="admin-users-count" style="font-size:0.75rem; color:var(--admin-text-muted); white-space:nowrap;">Cargando...</span>
                 </div>
@@ -1838,14 +1838,14 @@
                 </div>
               </div>
 
-              <div style="display:flex; gap:16px; height:65vh; min-height:420px;">
-                <div class="admin-card" style="width:280px; flex-shrink:0; overflow-y:auto; padding:10px;">
+              <div class="admin-messages-layout" style="display:flex; gap:16px; height:65vh; min-height:420px;">
+                <div class="admin-card admin-messages-threads-card" style="width:280px; flex-shrink:0; overflow-y:auto; padding:10px;">
                   <div id="admin-messages-threads">
                     <p style="text-align:center; color:var(--admin-text-muted); padding:20px; font-size:0.8rem;">Abre esta pestaña para cargar los mensajes...</p>
                   </div>
                 </div>
 
-                <div class="admin-card" style="flex:1; display:flex; flex-direction:column; padding:0; overflow:hidden;">
+                <div class="admin-card admin-messages-chat-card" style="flex:1; display:flex; flex-direction:column; padding:0; overflow:hidden;">
                   <div id="admin-messages-chat-header" style="padding:14px 18px; border-bottom:1px solid var(--glass-border); font-weight:700; color:#fff; font-size:0.85rem;">Selecciona una conversación</div>
                   <div id="admin-messages-chat-body" style="flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px;"></div>
                   <div id="admin-messages-reply-row" style="display:none; padding:12px; border-top:1px solid var(--glass-border); gap:8px;">
@@ -2643,4 +2643,4 @@
 
 </html>
 
-
+

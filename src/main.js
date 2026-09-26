@@ -3922,9 +3922,7 @@ window.claimFreeTrial = async (offerId) => {
     const user = auth.currentUser;
     if (!user) {
         window.closePremiumModal();
-        if (window.showToast) window.showToast('Inicia sesión para probar Premium 🐒', 'primary');
-        const authModal = document.getElementById('auth-modal');
-        if (authModal) authModal.style.display = 'flex';
+        window.openAuthModal('Entrá para activar tu prueba gratis de Premium 🎁');
         return;
     }
 
@@ -4638,9 +4636,7 @@ window.requestPlanInterest = async (planId) => {
     const user = auth.currentUser;
     if (!user) {
         window.closePremiumModal();
-        if (window.showToast) window.showToast('Inicia sesión para contratar un plan 🐒', 'primary');
-        const authModal = document.getElementById('auth-modal');
-        if (authModal) authModal.style.display = 'flex';
+        window.openAuthModal('Entrá para contratar tu plan Premium 💎');
         return;
     }
 
@@ -11522,9 +11518,20 @@ window.setDownloadUrlFromDrawer = async () => {
 let _currentProfile = null;
 const provider = new GoogleAuthProvider();
 
+// Abre el modal de login. `motivo` cambia la frase de arriba según qué intentó
+// hacer la persona (probar Premium, contratar un plan...) para que no sea genérico.
+window.openAuthModal = (motivo) => {
+    const modal = document.getElementById('auth-modal');
+    if (!modal) return;
+    const sub = document.getElementById('auth-sub');
+    if (sub) sub.textContent = motivo || 'Entrá en un toque y tené todo a mano, en cualquier dispositivo.';
+    modal.style.display = 'flex';
+    setTimeout(() => document.getElementById('btn-google-login')?.focus(), 60);
+};
+
 window.toggleUserMenu = () => {
     if (!auth.currentUser) {
-        document.getElementById('auth-modal').style.display = 'flex';
+        window.openAuthModal();
     } else {
         const menu = document.getElementById('user-dropdown');
         menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
@@ -11601,18 +11608,45 @@ window.closeAuthModal = () => {
     window.hideSplashScreen(); // 🚀 Entra como invitado, fuera splash!
 };
 
+// Estado visual del botón mientras se abre/cierra la ventana de Google.
+function _authBotonCargando(cargando) {
+    const btn = document.getElementById('btn-google-login');
+    if (!btn) return;
+    btn.disabled = cargando;
+    btn.classList.toggle('is-loading', cargando);
+    const lbl = btn.querySelector('.auth-google-label');
+    if (lbl) lbl.textContent = cargando ? 'Conectando con Google…' : 'Continuar con Google';
+}
+
 document.getElementById('btn-google-login')?.addEventListener('click', async () => {
+    _authBotonCargando(true);
     try {
         const result = await signInWithPopup(auth, provider);
         console.log("✅ Usuario autenticado:", result.user.displayName);
         window.closeAuthModal();
+        const nombre = (result.user.displayName || '').split(' ')[0];
+        if (window.showToast) window.showToast(nombre ? `¡Bienvenido, ${nombre}! 🌴` : '¡Bienvenido a la selva! 🌴', 'success');
     } catch (error) {
+        // Cerrar la ventana de Google a propósito no es un error: no se avisa nada.
+        const silencioso = ['auth/popup-closed-by-user', 'auth/cancelled-popup-request', 'auth/user-cancelled'];
+        if (silencioso.includes(error?.code)) return;
         console.error("❌ Error en Login:", error);
-        if (window.showToast) {
-            window.showToast("❌ No pudimos conectar con la selva. Revisa tu internet.", "error");
-        } else {
-            console.error("❌ Error en Login:", error);
-        }
+        const mensajes = {
+            'auth/popup-blocked': 'Tu navegador bloqueó la ventana de Google. Permití las ventanas emergentes y probá de nuevo 🙏',
+            'auth/network-request-failed': 'Sin conexión. Revisá tu internet y probá de nuevo 📶',
+            'auth/too-many-requests': 'Demasiados intentos seguidos. Esperá un momento y probá de nuevo ⏳',
+        };
+        const msg = mensajes[error?.code] || 'No pudimos iniciar sesión. Probá de nuevo en unos segundos 🌴';
+        if (window.showToast) window.showToast(msg, 'error');
+    } finally {
+        _authBotonCargando(false);
+    }
+});
+
+// Escape cierra el modal de login (igual que el clic afuera y la X).
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && document.getElementById('auth-modal')?.style.display === 'flex') {
+        window.closeAuthModal();
     }
 });
 
@@ -12006,6 +12040,9 @@ onAuthStateChanged(auth, async (user) => {
         // En una implementación real verificaríamos un campo 'banned' en el documento del usuario.
 
         trackAccountLogin(user); // 📊 No bloqueante: registra cuenta + login para el panel de Usuarios
+        // Los perfiles no dependen del plan: se piden EN PARALELO (antes iban uno
+        // tras otro y cada arranque de sesión pagaba dos viajes a Firestore en fila).
+        const _perfilesListos = window.loadProfiles(user.uid);
         await window.refreshUserTier(user.uid); // 💎 cachea el tier real (Firestore) antes de cualquier chequeo premium
         window.updateAdminUI(); // ya hay email + tier → mostrar el botón de Admin si corresponde
 
@@ -12015,12 +12052,14 @@ onAuthStateChanged(auth, async (user) => {
             window.hideAllAdSlots();
         }
 
-        document.getElementById('user-initials').innerText = user.displayName.charAt(0);
+        // displayName puede venir vacío (cuentas sin nombre): antes reventaba
+        // con TypeError y dejaba el login a medias, sin perfiles ni splash.
+        document.getElementById('user-initials').innerText = (user.displayName || user.email || '?').charAt(0).toUpperCase();
         document.getElementById('user-initials').style.display = 'flex';
         document.getElementById('user-avatar-img').style.display = 'none';
         
-        // Cargar perfiles
-        await window.loadProfiles(user.uid);
+        // Cargar perfiles (ya se pidieron arriba, acá solo se espera el resultado)
+        await _perfilesListos;
         if (typeof window.watchSupportUnread === 'function') window.watchSupportUnread(user.uid); // 💬 respuestas de soporte sin leer
         
         // Restaurar perfil activo si existe (aplica el animalito)
@@ -12100,12 +12139,16 @@ window.applyProfile = async (p) => {
     const user = auth.currentUser;
     if (user && p.id) {
         const profileRef = doc(db, "users", user.uid, "profiles", p.id);
-        await updateDoc(profileRef, { lastLogin: Date.now() }).catch(e => console.warn("No se pudo actualizar lastLogin:", e));
+        // Sin await: es solo una marca de "última vez", no hay por qué hacer
+        // esperar a la pantalla por ese viaje.
+        updateDoc(profileRef, { lastLogin: Date.now() }).catch(e => console.warn("No se pudo actualizar lastLogin:", e));
     }
     
     window.loadContinueWatching(); // 🍿 Cargar historial al cambiar perfil
     await window.loadMyList(); // Cargar favoritos
-    initApp(); // Re-renderizar el contenido principal
+    // Re-renderizar RESPETANDO la pestaña/género/año donde estaba la persona. Antes
+    // un initApp() a secas devolvía siempre a Home aunque la URL dijera #series.
+    initApp(_currentFilter, _currentGenre, _currentYear);
 };
 
 window.loadProfiles = async (uid) => {

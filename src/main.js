@@ -1701,9 +1701,16 @@ function handleRouting() {
     // reproductor de una: la ficha queda como panel de info alrededor del
     // player (escritorio: acoplado al lado; celular: player a pantalla
     // completa con la ficha detrás, que reaparece al cerrarlo con la X).
-    const slugOrId = hash.replace('detail/', '').split('/')[0];
+    const partes = hash.replace('detail/', '').split('/');
+    const slugOrId = partes[0];
+    // Series: el 2º tramo puede ser el capítulo (#detail/slug/s2e5). Con eso el
+    // link compartido, F5 y el botón atrás caen justo en el mismo episodio.
+    const ep = /^s(\d{1,3})e(\d{1,4})$/i.exec(partes[1] || '');
     showView('detail-view');
-    if (slugOrId) window.openMovieDetail(slugOrId, { autoPlay: true });
+    if (slugOrId) window.openMovieDetail(slugOrId, {
+      autoPlay: true,
+      ...(ep ? { season: parseInt(ep[1], 10), episode: parseInt(ep[2], 10) } : {})
+    });
   } else if (hash === 'admin') {
     window._enterAdminRoute();
   } else if (hash === 'mylist') {
@@ -8489,6 +8496,15 @@ window.openPlayer = async (movieId) => {
     } catch (e) { console.warn("Error recuperando historial:", e); }
   }
 
+  // Episodio que pidió la ruta (#detail/slug/s2e5): manda sobre el historial.
+  if (movie._episodioRuta) {
+    const { season, episode } = movie._episodioRuta;
+    if (movie.resumeSeason !== season || movie.resumeEpisode !== episode) movie.resumeTime = 0;
+    movie.resumeSeason = season;
+    movie.resumeEpisode = episode;
+    movie._episodioRuta = null;
+  }
+
   // El reproductor se lanza via startWarningOverlay → startPlayer → SelvaStream.open()
 };
 
@@ -8504,6 +8520,11 @@ window.addEventListener('keydown', (e) => {
         const vipMenu = document.getElementById('side-vip-menu');
         if (vipMenu && vipMenu.classList.contains('active')) {
             if (typeof SelvaStream !== 'undefined') SelvaStream.toggleVipMenu();
+            return;
+        }
+        // Panel de episodios abierto: Escape cierra el panel, no el player.
+        if (document.getElementById('selva-ep-panel')?.classList.contains('open')) {
+            SelvaStream.cerrarPanelEpisodios();
             return;
         }
         const modal = document.getElementById('player-modal');
@@ -8688,8 +8709,9 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
     // Sincronizar hash a slug limpio si llegamos por id antiguo
     const cleanSlug = slugify(movie.title, movie.year);
     const currentHash = window.location.hash.substring(1);
-    if (currentHash === `detail/${movie.id}`) {
-        history.replaceState(null, '', `#detail/${cleanSlug}`);
+    if (currentHash.split('/').slice(0, 2).join('/') === `detail/${movie.id}`) {
+        const sufijo = currentHash.split('/')[2];
+        history.replaceState(null, '', `#detail/${cleanSlug}${sufijo ? '/' + sufijo : ''}`);
     }
 
     // 1. Backdrop / Hero Image
@@ -9000,13 +9022,17 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
         // el hueco del dock queda como placeholder hasta que el player entra.
         // Si el player falla del todo, SelvaStream.close() → desacoplar() lo saca.
         document.getElementById('detail-view')?.classList.add('con-player-acoplado');
+        // Episodio pedido por la ruta: le gana al del historial (openPlayer lo aplica
+        // DESPUÉS de leer Firestore, para que no lo pise).
+        movie._episodioRuta = (opts.season && opts.episode)
+            ? { season: opts.season, episode: opts.episode } : null;
         window.openPlayer(movie.id);
     }
 };
 
 window.detailReportMovie = async () => {
     const hash = window.location.hash;
-    const slugOrId = hash.split('detail/')[1];
+    const slugOrId = (hash.split('detail/')[1] || '').split('/')[0];
     const movie = findMovieBySlugOrId(slugOrId);
     if (!movie) return;
     try {
@@ -9019,10 +9045,12 @@ window.detailReportMovie = async () => {
 
 window.detailShareMovie = async () => {
     const hash = window.location.hash;
-    const slugOrId = hash.split('detail/')[1];
+    const slugOrId = (hash.split('detail/')[1] || '').split('/')[0];
     const movie = findMovieBySlugOrId(slugOrId);
     if (!movie) return;
-    const shareUrl = `${window.location.origin}${window.location.pathname}#detail/${slugify(movie.title, movie.year)}`;
+    // Si se está viendo un capítulo, el link compartido lleva a ese mismo capítulo.
+    const capitulo = /^s\d+e\d+$/i.test(hash.split('/')[2] || '') ? '/' + hash.split('/')[2] : '';
+    const shareUrl = `${window.location.origin}${window.location.pathname}#detail/${slugify(movie.title, movie.year)}${capitulo}`;
     if (navigator.share) {
         try {
             await navigator.share({ title: movie.title, text: `Mira ${movie.title} en SelvaFlix! 🌴🍿`, url: shareUrl });

@@ -524,3 +524,332 @@
         border: none;
     }
 }
+/* ═══════════════════════════════════════════════════════════════════
+   Selector de capítulos v2: barra "‹ T1 · E3 ›" + panel de episodios
+   ═══════════════════════════════════════════════════════════════════ */
+.selva-epbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    background: none;
+    border: none;
+}
+
+.selva-epbar-btn,
+.selva-epbar-main {
+    height: 45px;
+    background: rgba(15, 15, 15, 0.6);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #fff;
+    cursor: pointer;
+    font-weight: 800;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    transition: background 0.2s, border-color 0.2s, opacity 0.2s;
+}
+
+.selva-epbar-btn {
+    width: 45px;
+    border-radius: 50%;
+    font-size: 1.5rem;
+    line-height: 1;
+    padding: 0 0 3px;
+}
+
+.selva-epbar-main {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 16px;
+    border-radius: 30px;
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+
+.selva-epbar-main .material-symbols-outlined {
+    font-size: 1.15rem;
+    color: var(--primary);
+}
+
+.selva-epbar-btn:hover:not(:disabled),
+.selva-epbar-main:hover {
+    background: var(--primary);
+    color: #000;
+    border-color: var(--primary);
+}
+
+.selva-epbar-main:hover .material-symbols-outlined { color: #000; }
+
+.selva-epbar-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+@media (max-width: 600px) {
+    .selva-epbar-btn,
+    .selva-epbar-main { height: 38px; }
+    .selva-epbar-btn { width: 38px; font-size: 1.3rem; }
+    .selva-epbar-main { padding: 0 12px; font-size: 0.72rem; }
+}
+
+/* Player acoplado (compacto) */
+.player-modal.player-acoplado .selva-epbar-btn,
+.player-modal.player-acoplado .selva-epbar-main { height: 34px; }
+.player-modal.player-acoplado .selva-epbar-btn { width: 34px; font-size: 1.2rem; }
+.player-modal.player-acoplado .selva-epbar-main { padding: 0 11px; font-size: 0.68rem; }
+
+/* ── Panel de episodios ─────────────────────────────────────────── */
+.selva-ep-panel {
+    position: fixed;
+    inset: 0;
+    z-index: 10020;
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-end;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.selva-ep-panel.open {
+    visibility: visible;
+    pointer-events: auto;
+}
+
+.selva-ep-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    opacity: 0;
+    transition: opacity 0.25s;
+}
+
+.selva-ep-panel.open .selva-ep-backdrop { opacity: 1; }
+
+.selva-ep-sheet {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-height: 82vh;
+    max-height: 82dvh;
+    background: #101010;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 18px 18px 0 0;
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.6);
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.selva-ep-panel.open .selva-ep-sheet { transform: translateY(0); }
+
+/* Escritorio: panel lateral de arriba a abajo */
+@media (min-width: 900px) {
+    .selva-ep-sheet {
+        width: 440px;
+        max-height: none;
+        height: 100%;
+        border-radius: 0;
+        border-top: none;
+        border-left: 1px solid rgba(255, 255, 255, 0.1);
+        transform: translateX(100%);
+    }
+    .selva-ep-panel.open .selva-ep-sheet { transform: translateX(0); }
+}
+
+.selva-ep-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 18px 10px;
+    color: #fff;
+    font-size: 1rem;
+}
+
+.selva-ep-head strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.selva-ep-close {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff;
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.selva-ep-seasons,
+.selva-ep-ranges {
+    display: flex;
+    gap: 8px;
+    padding: 4px 18px 10px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    flex-shrink: 0;
+}
+
+.selva-ep-seasons::-webkit-scrollbar,
+.selva-ep-ranges::-webkit-scrollbar { display: none; }
+
+.selva-chip {
+    flex-shrink: 0;
+    padding: 8px 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.05);
+    color: #ddd;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.selva-chip.small { padding: 6px 11px; font-size: 0.7rem; }
+
+.selva-chip.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #000;
+}
+
+.selva-ep-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 4px 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    -webkit-overflow-scrolling: touch;
+}
+
+.selva-ep-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+    padding: 8px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    background: rgba(255, 255, 255, 0.03);
+    color: #fff;
+    text-align: left;
+    cursor: pointer;
+    font-family: inherit;
+    /* Con 50 filas por tanda, lo que no se ve no se pinta */
+    content-visibility: auto;
+    contain-intrinsic-size: auto 78px;
+}
+
+.selva-ep-row:hover,
+.selva-ep-row:focus-visible {
+    background: rgba(255, 255, 255, 0.08);
+    outline: none;
+}
+
+.selva-ep-row.is-current {
+    border-color: var(--primary);
+    background: rgba(255, 122, 0, 0.1);
+}
+
+.selva-ep-row.skeleton {
+    height: 78px;
+    cursor: default;
+    background: linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.08), rgba(255,255,255,0.03));
+    background-size: 200% 100%;
+    animation: selvaEpShimmer 1.2s linear infinite;
+}
+
+@keyframes selvaEpShimmer {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+}
+
+.selva-ep-thumb {
+    position: relative;
+    flex-shrink: 0;
+    width: 112px;
+    aspect-ratio: 16 / 9;
+    border-radius: 8px;
+    overflow: hidden;
+    background: linear-gradient(135deg, #222, #111);
+}
+
+.selva-ep-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.selva-ep-thumb i {
+    position: absolute;
+    left: 6px;
+    bottom: 4px;
+    font-style: normal;
+    font-weight: 900;
+    font-size: 0.8rem;
+    color: #fff;
+    text-shadow: 0 1px 4px #000;
+}
+
+.selva-ep-info {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    flex: 1;
+}
+
+.selva-ep-info b {
+    font-size: 0.82rem;
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.selva-ep-info small {
+    font-size: 0.68rem;
+    color: var(--primary);
+    font-weight: 700;
+}
+
+.selva-ep-row.is-seen:not(.is-current) .selva-ep-thumb img { opacity: 0.55; }
+
+.selva-ep-info em {
+    font-style: normal;
+    font-size: 0.7rem;
+    line-height: 1.35;
+    color: #999;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.selva-ep-msg {
+    padding: 28px 12px;
+    text-align: center;
+    color: #aaa;
+    font-size: 0.8rem;
+    line-height: 1.6;
+}
+
+@media (max-width: 420px) {
+    .selva-ep-thumb { width: 96px; }
+    .selva-ep-info em { display: none; }
+}

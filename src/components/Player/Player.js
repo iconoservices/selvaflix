@@ -605,17 +605,14 @@ export const SelvaStream = {
 
         this.renderControls();
 
-        // Si es serie, cargar metadatos de TMDB para temporadas
+        // Series: se siembran los selectores con el capítulo pedido (ruta o historial)
+        // y la reproducción arranca YA. Antes se hacía `await` a TMDB (hasta 7 s) y
+        // el video no salía hasta que respondía; ahora temporadas/títulos llegan
+        // en segundo plano y llenan el panel de episodios cuando estén.
         const isSeries = ['series', 'tv', 'anime'].includes(movie.type);
-        if (isSeries && movie.tmdbId) {
-            await this.loadSeriesMetadata(movie.tmdbId);
-        } else if (isSeries) {
-            // Sin tmdbId no hay de dónde traer temporadas: limpiar los selects
-            // (reusados entre títulos) para no heredar T5E12 de la serie anterior.
-            const sSel = document.getElementById('selva-season');
-            const eSel = document.getElementById('selva-episode');
-            if (sSel) sSel.value = '';
-            if (eSel) eSel.value = '';
+        if (isSeries) {
+            this._sembrarSelectores(movie);
+            if (movie.tmdbId) this.loadSeriesMetadata(movie.tmdbId);
         }
 
         // ⚡ RUTA RÁPIDA (series): si el admin cargó un link manual para este
@@ -644,6 +641,7 @@ export const SelvaStream = {
                 this.lastScrapedStreams = [oficial, ...publicas];
                 this.currentEpisodeId = `s${season}e${episode}`;
                 this.currentEpisodeLabel = `T${season} E${episode}`;
+                this._marcarVisto(movie, season, episode);
                 if (typeof window.markWatchingEpisode === 'function') {
                     window.markWatchingEpisode(movie, season, episode, this.currentEpisodeLabel);
                 }
@@ -713,69 +711,336 @@ export const SelvaStream = {
             }
         }
     },
-    async loadSeriesMetadata(tmdbId) {
+    // ── Selector de capítulos v2 ─────────────────────────────────────────
+    // Los <select id="selva-season|selva-episode"> siguen existiendo (ocultos) como
+    // fuente de verdad: medio Player.js los lee. La interfaz visible es la barra
+    // "‹ T1 · E3 ›" + el panel de episodios (lista con miniatura y título).
+    _tv: null,          // { id, seasons:[{n,count,name}], eps:{[n]:[{n,name,still,rt,ov}]}, _pend:{} }
+    _tvError: false,
+    _epTimer: null,
+    _panelSeason: null,
+    _panelRange: 0,
+
+    async _tmdb(path, extra = '') {
+        const key = import.meta.env.VITE_TMDB_KEY || '15d2ea6d0dc1d476efbca3eba2b9bbfb';
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 7000);
         try {
-            const TMDB_API_KEY = import.meta.env.VITE_TMDB_KEY || '15d2ea6d0dc1d476efbca3eba2b9bbfb';
-            const TMDB_URL = 'https://api.themoviedb.org/3';
-
-            // `open()` espera a que esto termine ANTES de mostrar nada (temporadas/
-            // capítulos). Sin límite de tiempo, una conexión de datos móviles lenta
-            // o inestable puede colgar este fetch para siempre y el reproductor se
-            // queda pegado en el loader eternamente. Con un timeout, si TMDB no
-            // responde rápido simplemente seguimos sin esa info en vez de trabarnos.
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 7000);
-            const resp = await fetch(`${TMDB_URL}/tv/${tmdbId}?api_key=${TMDB_API_KEY}&language=es-PE`, { signal: controller.signal });
+            const r = await fetch(`https://api.themoviedb.org/3${path}?api_key=${key}&language=es-PE${extra ? '&' + extra : ''}`, { signal: controller.signal });
+            if (!r.ok) throw new Error('TMDB ' + r.status);
+            return await r.json();
+        } finally {
             clearTimeout(timeoutId);
-            const details = await resp.json();
-
-            const sSel = document.getElementById('selva-season');
-            const eSel = document.getElementById('selva-episode');
-
-            if (details.seasons && sSel && eSel) {
-                // Etiquetas cortas a propósito: en móvil el select mide 92px y
-                // "Temporada 1" se cortaba a "Tempor…", dejando al usuario sin
-                // saber en qué capítulo estaba.
-                sSel.innerHTML = details.seasons
-                    .filter(s => s.season_number > 0)
-                    .map(s => `<option value="${s.season_number}">T${s.season_number}</option>`).join('');
-
-                const updateE = (sNum) => {
-                    const s = details.seasons.find(x => x.season_number == sNum);
-                    const count = s ? s.episode_count : 24;
-                    eSel.innerHTML = Array.from({ length: count }, (_, i) => `<option value="${i + 1}">E${i + 1}</option>`).join('');
-                };
-
-                let initialSeason = details.seasons.find(s => s.season_number > 0)?.season_number || 1;
-                let initialEpisode = 1;
-                
-                if (this.currentPlayerMovie && this.currentPlayerMovie.resumeSeason) {
-                    initialSeason = this.currentPlayerMovie.resumeSeason;
-                    initialEpisode = this.currentPlayerMovie.resumeEpisode || 1;
-                }
-                
-                sSel.value = initialSeason;
-                updateE(initialSeason);
-                eSel.value = initialEpisode;
-
-                sSel.onchange = () => {
-                    updateE(sSel.value);
-                    this.updateFromSelectors();
-                };
-                eSel.onchange = () => this.updateFromSelectors();
-            }
-        } catch (e) {
-            console.error('❌ Error cargando info de serie:', e);
-            // Los selects de temporada/capítulo son reusados entre títulos (init()
-            // solo inyecta el modal una vez). Si este fetch falla/cuelga (timeout de
-            // 7s de arriba), sin este reset quedaban con la temporada/capítulo de LA
-            // SERIE ANTERIOR -- silencioso hasta que el link manual por episodio
-            // (getEpisodeOverride) empezó a usar ese valor para elegir qué reproducir.
-            const sSel = document.getElementById('selva-season');
-            const eSel = document.getElementById('selva-episode');
-            if (sSel) sSel.value = '';
-            if (eSel) eSel.value = '';
         }
+    },
+
+    _leerCacheTv(id) {
+        try {
+            const raw = localStorage.getItem('selva_tv_v2_' + id);
+            if (!raw) return null;
+            const c = JSON.parse(raw);
+            if (!c || Date.now() - c.at > 7 * 24 * 3600 * 1000) return null;
+            return { id, seasons: c.seasons, eps: c.eps || {}, _pend: {} };
+        } catch (e) { return null; }
+    },
+
+    _guardarCacheTv(meta) {
+        try {
+            const txt = JSON.stringify({ at: Date.now(), seasons: meta.seasons, eps: meta.eps });
+            if (txt.length < 500000) localStorage.setItem('selva_tv_v2_' + meta.id, txt);
+        } catch (e) { /* cuota llena o modo privado: se sigue sin caché */ }
+    },
+
+    _compactarEps(lista) {
+        return (lista || []).map(e => ({
+            n: e.episode_number,
+            name: e.name || '',
+            still: e.still_path || '',
+            rt: e.runtime || 0,
+            ov: (e.overview || '').slice(0, 180)
+        }));
+    },
+
+    async loadSeriesMetadata(tmdbId) {
+        this._tvError = false;
+        const inicial = parseInt(document.getElementById('selva-season')?.value) || 1;
+
+        let meta = this._leerCacheTv(tmdbId);
+        if (!meta) {
+            try {
+                // Una sola llamada trae la ficha + los episodios de la temporada
+                // que se está viendo (append_to_response).
+                const d = await this._tmdb(`/tv/${tmdbId}`, `append_to_response=season/${inicial}`);
+                meta = {
+                    id: tmdbId,
+                    seasons: (d.seasons || [])
+                        .filter(t => t.season_number > 0 && (t.episode_count > 0 || t.season_number === inicial))
+                        .map(t => ({ n: t.season_number, count: t.episode_count || 0, name: t.name || `Temporada ${t.season_number}` })),
+                    eps: {},
+                    _pend: {}
+                };
+                if (d['season/' + inicial]) meta.eps[inicial] = this._compactarEps(d['season/' + inicial].episodes);
+                this._guardarCacheTv(meta);
+            } catch (e) {
+                console.warn('❌ No se pudo cargar la info de la serie:', e.message || e);
+                if (this.currentPlayerMovie?.tmdbId == tmdbId) { this._tv = null; this._tvError = true; this.syncEpisodeUi(); }
+                return;
+            }
+        }
+
+        // Si mientras tanto se abrió OTRA serie, esta respuesta ya no importa.
+        if (this.currentPlayerMovie?.tmdbId != tmdbId) return;
+        this._tv = meta;
+        this.syncEpisodeUi();
+        if (document.getElementById('selva-ep-panel')?.classList.contains('open')) this.renderPanelEpisodios();
+    },
+
+    async cargarTemporada(n) {
+        const meta = this._tv;
+        if (!meta) return null;
+        if (meta.eps[n]) return meta.eps[n];
+        if (meta._pend[n]) return meta._pend[n];
+        meta._pend[n] = this._tmdb(`/tv/${meta.id}/season/${n}`)
+            .then(d => {
+                meta.eps[n] = this._compactarEps(d.episodes);
+                this._guardarCacheTv(meta);
+                return meta.eps[n];
+            })
+            .catch(() => null)
+            .finally(() => { delete meta._pend[n]; });
+        return meta._pend[n];
+    },
+
+    _fijarSelect(sel, valor) {
+        if (!sel) return;
+        if (![...sel.options].some(o => o.value == valor)) {
+            sel.insertAdjacentHTML('beforeend', `<option value="${valor}">${valor}</option>`);
+        }
+        sel.value = String(valor);
+    },
+
+    _epActual() {
+        return {
+            s: parseInt(document.getElementById('selva-season')?.value) || 1,
+            e: parseInt(document.getElementById('selva-episode')?.value) || 1
+        };
+    },
+
+    _sembrarSelectores(movie) {
+        this._fijarSelect(document.getElementById('selva-season'), movie.resumeSeason || 1);
+        this._fijarSelect(document.getElementById('selva-episode'), movie.resumeEpisode || 1);
+        if (this._tv && this._tv.id != movie.tmdbId) this._tv = null;
+        this._tvError = false;
+        this._panelSeason = null;
+        this.syncEpisodeUi();
+    },
+
+    _cuentaTemporada(n) {
+        const t = this._tv?.seasons.find(x => x.n === n);
+        return t ? (this._tv.eps[n]?.length || t.count) : 0;
+    },
+
+    // Refresca etiqueta, flechas y la URL (#detail/slug/s2e5) con el capítulo actual.
+    syncEpisodeUi() {
+        const { s, e } = this._epActual();
+        const label = document.getElementById('selva-ep-label');
+        if (label) label.textContent = `T${s} · E${e}`;
+
+        const total = this._cuentaTemporada(s);
+        const ultimaTemp = this._tv ? this._tv.seasons[this._tv.seasons.length - 1]?.n : null;
+        const prev = document.getElementById('selva-ep-prev');
+        const next = document.getElementById('selva-ep-next');
+        if (prev) prev.disabled = (e <= 1 && (!this._tv || s <= (this._tv.seasons[0]?.n || 1)));
+        if (next) next.disabled = !!(this._tv && total && e >= total && s >= ultimaTemp);
+
+        const movie = this.currentPlayerMovie;
+        if (movie && ['series', 'tv', 'anime'].includes(movie.type)) {
+            movie.resumeSeason = s;
+            movie.resumeEpisode = e;
+            const h = window.location.hash;
+            if (h.startsWith('#detail/')) {
+                const slug = h.slice(8).split('/')[0];
+                const nuevo = `#detail/${slug}/s${s}e${e}`;
+                if (h !== nuevo) history.replaceState(null, '', nuevo);
+            }
+        }
+    },
+
+    // Cambia de capítulo. La UI responde al instante; la búsqueda de fuente se
+    // dispara recién cuando dejás de tocar (varios "siguiente" seguidos no
+    // lanzan varias cargas a la vez).
+    irAEpisodio(s, e) {
+        this._fijarSelect(document.getElementById('selva-season'), s);
+        this._fijarSelect(document.getElementById('selva-episode'), e);
+        this.syncEpisodeUi();
+        this._panelSeason = s;
+        clearTimeout(this._epTimer);
+        this._epTimer = setTimeout(() => this.updateFromSelectors(), 350);
+    },
+
+    siguienteEpisodio(dir = 1) {
+        const { s, e } = this._epActual();
+        const total = this._cuentaTemporada(s);
+        const temps = this._tv?.seasons || [];
+        if (dir > 0) {
+            if (!total || e < total) return this.irAEpisodio(s, e + 1);
+            const sig = temps.find(t => t.n > s);
+            if (sig) return this.irAEpisodio(sig.n, 1);
+            if (window.showToast) window.showToast('Ese es el último episodio 🌴', 'info');
+        } else {
+            if (e > 1) return this.irAEpisodio(s, e - 1);
+            const ant = [...temps].reverse().find(t => t.n < s);
+            if (ant) {
+                const cuenta = this._cuentaTemporada(ant.n) || ant.count || 1;
+                return this.irAEpisodio(ant.n, cuenta);
+            }
+            if (window.showToast) window.showToast('Ese es el primer episodio 🌴', 'info');
+        }
+    },
+
+    _marcarVisto(movie, season, episode) {
+        try {
+            const k = 'selva_vistos_' + movie.id;
+            const set = new Set(JSON.parse(localStorage.getItem(k) || '[]'));
+            set.add(`s${season}e${episode}`);
+            localStorage.setItem(k, JSON.stringify([...set].slice(-1500)));
+        } catch (e) { /* sin storage no pasa nada */ }
+    },
+
+    _vistos(movie) {
+        try { return new Set(JSON.parse(localStorage.getItem('selva_vistos_' + movie.id) || '[]')); }
+        catch (e) { return new Set(); }
+    },
+
+    _asegurarPanel() {
+        let panel = document.getElementById('selva-ep-panel');
+        if (panel) return panel;
+        panel = document.createElement('div');
+        panel.id = 'selva-ep-panel';
+        panel.className = 'selva-ep-panel';
+        panel.setAttribute('role', 'dialog');
+        panel.setAttribute('aria-label', 'Episodios');
+        panel.innerHTML = `
+            <div class="selva-ep-backdrop" data-close></div>
+            <div class="selva-ep-sheet">
+                <div class="selva-ep-head">
+                    <strong id="selva-ep-title">Episodios</strong>
+                    <button class="selva-ep-close" data-close data-tvnav aria-label="Cerrar">&times;</button>
+                </div>
+                <div class="selva-ep-seasons" id="selva-ep-seasons"></div>
+                <div class="selva-ep-ranges" id="selva-ep-ranges"></div>
+                <div class="selva-ep-list" id="selva-ep-list"></div>
+            </div>`;
+        // Un solo listener por delegación: no se ata uno por cada fila.
+        panel.addEventListener('click', (ev) => {
+            const t = ev.target.closest('[data-close],[data-season],[data-range],[data-ep],[data-retry]');
+            if (!t) return;
+            if (t.hasAttribute('data-close')) return this.cerrarPanelEpisodios();
+            if (t.dataset.season) { this._panelSeason = parseInt(t.dataset.season); this._panelRange = 0; return this.renderPanelEpisodios(); }
+            if (t.dataset.range) { this._panelRange = parseInt(t.dataset.range); return this.renderPanelEpisodios(true); }
+            if (t.hasAttribute('data-retry')) {
+                const id = this.currentPlayerMovie?.tmdbId;
+                return id ? this.loadSeriesMetadata(id) : null;
+            }
+            if (t.dataset.ep) {
+                this.irAEpisodio(this._panelSeason || this._epActual().s, parseInt(t.dataset.ep));
+                this.cerrarPanelEpisodios();
+            }
+        });
+        document.body.appendChild(panel);
+        return panel;
+    },
+
+    abrirPanelEpisodios() {
+        const panel = this._asegurarPanel();
+        const { s, e } = this._epActual();
+        this._panelSeason = s;
+        this._panelRange = Math.floor((e - 1) / 50);
+        document.getElementById('selva-ep-title').textContent = this.currentPlayerMovie?.title || 'Episodios';
+        panel.classList.add('open');
+        this.renderPanelEpisodios(true);
+        setTimeout(() => panel.querySelector('.is-current')?.focus({ preventScroll: true }), 60);
+    },
+
+    cerrarPanelEpisodios() {
+        const panel = document.getElementById('selva-ep-panel');
+        if (!panel || !panel.classList.contains('open')) return;
+        panel.classList.remove('open');
+        document.getElementById('selva-ep-open')?.focus();
+    },
+
+    async renderPanelEpisodios(centrar = false) {
+        const panel = document.getElementById('selva-ep-panel');
+        if (!panel || !panel.classList.contains('open')) return;
+        const movie = this.currentPlayerMovie;
+        const cur = this._epActual();
+        const sel = this._panelSeason || cur.s;
+        const meta = this._tv;
+        const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        const esqueleto = Array.from({ length: 6 }, () => '<div class="selva-ep-row skeleton"></div>').join('');
+
+        // Chips de temporada (solo si hay más de una)
+        const chips = document.getElementById('selva-ep-seasons');
+        const temps = meta?.seasons || [];
+        chips.style.display = temps.length > 1 ? 'flex' : 'none';
+        chips.innerHTML = temps.map(t =>
+            `<button class="selva-chip${t.n === sel ? ' active' : ''}" data-season="${t.n}" data-tvnav>Temporada ${t.n}</button>`).join('');
+
+        const lista = document.getElementById('selva-ep-list');
+        const ranges = document.getElementById('selva-ep-ranges');
+
+        if (!meta) {
+            ranges.style.display = 'none';
+            lista.innerHTML = (this._tvError || !movie?.tmdbId)
+                ? `<div class="selva-ep-msg">No pudimos traer la lista de episodios.<br>
+                       ${movie?.tmdbId ? '<button class="selva-chip active" data-retry data-tvnav>Reintentar</button><br><br>' : ''}
+                       Igual podés usar ‹ › para pasar de capítulo.</div>`
+                : esqueleto;
+            return;
+        }
+
+        let eps = meta.eps[sel];
+        if (!eps) {
+            lista.innerHTML = esqueleto;
+            ranges.style.display = 'none';
+            eps = await this.cargarTemporada(sel);
+            if (this._panelSeason !== sel) return; // cambió de temporada mientras cargaba
+        }
+        if (!eps || !eps.length) {
+            const count = this._cuentaTemporada(sel) || 24;
+            eps = Array.from({ length: count }, (_, i) => ({ n: i + 1, name: `Episodio ${i + 1}`, still: '', rt: 0, ov: '' }));
+        }
+
+        // Series largas (anime de 1000 caps): se muestran de a 50, con rangos arriba.
+        const POR_TANDA = 50;
+        const tandas = Math.ceil(eps.length / POR_TANDA);
+        if (this._panelRange >= tandas) this._panelRange = 0;
+        ranges.style.display = tandas > 1 ? 'flex' : 'none';
+        ranges.innerHTML = tandas > 1 ? Array.from({ length: tandas }, (_, k) => {
+            const a = k * POR_TANDA + 1, b = Math.min((k + 1) * POR_TANDA, eps.length);
+            return `<button class="selva-chip small${k === this._panelRange ? ' active' : ''}" data-range="${k}" data-tvnav>${a}–${b}</button>`;
+        }).join('') : '';
+
+        const vistos = this._vistos(movie);
+        const desde = this._panelRange * POR_TANDA;
+        lista.innerHTML = eps.slice(desde, desde + POR_TANDA).map(ep => {
+            const actual = (sel === cur.s && ep.n === cur.e);
+            const visto = vistos.has(`s${sel}e${ep.n}`);
+            const img = ep.still
+                ? `<img src="https://image.tmdb.org/t/p/w300${ep.still}" alt="" loading="lazy" decoding="async">`
+                : '';
+            const detalle = [ep.rt ? `${ep.rt} min` : '', actual ? '▶ Reproduciendo' : (visto ? '✓ Visto' : '')].filter(Boolean).join(' · ');
+            return `<button class="selva-ep-row${actual ? ' is-current' : ''}${visto ? ' is-seen' : ''}" data-ep="${ep.n}" data-tvnav>
+                <span class="selva-ep-thumb">${img}<i>${ep.n}</i></span>
+                <span class="selva-ep-info">
+                    <b>${ep.n}. ${esc(ep.name || 'Episodio ' + ep.n)}</b>
+                    ${detalle ? `<small>${detalle}</small>` : ''}
+                    ${ep.ov ? `<em>${esc(ep.ov)}</em>` : ''}
+                </span>
+            </button>`;
+        }).join('');
+
+        if (centrar) lista.querySelector('.is-current')?.scrollIntoView({ block: 'center' });
     },
 
     updateFromSelectors() {
@@ -1004,9 +1269,18 @@ export const SelvaStream = {
 
         if (isSeries && !hasSelectors) {
             root.innerHTML = `
-                <div class="series-selectors" style="display: flex; gap: 8px; margin: 0; padding: 0; background: none; border: none; backdrop-filter: none;">
-                    <select id="selva-season" class="selva-custom-select" style="padding: 8px 32px 8px 16px; font-size: 0.75rem; border-radius: 30px; height: 45px; background-color: rgba(15,15,15,0.6); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.15); box-sizing: border-box; margin: 0;"></select>
-                    <select id="selva-episode" class="selva-custom-select" style="padding: 8px 32px 8px 16px; font-size: 0.75rem; border-radius: 30px; height: 45px; background-color: rgba(15,15,15,0.6); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.15); box-sizing: border-box; margin: 0;"></select>
+                <div class="series-selectors selva-epbar">
+                    <button id="selva-ep-prev" class="selva-epbar-btn" data-tvnav title="Episodio anterior" aria-label="Episodio anterior"
+                            onclick="SelvaStream.siguienteEpisodio(-1)">&#8249;</button>
+                    <button id="selva-ep-open" class="selva-epbar-main" data-tvnav title="Elegir episodio" aria-label="Elegir episodio"
+                            onclick="SelvaStream.abrirPanelEpisodios()">
+                        <span class="material-symbols-outlined">format_list_bulleted</span>
+                        <span id="selva-ep-label">T1 · E1</span>
+                    </button>
+                    <button id="selva-ep-next" class="selva-epbar-btn" data-tvnav title="Siguiente episodio" aria-label="Siguiente episodio"
+                            onclick="SelvaStream.siguienteEpisodio(1)">&#8250;</button>
+                    <select id="selva-season" hidden></select>
+                    <select id="selva-episode" hidden></select>
                 </div>
             `;
         } else if (!isSeries) {
@@ -1018,6 +1292,8 @@ export const SelvaStream = {
     },
 
     close() {
+        this.cerrarPanelEpisodios();
+        clearTimeout(this._epTimer);
         this.setRobotsShield(false);
         const modal = document.getElementById('player-modal');
         const iframe = document.getElementById('player-iframe');
@@ -1494,6 +1770,7 @@ export const SelvaStream = {
             // Guardamos qué capítulo se está viendo AHORA (no el tiempo exacto,
             // eso solo se puede con video nativo) para que la próxima vez que
             // se abra esta serie, el selector arranque en este mismo capítulo.
+            this._marcarVisto(movie, season, episode);
             if (typeof window.markWatchingEpisode === 'function') {
                 window.markWatchingEpisode(movie, season, episode, this.currentEpisodeLabel);
             }

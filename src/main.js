@@ -49,6 +49,10 @@ const auth = getAuth(app); // 🚪 El guardián de la selva
 // contra esto (identidad real de Firebase), no contra una contraseña en el
 // bundle. Las ESCRITURAS del catálogo van aparte, por el Worker con ADMIN_KEY.
 const ADMIN_EMAILS = ['jnmcsky@gmail.com'];
+// Ruta de la que venía el usuario antes de abrir una ficha (#detail/...). Al
+// cerrar el reproductor se vuelve ahí, sin pasar por la ficha con el botón PLAY.
+let _rutaActual = '';
+let _rutaAntesDeFicha = '';
 window._esCuentaAdmin = () => {
   const email = (auth.currentUser?.email || '').toLowerCase();
   return ADMIN_EMAILS.includes(email) || window.currentUserTier === 'admin';
@@ -1677,6 +1681,11 @@ window.goToMyList = async () => {
 
 function handleRouting() {
   const hash = window.location.hash.substring(1) || '';
+
+  // Recordar de dónde se entró a la ficha (el 1er #detail tras otra ruta); entre
+  // episodios (#detail/slug/s1e2) no se pisa.
+  if (hash.startsWith('detail/') && !_rutaActual.startsWith('detail/')) _rutaAntesDeFicha = _rutaActual;
+  _rutaActual = hash;
 
   // El player-modal es un overlay independiente del hash. Con la ruta única
   // #detail/slug (abre ficha + player juntos) hay que cerrarlo en cuanto la
@@ -8548,7 +8557,11 @@ window.closePlayer = () => {
     // history.back() y sacaba al usuario de la app entera en vez de dejarlo
     // en el hub de TV en vivo.
     const hash = window.location.hash.substring(1);
-    if (!hash.startsWith('detail/') && hash !== 'live') {
+    if (hash.startsWith('detail/')) {
+        // Atrás/X/Esc en la ficha: se vuelve a donde estaba, sin quedarse en la
+        // ficha con el botón PLAY. Sin ruta previa (link compartido) → inicio.
+        window.location.hash = _rutaAntesDeFicha || '';
+    } else if (hash !== 'live') {
         history.back();
     }
 };

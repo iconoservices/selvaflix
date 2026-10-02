@@ -213,7 +213,7 @@ async function autoSyncVimeus(env) {
 export default {
     // Cron Trigger: sincroniza con Vimeus y refresca la copia del catálogo en KV.
     // El refresh baja la tabla entera de Supabase (egress), así que solo se hace
-    // en la corrida diaria de las 3am o si la sincronización agregó algo.
+    // si la sincronización agregó algo o si una edición del admin quedó pendiente.
     async scheduled(event, env, ctx) {
         if (!env.CATALOG_KV) return;
         ctx.waitUntil((async () => {
@@ -223,8 +223,12 @@ export default {
                 console.log('cron: sync Vimeus —', JSON.stringify(r));
                 added = r.added || 0;
             } catch (e) { console.error('cron: sync Vimeus falló —', e.message); }
-            if (added > 0 || event.cron === '0 3 * * *') {
-                try { console.log(`cron: catálogo KV refrescado (${await refreshCatalogKV(env)} filas)`); }
+            const pendiente = !!(await env.CATALOG_KV.get('catalog:dirty'));
+            if (added > 0 || pendiente) {
+                try {
+                    console.log(`cron: catálogo KV refrescado (${await refreshCatalogKV(env)} filas)`);
+                    await env.CATALOG_KV.delete('catalog:dirty');
+                }
                 catch (e) { console.error('cron: refresh de catálogo falló —', e.message); }
             }
         })());
@@ -747,6 +751,10 @@ export default {
                         const meta = await catalogKVMeta(env);
                         if (!meta?.at || Date.now() - meta.at > CATALOG_REFRESH_MIN_MS) {
                             await refreshCatalogKV(env);
+                            await env.CATALOG_KV.delete('catalog:dirty');
+                        } else {
+                            // Quedó fuera por el límite de 90 s: el Cron la refresca luego
+                            await env.CATALOG_KV.put('catalog:dirty', '1');
                         }
                     } catch (e) { console.error('KV refresh tras escritura falló:', e.message); }
                 };

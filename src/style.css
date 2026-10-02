@@ -6246,6 +6246,21 @@ body.admin-locked {
     padding: 7px 14px;
     font-size: 0.7rem;
   }
+  /* Franja de abajo: una sola fila, todo a la misma altura (36px) y sin
+     envolver — si envolvía, la 2ª fila crecía hacia ARRIBA y tapaba el video. */
+  .player-modal.player-acoplado:not(.player-expandido) .player-top-controls {
+    flex-wrap: nowrap;
+    gap: 8px;
+    align-items: center;
+  }
+  .player-modal.player-acoplado:not(.player-expandido) .sources-btn-modern {
+    height: 34px;
+    white-space: nowrap;
+  }
+  .player-modal.player-acoplado:not(.player-expandido) #player-expand-btn {
+    min-width: 34px;
+    padding: 0 10px;
+  }
   .player-modal.player-acoplado .player-back-arrow {
     width: 36px;
     height: 36px;
@@ -6852,6 +6867,13 @@ body.admin-locked {
    El sidebar de 80px se comía la pantalla: se convierte en una barra
    de pestañas inferior que se desliza, y el resto se apila.
    ═══════════════════════════════════════════════════════════════════ */
+/* En la pantalla de una película el botón flotante de compartir la app (borde
+   derecho) tapaba los botones del reproductor ("NO CARGA", "⛶"). Ahí ya está
+   el botón COMPARTIR de la ficha, así que el flotante se esconde. */
+body:has(#detail-view.con-player-acoplado) #hero-share-fab {
+  display: none !important;
+}
+
 @media (max-width: 768px) {
   /* Fuera lo de la app normal que tapaba el panel */
   body.admin-locked #hero-share-fab,

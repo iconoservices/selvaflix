@@ -537,6 +537,19 @@
     border: none;
 }
 
+/* La barra comparte elemento con `.series-selectors` (selectores viejos), cuyo
+   padding/margen/borde se le colaban: la inflaban a 66px + 20px de margen y
+   rompían la fila de controles. Se anulan acá. */
+.series-selectors.selva-epbar {
+    padding: 0;
+    margin: 0;
+    background: none;
+    border: none;
+    border-radius: 0;
+    gap: 6px;
+    backdrop-filter: none;
+}
+
 .selva-epbar-btn,
 .selva-epbar-main {
     height: 45px;

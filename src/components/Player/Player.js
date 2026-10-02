@@ -277,15 +277,103 @@ export const SelvaStream = {
                         position: static;
                         width: 100%;
                         height: auto;
-                        max-height: 340px;
+                        max-height: 300px;
                         order: 1;
                         border-left: none;
-                        border-top: 1px solid #333;
-                        border-radius: 0 0 8px 8px;
-                        margin-top: 12px;
+                        border: 1px solid rgba(255,255,255,0.1);
+                        border-radius: 12px;
+                        /* deja libre la franja de botones (46px) entre el video
+                           y el panel: los botones se quedan pegados al video */
+                        margin-top: var(--strip-h, 52px);
+                        padding: 14px 16px 10px;
+                    }
+                    /* Con el panel abierto, la fila de botones y la flecha se
+                       anclan justo debajo del video (--video-h lo pone
+                       toggleVipMenu) y no al fondo del modal, bajo el panel. */
+                    .player-modal.player-acoplado:not(.player-expandido):has(#side-vip-menu.active) .player-top-controls,
+                    .player-modal.player-acoplado:not(.player-expandido):has(#side-vip-menu.active) .player-back-arrow {
+                        bottom: auto !important;
+                        top: calc(var(--video-h, 349px) + 8px) !important;
+                    }
+                    /* La franja reservada de abajo ya no hace falta: la ocupa el panel */
+                    .player-modal.player-acoplado:not(.player-expandido):has(#side-vip-menu.active) {
+                        padding-bottom: 8px;
+                    }
+                    .player-modal.player-acoplado:not(.player-expandido) #side-vip-menu.active .vip-menu-header {
+                        margin-bottom: 6px;
+                        padding-bottom: 8px;
+                    }
+                    /* Las fuentes en columnas en vez de una lista larga */
+                    .player-modal.player-acoplado:not(.player-expandido) #side-vip-menu.active #vip-menu-list {
+                        display: grid;
+                        grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+                        column-gap: 14px;
+                    }
+                    .player-modal.player-acoplado:not(.player-expandido) #side-vip-menu.active .stream-card-vip {
+                        padding: 10px 8px;
+                        border-radius: 8px;
                     }
                     .player-modal.player-acoplado .video-layout {
                         order: 0;
+                    }
+                }
+
+                /* Panel CERRADO: se esconde de verdad. Antes se "guardaba" fuera del
+                   recuadro (right:-300px) pero, si el reproductor no ocupa todo el
+                   ancho de la ventana, se asomaba por el costado. */
+                .side-vip-menu:not(.active) {
+                    visibility: hidden;
+                    pointer-events: none;
+                }
+                .side-vip-menu { transition: right 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), visibility 0s linear 0.4s; }
+                .side-vip-menu.active { transition: right 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), visibility 0s; }
+                /* En la pantalla de la película (acoplado) el panel no desliza: al
+                   cerrar desaparece al instante. Si no, saltaba al costado y se
+                   veía un rato antes de esconderse. */
+                .player-modal.player-acoplado #side-vip-menu:not(.active) {
+                    display: none !important;
+                    transition: none !important;
+                }
+
+                /* Reproductor EXPANDIDO (o a pantalla completa): el panel de fuentes
+                   ya no sale como barra lateral de alto completo ni aplastado
+                   debajo del video. Es una tarjeta flotante arriba a la derecha,
+                   justo bajo la fila de botones, con las fuentes en columnas.
+                   Va después de las reglas del acoplado para ganarles. */
+                @media (min-width: 601px) {
+                    .player-modal.player-expandido #side-vip-menu,
+                    .player-modal:not(.player-acoplado) #side-vip-menu {
+                        position: fixed;
+                        top: 68px; bottom: auto; left: auto; right: 16px;
+                        width: min(560px, calc(100vw - 32px));
+                        height: auto;
+                        max-height: calc(100vh - 150px);
+                        margin: 0; order: 0;
+                        border: 1px solid rgba(255,255,255,0.12);
+                        border-radius: 14px;
+                        padding: 14px 16px 10px;
+                        box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+                        opacity: 0; pointer-events: none;
+                        transform: translateY(-8px);
+                        transition: opacity 0.2s ease, transform 0.2s ease;
+                    }
+                    .player-modal.player-expandido #side-vip-menu.active,
+                    .player-modal:not(.player-acoplado) #side-vip-menu.active {
+                        position: fixed;
+                        top: 68px; bottom: auto; left: auto; right: 16px;
+                        width: min(560px, calc(100vw - 32px));
+                        max-height: calc(100vh - 150px);
+                        margin: 0; order: 0;
+                        border: 1px solid rgba(255,255,255,0.12);
+                        border-radius: 14px;
+                        opacity: 1; pointer-events: auto;
+                        transform: none;
+                    }
+                    .player-modal.player-expandido #side-vip-menu #vip-menu-list,
+                    .player-modal:not(.player-acoplado) #side-vip-menu #vip-menu-list {
+                        display: grid;
+                        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+                        column-gap: 14px;
                     }
                 }
 
@@ -314,11 +402,12 @@ export const SelvaStream = {
                 }
                 .vip-card-head {
                     display: flex; align-items: center; justify-content: space-between;
-                    gap: 8px; margin-bottom: 4px;
+                    flex-wrap: wrap; /* si el nombre + etiqueta no caben, la etiqueta baja */
+                    gap: 4px 8px; margin-bottom: 4px;
                 }
                 .vip-provider {
                     color: #fff; font-size: 0.85rem; font-weight: 800; letter-spacing: 0.3px;
-                    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+                    white-space: nowrap; flex-shrink: 0; /* el nombre nunca se corta con "…" */
                 }
                 .vip-lang { color: #9a9aa2; font-size: 0.7rem; font-weight: 600; margin-bottom: 8px; }
                 .vip-meta { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
@@ -1114,6 +1203,13 @@ export const SelvaStream = {
     toggleVipMenu() {
         const menu = document.getElementById('side-vip-menu');
         if (menu) menu.classList.toggle('active');
+        // Alto real del video: los botones se anclan justo debajo (ver CSS del panel)
+        const layout = document.querySelector('#player-modal .video-layout');
+        if (layout) layout.closest('.player-modal')?.style.setProperty('--video-h', layout.offsetHeight + 'px');
+        // Alto real de la fila de botones (en ventana angosta se parte en 2 filas):
+        // el panel deja ese espacio libre para no tapar los botones de episodio.
+        const franja = document.getElementById('player-top-controls');
+        if (franja) layout?.closest('.player-modal')?.style.setProperty('--strip-h', (franja.offsetHeight + 16) + 'px');
         // Solo actualiza la lista VIP, no re-dibuja los controles completos
         this.renderVipMenuList();
         // Al abrir con teclado/control: dejar el foco en la primera fuente para

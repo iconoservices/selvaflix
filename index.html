@@ -660,20 +660,26 @@
           <div class="absolute inset-0 hero-gradient"></div>
           <!-- Floating Content Info Overlay -->
           <div id="detail-hero-info" class="absolute bottom-0 left-0 right-0 px-margin-mobile pb-lg">
+            <!-- Póster pequeño antes del nombre (solo escritorio; ver style.css) -->
+            <img id="detail-poster-thumb" alt="" style="display:none;">
+            <div id="detail-title-block">
             <h1 id="detail-title" class="font-display-lg-mobile text-display-lg-mobile text-primary-container uppercase italic tracking-tighter mb-xs" style="color: #ff571a; font-family: Sora, sans-serif; font-size: 32px; font-weight: 800; line-height: 1.2;">
               Cargando...
             </h1>
             <div class="flex items-center gap-md text-on-surface-variant font-label-md text-label-md" style="color: #e6beb2; font-family: Inter, sans-serif; font-size: 14px;">
               <span id="detail-year">2024</span>
               <span class="px-xs py-[2px] border border-outline-variant rounded-sm text-[10px]" style="border-color: #5c4037; padding: 2px 4px; border-radius: 2px;">16+</span>
-              <span>2h 45m</span>
+              <span id="detail-duration">2h 45m</span>
               <div class="flex items-center text-primary" style="color: #ffb59e;">
                 <span class="material-symbols-outlined !text-[16px] mr-1" style="font-variation-settings: 'FILL' 1; font-size: 16px; margin-right: 4px;">star</span>
                 <span id="detail-rating">0.0</span>
               </div>
             </div>
+            </div><!-- /detail-title-block -->
           </div>
         </section>
+
+        <div id="detail-poster-col"><img id="detail-poster-side" alt=""></div>
 
         <!-- Muelle del reproductor: en escritorio el player se acopla aquí en vez
              de abrirse como pantalla completa, para convivir con la ficha. -->
@@ -682,6 +688,14 @@
         <!-- Título de la peli bajo el reproductor: en celular, al acoplar el
              player se oculta el hero (y su título), así que lo mostramos aquí. -->
         <h2 id="detail-dock-title"></h2>
+        <!-- Año · edad · duración · valoración bajo el nombre (los mismos datos del
+             hero, que en escritorio con el player acoplado deja de mostrarse) -->
+        <div id="detail-dock-meta">
+          <span id="detail-dock-year"></span>
+          <span class="dock-meta-edad">16+</span>
+          <span id="detail-dock-duration"></span>
+          <span class="dock-meta-rating"><span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1; font-size:16px;">star</span><span id="detail-dock-rating"></span></span>
+        </div>
 
         <!-- Actions: los 4 botones en una sola fila (PLAY oculto cuando el
              player ya está acoplado). -->

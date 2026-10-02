@@ -49,6 +49,30 @@ const auth = getAuth(app); // 🚪 El guardián de la selva
 // contra esto (identidad real de Firebase), no contra una contraseña en el
 // bundle. Las ESCRITURAS del catálogo van aparte, por el Worker con ADMIN_KEY.
 const ADMIN_EMAILS = ['jnmcsky@gmail.com'];
+// En escritorio con el player acoplado el nombre y los datos del hero van sobre la
+// columna de info (entre el póster y el reproductor). El hero ocupa todo el
+// ancho de la ventana y las columnas no, así que se miden y se fijan en píxeles.
+window.alinearTituloHero = () => {
+  const info = document.getElementById('detail-hero-info');
+  if (!info) return;
+  const acoplado = document.getElementById('detail-view')?.classList.contains('con-player-acoplado');
+  if (!acoplado || window.innerWidth < 1024) { info.style.left = ''; info.style.right = ''; return; }
+  const hero = document.getElementById('detail-hero')?.getBoundingClientRect();
+  const acciones = document.getElementById('detail-actions')?.getBoundingClientRect();
+  const dock = document.getElementById('detail-player-dock')?.getBoundingClientRect();
+  if (!hero || !acciones || !dock || !acciones.width || !dock.width) return;
+  const padIzq = parseFloat(getComputedStyle(info).paddingLeft) || 0;
+  info.style.left = Math.max(0, acciones.left - hero.left - padIzq) + 'px';
+  info.style.right = Math.max(0, hero.right - (dock.left - 28)) + 'px';
+  // Alto del reproductor + fuentes: el póster de al lado mide lo mismo
+  document.getElementById('detail-view').style.setProperty('--dock-h', Math.round(dock.height) + 'px');
+  if (!window._roDock && typeof ResizeObserver !== 'undefined') {
+    window._roDock = new ResizeObserver(() => window.alinearTituloHero());
+    window._roDock.observe(document.getElementById('detail-player-dock'));
+  }
+};
+window.addEventListener('resize', () => window.alinearTituloHero && window.alinearTituloHero());
+
 // Ruta de la que venía el usuario antes de abrir una ficha (#detail/...). Al
 // cerrar el reproductor se vuelve ahí, sin pasar por la ficha con el botón PLAY.
 let _rutaActual = '';
@@ -8773,6 +8797,24 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
     // 2. Título
     const titleEl = document.getElementById('detail-title');
     if (titleEl) titleEl.textContent = movie.title || 'Sin Título';
+    // Póster grande a la izquierda del reproductor (solo escritorio; el CSS lo oculta en celular)
+    // Alinear el nombre del hero con la columna de info (escritorio con player acoplado)
+    requestAnimationFrame(() => setTimeout(window.alinearTituloHero, 60));
+    // Póster pequeño antes del nombre (el CSS lo muestra solo en escritorio)
+    const thumbEl = document.getElementById('detail-poster-thumb');
+    if (thumbEl) {
+        if (movie.img) { thumbEl.src = movie.img; thumbEl.alt = movie.title || ''; thumbEl.style.display = ''; }
+        else thumbEl.style.display = 'none';
+    }
+    const posterEl = document.getElementById('detail-poster-side');
+    if (posterEl) {
+        let urlPoster = movie.img || '';
+        // El póster se ve grande: una w500 de TMDB alcanza, pero si vino más chica se sube
+        if (urlPoster.includes('image.tmdb.org')) urlPoster = urlPoster.replace(/\/w(92|154|185|200|300)\//, '/w500/');
+        posterEl.src = urlPoster;
+        posterEl.alt = movie.title || '';
+        document.getElementById('detail-poster-col')?.classList.toggle('sin-poster', !urlPoster);
+    }
     // Título bajo el reproductor acoplado (visible en celular, donde el hero se oculta)
     const dockTitleEl = document.getElementById('detail-dock-title');
     if (dockTitleEl) dockTitleEl.textContent = movie.title || 'Sin Título';
@@ -8784,6 +8826,11 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
     // 4. Rating
     const ratingEl = document.getElementById('detail-rating');
     if (ratingEl) ratingEl.textContent = movie.rating || '—';
+    // Los mismos datos bajo el nombre (escritorio con el player acoplado)
+    const _setTxt = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+    _setTxt('detail-dock-year', movie.year || movie.release_year || '');
+    _setTxt('detail-dock-rating', movie.rating || '—');
+    _setTxt('detail-dock-duration', document.getElementById('detail-duration')?.textContent || '');
 
     // 5. Sinopsis
     const synopsisEl = document.getElementById('detail-synopsis');

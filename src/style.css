@@ -6101,13 +6101,49 @@ body.admin-locked {
 
   /* Solo montamos la rejilla de 2 columnas cuando hay player acoplado;
      sin él la ficha conserva su maquetación de una columna. */
+  /* Tres columnas abiertas hacia los costados: la info a la izquierda, un
+     póster pequeño en medio (a la derecha del nombre y los botones) y el
+     reproductor (620px) a la derecha, no amontonados en el centro. */
   #detail-view.con-player-acoplado main {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 620px);
-    column-gap: 40px;
+    grid-template-columns: 150px minmax(0, 1fr) minmax(0, 620px);
+    column-gap: 24px;
     align-items: start;
-    max-width: 1500px;
+    /* Sin tope de 1500px: la ficha y "Más como esto" usan todo el ancho de la
+       pantalla, con un margen a cada lado. */
+    max-width: none;
+    padding-left: 40px;
+    padding-right: 40px;
     margin: 0 auto;
+  }
+
+  #detail-view.con-player-acoplado #detail-poster-col {
+    display: block;
+    grid-column: 1;
+    grid-row: 2;
+    margin-top: -120px; /* arranca a la altura del reproductor, sobre el borde del hero */
+    align-self: start;
+    position: relative;
+    z-index: 2;
+  }
+  #detail-view.con-player-acoplado #detail-poster-col.sin-poster { display: none; }
+  #detail-poster-side {
+    display: block;
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    border-radius: 8px;
+    background: #1c1b1b;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    border: 1px solid rgba(255,255,255,0.12);
+  }
+
+  /* El título duplicado bajo el reproductor y la miniatura antes del nombre ya
+     no se usan en escritorio. */
+  #detail-view.con-player-acoplado #detail-dock-title,
+  #detail-view.con-player-acoplado #detail-dock-meta,
+  #detail-poster-thumb {
+    display: none !important;
   }
 
   /* El hero y las recomendadas siguen ocupando todo el ancho */
@@ -6122,10 +6158,16 @@ body.admin-locked {
   #detail-view.con-player-acoplado #detail-synopsis-section,
   #detail-view.con-player-acoplado #detail-admin-section,
   #detail-view.con-player-acoplado main > section:not(#detail-hero) {
-    grid-column: 1;
+    grid-column: 2;
     max-width: none;
     margin-left: 0 !important;
     margin-right: 0 !important;
+  }
+
+  /* La caja de consejos (y el reparto) ocupan también la columna del póster:
+     más ancha y sin texto apretado; el resto de la info sigue en la columna central. */
+  #detail-view.con-player-acoplado main > section:not(#detail-hero):not(#detail-actions):not(#detail-synopsis-section) {
+    grid-column: 1 / 3;
   }
 
   /* Con el player acoplado el hero se encoge: si mide 700px el reproductor
@@ -6140,6 +6182,24 @@ body.admin-locked {
 
   #detail-view.con-player-acoplado #detail-hero-info {
     padding-bottom: 20px !important;
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+    /* left/right los fija alinearTituloHero() (main.js) midiendo las columnas:
+       el nombre arranca donde empieza la columna de info (después del póster)
+       y termina antes del reproductor, para que un título largo baje a otra
+       línea en vez de quedar tapado por el player. */
+  }
+
+  /* Póster pequeño antes del nombre */
+  #detail-poster-thumb {
+    flex: 0 0 auto;
+    width: 64px;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+    border-radius: 6px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.55);
+    border: 1px solid rgba(255,255,255,0.14);
   }
 
   /* El muelle ocupa la columna derecha y acompaña al hacer scroll.
@@ -6149,8 +6209,11 @@ body.admin-locked {
      al lado (que no tiene ese offset). En 0 arranca a la misma altura. */
   #detail-view.con-player-acoplado #detail-player-dock {
     display: block;
-    grid-column: 2;
-    grid-row: 2 / span 20;
+    grid-column: 3;
+    /* 3 filas (acciones, sinopsis, consejos). Antes ocupaba 20 y la altura
+       sobrante se repartía en filas vacías: ~240px de hueco antes de
+       "Más como esto". */
+    grid-row: 2 / span 3;
     position: sticky;
     top: 0;
     align-self: start;
@@ -6190,6 +6253,10 @@ body.admin-locked {
     background: transparent !important;
   }
 }
+
+/* Póster lateral: solo escritorio con el player acoplado (en celular el hero ya
+   usa el póster como fondo y el player va arriba a todo el ancho) */
+#detail-poster-col { display: none; }
 
 /* ── Controles del reproductor acoplado ─────────────────────────────
    En pantalla completa los controles son `fixed` y se pegan a las
@@ -6608,8 +6675,124 @@ body.admin-locked {
     z-index: 5;
   }
   #detail-view.con-player-acoplado main {
-    max-width: 1320px !important;
+    /* Antes 1320px: la ficha quedaba amontonada en el centro. Ahora usa todo el
+       ancho; el relleno derecho deja libre a los botones flotantes. */
+    max-width: none !important;
+    padding-left: 40px !important;
     padding-right: 96px !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+  /* Columnas: póster (ancho según pantalla) | información | reproductor.
+     La fila 4 (la de los consejos) es la flexible: absorbe la altura que sobra
+     del reproductor, así la tarjeta de consejos termina justo donde terminan el
+     reproductor y sus fuentes, y el póster también. */
+  #detail-view.con-player-acoplado main {
+    grid-template-columns: clamp(140px, 10vw, 240px) minmax(0, 1fr) minmax(0, 620px) !important;
+    grid-template-rows: auto auto auto minmax(0, 1fr);
+    column-gap: 28px !important;
+  }
+  /* El póster conserva su proporción natural (2:3), arriba a la izquierda */
+  #detail-view.con-player-acoplado #detail-poster-col {
+    grid-row: 2 !important;
+    align-self: start !important;
+  }
+  #detail-view.con-player-acoplado #detail-poster-side {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 2 / 3;
+    object-fit: cover;
+  }
+  /* Acciones y sinopsis sin el relleno de 80px que apretaba los botones */
+  #detail-view.con-player-acoplado #detail-actions,
+  #detail-view.con-player-acoplado #detail-synopsis-section {
+    max-width: none;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+  #detail-view.con-player-acoplado #detail-actions {
+    gap: 8px !important;
+    padding-top: 16px !important;
+    padding-bottom: 8px !important;
+  }
+  #detail-view.con-player-acoplado #detail-synopsis-section {
+    padding-top: 6px !important;
+    padding-bottom: 12px !important;
+  }
+  #detail-view.con-player-acoplado #detail-actions-row {
+    flex-wrap: wrap !important; /* otra regla la fuerza a una sola fila */
+    gap: 8px !important;
+  }
+  /* Botones completos, con su texto entero y a una sola fila si caben (compactos) */
+  #detail-view.con-player-acoplado #detail-actions button {
+    flex: 0 0 auto !important;
+    min-width: 0;
+    height: 42px !important;
+    padding: 0 10px !important;
+    font-size: 0.72rem !important;
+    gap: 5px !important;
+    white-space: nowrap;
+    max-width: none !important;
+  }
+  /* La tarjeta de consejos va en la columna central, bajo la sinopsis, y se
+     estira hasta el final del reproductor con sus fuentes */
+  #detail-view.con-player-acoplado main > section:not(#detail-hero):not(#detail-actions):not(#detail-synopsis-section) {
+    grid-column: 1 / 3 !important; /* también bajo el póster: sin hueco a la izquierda */
+    align-self: stretch;
+    zoom: 0.92; /* un poco más compacta: cabe sin pasarse de la altura del reproductor */
+    max-width: none;
+    margin-bottom: 0 !important;
+    padding-left: 22px !important;
+    padding-right: 22px !important;
+  }
+  /* La tarjeta de consejos se estira hasta el final del reproductor; para que no
+     quede vacío abajo, los 3 consejos se reparten parejo por toda su altura. */
+  #detail-view.con-player-acoplado main > section:not(#detail-hero):not(#detail-actions):not(#detail-synopsis-section) {
+    display: flex;
+    flex-direction: column;
+  }
+  #detail-view.con-player-acoplado main > section:not(#detail-hero):not(#detail-actions):not(#detail-synopsis-section) > div:last-child {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  #detail-view.con-player-acoplado #tip-escritorio {
+    flex: 1;
+    justify-content: space-evenly;
+    gap: 6px !important;
+  }
+  /* "Más como esto" a todo el ancho de la ficha (antes tope de 1180px centrado) */
+  /* (ver más abajo la versión de 2 columnas para ventanas de escritorio angostas) */
+  #detail-view.con-player-acoplado #detail-more-like-this-title {
+    max-width: none;
+    margin: 8px 0 16px !important;
+    padding: 0 !important;
+    text-align: center;
+  }
+  #detail-view.con-player-acoplado #detail-more-like-this {
+    max-width: none;
+    margin: 0 !important;
+    padding: 0 !important;
+    grid-template-columns: repeat(auto-fill, minmax(188px, 1fr)) !important;
+  }
+}
+
+/* Escritorio angosto (1024–1499px): no hay ancho para póster + info + reproductor.
+   Se quita el póster lateral y quedan 2 columnas (info | reproductor). */
+@media (min-width: 1024px) and (max-width: 1499px) {
+  #detail-view.con-player-acoplado main {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 620px) !important;
+  }
+  #detail-view.con-player-acoplado #detail-poster-col {
+    display: none !important;
+  }
+  #detail-view.con-player-acoplado #detail-actions,
+  #detail-view.con-player-acoplado #detail-synopsis-section,
+  #detail-view.con-player-acoplado main > section:not(#detail-hero):not(#detail-actions):not(#detail-synopsis-section) {
+    grid-column: 1 !important;
+  }
+  #detail-view.con-player-acoplado #detail-player-dock {
+    grid-column: 2 !important;
   }
 }
 
@@ -6637,6 +6820,14 @@ body.admin-locked {
 
 /* Oculto por defecto (solo se muestra acoplado en celular, regla de arriba) */
 #detail-dock-title { display: none; }
+#detail-dock-meta { display: none; }
+/* Celular con el player acoplado: el hero se oculta, así que los datos van bajo el título */
+@media (max-width: 1023px) {
+  #detail-view.con-player-acoplado #detail-dock-meta {
+    display: flex; align-items: center; gap: 12px;
+    padding: 4px 16px 0; color: #e6beb2; font-family: Inter, sans-serif; font-size: 13px;
+  }
+}
 
 /* Consejos según dispositivo, resueltos por CSS (no por JS) para que siempre
    acierten sin depender de cuándo se abrió la ficha. */

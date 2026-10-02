@@ -10202,6 +10202,7 @@ function initApp(filterType = '', genreId = '', year = '') {
 
   // Hero Carousel Priority (v2.40)
   const heroSection = document.getElementById('hero-section');
+  const filtroPorGenero = !!(genreId && genreId !== 'all');
   if (filterType === 'live' || filterType === 'tv') {
     if (heroSection) heroSection.style.display = 'none';
   } else if (heroPool.length > 0) {
@@ -10281,6 +10282,15 @@ function initApp(filterType = '', genreId = '', year = '') {
     const live = allContent.filter(c => c.type === 'live' || c.type === 'tv');
     renderTVHub(live);
 
+  } else if (filtroPorGenero) {
+    // Categoría elegida en la home: solo la grilla de títulos de ese género
+    const delGenero = allContent.filter(c => c.type !== 'live' && !esRoto(c));
+    if (delGenero.length > 0) {
+      renderGallery('Categoría', [{ label: 'Títulos de esta categoría', items: delGenero }]);
+    } else if (container) {
+      container.innerHTML = '<p style="padding:80px;text-align:center;color:var(--text-muted);">No hay títulos en esta categoría todavía 🌴</p>';
+    }
+
   } else {
     if (container) container.innerHTML = ''; // Los skeletons cumplieron su misión
 
@@ -10294,14 +10304,29 @@ function initApp(filterType = '', genreId = '', year = '') {
       return (r >= 9.5 || r <= 0) ? 5.0 : r;
     };
 
-    // 1. Recomendadas (La Vieja Confiable: Mix Rating + Popularidad)
-    const recommended = [...allContent]
-      .map(c => ({
-        ...c,
-        score: calidad(c) + (Math.log10((playCounts[c.tmdbId] || playCounts[c.id] || 0) + 1) * 3)
-      }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 12);
+    // Variedad diaria: muestra al azar con semilla del día (cambia cada 24 h,
+    // estable dentro del día para que la home no "salte" al recargar). `salt`
+    // hace que cada fila saque una muestra distinta del mismo pool.
+    const muestraDelDia = (pool, n, salt) => {
+      let s = (Math.floor(Date.now() / 86400000) * 2654435761 + salt * 40503) >>> 0;
+      const rnd = () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+      const a = [...pool];
+      for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+      return a.slice(0, n);
+    };
+    // Los mejor puntuados de un grupo (pool de donde sale la muestra)
+    const mejores = (arr, n) => [...arr].sort((a, b) => calidad(b) - calidad(a)).slice(0, n);
+
+    // 1. Recomendadas (Mix Rating + Popularidad; 12 al azar entre las 36 mejores)
+    const recommended = muestraDelDia(
+      [...allContent]
+        .map(c => ({
+          ...c,
+          score: calidad(c) + (Math.log10((playCounts[c.tmdbId] || playCounts[c.id] || 0) + 1) * 3)
+        }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 36),
+      12, 1);
     if (recommended.length > 0) renderRow('Recomendadas para ti', recommended);
 
     // 1.5 Estrenos <año> — lo nuevo y actual. Primero lo de este año ordenado
@@ -10353,13 +10378,34 @@ function initApp(filterType = '', genreId = '', year = '') {
     if (liveChannels.length > 0) renderRow('📡 Canales en Vivo', liveChannels);
 
     // 3. Categorías Estándar
-    const movies = allContent.filter(c => c.type === 'movie' || !c.type).slice(0, 12);
-    const series = allContent.filter(c => c.type === 'series' || c.type === 'tv').slice(0, 12);
-    const anime = allContent.filter(c => c.type === 'anime').slice(0, 12);
+    const noMostrados = new Set([...recommended, ...estrenos, ...popularity].map(c => c.id));
+    const frescos = (arr) => { const f = arr.filter(c => !noMostrados.has(c.id)); return f.length >= 12 ? f : arr; };
+    const movies = muestraDelDia(mejores(frescos(allContent.filter(c => c.type === 'movie' || !c.type)), 80), 12, 2);
+    const series = muestraDelDia(mejores(frescos(allContent.filter(c => c.type === 'series' || c.type === 'tv')), 60), 12, 3);
+    const anime = muestraDelDia(mejores(frescos(allContent.filter(c => c.type === 'anime')), 60), 12, 4);
 
     if (movies.length > 0) renderRow('Películas', movies, 'movies');
     if (series.length > 0) renderRow('Series', series, 'series');
     if (anime.length > 0) renderRow('Anime', anime, 'anime');
+
+    // 4. Filas por género (ids de TMDB; el título se muestra solo si hay >= 6).
+    // Mezcla películas y series, sin repetir títulos de las filas de arriba.
+    const generos = [
+      ['💥 Acción', '28'], ['😂 Para reír', '35'], ['😱 Terror', '27'],
+      ['🚀 Ciencia ficción', '878'], ['❤️ Romance', '10749'], ['🕵️ Suspenso', '53'],
+      ['🧙 Fantasía', '14'], ['🎭 Drama', '18']
+    ];
+    // Cada día arrancan 4 géneros distintos (rotan con la semilla del día)
+    const hoy = muestraDelDia(generos, 4, 5);
+    const yaVistos = new Set([...noMostrados, ...movies, ...series, ...anime].map(c => c.id));
+    for (const [titulo, gid] of hoy) {
+      const pool = allContent.filter(c => c.type !== 'live' && c.type !== 'anime' && !yaVistos.has(c.id) &&
+        (Array.isArray(c.genres) ? c.genres.map(String).includes(gid) : String(c.genres) === gid));
+      if (pool.length < 6) continue;
+      const fila = muestraDelDia(mejores(pool, 40), 12, 10 + Number(gid) % 97);
+      fila.forEach(c => yaVistos.add(c.id));
+      renderRow(titulo, fila);
+    }
   }
 
   // 🚀 Encendido del motor de rotación (al final para liberar el hilo principal)

@@ -129,15 +129,105 @@ function catalogResponse(gz, meta, corsHeaders) {
     });
 }
 
+// ═══ Sincronización automática con Vimeus ══════════════════════════════════════
+// Trae lo que Vimeus tiene y todavía no está en el catálogo, y lo agrega a
+// Supabase (con service_role). Corre en el Cron; también a mano desde
+// /flix/admin/vimeus-sync.
+//  • Los tmdb_id que ya existen salen de la copia en KV (0 pedidos a Supabase).
+//  • Presupuesto de pedidos por corrida (SYNC_BUDGET, 40 por defecto = cabe en
+//    el plan gratis de Workers, que corta en 50 subrequests): lee páginas desde
+//    un cursor guardado en KV y agrega títulos nuevos hasta gastarlo. La
+//    siguiente corrida sigue donde quedó, así que con los días recorre todo
+//    sin releerlo de cero. Con plan de pago se puede subir SYNC_BUDGET.
+async function autoSyncVimeus(env) {
+    if (!env.VIMEUS_API_KEY || !env.CATALOG_KV) return { skipped: 'faltan VIMEUS_API_KEY o CATALOG_KV' };
+    const gz = await env.CATALOG_KV.get(CATALOG_KV_KEY, 'arrayBuffer');
+    if (!gz) return { skipped: 'no hay copia del catálogo en KV todavía' };
+    const rows = JSON.parse(await new Response(new Blob([gz]).stream().pipeThrough(new DecompressionStream('gzip'))).text());
+    const known = new Set(rows.map(r => String(r.tmdb_id ?? r.tmdbId ?? '')).filter(x => x && x !== 'null' && x !== 'undefined'));
+
+    const budget = Number(env.SYNC_BUDGET) || 40;
+    const SUPA_URL = env.SUPABASE_URL || 'https://rkihmlggmjhxbzeieirl.supabase.co';
+    const WRITE_KEY = env.SUPABASE_SERVICE_ROLE || env.SUPABASE_ANON_KEY || 'sb_publishable_Yd_Nf6FPN8uQdTyIAlha8g_3FDy0hrS';
+    const TMDB_KEY = env.TMDB_API_KEY || '15d2ea6d0dc1d476efbca3eba2b9bbfb';
+    let used = 0, added = 0, failed = 0, agotado = false;
+
+    for (const tipo of ['movies', 'series', 'animes']) {
+        if (agotado) break;
+        const cursorKey = `vimeus:cursor:${tipo}`;
+        let page = Number(await env.CATALOG_KV.get(cursorKey)) || 1;
+        while (!agotado) {
+            if (used >= budget) { agotado = true; break; }
+            used++;
+            const r = await fetch(`https://vimeus.com/api/listing/${tipo}?page=${page}`, { headers: { 'X-API-Key': env.VIMEUS_API_KEY } });
+            let data;
+            try { data = await r.json(); } catch { break; }
+            const items = data?.data?.result || data?.result || [];
+            const pages = data?.data?.pages || data?.pages || 1;
+
+            const esSerie = tipo !== 'movies';
+            for (const it of items) {
+                if (!it.tmdb_id || known.has(String(it.tmdb_id))) continue;
+                if (used + 2 > budget) { agotado = true; break; }
+                used += 2;
+                try {
+                    const tmdbRes = await fetch(`https://api.themoviedb.org/3/${esSerie ? 'tv' : 'movie'}/${it.tmdb_id}?api_key=${TMDB_KEY}&language=es-MX&append_to_response=external_ids`);
+                    const d = await tmdbRes.json();
+                    if (!tmdbRes.ok) { failed++; continue; }
+                    const row = {
+                        id: crypto.randomUUID(),
+                        tmdb_id: String(it.tmdb_id),
+                        imdb_id: d.external_ids?.imdb_id || null,
+                        title: d.title || d.name || it.title || null,
+                        type: tipo === 'animes' ? 'anime' : (tipo === 'series' ? 'series' : 'movie'),
+                        status: 'healthy',
+                        data: {
+                            img: d.poster_path ? `https://image.tmdb.org/t/p/w500${d.poster_path}` : (it.poster ? `https://image.tmdb.org/t/p/w500${it.poster}` : ''),
+                            backdrop: d.backdrop_path ? `https://image.tmdb.org/t/p/original${d.backdrop_path}` : (it.backdrop ? `https://image.tmdb.org/t/p/original${it.backdrop}` : ''),
+                            genres: (d.genres || []).map(g => String(g.id)),
+                            rating: d.vote_average ? d.vote_average.toFixed(1) : '',
+                            year: (d.release_date || d.first_air_date || '').slice(0, 4),
+                            original_title: d.original_title || d.original_name || '',
+                            lang: 'es-MX',
+                            embed: '',
+                            createdAt: Date.now()
+                        }
+                    };
+                    const ins = await fetch(`${SUPA_URL}/rest/v1/movies`, {
+                        method: 'POST',
+                        headers: { apikey: WRITE_KEY, Authorization: `Bearer ${WRITE_KEY}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+                        body: JSON.stringify(row)
+                    });
+                    if (ins.ok) { added++; known.add(String(it.tmdb_id)); } else { failed++; console.error('sync Vimeus: insert falló', ins.status, (await ins.text()).slice(0, 150)); }
+                } catch (e) { failed++; console.error('sync Vimeus: error con', it.title, e.message); }
+            }
+            if (agotado) break; // sigue en esta misma página la próxima vez
+            if (page >= pages) { await env.CATALOG_KV.put(cursorKey, '1'); break; }
+            page++;
+            await env.CATALOG_KV.put(cursorKey, String(page));
+        }
+    }
+    return { added, failed, used, budget };
+}
+
 export default {
-    // Cron Trigger: refresca la copia del catálogo en KV desde un solo lugar.
+    // Cron Trigger: sincroniza con Vimeus y refresca la copia del catálogo en KV.
+    // El refresh baja la tabla entera de Supabase (egress), así que solo se hace
+    // en la corrida diaria de las 3am o si la sincronización agregó algo.
     async scheduled(event, env, ctx) {
         if (!env.CATALOG_KV) return;
-        ctx.waitUntil(
-            refreshCatalogKV(env)
-                .then(n => console.log(`cron: catálogo KV refrescado (${n} filas)`))
-                .catch(e => console.error('cron: refresh de catálogo falló —', e.message))
-        );
+        ctx.waitUntil((async () => {
+            let added = 0;
+            try {
+                const r = await autoSyncVimeus(env);
+                console.log('cron: sync Vimeus —', JSON.stringify(r));
+                added = r.added || 0;
+            } catch (e) { console.error('cron: sync Vimeus falló —', e.message); }
+            if (added > 0 || event.cron === '0 3 * * *') {
+                try { console.log(`cron: catálogo KV refrescado (${await refreshCatalogKV(env)} filas)`); }
+                catch (e) { console.error('cron: refresh de catálogo falló —', e.message); }
+            }
+        })());
     },
 
     async fetch(request, env, ctx) {
@@ -660,6 +750,17 @@ export default {
                         }
                     } catch (e) { console.error('KV refresh tras escritura falló:', e.message); }
                 };
+
+                // Sincronizar con Vimeus a mano (misma función que el Cron)
+                if (url.pathname === '/flix/admin/vimeus-sync') {
+                    try {
+                        const r = await autoSyncVimeus(env);
+                        if (r.added > 0) await bust();
+                        return new Response(JSON.stringify(r), { headers: corsHeaders });
+                    } catch (e) {
+                        return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders });
+                    }
+                }
 
                 let target, method, extraPrefer;
                 if (url.pathname === '/flix/admin/movie-insert') {

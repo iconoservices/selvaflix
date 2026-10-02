@@ -23,6 +23,54 @@
  *       cae al camino viejo (directo a Supabase) — no rompe nada, solo no mejora.
  */
 
+// ═══ Admin por sesión de Firebase ══════════════════════════════════════════════
+// El sitio manda el ID token de Firebase del usuario en `x-selva-fbtoken`. Se
+// verifica la firma RS256 contra las claves públicas de Google, el proyecto
+// (aud/iss) y que el correo esté en la lista de admins. Así no hace falta
+// tipear ADMIN_KEY (que queda como respaldo para curl/scripts).
+const FB_PROJECT_ID = 'selvaflix-5d991';
+const FB_JWK_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
+const DEFAULT_ADMIN_EMAILS = ['jnmcsky@gmail.com'];
+
+function b64urlToBytes(s) {
+    s = s.replace(/-/g, '+').replace(/_/g, '/');
+    while (s.length % 4) s += '=';
+    const bin = atob(s);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+}
+
+async function verifyFirebaseAdmin(token, env) {
+    try {
+        const parts = (token || '').split('.');
+        if (parts.length !== 3) return false;
+        const dec = new TextDecoder();
+        const header = JSON.parse(dec.decode(b64urlToBytes(parts[0])));
+        const claims = JSON.parse(dec.decode(b64urlToBytes(parts[1])));
+        if (header.alg !== 'RS256' || !header.kid) return false;
+        const now = Math.floor(Date.now() / 1000);
+        if (claims.aud !== FB_PROJECT_ID || claims.iss !== `https://securetoken.google.com/${FB_PROJECT_ID}`) return false;
+        if (!claims.exp || claims.exp < now || (claims.iat && claims.iat > now + 300)) return false;
+        const res = await fetch(FB_JWK_URL, { cf: { cacheTtl: 3600, cacheEverything: true } });
+        if (!res.ok) return false;
+        const jwk = (await res.json()).keys.find(k => k.kid === header.kid);
+        if (!jwk) return false;
+        const key = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+        const ok = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, b64urlToBytes(parts[2]), new TextEncoder().encode(parts[0] + '.' + parts[1]));
+        if (!ok) return false;
+        const admins = (env.ADMIN_EMAILS ? String(env.ADMIN_EMAILS).split(',') : DEFAULT_ADMIN_EMAILS).map(e => e.trim().toLowerCase());
+        return claims.email_verified === true && admins.includes(String(claims.email || '').toLowerCase());
+    } catch { return false; }
+}
+
+async function isAdminRequest(request, url, env) {
+    const fb = request.headers.get('x-selva-fbtoken');
+    if (fb && await verifyFirebaseAdmin(fb, env)) return true;
+    const key = request.headers.get('x-selva-admin') || url.searchParams.get('admin');
+    return !!(env.ADMIN_KEY && key === env.ADMIN_KEY);
+}
+
 // ═══ Catálogo cacheado (KV global + refresh por Cron) ══════════════════════════
 const CATALOG_KV_KEY = 'catalog:v2';           // valor = JSON del catálogo, gzipeado
 const CATALOG_REFRESH_MIN_MS = 90_000;         // tras escritura del admin, refrescar como mucho 1 vez / 90 s
@@ -97,7 +145,7 @@ export default {
         const corsHeaders = {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, x-selva-auth, x-selva-admin, Range',
+            'Access-Control-Allow-Headers': 'Content-Type, x-selva-auth, x-selva-admin, x-selva-fbtoken, Range',
             'Access-Control-Expose-Headers': 'Content-Length, Content-Range'
         };
 
@@ -554,8 +602,7 @@ export default {
                     return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
                 }
                 if (request.method === 'GET') {
-                    const adminKey = request.headers.get('x-selva-admin') || url.searchParams.get('admin');
-                    if (env.ADMIN_KEY && adminKey !== env.ADMIN_KEY) {
+                    if (!(await isAdminRequest(request, url, env))) {
                         return new Response(JSON.stringify({ error: 'no autorizado' }), { status: 403, headers: corsHeaders });
                     }
                     const out = [];
@@ -586,13 +633,8 @@ export default {
             // para no romper el admin ANTES de que se termine de armar la Fase 2
             // (mientras RLS siga apagado, la anon key escribe igual).
             if (url.pathname.startsWith('/flix/admin/')) {
-                const adminKey = request.headers.get('x-selva-admin') || url.searchParams.get('admin');
-                // Solo se exige ADMIN_KEY si el secreto ya está cargado en
-                // Cloudflare. Así el rollout no rompe nada: se despliega el
-                // Worker y el sitio, después se carga el secreto. OJO: hay que
-                // cargar ADMIN_KEY y SUPABASE_SERVICE_ROLE ANTES de correr
-                // sql/rls_phase2.sql, o el admin queda sin poder editar.
-                if (env.ADMIN_KEY && adminKey !== env.ADMIN_KEY) {
+                // Pasa con sesión de Firebase de un admin, o con ADMIN_KEY.
+                if (!(await isAdminRequest(request, url, env))) {
                     return new Response(JSON.stringify({ error: 'Admin no autorizado' }), { status: 403, headers: corsHeaders });
                 }
 

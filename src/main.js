@@ -202,12 +202,17 @@ async function supaFetchAllMovieRowsDirect() {
 // Worker igual funciona (cae a la anon key), así que este cambio es seguro
 // de desplegar ANTES de correr el SQL.
 async function adminWorkerCall(path, payload, _retried) {
+  // Sesión de Firebase (cuenta admin) → el Worker la valida y no hace falta
+  // clave. Si no hay sesión, cae a la clave manual de abajo.
+  let fbToken = '';
+  try { fbToken = auth.currentUser ? await auth.currentUser.getIdToken() : ''; } catch {}
   const res = await fetch(`${SelvaStream.MASTER_WORKER_URL}/flix/admin/${path}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'x-selva-auth': SelvaStream.AUTH_TOKEN,
-      'x-selva-admin': localStorage.getItem('selva_admin_key') || ''
+      'x-selva-admin': localStorage.getItem('selva_admin_key') || '',
+      'x-selva-fbtoken': fbToken
     },
     body: JSON.stringify(payload)
   });

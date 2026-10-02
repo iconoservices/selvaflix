@@ -367,7 +367,19 @@ applyIOSNotchFix();
    🧹 El "Conserje Invisible": Este pequeño script corre en segundo plano. 
    Su trabajo es asegurarse de que la app abra rápido y tenga comida (datos) incluso si cae un diluvio y se va el internet.
 */
-if ('serviceWorker' in navigator) {
+// En desarrollo (localhost) el Service Worker guardaba versiones viejas de los
+// archivos y los cambios no se veían ni recargando. Ahí no se registra; y si ya
+// había uno de una sesión anterior, se desregistra y se limpia su caché.
+const _esLocalDev = ['localhost', '127.0.0.1'].includes(location.hostname);
+if (_esLocalDev && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    if (!regs.length) return;
+    Promise.all(regs.map(r => r.unregister()))
+      .then(() => (window.caches ? caches.keys().then(ks => Promise.all(ks.map(k => caches.delete(k)))) : null))
+      .then(() => location.reload());
+  }).catch(() => {});
+}
+if ('serviceWorker' in navigator && !_esLocalDev) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
       .then(reg => {

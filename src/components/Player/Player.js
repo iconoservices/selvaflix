@@ -170,6 +170,16 @@ export const SelvaStream = {
             window.closePlayer ? window.closePlayer() : history.back();
         });
 
+        // Las fuentes están siempre a la vista bajo el video: se re-mide la franja
+        // cuando cambia el tamaño del video o de la fila de botones.
+        if (typeof ResizeObserver !== 'undefined') {
+            const ro = new ResizeObserver(() => this.syncFranja());
+            const v = modal.querySelector('.video-layout');
+            const c = document.getElementById('player-top-controls');
+            if (v) ro.observe(v);
+            if (c) ro.observe(c);
+        }
+
 
         if (!document.getElementById('selva-player-css')) {
             const style = document.createElement('style');
@@ -272,8 +282,18 @@ export const SelvaStream = {
                    puntual — trade-off aceptado a cambio de no tapar el video. En
                    pantalla completa (no acoplado) sigue deslizando desde la
                    derecha como siempre. */
-                @media (min-width: 601px) {
-                    .player-modal.player-acoplado #side-vip-menu.active {
+                @media all {
+                    /* SIEMPRE VISIBLE (escritorio, tablet y celular): en la pantalla
+                       de la película (acoplado, no expandido) las fuentes están a la
+                       vista debajo de los botones, sin tener que abrirlas. El botón
+                       "FUENTES VIP" y la X ya no hacen falta ahí. En celular ya no
+                       es una hoja que tapa el video. */
+                    .player-modal.player-acoplado:not(.player-expandido) #side-vip-menu {
+                        display: block;
+                        visibility: visible;
+                        pointer-events: auto;
+                        transform: none;
+                        inset: auto;
                         position: static;
                         width: 100%;
                         height: auto;
@@ -282,36 +302,59 @@ export const SelvaStream = {
                         border-left: none;
                         border: 1px solid rgba(255,255,255,0.1);
                         border-radius: 12px;
-                        /* deja libre la franja de botones (46px) entre el video
-                           y el panel: los botones se quedan pegados al video */
+                        /* deja libre la franja de botones entre el video y el
+                           panel: los botones se quedan pegados al video */
                         margin-top: var(--strip-h, 52px);
                         padding: 14px 16px 10px;
+                        transition: none;
                     }
-                    /* Con el panel abierto, la fila de botones y la flecha se
-                       anclan justo debajo del video (--video-h lo pone
-                       toggleVipMenu) y no al fondo del modal, bajo el panel. */
-                    .player-modal.player-acoplado:not(.player-expandido):has(#side-vip-menu.active) .player-top-controls,
-                    .player-modal.player-acoplado:not(.player-expandido):has(#side-vip-menu.active) .player-back-arrow {
+                    /* La fila de botones y la flecha se anclan justo debajo del
+                       video (--video-h lo mide syncFranja) y no al fondo del modal. */
+                    .player-modal.player-acoplado:not(.player-expandido) .player-top-controls,
+                    .player-modal.player-acoplado:not(.player-expandido) .player-back-arrow {
                         bottom: auto !important;
                         top: calc(var(--video-h, 349px) + 8px) !important;
                     }
                     /* La franja reservada de abajo ya no hace falta: la ocupa el panel */
-                    .player-modal.player-acoplado:not(.player-expandido):has(#side-vip-menu.active) {
+                    .player-modal.player-acoplado:not(.player-expandido) {
                         padding-bottom: 8px;
                     }
-                    .player-modal.player-acoplado:not(.player-expandido) #side-vip-menu.active .vip-menu-header {
+                    .player-modal.player-acoplado:not(.player-expandido) #side-vip-menu .vip-menu-header {
                         margin-bottom: 6px;
                         padding-bottom: 8px;
                     }
+                    .player-modal.player-acoplado:not(.player-expandido) #side-vip-menu .vip-menu-header button,
+                    .player-modal.player-acoplado:not(.player-expandido) #floating-sources-btn {
+                        display: none !important; /* la X trae display inline: hace falta !important */
+                    }
                     /* Las fuentes en columnas en vez de una lista larga */
-                    .player-modal.player-acoplado:not(.player-expandido) #side-vip-menu.active #vip-menu-list {
+                    .player-modal.player-acoplado:not(.player-expandido) #side-vip-menu #vip-menu-list {
                         display: grid;
                         grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
                         column-gap: 14px;
                     }
-                    .player-modal.player-acoplado:not(.player-expandido) #side-vip-menu.active .stream-card-vip {
+                    .player-modal.player-acoplado:not(.player-expandido) #side-vip-menu .stream-card-vip {
                         padding: 10px 8px;
                         border-radius: 8px;
+                    }
+                    @media (max-width: 600px) {
+                        .player-modal.player-acoplado:not(.player-expandido) #side-vip-menu #vip-menu-list {
+                            /* 3 por fila también en celular (nombre arriba, la
+                               etiqueta baja debajo si no cabe al lado) */
+                            grid-template-columns: repeat(3, minmax(0, 1fr));
+                            column-gap: 6px;
+                        }
+                        .player-modal.player-acoplado:not(.player-expandido) #side-vip-menu .stream-card-vip {
+                            padding: 8px 5px;
+                        }
+                        .player-modal.player-acoplado:not(.player-expandido) #side-vip-menu .vip-provider {
+                            font-size: 0.78rem;
+                        }
+                        .player-modal.player-acoplado:not(.player-expandido) #side-vip-menu {
+                            max-height: none;
+                            padding: 12px 10px 6px;
+                            margin-top: var(--strip-h, 100px);
+                        }
                     }
                     .player-modal.player-acoplado .video-layout {
                         order: 0;
@@ -330,7 +373,7 @@ export const SelvaStream = {
                 /* En la pantalla de la película (acoplado) el panel no desliza: al
                    cerrar desaparece al instante. Si no, saltaba al costado y se
                    veía un rato antes de esconderse. */
-                .player-modal.player-acoplado #side-vip-menu:not(.active) {
+                .player-modal.player-acoplado.player-expandido #side-vip-menu:not(.active) {
                     display: none !important;
                     transition: none !important;
                 }
@@ -1200,16 +1243,22 @@ export const SelvaStream = {
         this.renderControls();
     },
 
+    // Mide el video y la fila de botones para que ésta quede pegada bajo el video
+    // y el panel de fuentes (siempre visible) debajo de ella, sin taparla. En
+    // ventana angosta los botones se parten en 2 filas, de ahí que se mida.
+    syncFranja() {
+        const layout = document.querySelector('#player-modal .video-layout');
+        const modal = layout?.closest('.player-modal');
+        if (!modal) return;
+        modal.style.setProperty('--video-h', layout.offsetHeight + 'px');
+        const franja = document.getElementById('player-top-controls');
+        if (franja) modal.style.setProperty('--strip-h', (franja.offsetHeight + 16) + 'px');
+    },
+
     toggleVipMenu() {
         const menu = document.getElementById('side-vip-menu');
         if (menu) menu.classList.toggle('active');
-        // Alto real del video: los botones se anclan justo debajo (ver CSS del panel)
-        const layout = document.querySelector('#player-modal .video-layout');
-        if (layout) layout.closest('.player-modal')?.style.setProperty('--video-h', layout.offsetHeight + 'px');
-        // Alto real de la fila de botones (en ventana angosta se parte en 2 filas):
-        // el panel deja ese espacio libre para no tapar los botones de episodio.
-        const franja = document.getElementById('player-top-controls');
-        if (franja) layout?.closest('.player-modal')?.style.setProperty('--strip-h', (franja.offsetHeight + 16) + 'px');
+        this.syncFranja();
         // Solo actualiza la lista VIP, no re-dibuja los controles completos
         this.renderVipMenuList();
         // Al abrir con teclado/control: dejar el foco en la primera fuente para
@@ -1325,7 +1374,7 @@ export const SelvaStream = {
                     // El resto (FlixLatam, RepelisHD, DiPelis) son sitios de
                     // terceros con su propia publicidad/popups — se avisa para
                     // que no sorprenda si aparece algo raro al tocarlas.
-                    else tagHtml = `<span class="vip-tag vip-tag-external">🔗 SITIO EXTERNO</span>`;
+                    else tagHtml = `<span class="vip-tag vip-tag-external" title="Sitio externo">🔗 EXTERNO</span>`;
 
                     const accent = isSuggested ? '#FF6600' : (isPublicLink ? '#00f2ff' : '#2ECC71');
 

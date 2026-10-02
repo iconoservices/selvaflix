@@ -53,6 +53,8 @@ const ADMIN_EMAILS = ['jnmcsky@gmail.com'];
 // cerrar el reproductor se vuelve ahí, sin pasar por la ficha con el botón PLAY.
 let _rutaActual = '';
 let _rutaAntesDeFicha = '';
+// Historial de "Continuar viendo" (se filtra por pestaña en pintarContinuarViendo)
+let _historialContinuar = [];
 window._esCuentaAdmin = () => {
   const email = (auth.currentUser?.email || '').toLowerCase();
   return ADMIN_EMAILS.includes(email) || window.currentUserTier === 'admin';
@@ -1024,12 +1026,12 @@ function marcarNavMovil(tipo) {
 // "Continuar viendo" es cosa del Home. loadContinueWatching solo corre al cargar
 // el historial, así que al cambiar de pestaña hay que ocultarlo aquí.
 function sincronizarContinuarViendo(tipo) {
-  const fila = document.getElementById('continue-watching-row');
-  if (!fila) return;
-  if (tipo) {
-    fila.style.display = 'none';
-  } else if (document.getElementById('continue-watching-grid')?.children.length) {
-    fila.style.display = 'block';
+  // Home: todo lo que dejaste a medias; Películas / Series / Anime: solo ese
+  // tipo; otras vistas: oculta. La lógica está en pintarContinuarViendo.
+  if (typeof window.pintarContinuarViendo === 'function') window.pintarContinuarViendo();
+  else {
+    const fila = document.getElementById('continue-watching-row');
+    if (fila && tipo) fila.style.display = 'none';
   }
 }
 
@@ -12851,55 +12853,81 @@ window.markWatchingEpisode = (movie, season, episode, episodeLabel) => {
     }, { merge: true }).catch(e => console.warn("No se pudo registrar el capítulo en Continuar Viendo:", e));
 };
 
+
+// Pinta la fila "Continuar viendo" según la pestaña activa: en el Home todo; en
+// Películas / Series / Anime solo lo de ese tipo (como Netflix); en el resto
+// de vistas (En Vivo, Colecciones, con un género elegido…) no se muestra.
+function pintarContinuarViendo() {
+    const container = document.getElementById('continue-watching-row');
+    const grid = document.getElementById('continue-watching-grid');
+    if (!container || !grid) return;
+    const nt = window.normalizeText;
+
+    const tipoDe = (h, m) => {
+        const t = (m?.type || h.type || '').toLowerCase();
+        if (t === 'tv') return 'series';
+        if (t === 'movie' || t === '') return h.season || h.episode ? 'series' : 'movies';
+        return t === 'series' ? 'series' : t; // anime, live...
+    };
+    const pestanasConFiltro = ['movies', 'series', 'anime'];
+    const hayFiltroRaro = _currentFilter && !pestanasConFiltro.includes(_currentFilter);
+    if (_historialContinuar.length === 0 || hayFiltroRaro || _currentGenre) {
+        container.style.display = 'none';
+        return;
+    }
+
+    const lista = _historialContinuar.filter(h => {
+        if (!_currentFilter) return true; // Home: todo
+        const m = movieDatabase.trending.find(x => x.id === h.movieId)
+            || movieDatabase.trending.find(x => nt(x.title) === nt(h.title));
+        return tipoDe(h, m) === _currentFilter;
+    }).slice(0, 12);
+
+    if (lista.length === 0) {
+        container.style.display = 'none';
+        return;
+    }
+    container.style.display = 'block';
+    // Sin barra de progreso: solo mostramos qué se empezó a ver, sin pretender
+    // saber en qué minuto quedó (eso solo es fiable con el <video> nativo, que
+    // es la minoría de las reproducciones reales).
+    grid.innerHTML = lista.map(h => {
+        // El movieId del historial casi nunca matchea tras la migración a
+        // Supabase — se busca también por título normalizado y se usa el ID
+        // ACTUAL del catálogo para que "Continuar viendo" siempre resuelva.
+        const movieActual = movieDatabase.trending.find(m => m.id === h.movieId)
+            || movieDatabase.trending.find(m => nt(m.title) === nt(h.title));
+        const idParaResumir = movieActual?.id || h.movieId;
+        const raw = h.backdrop || movieActual?.backdrop || h.poster || movieActual?.img;
+        const img = (raw && raw.startsWith('http')) ? raw : 'https://image.tmdb.org/t/p/w300' + (raw || h.poster_path);
+        const safeTitle = (h.title || '').replace(/'/g, "\\'");
+        return `
+            <div class="card-horizontal-container" tabindex="0" role="button" data-tvnav onclick="window.resumeContinueWatching('${idParaResumir}', '${safeTitle}', ${h.season || 0}, ${h.episode || 0}, ${h.lastTime || 0})">
+                <div class="card-horizontal-media">
+                    <img src="${img}" alt="${h.title}" loading="lazy" onerror="this.src='/icon_192.png'">
+                </div>
+                <div class="card-horizontal-title">${h.title}</div>
+                <div class="card-horizontal-subtitle">${h.episodeLabel || ''}</div>
+            </div>
+        `;
+    }).join('');
+}
+window.pintarContinuarViendo = pintarContinuarViendo;
+
 window.loadContinueWatching = async () => {
     if (!auth.currentUser || !_currentProfile) return;
     try {
         const historyCol = collection(db, "users", auth.currentUser.uid, "profiles", _currentProfile.id, "history");
-        const q = query(historyCol, orderBy("timestamp", "desc"), limit(10));
+        // 30 (no 10): al filtrar por Películas/Series/Anime tiene que quedar de
+        // dónde sacar aunque lo último que viste sea de otro tipo.
+        const q = query(historyCol, orderBy("timestamp", "desc"), limit(30));
         const snap = await getDocs(q);
-        
+
         const history = [];
         snap.forEach(d => history.push(d.data()));
         console.log("📺 Historial recuperado:", history);
-        
-        const container = document.getElementById('continue-watching-row');
-        if (!container) return;
-
-        // Solo en el Home: dentro de Películas o Series estorba, ahí el usuario
-        // viene a explorar el catálogo, no a retomar.
-        if (history.length === 0 || _currentFilter) {
-            container.style.display = 'none';
-            return;
-        }
-
-        container.style.display = 'block';
-        const grid = document.getElementById('continue-watching-grid');
-        if (!grid) return;
-        
-        // Sin barra de progreso: solo mostramos qué se empezó a ver, sin
-        // pretender saber en qué minuto quedó (eso solo es fiable con el
-        // <video> nativo, que es la minoría de las reproducciones reales).
-        const nt = window.normalizeText;
-        grid.innerHTML = history.map(h => {
-            // El movieId del historial casi nunca matchea tras la migración a
-            // Supabase — se busca también por título normalizado y se usa el ID
-            // ACTUAL del catálogo para que "Continuar viendo" siempre resuelva.
-            const movieActual = movieDatabase.trending.find(m => m.id === h.movieId)
-                || movieDatabase.trending.find(m => nt(m.title) === nt(h.title));
-            const idParaResumir = movieActual?.id || h.movieId;
-            const raw = h.backdrop || movieActual?.backdrop || h.poster || movieActual?.img;
-            const img = (raw && raw.startsWith('http')) ? raw : 'https://image.tmdb.org/t/p/w300' + (raw || h.poster_path);
-            const safeTitle = (h.title || '').replace(/'/g, "\\'");
-            return `
-                <div class="card-horizontal-container" tabindex="0" role="button" data-tvnav onclick="window.resumeContinueWatching('${idParaResumir}', '${safeTitle}', ${h.season || 0}, ${h.episode || 0}, ${h.lastTime || 0})">
-                    <div class="card-horizontal-media">
-                        <img src="${img}" alt="${h.title}" loading="lazy" onerror="this.src='/icon_192.png'">
-                    </div>
-                    <div class="card-horizontal-title">${h.title}</div>
-                    <div class="card-horizontal-subtitle">${h.episodeLabel || ''}</div>
-                </div>
-            `;
-        }).join('');
+        _historialContinuar = history;
+        pintarContinuarViendo();
     } catch (e) {
         console.error("❌ ERROR CRITICO en loadContinueWatching:", e);
     }

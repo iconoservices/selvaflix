@@ -10186,6 +10186,11 @@ function initApp(filterType = '', genreId = '', year = '') {
     const cubiertos = new Set(['28', '35', '18', '16', '27', '10749', '878', '9648', '10402', '10759', '10765', '10768', '14', '10752']);
     const cuenta = {};
     base.forEach(c => listaGeneros(c).forEach(g => { cuenta[g] = (cuenta[g] || 0) + 1; }));
+    const ICONO_GENERO = {
+      '37': 'landscape', '80': 'gavel', '99': 'public', '10751': 'family_restroom', '10762': 'child_care',
+      '10764': 'live_tv', '10766': 'heart_broken', '12': 'explore', '36': 'history_edu', '53': 'visibility',
+      '10770': 'tv', '10763': 'newspaper', '10767': 'mic'
+    };
     const barra = document.querySelector('#genre-bar .cinepulse-genre-chips');
     const riel = document.getElementById('genre-rail');
     Object.keys(cuenta).forEach(id => {
@@ -10194,7 +10199,7 @@ function initApp(filterType = '', genreId = '', year = '') {
       if (barra) barra.insertAdjacentHTML('beforeend',
         `<button class="cinepulse-genre-chip" data-genre="${id}" data-tvnav onclick="window.setGenre('${id}')">${GENRE_MAP[id]}</button>`);
       if (riel) riel.insertAdjacentHTML('beforeend',
-        `<button class="cinepulse-genre-chip genre-rail-item" data-genre="${id}" data-tvnav onclick="window.setGenre('${id}')"><span class="material-symbols-outlined">label</span><span class="genre-rail-label">${GENRE_MAP[id]}</span></button>`);
+        `<button class="cinepulse-genre-chip genre-rail-item" data-genre="${id}" data-tvnav onclick="window.setGenre('${id}')"><span class="material-symbols-outlined">${ICONO_GENERO[id] || 'label'}</span><span class="genre-rail-label">${GENRE_MAP[id]}</span></button>`);
     });
     // Chip "Otros": junta los géneros con muy pocos títulos para que ninguno
     // quede sin un lugar. Se mantiene siempre al final de la barra.

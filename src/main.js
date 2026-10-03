@@ -10161,8 +10161,11 @@ function initApp(filterType = '', genreId = '', year = '') {
     const g = c.genres || c.genre_ids || [];
     return Array.isArray(g) ? g.map(String) : [String(g)];
   };
+  let idsConChip = [];
   const tieneGenero = (c, id) => {
     const gl = listaGeneros(c);
+    // "Otros": títulos cuyo género no tiene chip propio (o no tienen género).
+    if (String(id) === 'otros') return !idsConChip.some(x => (GENERO_EQUIV[x] || [x]).some(y => gl.includes(y)));
     return (GENERO_EQUIV[String(id)] || [String(id)]).some(x => gl.includes(x));
   };
 
@@ -10193,6 +10196,19 @@ function initApp(filterType = '', genreId = '', year = '') {
       if (riel) riel.insertAdjacentHTML('beforeend',
         `<button class="cinepulse-genre-chip genre-rail-item" data-genre="${id}" data-tvnav onclick="window.setGenre('${id}')"><span class="material-symbols-outlined">label</span><span class="genre-rail-label">${GENRE_MAP[id]}</span></button>`);
     });
+    // Chip "Otros": junta los géneros con muy pocos títulos para que ninguno
+    // quede sin un lugar. Se mantiene siempre al final de la barra.
+    const barraO = document.querySelector('#genre-bar .cinepulse-genre-chips');
+    const rielO = document.getElementById('genre-rail');
+    if (barraO && !barraO.querySelector('[data-genre="otros"]')) {
+      barraO.insertAdjacentHTML('beforeend', `<button class="cinepulse-genre-chip" data-genre="otros" data-tvnav onclick="window.setGenre('otros')">Otros</button>`);
+    }
+    if (rielO && !rielO.querySelector('[data-genre="otros"]')) {
+      rielO.insertAdjacentHTML('beforeend', `<button class="cinepulse-genre-chip genre-rail-item" data-genre="otros" data-tvnav onclick="window.setGenre('otros')"><span class="material-symbols-outlined">more_horiz</span><span class="genre-rail-label">Otros</span></button>`);
+    }
+    [barraO, rielO].forEach(c => { const o = c?.querySelector('[data-genre="otros"]'); if (o) c.appendChild(o); });
+    idsConChip = [...document.querySelectorAll('.cinepulse-genre-chip[data-genre]')]
+      .map(b => b.dataset.genre || '').filter(id => id && id !== 'otros');
     document.querySelectorAll('.cinepulse-genre-chip[data-genre]').forEach(b => {
       const id = b.dataset.genre || '';
       if (!id) return;

@@ -1141,6 +1141,7 @@ window.setGenre = (genreId) => {
   }
 
   initApp(_currentFilter, genreId, _currentYear);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
 // Filtro por año: hay un <select class="year-filter-select"> junto al
@@ -2131,6 +2132,37 @@ function handleGlobalSearch(query) {
   }
 }
 
+// Tarjeta estilo catálogo: tipo (SERIE/PELÍCULA/ANIME) e idioma sobre el póster,
+// IMDb y año al pie del póster, y el título (más el original en gris) debajo.
+function buildMovieCardHtml(item, favClass, favIcon, statusBadgeHtml, extraClass = '') {
+  const t = String(item.type || 'movie').toLowerCase();
+  const typeLabel = t === 'anime' ? 'ANIME' : (t === 'live' ? 'EN VIVO' : (['series', 'serie', 'tv'].includes(t) ? 'SERIE' : 'PELÍCULA'));
+  const langLabel = { 'es-MX': 'LAT', 'es-ES': 'ESP', 'en-US': 'SUB' }[item.lang || 'es-MX'] || 'LAT';
+  const rating = parseFloat(item.rating) || 0;
+  const orig = item.original_title && item.original_title !== item.title ? item.original_title : '';
+  const safeTitle = String(item.title || '').replace(/"/g, '&quot;');
+  return `
+    <div class="cinepulse-movie-card ${extraClass}" data-id="${item.id}" tabindex="0" role="button" data-tvnav onclick="window.handleCardClick('${item.id}')">
+      <div class="cpc-poster">
+        <img src="${item.img || ''}" alt="${safeTitle}" loading="lazy"
+          onerror="window.rescatarPoster(this, '${item.tmdbId || ''}', '${item.type || 'movie'}')">
+        <span class="cpc-badge cpc-type cpc-type-${t}">${typeLabel}</span>
+        <span class="cpc-badge cpc-lang">${langLabel}</span>
+        <div class="btn-add-list ${favClass}" onclick="event.stopPropagation(); window.toggleMyList('${item.id}', this)" title="Añadir a mi selva">${favIcon}</div>
+        ${statusBadgeHtml}
+        ${item.isVIP ? '<div class="vip-badge-sm cpc-flag" style="top:36px;background:linear-gradient(45deg,#FFD700,#FFA500);color:#000;">👑 VIP</div>' : ''}
+        ${item.vimeusDisponible ? `<div class="vimeus-badge-sm cpc-flag" style="top:${item.isVIP ? '58px' : '36px'};background:rgba(46,204,113,0.92);color:#06210f;" title="Confirmado en Vimeus: la fuente que mejor y más rápido funciona">⭐ ÓPTIMO</div>` : ''}
+        <div class="cpc-foot">
+          ${rating ? `<span class="cpc-pill"><b>IMDb</b> ${rating.toFixed(1)}</span>` : '<span></span>'}
+          ${item.year ? `<span class="cpc-pill">${item.year}</span>` : ''}
+        </div>
+      </div>
+      <h3 class="cinepulse-card-title" title="${safeTitle}">${item.title}</h3>
+      ${orig ? `<div class="cpc-orig">${orig}</div>` : ''}
+    </div>
+  `;
+}
+
 // Render Movie Rows in Chunks (v4.4)
 function _renderCardsInto(container, data, isTrending = false) {
   if (!data || data.length === 0) {
@@ -2163,53 +2195,12 @@ function _renderCardsInto(container, data, isTrending = false) {
         }
 
         
-        const cardHtml = `
-            <div class="cinepulse-movie-card" data-id="${item.id}" tabindex="0" role="button" data-tvnav onclick="window.handleCardClick('${item.id}')">
-              <img src="${item.img || ''}" alt="${item.title}" loading="lazy"
-                onerror="window.rescatarPoster(this, '${item.tmdbId || ''}', '${item.type || 'movie'}')">
-              <div class="cinepulse-card-overlay"></div>
-              <div class="btn-add-list ${favClass}" onclick="event.stopPropagation(); window.toggleMyList('${item.id}', this)" title="Añadir a mi selva" style="position: absolute; top: 10px; right: 10px; z-index: 5; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.2);">
-                ${favIcon}
-              </div>
-              ${statusBadgeHtml}
-              ${item.isVIP ? `
-                <div class="vip-badge-sm" style="position: absolute; top: 10px; left: 10px; z-index: 5; background: linear-gradient(45deg, #FFD700, #FFA500); color: black; font-size: 0.55rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; display: flex; align-items: center; gap: 2px; box-shadow: 0 0 10px rgba(255,165,0,0.3);">
-                  <span>👑</span>
-                  <span>VIP</span>
-                </div>
-              ` : ''}
-              ${item.vimeusDisponible ? `
-                <div class="vimeus-badge-sm" style="position: absolute; top: ${item.isVIP ? '38px' : '10px'}; left: 10px; z-index: 5; background: rgba(46,204,113,0.92); color: #06210f; font-size: 0.55rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; display: flex; align-items: center; gap: 2px; box-shadow: 0 0 8px rgba(46,204,113,0.35);" title="Confirmado en Vimeus: la fuente que mejor y más rápido funciona">
-                  <span>⭐</span>
-                  <span>ÓPTIMO</span>
-                </div>
-              ` : ''}
-              <div class="cinepulse-card-content">
-                <h3 class="cinepulse-card-title">${item.title}</h3>
-                <div class="cinepulse-card-meta">
-                  ${item.type === 'live' ? `
-                  <span style="display:flex;align-items:center;gap:5px;color:#FF5252;font-weight:700;font-size:0.7rem;text-transform:uppercase;">
-                    <span style="width:8px;height:8px;border-radius:50%;background:#FF5252;animation:pulse 1.4s infinite;"></span>
-                    En vivo
-                  </span>
-                  ` : `
-                  ${item.year ? `<span class="cinepulse-card-year">${item.year}</span>` : ''}
-                  <span class="cinepulse-card-genre">${genre}</span>
-                  ${item.rating ? `
-                  <span class="cinepulse-card-rating">
-                    <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1; font-size: 12px;">star</span>
-                    ${(parseFloat(item.rating) || 0).toFixed(1)}
-                  </span>` : ''}
-                  `}
-                </div>
-              </div>
-            </div>
-        `;
+        const cardHtml = buildMovieCardHtml(item, favClass, favIcon, statusBadgeHtml);
 
         if (isTrending) {
           return `
             <div class="trending-card-wrapper" style="position: relative;">
-              <div class="trending-rank-number" style="position: absolute; top: -10px; left: -10px; background: var(--primary); color: black; font-size: 1.5rem; font-weight: 900; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 15px rgba(255,102,0,0.5); z-index: 10;">${rank}</div>
+              <div class="trending-rank-number" style="position: absolute; top: -14px; left: -14px; background: var(--primary); color: black; font-size: 1.2rem; font-weight: 900; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 15px rgba(255,102,0,0.5); z-index: 40; pointer-events: none;">${rank}</div>
               ${cardHtml}
             </div>
           `;
@@ -2271,8 +2262,10 @@ function renderRow(title, data, seeAllHash = '') {
   if (!data) return;
   const section = document.createElement('section');
   section.className = 'cinepulse-section';
+  // Sin emoji delante: los títulos de fila quedan en texto limpio.
+  const tituloLimpio = String(title).replace(/^[^\p{L}\p{N}]+/u, '');
   section.innerHTML = `
-    <h2 class="cinepulse-section-title">${title}</h2>
+    <h2 class="cinepulse-section-title">${tituloLimpio}</h2>
     <div class="cinepulse-movie-list"></div>
   `;
   container.appendChild(section);
@@ -2292,7 +2285,7 @@ function renderGallery(title, groups) {
     const section = document.createElement('section');
     section.className = 'cinepulse-section';
     section.innerHTML = `
-      <h2 class="cinepulse-section-title">${label} <span style="font-size:0.85rem;color:var(--on-surface-variant);font-weight:400;">(${items.length})</span></h2>
+      <h2 class="cinepulse-section-title">${label}</h2>
       <div class="gallery-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 24px; padding: 0 0 30px;"></div>
     `;
     container.appendChild(section);
@@ -2319,41 +2312,7 @@ function renderGallery(title, groups) {
         }
 
 
-        return `
-          <div class="cinepulse-movie-card gallery-card" data-id="${item.id}" tabindex="0" role="button" data-tvnav onclick="window.handleCardClick('${item.id}')">
-            <img src="${item.img || ''}" alt="${item.title}" loading="lazy"
-              onerror="window.rescatarPoster(this, '${item.tmdbId || ''}', '${item.type || 'movie'}')">
-            <div class="cinepulse-card-overlay"></div>
-            <div class="btn-add-list ${favClass}" onclick="event.stopPropagation(); window.toggleMyList('${item.id}', this)" title="Añadir a mi selva" style="position: absolute; top: 10px; right: 10px; z-index: 5; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.2);">
-                ${favIcon}
-            </div>
-            ${statusBadgeHtml}
-            ${item.isVIP ? `
-              <div class="vip-badge-sm" style="position: absolute; top: 10px; left: 10px; z-index: 5; background: linear-gradient(45deg, #FFD700, #FFA500); color: black; font-size: 0.55rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; display: flex; align-items: center; gap: 2px; box-shadow: 0 0 10px rgba(255,165,0,0.3);">
-                <span>👑</span>
-                <span>VIP</span>
-              </div>
-            ` : ''}
-            ${item.vimeusDisponible ? `
-              <div class="vimeus-badge-sm" style="position: absolute; top: ${item.isVIP ? '38px' : '10px'}; left: 10px; z-index: 5; background: rgba(46,204,113,0.92); color: #06210f; font-size: 0.55rem; font-weight: 900; padding: 2px 6px; border-radius: 4px; display: flex; align-items: center; gap: 2px; box-shadow: 0 0 8px rgba(46,204,113,0.35);" title="Confirmado en Vimeus: la fuente que mejor y más rápido funciona">
-                <span>⭐</span>
-                <span>ÓPTIMO</span>
-              </div>
-            ` : ''}
-            <div class="cinepulse-card-content">
-              <h3 class="cinepulse-card-title">${item.title}</h3>
-              <div class="cinepulse-card-meta">
-                ${item.year ? `<span class="cinepulse-card-year">${item.year}</span>` : ''}
-                <span class="cinepulse-card-genre">${genre}</span>
-                ${item.rating ? `
-                <span class="cinepulse-card-rating">
-                  <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1; font-size: 12px;">star</span>
-                  ${(parseFloat(item.rating) || 0).toFixed(1)}
-                </span>` : ''}
-              </div>
-            </div>
-          </div>
-        `;
+        return buildMovieCardHtml(item, favClass, favIcon, statusBadgeHtml, 'gallery-card');
       }).join('');
 
       grid.insertAdjacentHTML('beforeend', html);
@@ -9982,6 +9941,8 @@ async function updateHeroCarousel() {
   // suyo propio) -- sin este chequeo, cada tick del intervalo volvía a poner
   // display:flex acá y el hero de películas parpadeaba encima del hub de TV.
   if (_currentFilter === 'live' || _currentFilter === 'tv') return;
+  // Con una categoría elegida el banner no se muestra (ver initApp).
+  if (_currentGenre && _currentGenre !== 'all') return;
   const section = document.getElementById('hero-section');
   if (!section) return;
 
@@ -10195,7 +10156,11 @@ function initApp(filterType = '', genreId = '', year = '') {
     allContent = allContent.filter(c => {
       const g = c.genres || c.genre_ids || [];
       const genreList = Array.isArray(g) ? g.map(String) : [String(g)];
-      return genreList.includes(String(genreId));
+      // TMDb usa ids distintos en series: "Acción" también es 10759 (Action &
+      // Adventure) y "Ciencia ficción"/"Fantasía" son 10765. Sin esto, la
+      // categoría Acción devolvía cero series.
+      const equivalentes = { '28': ['28', '10759'], '878': ['878', '10765'], '14': ['14', '10765'], '10752': ['10752', '10768'] };
+      return (equivalentes[String(genreId)] || [String(genreId)]).some(id => genreList.includes(id));
     });
   }
 
@@ -10277,7 +10242,10 @@ function initApp(filterType = '', genreId = '', year = '') {
   // Hero Carousel Priority (v2.40)
   const heroSection = document.getElementById('hero-section');
   const filtroPorGenero = !!(genreId && genreId !== 'all');
-  if (filterType === 'live' || filterType === 'tv') {
+  // Sin banner, el contenido necesita su propio margen bajo la barra fija.
+  document.getElementById('home-view')?.classList.toggle('sin-hero', filtroPorGenero);
+  if (filterType === 'live' || filterType === 'tv' || filtroPorGenero) {
+    // En vivo y categorías: sin banner, la lista de títulos arranca arriba.
     if (heroSection) heroSection.style.display = 'none';
   } else if (heroPool.length > 0) {
     if (heroSection) {

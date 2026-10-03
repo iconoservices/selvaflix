@@ -918,14 +918,71 @@
 /* ─── CINEPULSE MOVIE CARDS ────────────────────────────── */
 .cinepulse-movie-card {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s ease;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.cpc-poster {
+  position: relative;
   aspect-ratio: 2/3;
   border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--surface-container);
-  transition: all 0.3s ease;
-  cursor: pointer;
   border: 1px solid rgba(173, 137, 126, 0.1);
-  flex-shrink: 0;
+  transition: box-shadow 0.3s ease;
+}
+
+.cpc-badge {
+  position: absolute;
+  top: 8px;
+  z-index: 5;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 3px 7px;
+  border-radius: 4px;
+  line-height: 1.2;
+}
+.cpc-type { left: 8px; background: #ff4d4f; color: #fff; }
+.cpc-type-anime { background: #e0409a; }
+.cpc-type-live { background: #ff5252; }
+.cpc-lang { right: 8px; background: rgba(0,0,0,0.55); color: #fff; border: 1px solid rgba(255,255,255,0.7); backdrop-filter: blur(3px); }
+
+.cpc-poster .btn-add-list {
+  position: absolute; top: 36px; right: 8px; z-index: 5;
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.8rem; background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.2);
+}
+.cpc-flag {
+  position: absolute; left: 8px; z-index: 5;
+  font-size: 0.55rem; font-weight: 900; padding: 2px 6px; border-radius: 4px;
+}
+.cpc-poster .badge-maintenance { top: auto; right: auto; left: 8px; bottom: 40px; font-size: 0.6rem; padding: 3px 7px; }
+
+.cpc-foot {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 4;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 24px 8px 8px;
+  background: linear-gradient(to top, rgba(0,0,0,0.75), transparent);
+}
+.cpc-pill {
+  font-size: 0.72rem; font-weight: 700; color: #fff;
+  background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.7);
+  padding: 2px 6px; border-radius: 4px; line-height: 1.2;
+}
+.cpc-pill b { font-weight: 900; margin-right: 3px; }
+
+.cpc-orig {
+  font-size: 0.75rem;
+  color: var(--on-surface-variant);
+  opacity: 0.75;
+  margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
 /* Width ثابت para cards en horizontal scroll */
@@ -946,9 +1003,11 @@
 }
 
 .cinepulse-movie-card:hover {
-  box-shadow: 0 0 25px rgba(255, 102, 0, 0.5);
   transform: scale(1.05);
   z-index: 30;
+}
+.cinepulse-movie-card:hover .cpc-poster {
+  box-shadow: 0 0 25px rgba(255, 102, 0, 0.5);
 }
 
 /* Navegación con control remoto / D-pad (Android TV). Solo se ve cuando el
@@ -1008,9 +1067,9 @@
 .cinepulse-card-title {
   font-family: var(--font-body);
   font-weight: 700;
-  font-size: 1rem;
+  font-size: 0.95rem;
   color: var(--on-surface);
-  margin: 0 0 var(--spacing-xs);
+  margin: 10px 0 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1330,7 +1389,6 @@
 .gallery-grid .cinepulse-movie-card {
   width: 100% !important;
   height: auto !important;
-  aspect-ratio: 2/3;
 }
 
 /* ─── CINEPULSE RECOMMENDED WIDE CARDS ────────────────── */
@@ -7263,4 +7321,50 @@ body:has(#detail-view.con-player-acoplado) #hero-share-fab {
   /* Ficha de edición: la columna no puede ser más ancha que la pantalla */
   .drawer-two-col-body { grid-template-columns: minmax(0, 1fr); }
   .drawer-col-left, .drawer-col-right, .drawer-card { min-width: 0; max-width: 100%; box-sizing: border-box; }
+}
+
+/* Top: el círculo del puesto ocupa la esquina del póster; las insignias bajan
+   para que no queden tapadas. */
+.trending-card-wrapper .cpc-type,
+.trending-card-wrapper .cpc-lang { top: 24px; }
+.trending-card-wrapper .cpc-poster .btn-add-list { top: 52px; }
+.trending-card-wrapper .cpc-flag { margin-top: 18px; }
+
+/* Círculo del puesto en Tendencias: chico, en la esquina y por encima de todo
+   (con !important para no depender del estilo inline que genera el JS). */
+.trending-card-wrapper .trending-rank-number {
+  top: -14px !important; left: -14px !important;
+  width: 34px !important; height: 34px !important;
+  font-size: 1.2rem !important; line-height: 1 !important;
+  z-index: 40 !important; pointer-events: none;
+}
+
+/* El carrusel recorta lo que sobresale; sin este margen el círculo del puesto
+   (que asoma 14px sobre el póster) quedaba cortado por arriba. */
+.cinepulse-section:has(.trending-card-wrapper) .cinepulse-movie-list {
+  padding-top: 20px;
+}
+
+/* Tarjetas de altura distinta (con o sin título original): alinear por arriba
+   para que todos los pósters queden a la misma altura. */
+.cinepulse-movie-list { align-items: flex-start !important; }
+.trending-card-wrapper { align-items: flex-start !important; }
+
+/* Categoría elegida: sin banner, los chips quedan justo bajo la barra fija. */
+#home-view.sin-hero { padding-top: calc(60px + var(--safe-top)) !important; }
+
+/* Transición al cambiar de categoría/sección: el contenido nuevo entra con un
+   fundido corto en vez de aparecer de golpe. */
+@keyframes selvaEntra {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+#main-content > .cinepulse-section {
+  animation: selvaEntra 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+#main-content > .cinepulse-section:nth-child(2) { animation-delay: 0.05s; }
+#main-content > .cinepulse-section:nth-child(3) { animation-delay: 0.1s; }
+#main-content > .cinepulse-section:nth-child(n+4) { animation-delay: 0.15s; }
+@media (prefers-reduced-motion: reduce) {
+  #main-content > .cinepulse-section { animation: none; }
 }

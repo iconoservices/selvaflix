@@ -7368,3 +7368,6 @@ body:has(#detail-view.con-player-acoplado) #hero-share-fab {
 @media (prefers-reduced-motion: reduce) {
   #main-content > .cinepulse-section { animation: none; }
 }
+
+/* Género sin títulos en la sección actual: se oculta el chip. */
+.cinepulse-genre-chip.genero-vacio { display: none !important; }

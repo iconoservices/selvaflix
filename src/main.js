@@ -2496,7 +2496,9 @@ const GENRE_MAP = {
   "28": "Acción", "12": "Aventura", "16": "Animación", "35": "Comedia", "80": "Crimen",
   "99": "Documental", "18": "Drama", "10751": "Familiar", "14": "Fantasía", "36": "Historia",
   "27": "Terror", "10402": "Música", "9648": "Misterio", "10749": "Romance", "878": "Sci-Fi",
-  "10770": "TV Movie", "53": "Suspenso", "10752": "Bélica", "37": "Western", "10759": "Acción"
+  "10770": "TV Movie", "53": "Suspenso", "10752": "Bélica", "37": "Western", "10759": "Acción",
+  "10762": "Infantil", "10763": "Noticias", "10764": "Reality", "10765": "Sci-Fi", "10766": "Telenovela",
+  "10767": "Talk show", "10768": "Bélica"
 };
 
 function _renderInventoryRows(items) {
@@ -10151,17 +10153,57 @@ function initApp(filterType = '', genreId = '', year = '') {
     allContent = allContent.filter(c => c.status !== 'review');
   }
 
+  // TMDb usa ids distintos en series: "Acción" también es 10759 (Action &
+  // Adventure) y "Ciencia ficción"/"Fantasía" son 10765. Sin esto, la
+  // categoría Acción devolvía cero series.
+  const GENERO_EQUIV = { '28': ['28', '10759'], '878': ['878', '10765'], '14': ['14', '10765'], '10752': ['10752', '10768'] };
+  const listaGeneros = (c) => {
+    const g = c.genres || c.genre_ids || [];
+    return Array.isArray(g) ? g.map(String) : [String(g)];
+  };
+  const tieneGenero = (c, id) => {
+    const gl = listaGeneros(c);
+    return (GENERO_EQUIV[String(id)] || [String(id)]).some(x => gl.includes(x));
+  };
+
+  // Chips de género: mostrar solo los que tienen títulos en la sección actual
+  // (en series no existen Terror ni Romance en TMDb, por ejemplo).
+  {
+    const delTipo = (c) => {
+      if (filterType === 'movies') return c.type === 'movie' || !c.type;
+      if (filterType === 'series') return c.type === 'series' || c.type === 'tv';
+      if (filterType === 'anime') return c.type === 'anime';
+      return c.type !== 'live';
+    };
+    const base = allContent.filter(delTipo);
+    // Géneros que existen en el catálogo pero no tienen chip (Crimen,
+    // Documental, Familiar, Infantil…): se crean solos, así no quedan
+    // títulos inalcanzables por categoría. Los ids de series que equivalen a
+    // un chip ya existente (10759→Acción, 10765→Sci-Fi…) no se duplican.
+    const cubiertos = new Set(['28', '35', '18', '16', '27', '10749', '878', '9648', '10402', '10759', '10765', '10768', '14', '10752']);
+    const cuenta = {};
+    base.forEach(c => listaGeneros(c).forEach(g => { cuenta[g] = (cuenta[g] || 0) + 1; }));
+    const barra = document.querySelector('#genre-bar .cinepulse-genre-chips');
+    const riel = document.getElementById('genre-rail');
+    Object.keys(cuenta).forEach(id => {
+      if (cubiertos.has(id) || !GENRE_MAP[id] || cuenta[id] < 3) return;
+      if (document.querySelector(`.cinepulse-genre-chip[data-genre="${id}"]`)) return;
+      if (barra) barra.insertAdjacentHTML('beforeend',
+        `<button class="cinepulse-genre-chip" data-genre="${id}" data-tvnav onclick="window.setGenre('${id}')">${GENRE_MAP[id]}</button>`);
+      if (riel) riel.insertAdjacentHTML('beforeend',
+        `<button class="cinepulse-genre-chip genre-rail-item" data-genre="${id}" data-tvnav onclick="window.setGenre('${id}')"><span class="material-symbols-outlined">label</span><span class="genre-rail-label">${GENRE_MAP[id]}</span></button>`);
+    });
+    document.querySelectorAll('.cinepulse-genre-chip[data-genre]').forEach(b => {
+      const id = b.dataset.genre || '';
+      if (!id) return;
+      const hay = base.some(c => tieneGenero(c, id));
+      b.classList.toggle('genero-vacio', !hay && String(genreId) !== id);
+    });
+  }
+
   // Apply genre filter if set (genre stored as array or single string in item.genres)
   if (genreId && genreId !== 'all') {
-    allContent = allContent.filter(c => {
-      const g = c.genres || c.genre_ids || [];
-      const genreList = Array.isArray(g) ? g.map(String) : [String(g)];
-      // TMDb usa ids distintos en series: "Acción" también es 10759 (Action &
-      // Adventure) y "Ciencia ficción"/"Fantasía" son 10765. Sin esto, la
-      // categoría Acción devolvía cero series.
-      const equivalentes = { '28': ['28', '10759'], '878': ['878', '10765'], '14': ['14', '10765'], '10752': ['10752', '10768'] };
-      return (equivalentes[String(genreId)] || [String(genreId)]).some(id => genreList.includes(id));
-    });
+    allContent = allContent.filter(c => tieneGenero(c, genreId));
   }
 
   // Apply year filter if set

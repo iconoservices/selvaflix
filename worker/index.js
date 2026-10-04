@@ -1,7 +1,7 @@
 /**
  * 🥥 ICONOSERVICES MASTER-WORKER v1.9 - "Edición Búnker & Contrabando"
  * Soluciona el error de descarga activando un puente binario.
- * v1.7: + /flix/catalog (catálogo de SelvaFlix cacheado en el borde, corta el egress de Supabase).
+ * v1.7: + /flix/catalog (catálogo de SelvaMov cacheado en el borde, corta el egress de Supabase).
  * v1.8: + /flix/admin/* (escrituras al catálogo con service_role; habilita RLS en `movies`).
  * v1.8.1: CORS — permitir el header x-selva-admin en el preflight.
  * v1.9: /flix/catalog pasa a KV global + refresh por Cron + gzip + sirve-viejo-siempre.
@@ -264,13 +264,13 @@ export default {
 
         try {
             // ═══════════════════════════════════════════════════════════════
-            //  RUTAS /flix/*  →  las usa SelvaFlix
+            //  RUTAS /flix/*  →  las usa SelvaMov
             //  (más abajo están las /beat/* y /img, que son de OTRA app —
-            //   ojo al tocarlas, no dependen de SelvaFlix)
+            //   ojo al tocarlas, no dependen de SelvaMov)
             // ═══════════════════════════════════════════════════════════════
             //
             // 📌 2026-08-15: se eliminó /flix/unrestrict, el puente a Real-Debrid.
-            // Real-Debrid ya no está contratado y SelvaFlix dejó de llamarlo (ninguna
+            // Real-Debrid ya no está contratado y SelvaMov dejó de llamarlo (ninguna
             // fuente genera `infoHash`). Queda en el historial de git por si acaso.
             //
             // ⚠️ NO borres el secreto RD_API_KEY de Cloudflare: /beat/stream (la otra
@@ -540,12 +540,12 @@ export default {
                 }
             }
 
-            // --- 📚 RUTA: CATALOGO DE VIMEUS (para sembrar SelvaFlix) ---
+            // --- 📚 RUTA: CATALOGO DE VIMEUS (para sembrar SelvaMov) ---
             // La API Key de Vimeus (ak_..., distinta del view_key que va en los
             // embeds) es server-only segun su propia doc ("nunca en el
             // cliente"), asi que este proxy existe solo para que el admin
             // pueda traer el catalogo completo (peliculas/series/animes que
-            // Vimeus YA tiene confirmadas) y sembrar SelvaFlix con eso, en vez
+            // Vimeus YA tiene confirmadas) y sembrar SelvaMov con eso, en vez
             // de cargar titulos a mano y descubrir despues si tienen fuente.
             if (url.pathname === '/flix/vimeus-catalog') {
                 const tipo = url.searchParams.get('type'); // movies | series | animes | episodes
@@ -577,7 +577,7 @@ export default {
             // --- 📡 RUTA: LIVE-PROXY (streams http en https) ---
             // Varios CDNs de TV en vivo (ej. canales peruanos en 190.93.224.42)
             // no tienen HTTPS -- el navegador los bloquea por "contenido mixto"
-            // cuando SelvaFlix corre en https. Este proxy reescribe el
+            // cuando SelvaMov corre en https. Este proxy reescribe el
             // manifiesto HLS para que cada sub-playlist y segmento TAMBIEN pase
             // por aca (si solo se proxea el manifiesto raiz, hls.js resuelve las
             // rutas relativas de adentro contra el host http original y se
@@ -809,7 +809,7 @@ export default {
             }
 
             // ═══════════════════════════════════════════════════════════════
-            //  RUTAS /beat/* y /img  →  NO son de SelvaFlix (otra app, YouTube).
+            //  RUTAS /beat/* y /img  →  NO son de SelvaMov (otra app, YouTube).
             //  Este worker está compartido: borrar algo de acá rompe ese
             //  proyecto, no este. Verificar antes de tocar.
             // ═══════════════════════════════════════════════════════════════

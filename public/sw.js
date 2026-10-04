@@ -16,7 +16,7 @@ const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
     console.log('[sw.js] Mensaje push recibido en background:', payload);
-    const notificationTitle = payload.notification?.title || 'SelvaFlix';
+    const notificationTitle = payload.notification?.title || 'SelvaMov';
     const notificationOptions = {
         body: payload.notification?.body || 'Nueva actualización',
         icon: '/icon_192.png',
@@ -33,7 +33,7 @@ messaging.onBackgroundMessage((payload) => {
    4. Blindaje contra Opaque Responses (CORS).
 */
 
-const CACHE_NAME = 'selvaflix-cache-v2.80';
+const CACHE_NAME = 'selvamov-cache-v2.84';
 const STATIC_ASSETS = [
     '/',
     '/index.html',

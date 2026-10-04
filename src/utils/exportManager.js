@@ -1,5 +1,5 @@
 ﻿/**
- * 🚀 SelvaFlix Export Manager
+ * 🚀 SelvaMov Export Manager
  * Maneja la lógica de exportación a Streamtape y VOE.sx con persistencia y polling inteligente.
  */
 

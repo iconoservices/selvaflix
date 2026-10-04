@@ -21,7 +21,7 @@ import { createClient } from "@supabase/supabase-js"; // 🎬 Catálogo de pelí
 // Sale de variables de entorno (VITE_FIREBASE_*) para poder desplegar este
 // mismo repo en otro proyecto de Vercel apuntando a otra base de Firebase,
 // sin tocar código — solo cambiando las env vars de ese Vercel. El valor
-// después de "||" es el de SelvaFlix, así el deploy actual sigue andando
+// después de "||" es el de SelvaMov, así el deploy actual sigue andando
 // igual aunque Vercel no tenga estas variables configuradas todavía.
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCABaNkvUlMjBatNh0Giih01IDH4sNbt1Q",
@@ -512,7 +512,7 @@ let movieDatabase = { trending: [] };
 let heroPool = [];
 let currentHeroIndex = 0;
 // Grilla de 6 miniaturas del hero (solo escritorio). Son "sets" que rotan:
-// Tendencia -> Estrenos -> Más vistas en SelvaFlix. Al terminar de recorrer las
+// Tendencia -> Estrenos -> Más vistas en SelvaMov. Al terminar de recorrer las
 // 6 de un set, salta al siguiente. currentHeroIndex indexa dentro del set activo.
 let _heroSets = [];
 let _heroSetIndex = 0;
@@ -615,7 +615,7 @@ function mostrarOverlayMantenimiento() {
       <div style="font-size:44px;line-height:1;margin-bottom:14px;">🌴🔧</div>
       <h1 style="font-size:21px;margin:0 0 10px;">Estamos haciendo mantenimiento</h1>
       <p style="font-size:14.5px;line-height:1.55;color:#a5d6a7;margin:0 0 6px;">
-        SelvaFlix vuelve el <strong>${SELVA_MANTENIMIENTO_HASTA}</strong>.
+        SelvaMov vuelve el <strong>${SELVA_MANTENIMIENTO_HASTA}</strong>.
       </p>
       <p style="font-size:13px;line-height:1.55;color:#7ba87f;margin:0 0 20px;">
         Dejanos tu correo y te avisamos apenas esté de vuelta 👇
@@ -653,7 +653,7 @@ function mostrarOverlayMantenimiento() {
       });
       if (!r.ok) throw new Error('worker ' + r.status);
       form.style.display = 'none';
-      msg.textContent = '¡Listo! Te escribimos cuando SelvaFlix vuelva. 🌴';
+      msg.textContent = '¡Listo! Te escribimos cuando SelvaMov vuelva. 🌴';
       try { localStorage.setItem('selva_waitlist_email', email); } catch {}
     } catch (err) {
       console.error('maintenance signup falló:', err);
@@ -663,7 +663,7 @@ function mostrarOverlayMantenimiento() {
 }
 window.mostrarOverlayMantenimiento = mostrarOverlayMantenimiento;
 
-async function loadSelvaFlixData() {
+async function loadSelvaMovData() {
   const CACHE_KEY = 'selvaflix_full_database';
   const CACHE_TIME_KEY = 'selvaflix_cache_timestamp';
   // Bajado de 15 a 5 min: con localStorage (dura entre visitas) un admin
@@ -1018,7 +1018,7 @@ window.updateAdminUI();
 // armar "existingIds": si el admin abre el modal apenas entra, sin esto
 // movieDatabase.trending todavía está vacío y todo lo ya sembrado parece
 // nuevo (se vuelve a ofrecer / se duplica al confirmar).
-window.selvaFlixDataReady = loadSelvaFlixData();
+window.selvaMovDataReady = loadSelvaMovData();
 
 
 // ─── Filter / Routing ────────────────────────────────────────────
@@ -1651,7 +1651,7 @@ document.addEventListener('keydown', (e) => {
     const onTvItem = active?.matches?.('[data-tvnav]');
     // Un <iframe> con foco (el usuario "entró" al video del proveedor) cuenta
     // como "nada enfocado": las flechas vuelven a mover la navegación de
-    // SelvaFlix en vez de quedar atrapadas dentro del reproductor ajeno.
+    // SelvaMov en vez de quedar atrapadas dentro del reproductor ajeno.
     const nothingFocused = !active || active === document.body || active.tagName === 'IFRAME';
     // No interceptar flechas si el foco está en el buscador u otro input:
     // ahí las flechas deben mover el cursor de texto, no la selva.
@@ -2232,7 +2232,7 @@ function renderRecommendedWide(data) {
     return `
       <div class="cinepulse-recommended-card" tabindex="0" role="button" data-tvnav onclick="window.handleCardClick('${item.id}')">
         <img src="${item.backdrop || item.img}" alt="${item.title}" loading="lazy"
-          onerror="this.src='https://via.placeholder.com/800x400/1a1a1a/FF6600?text=SelvaFlix';">
+          onerror="this.src='https://via.placeholder.com/800x400/1a1a1a/FF6600?text=SelvaMov';">
         <div class="rec-gradient"></div>
         <div class="rec-content">
           <span class="cinepulse-rec-badge">${badge}</span>
@@ -2958,7 +2958,7 @@ window.KNOWN_NETWORK_SCRIPTS = [
   // 🚫 SACADO 2026-08-17: 'monetag-tag-11549958' (Push Notifications, tag.min.js).
   // Ese formato de anuncio pide permiso de notificaciones del navegador y,
   // una vez concedido, Monetag le puede seguir mandando avisos a esa cuenta
-  // para siempre, mostrando el ícono de SelvaFlix aunque el anuncio sea de
+  // para siempre, mostrando el ícono de SelvaMov aunque el anuncio sea de
   // ellos — y nada de esto es reversible por código, ni apagando la campaña.
   // Se saca del catálogo para que nadie la vuelva a sembrar sin querer con
   // "Importar Scripts de Red". La causa real de fondo era otra (ver sw.js).
@@ -4751,7 +4751,7 @@ window.maybeShowPremiumPromo = async () => {
             if (ctaBtn) { ctaBtn.textContent = 'Probar 🎁'; ctaBtn.onclick = () => window.claimFreeTrial(featured.id); }
         } else {
             if (titleEl) titleEl.textContent = '🍿 Mírala sin publicidad';
-            if (msgEl) msgEl.textContent = 'Pásate a Premium y disfrutá SelvaFlix sin anuncios ni interrupciones.';
+            if (msgEl) msgEl.textContent = 'Pásate a Premium y disfrutá SelvaMov sin anuncios ni interrupciones.';
             if (ctaBtn) { ctaBtn.textContent = 'Ver planes'; ctaBtn.onclick = () => window.openPremiumModal(); }
         }
 
@@ -5425,7 +5425,7 @@ window.auditarCatalogoCompleto = async () => {
 };
 
 // Trae el catálogo que Vimeus YA tiene confirmado (via su API Key, server-only
-// por el worker — ver /flix/vimeus-catalog) y agrega a SelvaFlix lo que todavía
+// por el worker — ver /flix/vimeus-catalog) y agrega a SelvaMov lo que todavía
 // no esté, en vez de cargar títulos a mano y descubrir después si tienen
 // fuente o no: estos nacen "garantizados" con al menos Vimeus funcionando.
 //
@@ -5522,7 +5522,7 @@ window.sincronizarCatalogoVimeus = async (tipos = ['movies', 'series', 'animes']
             };
 
             const docRef = await addDoc(collection(db, "movies"), { ...nuevoDoc, createdAt: Date.now() });
-            // El listener en vivo de loadSelvaFlixData() (onSnapshot) suele
+            // El listener en vivo de loadSelvaMovData() (onSnapshot) suele
             // enterarse de esta misma escritura (aunque sea local/optimista)
             // antes de que lleguemos a esta línea, y ya la empuja a trending
             // por su cuenta. Empujar de nuevo sin chequear generaba una fila
@@ -6358,7 +6358,7 @@ window.bulkDeleteMovies = async (toDelete) => {
   localStorage.removeItem('selvaflix_cache_timestamp');
 
   // Recargamos los datos para que la vista refleje la realidad de Firebase inmediatamente
-  await loadSelvaFlixData();
+  await loadSelvaMovData();
 
   alert(`¡Limpieza completada! Se fueron ${count} tesoros de la selva.`);
   if (bar) bar.style.width = "0%";
@@ -6406,7 +6406,7 @@ window.deleteSelectedCoconas = async () => {
   if (overlay) overlay.style.display = 'none';
   localStorage.removeItem('selvaflix_full_database');
   localStorage.removeItem('selvaflix_cache_timestamp');
-  await loadSelvaFlixData();
+  await loadSelvaMovData();
   if (window.filterInventoryByCategory) window.filterInventoryByCategory();
   alert(`¡Limpieza completada! ${count} elementos eliminados. 🧹🌴`);
   if (bar) bar.style.width = "0%";
@@ -6442,7 +6442,7 @@ window.approveSelectedCoconas = async () => {
     if (overlay) overlay.style.display = 'none';
     localStorage.removeItem('selvaflix_full_database');
     localStorage.removeItem('selvaflix_cache_timestamp');
-    await loadSelvaFlixData();
+    await loadSelvaMovData();
     if (window.filterInventoryByCategory) window.filterInventoryByCategory();
     alert(`¡Éxito! ${count} títulos aprobados. 🥥🍹`);
     if (bar) bar.style.width = "0%";
@@ -6478,7 +6478,7 @@ window.waitSelectedCoconas = async () => {
     if (overlay) overlay.style.display = 'none';
     localStorage.removeItem('selvaflix_full_database');
     localStorage.removeItem('selvaflix_cache_timestamp');
-    await loadSelvaFlixData();
+    await loadSelvaMovData();
     if (window.filterInventoryByCategory) window.filterInventoryByCategory();
     alert(`¡Completado! ${count} títulos en espera. 🪵🌴`);
     if (bar) bar.style.width = "0%";
@@ -7193,7 +7193,7 @@ window.addSelectedTMDBMovies = async () => {
   window._tmdbExpanded && window._tmdbExpanded.clear();
   localStorage.removeItem('selvaflix_full_database');
   localStorage.removeItem('selvaflix_cache_timestamp');
-  await loadSelvaFlixData();
+  await loadSelvaMovData();
   if (window.filterInventoryByCategory) window.filterInventoryByCategory();
 
   const msg = `${ok} título${ok === 1 ? '' : 's'} agregado${ok === 1 ? '' : 's'} a Revisión`
@@ -8834,7 +8834,7 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
             // (mismo Adsterra que el resto del sitio), así que avisamos antes
             // para que no sorprenda ni parezca un error.
             window.open(movie.downloadUrl, '_blank', 'noopener');
-            if (window.showToast) window.showToast('⚠️ Puede abrirse una pestaña de publicidad antes de la descarga — cerrala y volvé a SelvaFlix, tu descarga sigue igual.', 'warning', 6000);
+            if (window.showToast) window.showToast('⚠️ Puede abrirse una pestaña de publicidad antes de la descarga — cerrala y volvé a SelvaMov, tu descarga sigue igual.', 'warning', 6000);
         } else if (window.showToast) {
             window.showToast('📥 Descarga disponible pronto para este título 🌴', 'info');
         }
@@ -9089,7 +9089,7 @@ window.detailShareMovie = async () => {
     const shareUrl = `${window.location.origin}${window.location.pathname}#detail/${slugify(movie.title, movie.year)}${capitulo}`;
     if (navigator.share) {
         try {
-            await navigator.share({ title: movie.title, text: `Mira ${movie.title} en SelvaFlix! 🌴🍿`, url: shareUrl });
+            await navigator.share({ title: movie.title, text: `Mira ${movie.title} en SelvaMov! 🌴🍿`, url: shareUrl });
         } catch (e) {
             if (e.name !== 'AbortError') console.warn('Share failed:', e);
         }
@@ -9100,18 +9100,18 @@ window.detailShareMovie = async () => {
 };
 
 // Compartir la app en sí (no una peli puntual) — usado por el botón flotante
-// del hero en Home, para invitar a un amigo a SelvaFlix.
+// del hero en Home, para invitar a un amigo a SelvaMov.
 window.shareApp = async () => {
     const shareUrl = `${window.location.origin}${window.location.pathname}`;
     if (navigator.share) {
         try {
-            await navigator.share({ title: 'SelvaFlix', text: 'Mira películas y series gratis en SelvaFlix 🌴🍿', url: shareUrl });
+            await navigator.share({ title: 'SelvaMov', text: 'Mira películas y series gratis en SelvaMov 🌴🍿', url: shareUrl });
         } catch (e) {
             if (e.name !== 'AbortError') console.warn('Share failed:', e);
         }
     } else {
         await navigator.clipboard.writeText(shareUrl);
-        if (window.showToast) window.showToast("¡Enlace de SelvaFlix copiado al portapapeles! 📋", "success");
+        if (window.showToast) window.showToast("¡Enlace de SelvaMov copiado al portapapeles! 📋", "success");
     }
 };
 
@@ -9306,7 +9306,7 @@ window.handleImageUpload = async (file) => {
 
     imgInput.value = url;
     preview.src = url;
-    alert("¡Subida con éxito a la nube de SelvaFlix! ☁️🦁");
+    alert("¡Subida con éxito a la nube de SelvaMov! ☁️🦁");
   } catch (err) {
     console.error("Error completo de Firebase:", err);
     alert(`Error al subir: ${err.message}\n\nRECUERDA: Tienes que activar 'Storage' en tu consola de Firebase y poner las reglas en modo prueba o públicas para que funcione. 🐒☁️`);
@@ -9598,7 +9598,7 @@ window.loadRecommendedMix = async () => {
   // Si el admin entra y abre el modal apenas carga la página, esperar a que
   // termine la carga real del catálogo: si no, movieDatabase.trending puede
   // estar vacío todavía y todo lo ya sembrado se ofrece de nuevo como "nuevo".
-  if (window.selvaFlixDataReady) { try { await window.selvaFlixDataReady; } catch (e) {} }
+  if (window.selvaMovDataReady) { try { await window.selvaMovDataReady; } catch (e) {} }
 
   const existingIds = new Set(
     movieDatabase.trending.filter(m => m.tmdbId != null).map(m => String(m.tmdbId))
@@ -9711,7 +9711,7 @@ window.massSeedMovies = async (contentType) => {
   // Mismo caso que en los recomendados: si el catálogo real todavía no
   // terminó de cargar, existingIds sale incompleto y lo ya sembrado se
   // vuelve a ofrecer como si fuera nuevo.
-  if (window.selvaFlixDataReady) { try { await window.selvaFlixDataReady; } catch (e) {} }
+  if (window.selvaMovDataReady) { try { await window.selvaMovDataReady; } catch (e) {} }
 
   // Comparación robusta: acepta tmdbId como string o number
   const existingIds = new Set(
@@ -9991,7 +9991,7 @@ async function updateHeroCarousel() {
   
   if (heroBg) heroBg.src = heroImg;
   if (heroTitle) heroTitle.textContent = item.title;
-  if (heroDesc) heroDesc.textContent = item.description || item.overview || 'Descubre esta increíble película disponible solo en SelvaFlix.';
+  if (heroDesc) heroDesc.textContent = item.description || item.overview || 'Descubre esta increíble película disponible solo en SelvaMov.';
   if (heroRating) heroRating.textContent = item.rating || '8.9';
   if (heroYear) heroYear.textContent = item.year || '2024';
   
@@ -10272,7 +10272,7 @@ function initApp(filterType = '', genreId = '', year = '') {
 
   // --- Sets de la grilla de 6 miniaturas del hero (v2.43) ---
   // Rotan solas: Tendencia (las 6 mejores del pool Elite) -> Estrenos (lo último
-  // que entró) -> Más vistas en SelvaFlix (por reproducciones locales). La grilla
+  // que entró) -> Más vistas en SelvaMov (por reproducciones locales). La grilla
   // solo se pinta en escritorio; en celular el hero sigue igual que antes.
   {
     const poolThumbs = allContent.filter(c => !esRoto(c) && c.type !== 'live');
@@ -10293,7 +10293,7 @@ function initApp(filterType = '', genreId = '', year = '') {
     _heroSets = [
       { label: 'Tendencia', items: setTendencia },
       { label: 'Estrenos', items: setNuevos },
-      { label: 'Más vistas en SelvaFlix', items: setVistos },
+      { label: 'Más vistas en SelvaMov', items: setVistos },
     ].filter(s => s.items.length === 6);
     if (_heroSets.length === 0 && heroPool.length) {
       _heroSets = [{ label: 'Tendencia', items: heroPool.slice(0, 6) }];
@@ -10706,7 +10706,7 @@ window.renderTVHub = function(dbLiveItems = []) {
       categoryLabel: i.categoryLabel || 'Canales 📡',
       img: i.img || i.poster || 'https://via.placeholder.com/400x225/111/fff?text=LIVE+TV',
       embed: i.embed,
-      description: i.description || i.synopsis || 'Canal de TV transmitiendo en vivo en SelvaFlix.'
+      description: i.description || i.synopsis || 'Canal de TV transmitiendo en vivo en SelvaMov.'
     })),
     ...filteredPresets
   ];
@@ -10988,7 +10988,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const refParam = new URLSearchParams(window.location.search).get('ref');
   if (refParam) localStorage.setItem('selva_pending_ref', refParam);
 
-  // Nota: handleRouting se dispara automáticamente cuando loadSelvaFlixData termina de cargar
+  // Nota: handleRouting se dispara automáticamente cuando loadSelvaMovData termina de cargar
 
   // 🔥⏱️ Calentar la conexión Firestore para el admin. En una visita con caché
   // caliente (lo normal) el boot NO toca Firestore, así que la primera lectura
@@ -11193,7 +11193,7 @@ window.submitMovieForm = async () => {
     window.closeUploadDrawer();
     localStorage.removeItem('selvaflix_full_database');
     localStorage.removeItem('selvaflix_cache_timestamp');
-    await loadSelvaFlixData();
+    await loadSelvaMovData();
     if (window.filterInventoryByCategory) window.filterInventoryByCategory();
   } catch (error) {
     console.error("Error guardando:", error);
@@ -11559,7 +11559,7 @@ window.setDownloadUrlFromDrawer = async () => {
       // --- Sincronización Silenciosa ---
       localStorage.removeItem('selvaflix_full_database');
       localStorage.removeItem('selvaflix_cache_timestamp');
-      await loadSelvaFlixData();
+      await loadSelvaMovData();
       if (window.filterInventoryByCategory) window.filterInventoryByCategory();
 
     } catch (error) {
@@ -11713,7 +11713,7 @@ window.updateSettingsAccountInfo = () => {
         const initials = document.getElementById('settings-account-initials');
         const nameEl = document.getElementById('settings-account-name');
         const emailEl = document.getElementById('settings-account-email');
-        if (nameEl) nameEl.innerText = user.displayName || 'Usuario de SelvaFlix';
+        if (nameEl) nameEl.innerText = user.displayName || 'Usuario de SelvaMov';
         if (emailEl) emailEl.innerText = user.email || '';
         if (user.photoURL) {
             if (img) { img.src = user.photoURL; img.style.display = 'block'; }
@@ -12116,7 +12116,7 @@ window.shareReferralLink = () => {
         return;
     }
     const link = `${window.location.origin}/?ref=${user.uid}`;
-    const texto = `🌴 ¡Che, te invito a SelvaFlix! Entrá con este link y cuando veas tu primera peli ganamos los dos 5 días de Premium gratis: ${link}`;
+    const texto = `🌴 ¡Che, te invito a SelvaMov! Entrá con este link y cuando veas tu primera peli ganamos los dos 5 días de Premium gratis: ${link}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
 };
 

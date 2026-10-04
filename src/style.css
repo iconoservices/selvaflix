@@ -3,15 +3,15 @@
 /* ─── CINEPULSE DESIGN SYSTEM ────────────────────────────── */
 /* Colores y tokens de diseño inspirados en CINEPULSE */
 :root {
-  /* CINEPULSE Color Palette - Adapted for SelvaFlix Orange */
+  /* CINEPULSE Color Palette - Adapted for SelvaMov Orange */
   --primary-fixed: #ffdbd0;
   --surface: #131313;
   --primary-fixed-dim: #ffb59e;
   --on-secondary-fixed-variant: #474746;
   --on-secondary-fixed: #1c1b1b;
   --on-surface: #e5e2e1;
-  --primary: #FF6600; /* SelvaFlix Orange */
-  --primary-container: #FF6600; /* SelvaFlix Orange */
+  --primary: #FF6600; /* SelvaMov Orange */
+  --primary-container: #FF6600; /* SelvaMov Orange */
   --on-primary-container: #1a0a00;
   --secondary-container: #474746;
   --on-primary: #000000;
@@ -6640,7 +6640,7 @@ body.admin-locked {
   justify-content: center;
 }
 #detail-view.con-player-acoplado #detail-player-dock:empty::after {
-  content: "SELVAFLIX";
+  content: "SELVAMOV";
   font-family: var(--font-display);
   font-weight: 800;
   letter-spacing: 0.18em;

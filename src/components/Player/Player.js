@@ -132,7 +132,7 @@ export const SelvaStream = {
                      title="Enfocar el video (para el play del control)"
                      onclick="try{document.getElementById('player-iframe')?.contentWindow?.focus();}catch(e){}">
                     <div id="player-loader" class="loader-overlay">
-                        <div class="loader-logo">SELVAFLIX</div>
+                        <div class="loader-logo">SELVAMOV</div>
                         <div class="loader-text">Explorando la selva...</div>
                         <div class="spinner-tropical"></div>
                     </div>
@@ -816,7 +816,7 @@ export const SelvaStream = {
         if (loader) {
             loader.style.display = 'flex';
             loader.innerHTML = `
-                <div class="loader-logo">SELVAFLIX</div>
+                <div class="loader-logo">SELVAMOV</div>
                 <div class="loader-text">Buscando señales VIP...</div>
                 <div class="spinner-tropical"></div>
             `;
@@ -1191,7 +1191,7 @@ export const SelvaStream = {
             loader.style.display = 'flex';
             loader.style.opacity = '1';
             loader.innerHTML = `
-                <div class="loader-logo">SELVAFLIX</div>
+                <div class="loader-logo">SELVAMOV</div>
                 <div class="loader-text">Explorando la selva...</div>
                 <div class="spinner-tropical"></div>
             `;
@@ -2049,7 +2049,7 @@ export const SelvaStream = {
             }
 
             // Algunos CDNs de canales En Vivo (Perú) no tienen https -- si
-            // SelvaFlix corre en https (producción), el navegador bloquea esa
+            // SelvaMov corre en https (producción), el navegador bloquea esa
             // fuente por "contenido mixto". Se reescribe para que pase por el
             // proxy del worker (/flix/live-proxy), que la reescribe y sirve de
             // vuelta ya en https.

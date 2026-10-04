@@ -1,10 +1,10 @@
-# SelvaFlix caído por egress de Supabase — cómo lo arreglamos
+# SelvaMov caído por egress de Supabase — cómo lo arreglamos
 
 **Fecha:** 2026-09-06
-**Síntoma:** ninguna peli carga. La base de SelvaFlix devuelve `HTTP 402 —
+**Síntoma:** ninguna peli carga. La base de SelvaMov devuelve `HTTP 402 —
 exceed_egress_quota`. El plan gratis de Supabase da 5 GB de egress/mes y la org
 los pasó (iba 11.4 / 5 GB). Supabase restringió **todos** los proyectos de la
-org (SelvaFlix y boga-market comparten cupo).
+org (SelvaMov y boga-market comparten cupo).
 
 ---
 
@@ -92,10 +92,10 @@ Opciones, de menos a más laburo:
    Billing**. Si es el 12, faltan pocos días. En cuanto vuelva, el primer hit a
    `/flix/catalog` (o el Cron) llena KV y ya queda blindado.
 
-2. **Sacar boga-market a otra org.** SelvaFlix y boga-market comparten el cupo de
+2. **Sacar boga-market a otra org.** SelvaMov y boga-market comparten el cupo de
    5 GB. Ver el egress **por proyecto** (cada Project → Reports → Egress). Si
-   SelvaFlix solo quedó por debajo de 5 GB, mover boga-market a una org nueva
-   (Project Settings → General → Transfer project) **re-habilita SelvaFlix solo**.
+   SelvaMov solo quedó por debajo de 5 GB, mover boga-market a una org nueva
+   (Project Settings → General → Transfer project) **re-habilita SelvaMov solo**.
 
 3. **Proyecto Supabase nuevo + migrar `movies`.** Cupo fresco hoy. Dump/restore
    de la tabla + cambiar `VITE_SUPABASE_URL` (sitio) y `SUPABASE_URL` (Worker).

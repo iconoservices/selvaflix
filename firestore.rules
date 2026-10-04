@@ -1,7 +1,7 @@
 rules_version = '2';
 
 /**
- * 🌴 REGLAS DE SEGURIDAD DE SELVAFLIX
+ * 🌴 REGLAS DE SEGURIDAD DE SELVAMOV
  * ----------------------------------
  * Este archivo NO contiene secretos ni llaves privadas.
  * Define quién tiene permiso para entrar a la selva de datos.
@@ -10,7 +10,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /{document=**} {
-      // Todos pueden ver el catálogo de SelvaFlix (Público)
+      // Todos pueden ver el catálogo de SelvaMov (Público)
       allow read: if true;
       
       // Solo usuarios identificados (o mediante el Master Key) pueden escribir

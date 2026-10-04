@@ -1,6 +1,6 @@
 {
-    "name": "SelvaFlix: Cine y Selva",
-    "short_name": "SelvaFlix",
+    "name": "SelvaMov: Cine y Selva",
+    "short_name": "SelvaMov",
     "description": "Tu cine favorito en medio de la naturaleza.",
     "start_url": "/",
     "display": "standalone",

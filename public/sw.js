@@ -33,7 +33,7 @@ messaging.onBackgroundMessage((payload) => {
    4. Blindaje contra Opaque Responses (CORS).
 */
 
-const CACHE_NAME = 'selvamov-cache-v2.84';
+const CACHE_NAME = 'selvamov-cache-v2.85';
 const STATIC_ASSETS = [
     '/',
     '/index.html',

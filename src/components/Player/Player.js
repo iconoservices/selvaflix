@@ -138,6 +138,7 @@ export const SelvaStream = {
                     </div>
                     
                     <iframe id="player-iframe" src="" style="display:none;"
+                        scrolling="no"
                         allow="autoplay"
                         allowfullscreen
                         referrerpolicy="origin">

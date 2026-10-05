@@ -5569,6 +5569,29 @@ body.admin-locked {
   flex-shrink: 0;
 }
 
+.drawer-header-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 7px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: #ddd;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.drawer-header-banner .material-symbols-outlined { font-size: 18px; color: #ff7a3d; }
+.drawer-header-banner:has(input:checked) {
+  background: rgba(255,87,26,0.14);
+  border-color: rgba(255,87,26,0.55);
+  color: #fff;
+}
+@media (max-width: 700px) { .drawer-header-banner-txt { display: none; } }
+
 .drawer-header-status-group {
   display: flex;
   align-items: center;

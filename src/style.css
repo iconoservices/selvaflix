@@ -6116,14 +6116,6 @@ body.admin-locked {
     padding-top: 28px !important;
   }
 
-  #detail-btn-play {
-    width: auto !important;
-    min-width: 210px;
-    height: 52px !important;
-    padding: 0 34px !important;
-    font-size: 16px !important;
-  }
-
   /* El contenedor de "Mi Lista"/"Descargar" no debe estirarse */
   #detail-actions > div {
     flex: 0 1 auto !important;
@@ -6654,14 +6646,6 @@ body.admin-locked {
       que dibuja el proveedor dentro del iframe. Los bajamos.
    ------------------------------------------------------------------ */
 #detail-view.con-player-acoplado #detail-header {
-  display: none !important;
-}
-
-/* ─── Ruta única #detail/slug ───────────────────────────────────────
-   El hero lindo (imagen de fondo + título + degradé arriba) se queda tal
-   cual estaba. Lo único que se saca con el player acoplado es el botón
-   PLAY, que ahora sobra porque el reproductor ya arranca solo. */
-#detail-view.con-player-acoplado #detail-btn-play {
   display: none !important;
 }
 

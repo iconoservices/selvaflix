@@ -8823,14 +8823,6 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
     // (.consejo-movil / .consejo-escritorio), así siempre aciertan sin depender
     // del ancho en el momento de abrir la ficha.
 
-    // 6. Botón PLAY → lanza el player directamente como overlay sobre la detail-view
-    const playBtn = document.getElementById('detail-btn-play');
-    if (playBtn) {
-        playBtn.onclick = () => {
-            window.openPlayer(movie.id);
-        };
-    }
-
     // 7. Botón MI LISTA
     const listBtn = document.getElementById('detail-btn-list');
     if (listBtn) {

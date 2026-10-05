@@ -1476,7 +1476,7 @@ export const SelvaStream = {
         this.desacoplar();
         // Si el player se cerró estando en una ficha (falla, cierre por otra
         // vía), la ficha sin video no se queda: el vigilante la saca.
-        if (window.location.hash.startsWith('#detail/')) window._vigilarFichaSinPlayer?.();
+        if (window.location.hash.startsWith('#detail/')) window._vigilarFichaSinPlayer?.(0, 700);
 
         // 🧹 Limpieza de controles
         const root = document.getElementById('player-controls-root');

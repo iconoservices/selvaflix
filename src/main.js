@@ -8593,16 +8593,16 @@ window._salirDeFicha = () => {
 // acoplado (falló, se cerró, el título no existe), se sale sola. Espera a que
 // cargue el catálogo para no echar a nadie en una conexión lenta.
 let _vigiaFichaTimer = null;
-function _vigilarFichaSinPlayer(intentos = 0) {
+function _vigilarFichaSinPlayer(intentos = 0, espera = 2500) {
     clearTimeout(_vigiaFichaTimer);
     _vigiaFichaTimer = setTimeout(() => {
         if (!window.location.hash.substring(1).startsWith('detail/')) return;
         const ficha = document.getElementById('detail-view');
         if (!ficha || ficha.classList.contains('con-player-acoplado')) return;
         const catalogoListo = !!movieDatabase?.trending?.length;
-        if (!catalogoListo && intentos < 20) return _vigilarFichaSinPlayer(intentos + 1);
+        if (!catalogoListo && intentos < 20) return _vigilarFichaSinPlayer(intentos + 1, espera);
         window._salirDeFicha();
-    }, intentos === 0 ? 2500 : 1000);
+    }, intentos === 0 ? espera : 1000);
 }
 window._vigilarFichaSinPlayer = _vigilarFichaSinPlayer;
 
@@ -8611,13 +8611,16 @@ window._vigilarFichaSinPlayer = _vigilarFichaSinPlayer;
 // sin pasar por #detail/slug: ahí cerrar no debe sacar al usuario de la app.
 window.closePlayer = () => {
     clearTimeout(_streakWatchTimer); // cerró antes de los 2min: no cuenta para la racha
-    if (typeof SelvaStream !== 'undefined') SelvaStream.close();
     const hash = window.location.hash.substring(1);
     if (hash.startsWith('detail/')) {
+        // NO se cierra el player acá: al cambiar la ruta, handleRouting oculta la
+        // ficha y recién ahí cierra el player. Cerrarlo antes dejaba la pantalla
+        // negra un instante (la ficha se oculta sola al quedar sin player).
         window._salirDeFicha();
-    } else if (hash !== 'live') {
-        history.back();
+        return;
     }
+    if (typeof SelvaStream !== 'undefined') SelvaStream.close();
+    if (hash !== 'live') history.back();
 };
 
 // Exported Actions

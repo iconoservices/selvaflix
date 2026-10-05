@@ -1474,6 +1474,9 @@ export const SelvaStream = {
 
         // Devolver el modal al body para que la próxima apertura parta de cero
         this.desacoplar();
+        // Si el player se cerró estando en una ficha (falla, cierre por otra
+        // vía), la ficha sin video no se queda: el vigilante la saca.
+        if (window.location.hash.startsWith('#detail/')) window._vigilarFichaSinPlayer?.();
 
         // 🧹 Limpieza de controles
         const root = document.getElementById('player-controls-root');

@@ -1774,6 +1774,7 @@ function handleRouting() {
     // link compartido, F5 y el botón atrás caen justo en el mismo episodio.
     const ep = /^s(\d{1,3})e(\d{1,4})$/i.exec(partes[1] || '');
     showView('detail-view');
+    window._vigilarFichaSinPlayer && window._vigilarFichaSinPlayer();
     if (slugOrId) window.openMovieDetail(slugOrId, {
       autoPlay: true,
       ...(ep ? { season: parseInt(ep[1], 10), episode: parseInt(ep[2], 10) } : {})
@@ -2600,6 +2601,12 @@ function _renderInventoryRows(items) {
       ? `<span class="genre-badge" style="background:rgba(46,204,113,0.12); color:#2ecc71; border:1px solid rgba(46,204,113,0.3);" title="Tiene link de descarga cargado">⬇️ Con Descarga</span>`
       : '';
 
+    // Marca los títulos fijados en el banner de Inicio (se cambia con el
+    // interruptor "Banner" de la cabecera del editor).
+    const pinnedBadge = m.pinned
+      ? `<span class="genre-badge" style="background:rgba(255,87,26,0.15); color:#ff7a3d; border:1px solid rgba(255,87,26,0.4);" title="Fijado en el banner de Inicio">📌 En Banner</span>`
+      : '';
+
     return `
       <tr data-id="${m.id}">
         <td style="text-align: center;">
@@ -2618,7 +2625,7 @@ function _renderInventoryRows(items) {
         </td>
         <td>
           <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-            ${genres}${vimeusBadge}${downloadBadge}
+            ${pinnedBadge}${genres}${vimeusBadge}${downloadBadge}
           </div>
         </td>
         <td>
@@ -6319,6 +6326,7 @@ window.filterInventoryByCategory = () => {
     if (category === 'no-vimeus') matchHealth = m.vimeusDisponible === false && !m.vimeusFantasma;
     if (category === 'vimeus-fantasma') matchHealth = !!m.vimeusFantasma;
     if (category === 'no-download') matchHealth = !m.downloadUrl;
+    if (category === 'pinned') matchHealth = m.pinned === true;
     // En el admin panel 'all' = TODOS (sin exclusiones por estado)
 
     return matchSearch && matchType && matchLang && matchGenre && matchHealth;
@@ -8461,6 +8469,8 @@ window.openPlayer = async (movieId) => {
   if (isVipLocked && !isPremium) {
     // Bloqueado para Free: Mostrar Modal de Estreno o Upgrade
     window.showVipLockModal(movie);
+    if (typeof SelvaStream !== 'undefined') SelvaStream.desacoplar();
+    window._salirDeFicha();
     return;
   }
 
@@ -8562,26 +8572,49 @@ window.addEventListener('keydown', (e) => {
 // ficha (sinopsis, episodios, reportar, y el botón Play para reabrirlo). Para
 // salir del todo, atrás del navegador. Si por lo que sea llegamos acá sin
 // estar en una ficha, retrocedemos para no dejar el overlay fantasma.
+// Saca al usuario de la ficha: vuelve a donde estaba (history.back si la
+// entrada previa es de la app; si se entró por link directo, reemplaza la
+// entrada por la ruta anterior o el inicio). La ficha NUNCA debe quedar a la
+// vista sin reproductor (era la "pestaña intermedia").
+window._salirDeFicha = () => {
+    if (!window.location.hash.substring(1).startsWith('detail/')) return;
+    // Con history.back() la ficha sale del historial; asignar el hash
+    // empujaba una entrada nueva y el siguiente "atrás" reabría la ficha
+    // (y el player solo).
+    if (_hayRutaPrevia) {
+        history.back();
+    } else {
+        history.replaceState(null, '', '#' + (_rutaAntesDeFicha || ''));
+        handleRouting();
+    }
+};
+
+// Vigilante: si la ficha está abierta y pasado un rato no hay reproductor
+// acoplado (falló, se cerró, el título no existe), se sale sola. Espera a que
+// cargue el catálogo para no echar a nadie en una conexión lenta.
+let _vigiaFichaTimer = null;
+function _vigilarFichaSinPlayer(intentos = 0) {
+    clearTimeout(_vigiaFichaTimer);
+    _vigiaFichaTimer = setTimeout(() => {
+        if (!window.location.hash.substring(1).startsWith('detail/')) return;
+        const ficha = document.getElementById('detail-view');
+        if (!ficha || ficha.classList.contains('con-player-acoplado')) return;
+        const catalogoListo = !!movieDatabase?.trending?.length;
+        if (!catalogoListo && intentos < 20) return _vigilarFichaSinPlayer(intentos + 1);
+        window._salirDeFicha();
+    }, intentos === 0 ? 2500 : 1000);
+}
+window._vigilarFichaSinPlayer = _vigilarFichaSinPlayer;
+
+// Cierra SOLO el reproductor y vuelve a donde se estaba (la ficha ya no existe
+// sin player). En "En Vivo" (canales/partidos) el player se abre desde #live
+// sin pasar por #detail/slug: ahí cerrar no debe sacar al usuario de la app.
 window.closePlayer = () => {
     clearTimeout(_streakWatchTimer); // cerró antes de los 2min: no cuenta para la racha
     if (typeof SelvaStream !== 'undefined') SelvaStream.close();
-    // "En Vivo" (canales/partidos) abre el player desde #live sin pasar por
-    // #detail/slug -- sin esta excepción, cerrar el player disparaba
-    // history.back() y sacaba al usuario de la app entera en vez de dejarlo
-    // en el hub de TV en vivo.
     const hash = window.location.hash.substring(1);
     if (hash.startsWith('detail/')) {
-        // Atrás/X/Esc en la ficha: se vuelve a donde estaba, sin quedarse en la
-        // ficha con el botón PLAY. Sin ruta previa (link compartido) → inicio.
-        // Con history.back() la ficha sale del historial; asignar el hash
-        // empujaba una entrada nueva y el siguiente "atrás" reabría la ficha
-        // (y el player solo).
-        if (_hayRutaPrevia) {
-            history.back();
-        } else {
-            history.replaceState(null, '', '#' + (_rutaAntesDeFicha || ''));
-            handleRouting();
-        }
+        window._salirDeFicha();
     } else if (hash !== 'live') {
         history.back();
     }
@@ -8737,6 +8770,7 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
         const synopsisEl = document.getElementById('detail-synopsis');
         if (synopsisEl) synopsisEl.textContent = 'Este título ya no está disponible en la selva.';
         if (typeof SelvaStream !== 'undefined') SelvaStream.close();
+        if (window.showToast) window.showToast('Este título ya no está disponible en la selva.', 'info');
         return;
     }
 
@@ -8813,7 +8847,6 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
     const _setTxt = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
     _setTxt('detail-dock-year', movie.year || movie.release_year || '');
     _setTxt('detail-dock-rating', movie.rating || '—');
-    _setTxt('detail-dock-duration', document.getElementById('detail-duration')?.textContent || '');
 
     // 5. Sinopsis
     const synopsisEl = document.getElementById('detail-synopsis');

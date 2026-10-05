@@ -7393,3 +7393,9 @@ body:has(#detail-view.con-player-acoplado) #hero-share-fab {
 
 /* Género sin títulos en la sección actual: se oculta el chip. */
 .cinepulse-genre-chip.genero-vacio { display: none !important; }
+
+/* La ficha (#detail-view) solo existe junto a un reproductor acoplado: sin él
+   no se muestra nunca (era la "pestaña intermedia" con el hero grande). */
+#detail-view:not(.con-player-acoplado) {
+  display: none !important;
+}

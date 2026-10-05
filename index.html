@@ -668,8 +668,6 @@
             </h1>
             <div class="flex items-center gap-md text-on-surface-variant font-label-md text-label-md" style="color: #e6beb2; font-family: Inter, sans-serif; font-size: 14px;">
               <span id="detail-year">2024</span>
-              <span class="px-xs py-[2px] border border-outline-variant rounded-sm text-[10px]" style="border-color: #5c4037; padding: 2px 4px; border-radius: 2px;">16+</span>
-              <span id="detail-duration">2h 45m</span>
               <div class="flex items-center text-primary" style="color: #ffb59e;">
                 <span class="material-symbols-outlined !text-[16px] mr-1" style="font-variation-settings: 'FILL' 1; font-size: 16px; margin-right: 4px;">star</span>
                 <span id="detail-rating">0.0</span>
@@ -692,8 +690,6 @@
              hero, que en escritorio con el player acoplado deja de mostrarse) -->
         <div id="detail-dock-meta">
           <span id="detail-dock-year"></span>
-          <span class="dock-meta-edad">16+</span>
-          <span id="detail-dock-duration"></span>
           <span class="dock-meta-rating"><span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1; font-size:16px;">star</span><span id="detail-dock-rating"></span></span>
         </div>
 
@@ -1049,6 +1045,7 @@
                     <option value="no-vimeus">🚫 Sin Vimeus</option>
                     <option value="vimeus-fantasma">👻 Vimeus Fantasma</option>
                     <option value="no-download">⬇️ Sin Descarga</option>
+                    <option value="pinned">📌 En el Banner</option>
                     <option value="missing">🟠 Sin ID TMDB</option>
                     <option value="reported">🚨 Reportados por Usuarios</option>
                   </select>
@@ -1984,6 +1981,14 @@
           </div>
           <h1 class="drawer-movie-title" id="drawer-form-title">Sin Título</h1>
           <div class="drawer-header-actions">
+            <label class="drawer-header-banner" title="Mostrar este título en el banner (marquesina) de Inicio">
+              <span class="material-symbols-outlined">push_pin</span>
+              <span class="drawer-header-banner-txt">Banner</span>
+              <span class="switch">
+                <input type="checkbox" id="m-pinned">
+                <span class="slider round"></span>
+              </span>
+            </label>
             <div class="drawer-header-status-group">
               <select id="m-status" class="form-control drawer-header-status" title="Estado de Salud">
                 <option value="healthy">✅ Sano</option>
@@ -2351,18 +2356,6 @@
               </p>
               <input type="url" id="m-backdrop" class="form-control" placeholder="URL del banner..."
                 oninput="document.getElementById('m-backdrop-preview').src = this.value || 'https://via.placeholder.com/600x338/111/555?text=Sin+Banner'">
-            </div>
-
-            <!-- Carrusel Destacado -->
-            <div class="drawer-card" style="display:flex; justify-content:space-between; align-items:center;">
-              <div>
-                <p style="margin:0; font-size:0.85rem; font-weight:700; color:#eee;">📌 Fijar en Carrusel Destacado</p>
-                <p style="margin:0; font-size:0.72rem; color:#666;">Mostrar este título en la marquesina de Inicio</p>
-              </div>
-              <label class="switch">
-                <input type="checkbox" id="m-pinned">
-                <span class="slider round"></span>
-              </label>
             </div>
 
           </div><!-- /col-right -->

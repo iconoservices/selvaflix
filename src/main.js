@@ -77,6 +77,10 @@ window.addEventListener('resize', () => window.alinearTituloHero && window.aline
 // cerrar el reproductor se vuelve ahí, sin pasar por la ficha con el botón PLAY.
 let _rutaActual = '';
 let _rutaAntesDeFicha = '';
+// true en cuanto la app pasó por alguna ruta que NO es ficha: significa que la
+// entrada anterior del historial es de la app y se puede volver con history.back()
+// (si se entró directo por un link a #detail/..., no hay a dónde volver).
+let _hayRutaPrevia = false;
 // Historial de "Continuar viendo" (se filtra por pestaña en pintarContinuarViendo)
 let _historialContinuar = [];
 window._esCuentaAdmin = () => {
@@ -1725,6 +1729,7 @@ function handleRouting() {
   // episodios (#detail/slug/s1e2) no se pisa.
   if (hash.startsWith('detail/') && !_rutaActual.startsWith('detail/')) _rutaAntesDeFicha = _rutaActual;
   _rutaActual = hash;
+  if (!hash.startsWith('detail/')) _hayRutaPrevia = true;
 
   // El player-modal es un overlay independiente del hash. Con la ruta única
   // #detail/slug (abre ficha + player juntos) hay que cerrarlo en cuanto la
@@ -8559,7 +8564,15 @@ window.closePlayer = () => {
     if (hash.startsWith('detail/')) {
         // Atrás/X/Esc en la ficha: se vuelve a donde estaba, sin quedarse en la
         // ficha con el botón PLAY. Sin ruta previa (link compartido) → inicio.
-        window.location.hash = _rutaAntesDeFicha || '';
+        // Con history.back() la ficha sale del historial; asignar el hash
+        // empujaba una entrada nueva y el siguiente "atrás" reabría la ficha
+        // (y el player solo).
+        if (_hayRutaPrevia) {
+            history.back();
+        } else {
+            history.replaceState(null, '', '#' + (_rutaAntesDeFicha || ''));
+            handleRouting();
+        }
     } else if (hash !== 'live') {
         history.back();
     }

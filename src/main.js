@@ -81,6 +81,15 @@ let _rutaAntesDeFicha = '';
 // entrada anterior del historial es de la app y se puede volver con history.back()
 // (si se entró directo por un link a #detail/..., no hay a dónde volver).
 let _hayRutaPrevia = false;
+// Ids siempre como texto: Firestore/Supabase a veces los devuelven como número
+// y un Set.has('123') contra 123 falla en silencio (el botón "agregaba" dos veces).
+window._enMiLista = (id) => !!(window._myListIds && window._myListIds.has(String(id)));
+
+// Corazón de las tarjetas: icono de Material (se ve igual en todos los
+// dispositivos y se pinta relleno/vacío) en vez de los emoji 🤍/❤️.
+window._corazonHTML = (fav) =>
+    `<span class="material-symbols-outlined corazon-ico" style="font-variation-settings:'FILL' ${fav ? 1 : 0}">favorite</span>`;
+
 // Historial de "Continuar viendo" (se filtra por pestaña en pintarContinuarViendo)
 let _historialContinuar = [];
 window._esCuentaAdmin = () => {
@@ -2153,7 +2162,7 @@ function buildMovieCardHtml(item, favClass, favIcon, statusBadgeHtml, extraClass
           onerror="window.rescatarPoster(this, '${item.tmdbId || ''}', '${item.type || 'movie'}')">
         <span class="cpc-badge cpc-type cpc-type-${t}">${typeLabel}</span>
         <span class="cpc-badge cpc-lang">${langLabel}</span>
-        <div class="btn-add-list ${favClass}" onclick="event.stopPropagation(); window.toggleMyList('${item.id}', this)" title="Añadir a mi selva">${favIcon}</div>
+        <div class="btn-add-list ${favClass}" data-movie-id="${item.id}" role="button" aria-label="Añadir a Mi Lista" onclick="event.stopPropagation(); window.toggleMyList('${item.id}', this)" title="${favClass ? 'Quitar de Mi Lista' : 'Añadir a Mi Lista'}">${favIcon}</div>
         ${statusBadgeHtml}
         ${item.isVIP ? '<div class="vip-badge-sm cpc-flag" style="top:36px;background:linear-gradient(45deg,#FFD700,#FFA500);color:#000;">👑 VIP</div>' : ''}
         ${item.vimeusDisponible ? `<div class="vimeus-badge-sm cpc-flag" style="top:${item.isVIP ? '58px' : '36px'};background:rgba(46,204,113,0.92);color:#06210f;" title="Confirmado en Vimeus: la fuente que mejor y más rápido funciona">⭐ ÓPTIMO</div>` : ''}
@@ -2182,9 +2191,9 @@ function _renderCardsInto(container, data, isTrending = false) {
   function renderNextChunk() {
     const chunk = data.slice(currentIndex, currentIndex + CHUNK_SIZE);
     const html = chunk.map((item, idx) => {
-        const isFavorite = window._myListIds && window._myListIds.has(item.id);
+        const isFavorite = window._enMiLista(item.id);
         const favClass = isFavorite ? 'active' : '';
-        const favIcon = isFavorite ? '❤️' : '🤍';
+        const favIcon = window._corazonHTML(isFavorite);
         const rank = currentIndex + idx + 1;
         
         // Obtener género (traducido: TMDB da IDs numéricos, no nombres)
@@ -2302,9 +2311,9 @@ function renderGallery(title, groups) {
     function renderNextChunk() {
       const chunk = items.slice(currentIndex, currentIndex + CHUNK_SIZE);
       const html = chunk.map(item => {
-        const isFavorite = window._myListIds && window._myListIds.has(item.id);
+        const isFavorite = window._enMiLista(item.id);
         const favClass = isFavorite ? 'active' : '';
-        const favIcon = isFavorite ? '❤️' : '🤍';
+        const favIcon = window._corazonHTML(isFavorite);
         const genreId = item.genres ? (Array.isArray(item.genres) ? item.genres[0] : item.genres) : '';
         const genre = GENRE_MAP[String(genreId)] || 'Película';
 
@@ -8825,11 +8834,9 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
     // 7. Botón MI LISTA
     const listBtn = document.getElementById('detail-btn-list');
     if (listBtn) {
-        const isFav = window._myListIds && window._myListIds.has(movie.id);
-        listBtn.innerHTML = isFav
-            ? '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 1">favorite</span> EN MI LISTA'
-            : '<span class="material-symbols-outlined">add</span> MI LISTA';
-        listBtn.style.backgroundColor = isFav ? '#474746' : '#353534';
+        const isFav = window._enMiLista(movie.id);
+        window._pintarBotonLista(listBtn, isFav);
+        listBtn.dataset.movieId = String(movie.id);
         listBtn.onclick = () => {
             if (window.toggleMyList) window.toggleMyList(movie.id, listBtn);
         };
@@ -9988,7 +9995,7 @@ async function updateHeroCarousel() {
     }
   }
   
-  const isFavorite = window._myListIds && window._myListIds.has(item.id);
+  const isFavorite = window._enMiLista(item.id);
   
   section.style.display = 'flex';
   section.classList.add('cinepulse-hero');
@@ -10024,15 +10031,13 @@ async function updateHeroCarousel() {
   }
   
   if (heroList) {
+    heroList.dataset.movieId = String(item.id);
     heroList.onclick = (e) => {
       e.stopPropagation();
       window.toggleMyList(item.id, heroList);
     };
     
-    const isFav = window._myListIds && window._myListIds.has(item.id);
-    heroList.innerHTML = isFav
-      ? '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 1;">check</span> En Mi Lista'
-      : '<span class="material-symbols-outlined">add</span> Mi Lista';
+    window._pintarBotonLista(heroList, window._enMiLista(item.id));
   }
 
   renderHeroThumbs(activeSet);
@@ -13025,33 +13030,76 @@ window.loadContinueWatching = async () => {
 };
 
 window._myListIds = new Set();
+// Pinta UN botón de lista según su tipo: corazón de tarjeta, botón de la ficha
+// o botón del héroe. Antes todo se trataba como corazón de tarjeta y los
+// botones con texto se reemplazaban por un emoji suelto.
+window._pintarBotonLista = (btn, fav) => {
+    if (!btn) return;
+    btn.classList.toggle('active', !!fav);
+    if (btn.classList.contains('btn-add-list')) {
+        btn.innerHTML = window._corazonHTML(fav);
+        btn.title = fav ? 'Quitar de Mi Lista' : 'Añadir a Mi Lista';
+        btn.setAttribute('aria-pressed', fav ? 'true' : 'false');
+    } else if (btn.id === 'detail-btn-list') {
+        btn.innerHTML = fav
+            ? '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 1; color:#ff4d6d">favorite</span> EN MI LISTA'
+            : '<span class="material-symbols-outlined">add</span> MI LISTA';
+        btn.style.backgroundColor = fav ? '#474746' : '#353534';
+    } else if (btn.id === 'cinepulse-hero-list' || btn.classList.contains('hero-btn-add')) {
+        btn.innerHTML = fav
+            ? '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 1;">check</span> En Mi Lista'
+            : '<span class="material-symbols-outlined">add</span> Mi Lista';
+    }
+};
+
+// Deja iguales TODOS los botones del mismo título que haya en pantalla
+// (tarjeta del carrusel, tarjeta de la galería, héroe, ficha).
+window._sincronizarBotonesLista = (movieId, fav) => {
+    document.querySelectorAll('[data-movie-id]').forEach(el => {
+        if (el.dataset.movieId === String(movieId)) window._pintarBotonLista(el, fav);
+    });
+};
 
 window.toggleMyList = async (movieId, btn) => {
+    movieId = String(movieId);
     if (!auth.currentUser || !_currentProfile) {
-        if (window.showToast) window.showToast("Inicia sesion para guardar tus favoritos", "primary");
+        if (window.showToast) window.showToast("Inicia sesión para guardar tus favoritos", "primary");
         return;
     }
-    const movie = movieDatabase.trending.find(m => String(m.id) === String(movieId));
+    const movie = movieDatabase.trending.find(m => String(m.id) === movieId);
     if (!movie) return;
+    if (btn && btn._ocupado) return; // evita doble toque mientras guarda
+    if (btn) btn._ocupado = true;
+    const estaba = window._enMiLista(movieId);
     const listRef = doc(db, "users", auth.currentUser.uid, "profiles", _currentProfile.id, "mylist", movieId);
-    if (window._myListIds.has(movieId)) {
-        await deleteDoc(listRef);
-        window._myListIds.delete(movieId);
-        btn.classList.remove("active");
-        if (btn.classList.contains("hero-btn-add")) { btn.innerHTML = "<span>+</span> Mi Lista"; } else { btn.innerHTML = String.fromCharCode(0x1F90D); }
-    } else {
-        await setDoc(listRef, { movieId: movie.id, title: movie.title || movie.name, poster: movie.img || movie.poster_path, type: movie.type, timestamp: Date.now() });
-        window._myListIds.add(movieId);
-        btn.classList.add("active", "heart-animation");
-        if (btn.classList.contains("hero-btn-add")) { btn.innerHTML = "<span>checkmark</span> Agregado"; } else { btn.innerHTML = String.fromCharCode(0x2764, 0xFE0F); }
-        setTimeout(() => btn.classList.remove("heart-animation"), 400);
+    try {
+        if (estaba) {
+            await deleteDoc(listRef);
+            window._myListIds.delete(movieId);
+        } else {
+            await setDoc(listRef, { movieId: movie.id, title: movie.title || movie.name, poster: movie.img || movie.poster_path, type: movie.type, timestamp: Date.now() });
+            window._myListIds.add(movieId);
+        }
+        window._sincronizarBotonesLista(movieId, !estaba);
+        if (btn) window._pintarBotonLista(btn, !estaba);
+        if (!estaba && btn) {
+            btn.classList.add("heart-animation");
+            setTimeout(() => btn.classList.remove("heart-animation"), 450);
+        }
+        if (window.showToast) window.showToast(estaba ? "Quitada de Mi Lista" : "Agregada a Mi Lista ❤️", estaba ? "info" : "success");
+    } catch (e) {
+        console.error("No se pudo actualizar Mi Lista:", e);
+        if (window.showToast) window.showToast("No se pudo guardar. Revisá tu conexión e intentá de nuevo.", "error");
+    } finally {
+        if (btn) btn._ocupado = false;
     }
     const badge = document.getElementById("nav-fav-count");
     if (badge) {
         if (window._myListIds.size === 0) { badge.style.display = "none"; } else { badge.innerText = window._myListIds.size; badge.style.display = "block"; }
     }
-    await window.loadMyList();
-    initApp(_currentFilter);
+    // Solo se refrescan las grillas de Mi Lista; ya no se re-dibuja toda la
+    // portada (initApp) en cada toque.
+    window.loadMyList().catch(e => console.warn("loadMyList:", e));
 };
 
 window.toggleMyListModal = () => {
@@ -13094,7 +13142,7 @@ window.loadMyList = async () => {
     }
 
     window._myListIds.clear();
-    myList.forEach(data => window._myListIds.add(data.movieId));
+    myList.forEach(data => window._myListIds.add(String(data.movieId)));
     const badge = document.getElementById("nav-fav-count");
     const buildCard = (m) => {
         const p = (m.poster || "").startsWith("http") ? m.poster : "https://image.tmdb.org/t/p/w300" + m.poster;

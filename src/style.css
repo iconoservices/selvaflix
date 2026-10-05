@@ -4000,6 +4000,31 @@ body {
   transform: translateY(0);
 }
 
+/* Corazón de Mi Lista: icono de Material, relleno rojo al guardarlo */
+.btn-add-list .corazon-ico {
+  font-size: 20px;
+  line-height: 1;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+.btn-add-list.active {
+  background: rgba(0, 0, 0, 0.65);
+  border-color: rgba(255, 77, 109, 0.55);
+  box-shadow: 0 0 12px rgba(255, 77, 109, 0.45);
+}
+.btn-add-list.active .corazon-ico { color: #ff4d6d; }
+.btn-add-list:active { transform: scale(0.9); }
+/* En pantallas táctiles no existe el hover: el corazón tiene que verse siempre */
+@media (hover: none) {
+  .btn-add-list { opacity: 0.95; transform: none; }
+}
+@keyframes heart-pop {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.45); }
+  65%  { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+.btn-add-list.heart-animation .corazon-ico { animation: heart-pop 0.45s ease-out; }
+
 @keyframes heart-beat {
   0% {
     transform: scale(1);

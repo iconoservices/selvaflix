@@ -1471,6 +1471,10 @@ function showView(active) {
   // y nunca más se le mostraba publicidad, aunque ya no estuviera en admin.
   if (active !== 'admin-view') sessionStorage.removeItem('selva_admin_active');
 
+  // Dentro de una película se esconden los botones flotantes (compartir, regalo
+  // y chat): tapaban los controles del reproductor. Se ven solo fuera de la ficha.
+  document.body.classList.toggle('en-ficha', active === 'detail-view');
+
   const adminEl = document.getElementById('admin-view');
   const homeEl = document.getElementById('home-view');
   const detailEl = document.getElementById('detail-view');

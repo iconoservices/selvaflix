@@ -7161,10 +7161,12 @@ body.admin-locked {
    El sidebar de 80px se comía la pantalla: se convierte en una barra
    de pestañas inferior que se desliza, y el resto se apila.
    ═══════════════════════════════════════════════════════════════════ */
-/* En la pantalla de una película el botón flotante de compartir la app (borde
-   derecho) tapaba los botones del reproductor ("NO CARGA", "⛶"). Ahí ya está
-   el botón COMPARTIR de la ficha, así que el flotante se esconde. */
-body:has(#detail-view.con-player-acoplado) #hero-share-fab {
+/* Dentro de una película los botones flotantes (compartir la app, regalo y chat
+   de soporte) tapaban los controles del reproductor ("NO CARGA", "⛶") y la info.
+   Solo se ven fuera de la ficha; `en-ficha` la pone showView(). */
+body.en-ficha #hero-share-fab,
+body.en-ficha #premium-promo-fab,
+body.en-ficha #support-chat-fab {
   display: none !important;
 }
 

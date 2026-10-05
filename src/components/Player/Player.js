@@ -1503,7 +1503,6 @@ export const SelvaStream = {
 
         if (modal.parentElement !== muelle) muelle.appendChild(modal);
         modal.classList.add('player-acoplado');
-        document.getElementById('detail-view')?.classList.add('con-player-acoplado');
 
         // Aunque el hero encoge, si la página venía scrolleada el player puede
         // quedar fuera de vista. Lo traemos para que se vea al instante.
@@ -1518,7 +1517,6 @@ export const SelvaStream = {
         const modal = document.getElementById('player-modal');
         if (!modal) return;
         modal.classList.remove('player-acoplado', 'player-expandido');
-        document.getElementById('detail-view')?.classList.remove('con-player-acoplado');
         if (modal.parentElement !== document.body) document.body.appendChild(modal);
     },
 

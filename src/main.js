@@ -55,8 +55,7 @@ const ADMIN_EMAILS = ['jnmcsky@gmail.com'];
 window.alinearTituloHero = () => {
   const info = document.getElementById('detail-hero-info');
   if (!info) return;
-  const acoplado = document.getElementById('detail-view')?.classList.contains('con-player-acoplado');
-  if (!acoplado || window.innerWidth < 1024) { info.style.left = ''; info.style.right = ''; return; }
+  if (window.innerWidth < 1024) { info.style.left = ''; info.style.right = ''; return; }
   const hero = document.getElementById('detail-hero')?.getBoundingClientRect();
   const acciones = document.getElementById('detail-actions')?.getBoundingClientRect();
   const dock = document.getElementById('detail-player-dock')?.getBoundingClientRect();
@@ -1746,10 +1745,9 @@ function handleRouting() {
   // Si no, se queda encima de la app (invisible pero comiéndose los clics) y
   // con el scroll del body bloqueado.
   if (!hash.startsWith('detail/')) {
-    // Ocultar la ficha ANTES de cerrar el player: SelvaStream.close() llama a
-    // desacoplar(), que le saca la clase con-player-acoplado a #detail-view.
-    // Si la ficha sigue visible en ese instante, se ve un frame con el hero
-    // grande + botón PLAY (la "previa" vieja) antes de que showView la tape.
+    // Ocultar la ficha ANTES de cerrar el player: al cerrarse, la ficha queda con
+    // el hueco del video vacío; así no se ve ni un frame de eso antes de que
+    // showView la tape.
     const _detailEl = document.getElementById('detail-view');
     if (_detailEl) _detailEl.style.display = 'none';
     if (typeof SelvaStream !== 'undefined') SelvaStream.close();
@@ -1774,7 +1772,6 @@ function handleRouting() {
     // link compartido, F5 y el botón atrás caen justo en el mismo episodio.
     const ep = /^s(\d{1,3})e(\d{1,4})$/i.exec(partes[1] || '');
     showView('detail-view');
-    window._vigilarFichaSinPlayer && window._vigilarFichaSinPlayer();
     if (slugOrId) window.openMovieDetail(slugOrId, {
       autoPlay: true,
       ...(ep ? { season: parseInt(ep[1], 10), episode: parseInt(ep[2], 10) } : {})
@@ -8598,7 +8595,7 @@ function _vigilarFichaSinPlayer(intentos = 0, espera = 2500) {
     _vigiaFichaTimer = setTimeout(() => {
         if (!window.location.hash.substring(1).startsWith('detail/')) return;
         const ficha = document.getElementById('detail-view');
-        if (!ficha || ficha.classList.contains('con-player-acoplado')) return;
+        if (!ficha || (typeof SelvaStream !== 'undefined' && SelvaStream.estaAcoplado())) return;
         const catalogoListo = !!movieDatabase?.trending?.length;
         if (!catalogoListo && intentos < 20) return _vigilarFichaSinPlayer(intentos + 1, espera);
         window._salirDeFicha();
@@ -8774,6 +8771,7 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
         if (synopsisEl) synopsisEl.textContent = 'Este título ya no está disponible en la selva.';
         if (typeof SelvaStream !== 'undefined') SelvaStream.close();
         if (window.showToast) window.showToast('Este título ya no está disponible en la selva.', 'info');
+        setTimeout(() => window._salirDeFicha(), 1200);
         return;
     }
 
@@ -9100,12 +9098,6 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
     // 🎬 Autoplay: la ruta única #detail/slug abre el reproductor apenas se
     // monta la ficha (clic en una tarjeta, link compartido o recarga).
     if (opts.autoPlay) {
-        // Poner la ficha en "modo reproductor" YA — sin esperar a que el player
-        // termine de arrancar (chequeo VIP + preroll pueden tardar 1-2s). Así
-        // no se ve el flash del hero grande con el botón PLAY antes del video;
-        // el hueco del dock queda como placeholder hasta que el player entra.
-        // Si el player falla del todo, SelvaStream.close() → desacoplar() lo saca.
-        document.getElementById('detail-view')?.classList.add('con-player-acoplado');
         // Episodio pedido por la ruta: le gana al del historial (openPlayer lo aplica
         // DESPUÉS de leer Firestore, para que no lo pise).
         movie._episodioRuta = (opts.season && opts.episode)

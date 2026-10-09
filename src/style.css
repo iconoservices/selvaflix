@@ -7418,3 +7418,34 @@ body.en-ficha #support-chat-fab {
 
 /* Género sin títulos en la sección actual: se oculta el chip. */
 .cinepulse-genre-chip.genero-vacio { display: none !important; }
+
+/* ─── MODO TV (Android TV / Google TV) ──────────────────────────────────────
+   `tv-mode` la pone main.js (navegador de TV o ?tv=1). Se mira de lejos y con
+   control remoto: foco muy visible, nada depende del mouse. */
+html.tv-mode { scroll-padding: 120px; }
+html.tv-mode body { cursor: none; }
+html.tv-mode ::-webkit-scrollbar { display: none; }
+html.tv-mode [data-tvnav]:focus,
+html.tv-mode [data-tvnav]:focus-visible {
+  outline: 4px solid #fff;
+  outline-offset: 4px;
+  box-shadow: 0 0 0 8px var(--primary), 0 0 28px 10px rgba(255, 102, 0, 0.55);
+  transform: scale(1.08);
+  z-index: 40;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+/* Letra y zonas de toque más grandes para leer a distancia */
+html.tv-mode .nav-link-cinepulse { font-size: 1.15rem; padding: 10px 14px; }
+html.tv-mode .cinepulse-btn-primary,
+html.tv-mode .cinepulse-btn-secondary { font-size: 1.1rem; padding: 14px 28px; }
+html.tv-mode .genre-rail-item { padding: 12px 6px; }
+html.tv-mode .cpc-foot, html.tv-mode .cpc-badge { font-size: 0.8rem; }
+html.tv-mode .btn-add-list { width: 36px; height: 36px; }
+/* Ayuda visible: mantené OK sobre una tarjeta para guardarla */
+html.tv-mode .cinepulse-movie-card:focus .cpc-poster::after,
+html.tv-mode .cinepulse-movie-card:focus-visible .cpc-poster::after {
+  content: "Mantené OK = Mi Lista";
+  position: absolute; left: 0; right: 0; bottom: 34px;
+  text-align: center; font-size: 0.7rem; font-weight: 700;
+  color: #fff; background: rgba(0,0,0,0.7); padding: 3px 0;
+}

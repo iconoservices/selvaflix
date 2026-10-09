@@ -72,6 +72,26 @@ window.alinearTituloHero = () => {
 };
 window.addEventListener('resize', () => window.alinearTituloHero && window.alinearTituloHero());
 
+// ─── Modo TV (Android TV / Google TV) ──────────────────────────────────────
+// Se activa solo si el navegador es el de una TV con Android, o a mano con
+// ?tv=1 en la dirección (queda guardado; ?tv=0 lo apaga). Pone la clase
+// `tv-mode` en <html> (CSS más grande y foco bien visible) y pide un ancho de
+// pantalla de escritorio: muchas TV reportan ~960 px y caían en el diseño de
+// celular.
+const _uaTV = /Android/i.test(navigator.userAgent) &&
+  /(\bTV\b|AFT[A-Z]|BRAVIA|SHIELD|Chromecast|SmartTV|SMART-TV|MiBOX|HbbTV)/i.test(navigator.userAgent);
+try {
+  const q = new URLSearchParams(location.search).get('tv');
+  if (q === '1') localStorage.setItem('selva_tv_mode', '1');
+  if (q === '0') localStorage.removeItem('selva_tv_mode');
+} catch {}
+window._esAndroidTV = _uaTV;
+window._modoTV = _uaTV || (() => { try { return localStorage.getItem('selva_tv_mode') === '1'; } catch { return false; } })();
+if (window._modoTV) {
+  document.documentElement.classList.add('tv-mode');
+  if (_uaTV) document.querySelector('meta[name="viewport"]')?.setAttribute('content', 'width=1280, initial-scale=1');
+}
+
 // Ruta de la que venía el usuario antes de abrir una ficha (#detail/...). Al
 // cerrar el reproductor se vuelve ahí, sin pasar por la ficha con el botón PLAY.
 let _rutaActual = '';
@@ -1671,8 +1691,14 @@ document.addEventListener('keydown', (e) => {
     const nothingFocused = !active || active === document.body || active.tagName === 'IFRAME';
     // No interceptar flechas si el foco está en el buscador u otro input:
     // ahí las flechas deben mover el cursor de texto, no la selva.
-    const inTextInput = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
-    if ((onTvItem || nothingFocused) && !inTextInput) {
+    let inTextInput = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
+    // Con control remoto no hay forma de salir del buscador con el mouse: arriba
+    // y abajo lo dejan; izquierda y derecha siguen moviendo el cursor del texto.
+    if (inTextInput && window._modoTV && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      active.blur();
+      inTextInput = false;
+    }
+    if ((onTvItem || nothingFocused || (window._modoTV && !inTextInput)) && !inTextInput) {
       e.preventDefault();
       _tvNavMove(dirMap[e.key]);
     }
@@ -1685,9 +1711,30 @@ document.addEventListener('keydown', (e) => {
     // tarjetas, que son <div> por (mucho) más flexibles a nivel de layout.
     if (active?.matches?.('[data-tvnav]') && active.tagName !== 'BUTTON' && active.tagName !== 'A') {
       e.preventDefault();
+      // En una tarjeta de película: toque corto abre la ficha, mantener pulsado
+      // OK la guarda en Mi Lista (el corazón no se puede enfocar con el control).
+      // Se decide al soltar (keyup); `e.repeat` son los eventos del dedo pegado.
+      if (active.classList.contains('cinepulse-movie-card') && active.querySelector('.btn-add-list')) {
+        if (e.repeat) return;
+        _okTarjeta = { el: active, largo: false, t: setTimeout(() => {
+          if (!_okTarjeta || _okTarjeta.el !== active) return;
+          _okTarjeta.largo = true;
+          active.querySelector('.btn-add-list').click();
+        }, 600) };
+        return;
+      }
       active.click();
     }
   }
+});
+let _okTarjeta = null;
+document.addEventListener('keyup', (e) => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  if (!_okTarjeta) return;
+  const { el, largo, t } = _okTarjeta;
+  clearTimeout(t);
+  _okTarjeta = null;
+  if (!largo && document.activeElement === el) el.click();
 });
 
 // 🐍 Convierte un título en slug URL-friendly: "Spider-Man: No Way Home" → "spider-man-no-way-home"
@@ -8548,7 +8595,7 @@ window.addEventListener('hashchange', handleRouting);
 
 // Soporte para Tecla Escape (Laptop/Desktop)
 window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
+    if (e.key === 'Escape' || e.key === 'GoBack' || e.key === 'BrowserBack') {
         // Si el menú de FUENTES VIP está abierto, Escape lo cierra a él, no el
         // player entero.
         const vipMenu = document.getElementById('side-vip-menu');
@@ -11657,9 +11704,7 @@ window.setDownloadUrlFromDrawer = async () => {
   // Android TV / Fire TV: su navegador casi nunca dispara "beforeinstallprompt",
   // así que (igual que en iOS) el botón no puede esperar ese evento: se muestra
   // directo y, si no hay diálogo nativo, explica cómo instalar en la TV.
-  const isAndroidTV = /Android/i.test(navigator.userAgent) &&
-    /(TV|AFT[A-Z]|BRAVIA|SHIELD|Chromecast|SmartTV|SMART-TV|MiBOX|HbbTV)/i.test(navigator.userAgent);
-  window._esAndroidTV = isAndroidTV;
+  const isAndroidTV = _uaTV;
   const iosBanner = document.getElementById('ios-install-banner');
   const iosDismissBtn = document.getElementById('ios-install-dismiss');
 

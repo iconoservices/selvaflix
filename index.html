@@ -247,7 +247,7 @@
   <nav class="navbar-cinepulse">
     <!-- Logo + Desktop Nav Links -->
     <div style="display: flex; align-items: center; gap: 32px;">
-      <div class="logo logo-cinepulse" onclick="window.goToHome()" style="cursor: pointer;">
+      <div class="logo logo-cinepulse" tabindex="0" role="button" data-tvnav onclick="window.goToHome()" style="cursor: pointer;">
         <span>SELVA</span><span>MOV</span>
       </div>
       <div class="nav-desktop-links">
@@ -266,9 +266,9 @@
       <!-- Search: icon on mobile, expands on click -->
       <div class="search-wrapper">
         <span class="material-symbols-outlined search-icon-cinepulse" onclick="this.parentElement.classList.toggle('open')">search</span>
-        <input type="text" placeholder="Buscar..." class="search-bar search-bar-cinepulse" id="global-search">
+        <input type="text" placeholder="Buscar..." class="search-bar search-bar-cinepulse" id="global-search" data-tvnav>
       </div>
-      <select class="year-filter-select cinepulse-year-select" onchange="window.setYear(this.value)">
+      <select class="year-filter-select cinepulse-year-select" data-tvnav onchange="window.setYear(this.value)">
         <option value="">Año: Todos</option>
       </select>
 
@@ -283,7 +283,7 @@
 
       <!-- Profile Button -->
       <div id="user-profile-container" style="position: relative;">
-          <div id="user-profile-btn" onclick="window.toggleUserMenu()" style="cursor: pointer; display: flex; align-items: center; gap: 0; padding: 0; border-radius: 50%; background: transparent; border: none; position: relative;">
+          <div id="user-profile-btn" tabindex="0" role="button" data-tvnav onclick="window.toggleUserMenu()" style="cursor: pointer; display: flex; align-items: center; gap: 0; padding: 0; border-radius: 50%; background: transparent; border: none; position: relative;">
               <div style="position: relative; flex-shrink: 0;">
                   <div id="user-avatar" style="width: 40px; height: 40px; border-radius: 50%; overflow: hidden; border: 2px solid rgba(255, 87, 26, 0.5);">
                       <img id="user-avatar-img" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;">
@@ -631,7 +631,7 @@
           <p id="premium-promo-title" style="margin:0 0 6px; color:#fff; font-weight:700; font-size:0.9rem;">🍿 Mírala sin publicidad</p>
           <p id="premium-promo-message" style="margin:0 0 12px; color:rgba(255,255,255,0.75); font-size:0.78rem; line-height:1.5;">Pásate a Premium y disfrutá SelvaMov sin anuncios ni interrupciones.</p>
           <div style="display:flex; align-items:center; gap:14px;">
-            <button id="premium-promo-cta" onclick="window.openPremiumModal()" style="background:var(--primary,#FF6600); color:#000; border:none; border-radius:20px; padding:8px 16px; font-size:0.75rem; font-weight:800; cursor:pointer;">Ver planes</button>
+            <button id="premium-promo-cta" data-tvnav onclick="window.openPremiumModal()" style="background:var(--primary,#FF6600); color:#000; border:none; border-radius:20px; padding:8px 16px; font-size:0.75rem; font-weight:800; cursor:pointer;">Ver planes</button>
             <button onclick="window.dismissPremiumPromo()" style="background:none; border:none; color:#888; font-size:0.72rem; font-weight:700; cursor:pointer; padding:0;">Más tarde</button>
           </div>
         </div>
@@ -2491,7 +2491,7 @@
   <!-- Botones flotantes fijos a la pantalla (mismo criterio que el de Soporte
        de abajo): compartir la app y, si el navegador lo permite, instalarla. -->
   <div style="position: fixed; top: 50%; right: 0; transform: translateY(-50%); z-index: 3000; display: flex; flex-direction: column; gap: 10px;">
-    <button id="hero-share-fab" onclick="window.shareApp && window.shareApp()" title="Compartir SelvaMov" style="width: 44px; height: 44px; border-radius: 50% 0 0 50%; border: none; cursor: pointer; background: #fff; color: #111; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(0,0,0,0.35);">
+    <button id="hero-share-fab" data-tvnav onclick="window.shareApp && window.shareApp()" title="Compartir SelvaMov" style="width: 44px; height: 44px; border-radius: 50% 0 0 50%; border: none; cursor: pointer; background: #fff; color: #111; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(0,0,0,0.35);">
       <span class="material-symbols-outlined" style="font-size: 22px;">share</span>
     </button>
     <button id="hero-install-fab" data-tvnav title="Instalar SelvaMov" style="display: none; width: 44px; height: 44px; border-radius: 50% 0 0 50%; border: none; cursor: pointer; background: #fff; color: #c0392b; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(0,0,0,0.35);">
@@ -2508,10 +2508,10 @@
        ícono/sentido (🎁 invitado/free -> ver planes y pruebas gratis; 👑
        premium/admin -> ver tu plan y cuánto te queda). Solo se esconde en
        el panel admin. Lo controla window.updatePremiumPromoFab. -->
-  <button id="premium-promo-fab" onclick="window.openPremiumModal()" title="Planes, pruebas gratis y racha">🎁</button>
+  <button id="premium-promo-fab" data-tvnav onclick="window.openPremiumModal()" title="Planes, pruebas gratis y racha">🎁</button>
 
   <!-- Botón flotante de Soporte -->
-  <button id="support-chat-fab" onclick="window.openSupportChat()" title="¿Necesitas ayuda?">
+  <button id="support-chat-fab" data-tvnav onclick="window.openSupportChat()" title="¿Necesitas ayuda?">
     <span class="material-symbols-outlined">forum</span>
     <span id="support-chat-badge"></span>
   </button>

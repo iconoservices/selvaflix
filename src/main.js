@@ -11654,6 +11654,12 @@ window.setDownloadUrlFromDrawer = async () => {
   // muestran directo, y al tocarlos aparece el banner con los pasos manuales
   // (Compartir → Agregar a inicio) en vez del diálogo nativo de Android.
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  // Android TV / Fire TV: su navegador casi nunca dispara "beforeinstallprompt",
+  // así que (igual que en iOS) el botón no puede esperar ese evento: se muestra
+  // directo y, si no hay diálogo nativo, explica cómo instalar en la TV.
+  const isAndroidTV = /Android/i.test(navigator.userAgent) &&
+    /(TV|AFT[A-Z]|BRAVIA|SHIELD|Chromecast|SmartTV|SMART-TV|MiBOX|HbbTV)/i.test(navigator.userAgent);
+  window._esAndroidTV = isAndroidTV;
   const iosBanner = document.getElementById('ios-install-banner');
   const iosDismissBtn = document.getElementById('ios-install-dismiss');
 
@@ -11672,7 +11678,9 @@ window.setDownloadUrlFromDrawer = async () => {
         localStorage.setItem('pwa_installed', 'true');
       }
     } else if (window.showToast) {
-      window.showToast('📲 Para instalar, usá el menú de tu navegador y elegí "Agregar a pantalla de inicio".', 'info');
+      window.showToast(isAndroidTV
+        ? '📺 En la TV: abrí el menú del navegador y elegí "Instalar app" o "Agregar a inicio". Si no aparece, instalá SelvaMov desde tu celular.'
+        : '📲 Para instalar, usá el menú de tu navegador y elegí "Agregar a pantalla de inicio".', 'info', isAndroidTV ? 8000 : undefined);
     }
   };
   window.showInstaller = showInstaller;
@@ -11694,6 +11702,9 @@ window.setDownloadUrlFromDrawer = async () => {
   // En iOS los botones no esperan "beforeinstallprompt" (nunca llega): se
   // muestran directo. El banner además sigue saliendo solo a los 4s la
   // primera vez, salvo que el usuario ya lo haya cerrado antes.
+  if (isAndroidTV && !isStandalone && localStorage.getItem('pwa_installed') !== 'true') {
+    installBtns.forEach(b => b.style.display = 'flex');
+  }
   if (isIOS && !isStandalone) {
     installBtns.forEach(b => b.style.display = 'flex');
     if (iosBanner && localStorage.getItem('selva_ios_install_dismissed') !== 'true') {

@@ -1,6 +1,8 @@
+import './tailwind.css' // antes de style.css: los estilos propios ganan, como con el CDN
 import './style.css'
 import { SelvaStream } from './components/Player/Player.js'
 import { ExportManager } from './utils/exportManager.js'
+import { leerCatalogoCache, guardarCatalogoCache, cacheCatalogoVigente, cacheCatalogoVencidoPorTiempo, invalidarCacheCatalogo } from './utils/catalogCache.js'
 import './components/Player/Player.css'
 import './ui/toasts.js' // 🍿 Notificaciones (define window.showToast)
 // Firebase es nuestro Puesto de Vigilancia: mantiene un ojo en los datos
@@ -194,10 +196,20 @@ async function leerCatalogoDelWorker(resp) {
 }
 
 async function supaFetchAllMovieRows() {
+  // Sin tope de tiempo, un Worker colgado (red móvil, pestaña recién abierta)
+  // dejaba esta promesa pendiente para siempre: ni catálogo, ni error, ni
+  // tarjeta de error → pantalla negra hasta recargar. Si en 12 s no empezó a
+  // responder, se sigue. El corte es solo para la respuesta inicial: la
+  // descarga (~1 MB) puede tardar más en 3G sin estar colgada, y la cubre el
+  // tope global de supaOnSnapshotMovies.
+  const corte = new AbortController();
+  const timer = setTimeout(() => corte.abort(), 12000);
   try {
     const r = await fetch(`${SelvaStream.MASTER_WORKER_URL}/flix/catalog`, {
-      headers: { 'x-selva-auth': SelvaStream.AUTH_TOKEN }
+      headers: { 'x-selva-auth': SelvaStream.AUTH_TOKEN },
+      signal: corte.signal
     });
+    clearTimeout(timer);
     if (r.ok) {
       const rows = await leerCatalogoDelWorker(r);
       if (Array.isArray(rows) && rows.length > 0) return rows;
@@ -210,7 +222,8 @@ async function supaFetchAllMovieRows() {
       // 500/502/504 = Supabase caído o restringido por egress. Pegarle
       // directo desde cada navegador NO va a andar (mismo 402) y encima
       // multiplica el egress que causó el corte — que es el espiral que
-      // reventó la cuota. Devolvemos vacío → sale la tarjeta de mantenimiento.
+      // reventó la cuota. Devolvemos vacío → se usa la copia local o, si no
+      // hay, sale la tarjeta de error.
       console.warn(`Worker /flix/catalog respondió ${r.status} — Supabase caído, NO caigo a directo`);
       return [];
     } else {
@@ -219,6 +232,7 @@ async function supaFetchAllMovieRows() {
   } catch (e) {
     console.warn('Worker /flix/catalog falló — caigo a Supabase directo:', e?.message || e);
   }
+  clearTimeout(timer);
   return supaFetchAllMovieRowsDirect();
 }
 
@@ -330,7 +344,7 @@ async function supaDeleteMovie(id) {
 // activada en Supabase (Database → Replication) para las entregas en vivo — si
 // no está activada, la carga inicial funciona igual, solo no llegan los cambios
 // en vivo de otras pestañas/dispositivos hasta que se refresque el caché.
-function supaOnSnapshotMovies(callback) {
+function supaOnSnapshotMovies(callback, onError) {
   let cancelado = false;
   let channel = null;
 
@@ -351,14 +365,19 @@ function supaOnSnapshotMovies(callback) {
   };
 
   (async () => {
-    const rows = await supaFetchAllMovieRows();
+    // Tope global: si ni el Worker ni el camino directo contestan, se avisa
+    // como error en vez de dejar la carga colgada para siempre.
+    const rows = await Promise.race([
+      supaFetchAllMovieRows(),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('El catálogo tardó demasiado en responder')), 45000))
+    ]);
     if (cancelado) return;
     callback({ docs: rows.map(row => ({ id: row.id, data: () => supaRowToMovie(row) })) });
     // Si el catálogo vino vacío, Supabase está caído/restringido: abrir el
     // websocket de Realtime solo lo pone a reconectar en loop para siempre
     // (ruido + egress en una cuota ya excedida). Se abre solo si hay catálogo.
     if (rows.length > 0) abrirCanalRealtime();
-  })();
+  })().catch((e) => { if (!cancelado && onError) onError(e); });
 
   return () => { cancelado = true; if (channel) supabase.removeChannel(channel); };
 }
@@ -398,9 +417,9 @@ async function deleteDoc(ref) {
   return await fsDeleteDoc(ref);
 }
 
-function onSnapshot(refOrQuery, callback) {
-  if (refOrQuery && refOrQuery[MOVIES_SENTINEL]) return supaOnSnapshotMovies(callback);
-  return fsOnSnapshot(refOrQuery, callback);
+function onSnapshot(refOrQuery, callback, onError) {
+  if (refOrQuery && refOrQuery[MOVIES_SENTINEL]) return supaOnSnapshotMovies(callback, onError);
+  return fsOnSnapshot(refOrQuery, callback, onError);
 }
 const moviesCol = collection(db, "movies");
 
@@ -590,6 +609,7 @@ window.hideSplashScreen = (force = false) => {
       splash.style.pointerEvents = 'none'; 
       setTimeout(() => {
         splash.style.visibility = 'hidden';
+        splash.style.display = 'none'; // la transición de opacidad no corre en pestañas ocultas
       }, 800);
     }
   }
@@ -624,220 +644,175 @@ if (yearSelect || mYearSelect) {
   }
 }
 
-// ── Aviso de mantenimiento ───────────────────────────────────────────────────
-// Supabase cortó la base por egress (plan gratis, 5 GB/mes). Mientras la cuota
-// no se restablezca, un visitante NUEVO (sin caché) recibe el catálogo vacío.
-// Esto muestra una TARJETA (no una pantalla completa: el sitio queda visible
-// detrás) avisando y juntando mails. Cambiá SELVA_MANTENIMIENTO_HASTA cuando
-// sepas la fecha exacta del reset (Supabase → Organization → Billing).
-const SELVA_MANTENIMIENTO_HASTA = '13 de septiembre';
-
+// ── Aviso de "no se pudo cargar el catálogo" ─────────────────────────────────
+// Sale solo cuando no hay ni un título (red caída y sin copia en caché). Es una
+// TARJETA (el sitio queda visible detrás) con un botón para reintentar, en vez
+// de dejar la pantalla negra. Si el catálogo llega después, se quita sola.
 function mostrarOverlayMantenimiento() {
   if (document.getElementById('selva-mantenimiento')) return;      // ya está
   if (Array.isArray(movieDatabase?.trending) && movieDatabase.trending.length > 0) return; // hay catálogo, no molestar
 
   const ov = document.createElement('div');
   ov.id = 'selva-mantenimiento';
-  // Backdrop oscuro semi-transparente que centra una TARJETA flotante en el
-  // medio. No es pantalla completa sólida: el sitio se ve difuminado detrás.
   ov.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(3,10,5,.74);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);font-family:system-ui,-apple-system,sans-serif;';
   ov.innerHTML = `
     <div style="position:relative;width:100%;max-width:440px;box-sizing:border-box;padding:34px 28px 30px;border-radius:20px;border:1px solid #2e7d32;background:#0f1a12;box-shadow:0 24px 70px rgba(0,0,0,.6);color:#e8f5e9;text-align:center;">
       <button id="selva-mant-close" aria-label="Cerrar" style="position:absolute;top:10px;right:12px;background:none;border:0;color:#7ba87f;font-size:22px;line-height:1;cursor:pointer;padding:4px;">&times;</button>
-      <div style="font-size:44px;line-height:1;margin-bottom:14px;">🌴🔧</div>
-      <h1 style="font-size:21px;margin:0 0 10px;">Estamos haciendo mantenimiento</h1>
-      <p style="font-size:14.5px;line-height:1.55;color:#a5d6a7;margin:0 0 6px;">
-        SelvaMov vuelve el <strong>${SELVA_MANTENIMIENTO_HASTA}</strong>.
+      <div style="font-size:44px;line-height:1;margin-bottom:14px;">🌴📡</div>
+      <h1 style="font-size:21px;margin:0 0 10px;">No pudimos cargar el catálogo</h1>
+      <p style="font-size:14.5px;line-height:1.55;color:#a5d6a7;margin:0 0 20px;">
+        Revisá tu conexión y probá de nuevo. Si sigue igual, volvé en un rato.
       </p>
-      <p style="font-size:13px;line-height:1.55;color:#7ba87f;margin:0 0 20px;">
-        Dejanos tu correo y te avisamos apenas esté de vuelta 👇
-      </p>
-      <form id="selva-mant-form" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
-        <input id="selva-mant-email" type="email" required placeholder="tucorreo@ejemplo.com"
-          style="flex:1;min-width:180px;padding:12px 14px;border-radius:10px;border:1px solid #2e7d32;background:#0b120d;color:#e8f5e9;font-size:14px;outline:none;">
-        <button type="submit"
-          style="padding:12px 20px;border:0;border-radius:10px;background:#43a047;color:#fff;font-size:14px;font-weight:600;cursor:pointer;">
-          Avisame
-        </button>
-      </form>
-      <p id="selva-mant-msg" style="font-size:13px;min-height:17px;margin:12px 0 0;color:#a5d6a7;"></p>
+      <button id="selva-mant-retry"
+        style="padding:12px 26px;border:0;border-radius:10px;background:#43a047;color:#fff;font-size:14px;font-weight:600;cursor:pointer;">
+        Reintentar
+      </button>
     </div>`;
   document.body.appendChild(ov);
   if (window.hideSplashScreen) window.hideSplashScreen(true);
 
   ov.querySelector('#selva-mant-close').addEventListener('click', () => ov.remove());
   ov.addEventListener('click', (e) => { if (e.target === ov) ov.remove(); }); // clic afuera cierra
-
-  const form = ov.querySelector('#selva-mant-form');
-  const msg = ov.querySelector('#selva-mant-msg');
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = ov.querySelector('#selva-mant-email').value.trim();
-    if (!email) return;
-    msg.textContent = 'Guardando…';
-    try {
-      // Los visitantes son anónimos → Firestore los rechaza (exige auth).
-      // Se guardan por el Worker, que está arriba, en KV.
-      const r = await fetch(`${SelvaStream.MASTER_WORKER_URL}/flix/waitlist`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-selva-auth': SelvaStream.AUTH_TOKEN },
-        body: JSON.stringify({ email })
-      });
-      if (!r.ok) throw new Error('worker ' + r.status);
-      form.style.display = 'none';
-      msg.textContent = '¡Listo! Te escribimos cuando SelvaMov vuelva. 🌴';
-      try { localStorage.setItem('selva_waitlist_email', email); } catch {}
-    } catch (err) {
-      console.error('maintenance signup falló:', err);
-      msg.textContent = 'No se pudo guardar. Probá de nuevo en un rato.';
-    }
-  });
+  ov.querySelector('#selva-mant-retry').addEventListener('click', () => location.reload());
 }
-window.mostrarOverlayMantenimiento = mostrarOverlayMantenimiento;
 
-async function loadSelvaMovData() {
-  const CACHE_KEY = 'selvaflix_full_database';
-  const CACHE_TIME_KEY = 'selvaflix_cache_timestamp';
-  // Bajado de 15 a 5 min: con localStorage (dura entre visitas) un admin
-  // borrando/editando en una pestaña podía tardar hasta 15 min en verse
-  // reflejado en cualquier otra pestaña/dispositivo con copia vieja.
-  const CACHE_DURATION_MS = 5 * 60 * 1000;
+let _cambiosEnVivoTimer = null;
+let _cancelarCatalogoEnVivo = null;
+let _cargaCatalogoEnCurso = null;
 
-  // 1. Revisar si hay un caché válido
-  // localStorage (no sessionStorage): sobrevive a cerrar la pestaña, así una visita nueva
-  // no vuelve a leer las 215 películas si alguien ya las trajo hace menos de 5 min.
-  const cachedStored = localStorage.getItem(CACHE_KEY);
-  const cacheTimestamp = localStorage.getItem(CACHE_TIME_KEY);
-  const now = Date.now();
-
-  let hydratedObject = null;
-
-  if (cachedStored && cacheTimestamp && (now - parseInt(cacheTimestamp) < CACHE_DURATION_MS)) {
-    try {
-      hydratedObject = JSON.parse(cachedStored);
-
-      // ️ Vigía Inteligente: Validar que el objeto tenga cara y ojos.
-      // El length < 100 atrapa un caché que quedó vacío o parcial por un fetch
-      // de Supabase cortado — sin esto, ese caché "válido" (un array, aunque
-      // tenga 0-5 títulos) se rehidrataba y el `if (!hydratedObject)` de abajo
-      // daba false → NUNCA se volvía a pedir el catálogo. El real tiene ~10k.
-      if (!hydratedObject || !Array.isArray(hydratedObject.trending) || hydratedObject.trending.length < 100) {
-        throw new Error("Caché incompleto o corrupto");
-      }
-
-      console.log(`🟢 Objeto rehidratado: { trending: ${hydratedObject.trending.length} elementos }. (0 lecturas)`);
-      movieDatabase = hydratedObject;
-      
-      // ✅ Revisar anuncios de la app y detectar GEO al rehidratar
-      setTimeout(() => { 
-          if(window.trackUserGeo) window.trackUserGeo();
-          if(window.triggerLandingAd) window.triggerLandingAd();
-          if(window.resumePendingExports) window.resumePendingExports();
-      }, 1500);
-    } catch (e) {
-      console.warn("⚠️ Fallo en rehidratación, limpiando búnker para fetch fresco...");
-      localStorage.removeItem(CACHE_KEY);
-      localStorage.removeItem(CACHE_TIME_KEY);
-      hydratedObject = null;
-    }
+// Llamadas simultáneas (arranque + reintento al volver a la pestaña + recargas
+// del admin) comparten la misma carga en vez de pisarse entre sí.
+function loadSelvaMovData() {
+  if (!_cargaCatalogoEnCurso) {
+    _cargaCatalogoEnCurso = _cargarCatalogo().finally(() => { _cargaCatalogoEnCurso = null; });
   }
+  return _cargaCatalogoEnCurso;
+}
 
-  if (!hydratedObject) {
-    // 2. Si no hay caché o caducó, pedir a Firebase — y quedarse escuchando en
-    // vivo el resto de la sesión en vez de solo pedir una vez. La primera
-    // entrega cuesta igual que un fetch normal (las 215 completas), pero de
-    // ahí en más, si alguien borra/edita algo en el admin, llega solo y solo
-    // se cobra por lo que cambió (no por releer todo el catálogo de nuevo) —
-    // reemplaza el "revisar cada 5 min por si acaso" por "avisame apenas
-    // cambia algo de verdad". A pedido, para que un borrado en una pestaña se
-    // vea reflejado al toque en cualquier otra sin esperar el vencimiento del caché.
-    console.log("🔥 Haciendo expedición a Firebase (Solicitando datos frescos)");
-    try {
-      await new Promise((resolve, reject) => {
-        let esPrimeraEntrega = true;
-        onSnapshot(moviesCol, (snapshot) => {
-          if (esPrimeraEntrega) {
-            esPrimeraEntrega = false;
-            const moviesArray = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-            // 🛡️ Si Supabase devolvió una lista corta (paginación cortada a
-            // mitad, rate limit) y YA teníamos un catálogo grande en el caché
-            // rehidratado, NO lo pisamos con la versión chica — antes eso
-            // dejaba el sitio con 5 títulos hasta el próximo refresh.
-            const yaTeniamos = Array.isArray(movieDatabase.trending) ? movieDatabase.trending.length : 0;
-            if (moviesArray.length < 500 && yaTeniamos > moviesArray.length) {
-              console.warn(`⚠️ Supabase devolvió solo ${moviesArray.length} títulos (ya teníamos ${yaTeniamos}). Se mantiene el catálogo anterior.`);
-              if (window.resumePendingExports) window.resumePendingExports();
-              resolve();
-              return;
-            }
-            movieDatabase.trending = moviesArray;
-            // Si el catálogo llegó (tarde, por Realtime o un reintento), sacar
-            // la tarjeta de mantenimiento que se hubiera mostrado con [].
-            if (moviesArray.length > 0) document.getElementById('selva-mantenimiento')?.remove();
-            // Solo persistir en localStorage si la lista es "de verdad" (el
-            // catálogo real tiene ~10k). Un fetch parcial de 5-400 títulos se
-            // usa en memoria para esta sesión pero NO se cachea — si no, en el
-            // próximo reload se rehidrataba ese caché chico y ya no se pedía
-            // nada más (bug de "se queda cargando").
-            if (moviesArray.length >= 500) {
-              localStorage.setItem(CACHE_KEY, JSON.stringify(movieDatabase));
-              localStorage.setItem(CACHE_TIME_KEY, Date.now().toString());
-            } else {
-              console.warn(`⚠️ Catálogo parcial (${moviesArray.length}) — usado en memoria pero NO cacheado.`);
-            }
-            if (window.resumePendingExports) window.resumePendingExports();
-            resolve();
+// Pide el catálogo a la red (Worker → Supabase) y deja escuchando los cambios
+// en vivo (Supabase Realtime) el resto de la sesión, así un borrado en el admin
+// se refleja sin esperar el vencimiento del caché. Rechaza si no llegó nada útil.
+function _traerCatalogoFresco() {
+  return new Promise((resolve, reject) => {
+    let esPrimeraEntrega = true;
+    // El admin vuelve a llamar a loadSelvaMovData tras cada edición: sin
+    // esto se acumulaba un canal Realtime nuevo por llamada.
+    if (_cancelarCatalogoEnVivo) _cancelarCatalogoEnVivo();
+    _cancelarCatalogoEnVivo = onSnapshot(moviesCol, (snapshot) => {
+      if (esPrimeraEntrega) {
+        esPrimeraEntrega = false;
+        // try/finally: pase lo que pase, la carga NO puede quedar colgada.
+        let fallo = null;
+        try {
+          const moviesArray = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          // Vacío = Worker y Supabase sin respuesta útil: se trata como error
+          // para que _cargarCatalogo use la copia local si existe.
+          if (moviesArray.length === 0) { fallo = new Error('El catálogo llegó vacío'); return; }
+          // 🛡️ Si vino una lista corta (paginación cortada, rate limit) y YA
+          // teníamos un catálogo grande en memoria, no se pisa.
+          const yaTeniamos = Array.isArray(movieDatabase.trending) ? movieDatabase.trending.length : 0;
+          if (moviesArray.length < 500 && yaTeniamos > moviesArray.length) {
+            console.warn(`⚠️ Llegaron solo ${moviesArray.length} títulos (ya teníamos ${yaTeniamos}). Se mantiene el catálogo anterior.`);
             return;
           }
+          movieDatabase.trending = moviesArray;
+          if (moviesArray.length > 0) document.getElementById('selva-mantenimiento')?.remove();
+          // Solo se cachea un catálogo "de verdad": uno parcial se usa en
+          // memoria pero no se guarda (si no, el próximo reload lo
+          // rehidrataba y ya no pedía nada más).
+          if (moviesArray.length >= 500) guardarCatalogoCache(moviesArray);
+          else console.warn(`⚠️ Catálogo parcial (${moviesArray.length}) — usado en memoria pero NO cacheado.`);
+        } catch (e) {
+          fallo = e;
+        } finally {
+          if (fallo) reject(fallo); else resolve();
+        }
+        return;
+      }
 
-          // Cambios en vivo (no la carga inicial): parchea en memoria en vez
-          // de releer las 215 de nuevo, y refresca solo lo que esté a la vista.
-          if (typeof snapshot.docChanges !== 'function') return; // entrega rara (HMR/doble init)
-          snapshot.docChanges().forEach((change) => {
-            const data = { id: change.doc.id, ...change.doc.data() };
-            const idx = movieDatabase.trending.findIndex(m => m.id === data.id);
-            if (change.type === 'removed') {
-              if (idx !== -1) movieDatabase.trending.splice(idx, 1);
-            } else if (idx !== -1) {
-              movieDatabase.trending[idx] = data;
-            } else {
-              movieDatabase.trending.push(data);
-            }
-          });
-          localStorage.setItem(CACHE_KEY, JSON.stringify(movieDatabase));
-          localStorage.setItem(CACHE_TIME_KEY, Date.now().toString());
-
-          if (document.getElementById('admin-view')?.style.display === 'block') {
-            _updateDetailedStats(movieDatabase.trending);
-            if (window.filterInventoryByCategory) window.filterInventoryByCategory();
-            else renderInventory();
-          } else if (document.getElementById('home-view')?.style.display === 'block' && typeof initApp === 'function') {
-            // Re-render por cambio en vivo: respetar la vista actual en vez de
-            // volver siempre al home (antes un update de Firestore te sacaba de
-            // Colecciones / Películas / Series de golpe).
-            const _h = location.hash.substring(1);
-            if (_h === 'colecciones' || _h === 'franquicias' || _h.startsWith('colecciones/')) {
-              initApp('colecciones', '');
-            } else if (['movies', 'series', 'anime'].includes(_h)) {
-              initApp(_h, '');
-            } else {
-              initApp();
-            }
-          }
-        }, (error) => {
-          // Si falla ANTES de la primera entrega, es un error real de carga (se
-          // maneja como antes). Si falla después (se cortó la conexión a mitad
-          // de la sesión), no hay nada que "devolver": solo se deja de escuchar
-          // hasta el próximo reload, que vuelve a intentar desde cero.
-          if (esPrimeraEntrega) reject(error);
-          else console.warn('Se perdió el listener en vivo del catálogo:', error);
-        });
+      // Cambios en vivo (no la carga inicial): parchea en memoria en vez
+      // de releer el catálogo entero.
+      if (typeof snapshot.docChanges !== 'function') return; // entrega rara (HMR/doble init)
+      snapshot.docChanges().forEach((change) => {
+        const data = { id: change.doc.id, ...change.doc.data() };
+        const idx = movieDatabase.trending.findIndex(m => m.id === data.id);
+        if (change.type === 'removed') {
+          if (idx !== -1) movieDatabase.trending.splice(idx, 1);
+        } else if (idx !== -1) {
+          movieDatabase.trending[idx] = data;
+        } else {
+          movieDatabase.trending.push(data);
+        }
       });
+      // Realtime manda UN evento por fila: una carga masiva del admin son
+      // cientos seguidos. Antes cada uno reescribía ~10k títulos en
+      // localStorage y re-pintaba el home de todos los visitantes (scroll y
+      // búsqueda perdidos, pestaña trabada). Ahora se agrupan.
+      clearTimeout(_cambiosEnVivoTimer);
+      _cambiosEnVivoTimer = setTimeout(() => {
+        guardarCatalogoCache(movieDatabase.trending);
+
+        if (document.getElementById('admin-view')?.style.display === 'block') {
+          _updateDetailedStats(movieDatabase.trending);
+          if (window.filterInventoryByCategory) window.filterInventoryByCategory();
+          else renderInventory();
+        }
+        // En la vista pública NO se re-pinta: los datos nuevos ya están en
+        // memoria y aparecen en la próxima navegación, sin sacar a nadie de
+        // donde está mirando.
+      }, 1500);
+    }, (error) => {
+      // Si falla ANTES de la primera entrega, es un error real de carga (se
+      // maneja como antes). Si falla después (se cortó la conexión a mitad
+      // de la sesión), no hay nada que "devolver": solo se deja de escuchar
+      // hasta el próximo reload, que vuelve a intentar desde cero.
+      if (esPrimeraEntrega) reject(error);
+      else console.warn('Se perdió el listener en vivo del catálogo:', error);
+    });
+  });
+}
+
+async function _cargarCatalogo() {
+  // 5 min: un admin borrando/editando en una pestaña no debería tardar más
+  // que eso en verse reflejado en otra pestaña/dispositivo con copia vieja.
+  const CACHE_DURATION_MS = 5 * 60 * 1000;
+
+  // Copia local (IndexedDB, ver utils/catalogCache.js). El length < 100 atrapa
+  // un caché vacío o parcial de un fetch cortado: el real tiene ~10k.
+  const copia = await leerCatalogoCache();
+  const copiaUtil = copia && copia.length >= 100 ? copia : null;
+
+  if (copiaUtil && cacheCatalogoVigente(CACHE_DURATION_MS)) {
+    // 1. Copia fresca (< 5 min): ni se toca la red.
+    console.log(`🟢 Catálogo desde caché: ${copiaUtil.length} títulos (0 lecturas)`);
+    movieDatabase = { trending: copiaUtil };
+  } else if (copiaUtil && cacheCatalogoVencidoPorTiempo()) {
+    // 2. Copia vencida solo por tiempo: se muestra YA y la versión fresca se
+    // trae por detrás (llega a memoria y aparece en la próxima navegación).
+    // Antes acá se esperaba a la red: con el Worker lento eran 10-30 s de
+    // esqueletos o negro cada vez que el caché vencía.
+    console.log(`🟡 Catálogo vencido mostrado al instante (${copiaUtil.length}); actualizando por detrás`);
+    movieDatabase = { trending: copiaUtil };
+    _traerCatalogoFresco().catch(e => console.warn('No se pudo refrescar el catálogo:', e?.message || e));
+  } else {
+    // 3. Primera visita o caché invalidado a propósito (el admin editó y
+    // necesita ver lo nuevo): hay que esperar a la red.
+    console.log("🔥 Pidiendo catálogo fresco");
+    try {
+      await _traerCatalogoFresco();
     } catch (error) {
-      console.error("❌ Error en la expedición de datos:", error);
-      if (window.showToast) window.showToast("⚠️ Error cargando la selva: " + error.message, "error");
-      mostrarOverlayMantenimiento(); // catálogo no cargó → tarjeta en vez de blanco
-      return; // Muerte súbita
+      console.error("❌ Error trayendo el catálogo:", error);
+      // Mejor un catálogo viejo que una pantalla negra.
+      if (copiaUtil) {
+        movieDatabase = { trending: copiaUtil };
+        console.warn(`⚠️ Usando la copia local (${copiaUtil.length} títulos) porque la red falló.`);
+      }
+      if (!movieDatabase.trending.length) {
+        if (window.showToast) window.showToast("⚠️ Error cargando la selva: " + error.message, "error");
+        mostrarOverlayMantenimiento(); // catálogo no cargó → tarjeta en vez de negro
+        window.hideSplashScreen(true);
+        return;
+      }
     }
   }
 
@@ -854,34 +829,35 @@ async function loadSelvaMovData() {
     limpiarDuplicadosDeCatalogo();
   }
 
-  // Nota: handleRouting ya sabe si es la primera vez al revisar el DOM
-  // ✅ Disparar anuncios automáticos si corresponde
-  if(window.triggerLandingAd) window.triggerLandingAd();
-
-  // ⚠️ En un reload con caché caliente (< 15 min) esta función corre de forma
-  // SÍNCRONA durante la evaluación del módulo, y llega hasta aquí ANTES de que
-  // más abajo se defina window.openMovieDetail (y openPlayer). Si enrutáramos ya,
-  // en la ruta #detail/slug la llamada a openMovieDetail sería undefined, la
-  // ficha se quedaba en "Cargando..." (pantalla negra) y el player nunca abría.
-  // Diferir un microtask deja terminar la carga del módulo: las funciones ya
-  // existen y la ruta se resuelve bien. En la primera visita (sin caché) el
-  // await del fetch ya daba ese margen; este fix cubre el reload cacheado.
   // Si tras toda la carga no hay ni un título (Supabase caído + sin caché),
-  // mostrar la tarjeta de mantenimiento en vez de un home vacío.
+  // mostrar la tarjeta de error en vez de un home vacío.
   if (!Array.isArray(movieDatabase?.trending) || movieDatabase.trending.length === 0) {
     mostrarOverlayMantenimiento();
   }
 
+  // Microtask: garantiza que el módulo terminó de evaluarse (window.openMovieDetail
+  // y compañía ya existen) antes de enrutar. try/finally: aunque la vista falle
+  // al pintarse, el splash se va igual y no queda la pantalla negra.
   queueMicrotask(() => {
-    handleRouting();
-    // 🚀 Ocultar splash una vez resuelta la ruta
-    window.hideSplashScreen();
+    try {
+      handleRouting();
+    } catch (e) {
+      console.error('Error al pintar la ruta inicial:', e);
+    } finally {
+      // Sin forzar: si hay sesión sin perfil elegido, el splash espera al selector.
+      window.hideSplashScreen();
+    }
   });
+
+  // Tareas secundarias (una sola vez por carga, con caché o sin él): fuera del
+  // camino crítico del primer render.
+  setTimeout(() => {
+    if (window.trackUserGeo) window.trackUserGeo();
+    if (window.resumePendingExports) window.resumePendingExports();
+    if (window.triggerLandingAd) window.triggerLandingAd().catch(e => console.warn('Anuncio de bienvenida:', e?.message || e));
+  }, 1500);
 }
 
-// Iniciar recolección al cargar
-// Backdoor removed by Architect Antigravity 🌴
-// Access only via #admin password check.
 window.updateAdminUI = () => {
   // El botón "Admin Panel" del menú de perfil aparece si esta cuenta es la
   // dueña (email/tier de Firebase) o si ya entró antes en este navegador.
@@ -1027,8 +1003,7 @@ async function limpiarDuplicadosDeCatalogo({ manual = false } = {}) {
       fallidos++;
     }
   }
-  localStorage.removeItem('selvaflix_full_database');
-  localStorage.removeItem('selvaflix_cache_timestamp');
+  invalidarCacheCatalogo();
 
   if (manual) {
     const msg = `🧹 ${borrados} duplicado${borrados === 1 ? '' : 's'} eliminado${borrados === 1 ? '' : 's'}${fallidos ? ` (${fallidos} fallaron)` : ''}.`;
@@ -1051,6 +1026,23 @@ window.updateAdminUI();
 // movieDatabase.trending todavía está vacío y todo lo ya sembrado parece
 // nuevo (se vuelve a ofrecer / se duplica al confirmar).
 window.selvaMovDataReady = loadSelvaMovData();
+
+// Si la carga inicial quedó vacía (red lenta/cortada al abrir) y la persona
+// vuelve a la pestaña o recupera conexión, se reintenta sola en vez de dejar
+// el negro hasta que recargue a mano.
+function _reintentarCatalogoVacio() {
+  if (_cargaCatalogoEnCurso || document.hidden) return;
+  if (movieDatabase?.trending?.length) {
+    // Hay datos pero la vista quedó sin pintar (render cortado con la pestaña oculta).
+    const c = document.getElementById('main-content');
+    const h = window.location.hash.substring(1);
+    if (c && !c.children.length && !h.startsWith('detail/') && h !== 'admin' && h !== 'mylist') handleRouting();
+    return;
+  }
+  window.selvaMovDataReady = loadSelvaMovData();
+}
+document.addEventListener('visibilitychange', _reintentarCatalogoVacio);
+window.addEventListener('online', _reintentarCatalogoVacio);
 
 
 // ─── Filter / Routing ────────────────────────────────────────────
@@ -1257,8 +1249,7 @@ window.detectarFranquiciasAutomatico = async () => {
     await new Promise(r => setTimeout(r, 300)); // no saturar la API de TMDB
   }
 
-  localStorage.removeItem('selvaflix_full_database');
-  localStorage.removeItem('selvaflix_cache_timestamp');
+  invalidarCacheCatalogo();
 
   setTimeout(() => {
     if (overlay) overlay.style.display = 'none';
@@ -1325,8 +1316,7 @@ window.enriquecerCatalogoDesdeTMDB = async () => {
     await new Promise(r => setTimeout(r, 300)); // no saturar la API de TMDB
   }
 
-  localStorage.removeItem('selvaflix_full_database');
-  localStorage.removeItem('selvaflix_cache_timestamp');
+  invalidarCacheCatalogo();
 
   setTimeout(() => {
     if (overlay) overlay.style.display = 'none';
@@ -1884,7 +1874,7 @@ window.selvaExecuteCrownPromotion = async (movieId, sourceUrl) => {
         }
         
         // Limpiar caché para que otros vean el cambio
-        localStorage.removeItem('selvaflix_full_database');
+        invalidarCacheCatalogo();
     } catch (e) {
         console.error("Error coronando fuente:", e);
         if (window.showToast) window.showToast("Error al coronar la fuente 🐒", "error");
@@ -2191,7 +2181,9 @@ function handleGlobalSearch(query) {
       extraSections.forEach(el => { el.style.display = _preSearchDisplay[el.id] || ''; });
       _preSearchDisplay = null;
     }
-    initApp();
+    // Al vaciar el buscador se vuelve a la sección en la que se estaba; un
+    // initApp() a secas mandaba siempre al Home aunque la URL dijera #series.
+    initApp(_currentFilter, _currentGenre, _currentYear);
   }
 }
 
@@ -2224,6 +2216,17 @@ function buildMovieCardHtml(item, favClass, favIcon, statusBadgeHtml, extraClass
       ${orig ? `<div class="cpc-orig">${orig}</div>` : ''}
     </div>
   `;
+}
+
+// Siguiente tanda de tarjetas. requestAnimationFrame se congela del todo en una
+// pestaña en segundo plano (abrir el link y cambiar de pestaña): el render
+// quedaba en las primeras 12 tarjetas hasta volver a mirarla. El setTimeout de
+// respaldo garantiza que la grilla se complete igual; corre solo el que llegue primero.
+function _proximoCuadro(fn) {
+  let hecho = false;
+  const una = () => { if (hecho) return; hecho = true; fn(); };
+  requestAnimationFrame(una);
+  setTimeout(una, 80);
 }
 
 // Render Movie Rows in Chunks (v4.4)
@@ -2275,7 +2278,7 @@ function _renderCardsInto(container, data, isTrending = false) {
     currentIndex += CHUNK_SIZE;
 
     if (currentIndex < data.length) {
-      requestAnimationFrame(renderNextChunk);
+      _proximoCuadro(renderNextChunk);
     }
   }
 
@@ -2382,7 +2385,7 @@ function renderGallery(title, groups) {
       currentIndex += CHUNK_SIZE;
 
       if (currentIndex < items.length) {
-        requestAnimationFrame(renderNextChunk);
+        _proximoCuadro(renderNextChunk);
       }
     }
 
@@ -4896,7 +4899,7 @@ window.uploadBannerArt = async (movieId, file) => {
 
         if (window.showToast) window.showToast("¡Banner actualizado! 🌈🌴", "success");
         window.renderAdminBannerList();
-        localStorage.removeItem('selvaflix_full_database');
+        invalidarCacheCatalogo();
     } catch (e) {
         console.error("Error subiendo banner art:", e);
         if (window.showToast) window.showToast("Error al subir el arte. 🐒", "error");
@@ -4920,7 +4923,7 @@ window.toggleBannerPin = async (movieId, isPinned) => {
         document.getElementById('admin-banner-search').value = '';
         
         // Invalidar caché de BD para que se refleje globalmente si es necesario
-        localStorage.removeItem('selvaflix_full_database');
+        invalidarCacheCatalogo();
     } catch (e) {
         console.error("Error al fijar banner:", e);
         if (window.showToast) window.showToast("No se pudo clavar la bandera en la selva. 🐒", "error");
@@ -4986,8 +4989,7 @@ window.cleanupNonLatinoLabels = async () => {
         }
     }
 
-    localStorage.removeItem('selvaflix_full_database');
-    localStorage.removeItem('selvaflix_cache_timestamp');
+    invalidarCacheCatalogo();
     if (document.getElementById('admin-view')?.style.display === 'block') renderInventory();
     if (window.showToast) window.showToast(`✅ ${fixed} etiqueta(s) corregida(s): ya no dicen "Latino" sin serlo.`, 'success');
 
@@ -5023,8 +5025,7 @@ window.cleanupCJKTitles = async () => {
         }
     }
 
-    localStorage.removeItem('selvaflix_full_database');
-    localStorage.removeItem('selvaflix_cache_timestamp');
+    invalidarCacheCatalogo();
     if (document.getElementById('admin-view')?.style.display === 'block') renderInventory();
     if (window.showToast) window.showToast(`✅ ${fixed} título(s) traducido(s), ${skipped} sin versión en inglés disponible.`, 'success');
 
@@ -5454,8 +5455,7 @@ window.auditarCatalogoCompleto = async () => {
         } catch (e) { console.error('Error actualizando vimeusDisponible', m.title, e); fallosAplicar.push(`${m.title} (distintivo Vimeus: ${e.message || e})`); }
     }
 
-    localStorage.removeItem('selvaflix_full_database');
-    localStorage.removeItem('selvaflix_cache_timestamp');
+    invalidarCacheCatalogo();
     // Sin condicionar a "¿admin-view está en display:block ahora mismo?":
     // ese chequeo podía fallar (otra sub-pestaña, timing) y entonces
     // _allInventoryItems se quedaba con los datos de ANTES de auditar —
@@ -5609,8 +5609,7 @@ window.sincronizarCatalogoVimeus = async (tipos = ['movies', 'series', 'animes']
         await new Promise(r => setTimeout(r, 300));
     }
 
-    localStorage.removeItem('selvaflix_full_database');
-    localStorage.removeItem('selvaflix_cache_timestamp');
+    invalidarCacheCatalogo();
     if (document.getElementById('admin-view')?.style.display === 'block') renderInventory();
 
     const msg = `✅ Sincronización completa: ${agregados} título(s) agregados desde Vimeus${fallidos ? `, ${fallidos} fallaron` : ''}.`;
@@ -6424,8 +6423,7 @@ window.bulkDeleteMovies = async (toDelete) => {
   if (overlay) overlay.style.display = 'none';
 
   // 🔥 Parche de Sincronización Real (v4.5.5): Limpiamos caché para evitar "Fantasmas"
-  localStorage.removeItem('selvaflix_full_database');
-  localStorage.removeItem('selvaflix_cache_timestamp');
+  invalidarCacheCatalogo();
 
   // Recargamos los datos para que la vista refleje la realidad de Firebase inmediatamente
   await loadSelvaMovData();
@@ -6474,8 +6472,7 @@ window.deleteSelectedCoconas = async () => {
   }
 
   if (overlay) overlay.style.display = 'none';
-  localStorage.removeItem('selvaflix_full_database');
-  localStorage.removeItem('selvaflix_cache_timestamp');
+  invalidarCacheCatalogo();
   await loadSelvaMovData();
   if (window.filterInventoryByCategory) window.filterInventoryByCategory();
   alert(`¡Limpieza completada! ${count} elementos eliminados. 🧹🌴`);
@@ -6510,8 +6507,7 @@ window.approveSelectedCoconas = async () => {
     }
 
     if (overlay) overlay.style.display = 'none';
-    localStorage.removeItem('selvaflix_full_database');
-    localStorage.removeItem('selvaflix_cache_timestamp');
+    invalidarCacheCatalogo();
     await loadSelvaMovData();
     if (window.filterInventoryByCategory) window.filterInventoryByCategory();
     alert(`¡Éxito! ${count} títulos aprobados. 🥥🍹`);
@@ -6546,8 +6542,7 @@ window.waitSelectedCoconas = async () => {
     }
 
     if (overlay) overlay.style.display = 'none';
-    localStorage.removeItem('selvaflix_full_database');
-    localStorage.removeItem('selvaflix_cache_timestamp');
+    invalidarCacheCatalogo();
     await loadSelvaMovData();
     if (window.filterInventoryByCategory) window.filterInventoryByCategory();
     alert(`¡Completado! ${count} títulos en espera. 🪵🌴`);
@@ -7261,8 +7256,7 @@ window.addSelectedTMDBMovies = async () => {
 
   window._tmdbBank = {};
   window._tmdbExpanded && window._tmdbExpanded.clear();
-  localStorage.removeItem('selvaflix_full_database');
-  localStorage.removeItem('selvaflix_cache_timestamp');
+  invalidarCacheCatalogo();
   await loadSelvaMovData();
   if (window.filterInventoryByCategory) window.filterInventoryByCategory();
 
@@ -7389,8 +7383,7 @@ window.selvaExecuteCrownPromotion = async (movieId, hash) => {
     
     // Update local cache directly to avoid immediate reload requirement
     movie.suggestedVipHashes = newHashes;
-    localStorage.removeItem('selvaflix_full_database');
-    localStorage.removeItem('selvaflix_cache_timestamp');
+    invalidarCacheCatalogo();
     
     // Re-render the UI smoothly!
     import('./components/Player/Player.js').then(({ SelvaStream }) => {
@@ -7565,9 +7558,30 @@ window.refreshAdAnalytics = async () => {
     }
 };
 
-window.renderGeoChart = (canvasId, label, dataObj, chartKey) => {
+// Chart.js solo lo usa el panel admin. Antes venía como <script> síncrono en el
+// <head> de index.html: cada visitante esperaba a jsdelivr antes de ver NADA, y
+// si ese CDN tardaba o el router lo bloqueaba, la página quedaba en negro.
+// Ahora se baja recién cuando el admin dibuja el primer gráfico.
+let _chartJsPromise = null;
+function cargarChartJs() {
+    if (window.Chart) return Promise.resolve(window.Chart);
+    if (!_chartJsPromise) {
+        _chartJsPromise = new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
+            s.async = true;
+            s.onload = () => resolve(window.Chart);
+            s.onerror = () => { _chartJsPromise = null; reject(new Error('No se pudo cargar Chart.js')); };
+            document.head.appendChild(s);
+        });
+    }
+    return _chartJsPromise;
+}
+
+window.renderGeoChart = async (canvasId, label, dataObj, chartKey) => {
     const ctx = document.getElementById(canvasId);
     if (!ctx) return;
+    try { await cargarChartJs(); } catch (e) { console.warn(e.message); return; }
 
     if (!window.geoCharts) window.geoCharts = {};
     if (window.geoCharts[chartKey]) window.geoCharts[chartKey].destroy();
@@ -9033,8 +9047,7 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
                             const { getFirestore, doc, deleteDoc } = await import("firebase/firestore");
                             const db = getFirestore();
                             await deleteDoc(doc(db, "movies", movieId));
-                            localStorage.removeItem('selvaflix_full_database');
-                            localStorage.removeItem('selvaflix_cache_timestamp');
+                            invalidarCacheCatalogo();
                             movieDatabase.trending = movieDatabase.trending.filter(m => m.id !== movieId);
                             if (window.showToast) window.showToast("¡Película eliminada de la selva! 🗑️", "success");
                             history.back(); // Volver atrás a la home
@@ -9084,8 +9097,7 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
                             if (window.showToast) {
                                 window.showToast(`✅ VIP ${newVipStatus ? 'ACTIVADO' : 'DESACTIVADO'} para "${movie.title}"`, "success");
                             }
-                            localStorage.removeItem('selvaflix_full_database');
-                            localStorage.removeItem('selvaflix_cache_timestamp');
+                            invalidarCacheCatalogo();
                             window.openMovieDetail(movieId); // Refrescar
                         } catch (e) {
                             console.error("Error actualizando VIP:", e);
@@ -9210,8 +9222,7 @@ window.deleteMovie = async (id, skipConfirm = false) => {
   if (skipConfirm || confirm("¿Seguro que quieres eliminar esta joya de la selva? 🥥?")) {
     try {
       await deleteDoc(doc(db, "movies", id));
-      localStorage.removeItem('selvaflix_full_database');
-      localStorage.removeItem('selvaflix_cache_timestamp');
+      invalidarCacheCatalogo();
       movieDatabase.trending = movieDatabase.trending.filter(m => m.id !== id);
       if (window.showToast) window.showToast("¡Película eliminada de la selva! 🗑️", "success");
       if (document.getElementById('admin-view')?.style.display === 'block') renderInventory();
@@ -9224,8 +9235,7 @@ window.deleteMovie = async (id, skipConfirm = false) => {
 window.approveMovie = async (id) => {
   try {
     await updateDoc(doc(db, "movies", id), { status: 'healthy', updatedAt: Date.now() });
-    localStorage.removeItem('selvaflix_full_database');
-    localStorage.removeItem('selvaflix_cache_timestamp');
+    invalidarCacheCatalogo();
     const movie = movieDatabase.trending.find(m => m.id === id);
     if (movie) movie.status = 'healthy';
     if (window.showToast) window.showToast("¡Aprobada y movida a la selva principal! ✅🌴", "success");
@@ -9241,8 +9251,7 @@ window.approveMovie = async (id) => {
 window.moveToWaiting = async (id) => {
   try {
     await updateDoc(doc(db, "movies", id), { status: 'waiting', updatedAt: Date.now() });
-    localStorage.removeItem('selvaflix_full_database');
-    localStorage.removeItem('selvaflix_cache_timestamp');
+    invalidarCacheCatalogo();
     const movie = movieDatabase.trending.find(m => m.id === id);
     if (movie) movie.status = 'waiting';
     if (window.showToast) window.showToast("Movida a 'En Espera' correctamente. ⏳🌴", "success");
@@ -9523,8 +9532,7 @@ window.quickSeedContent = async (s, type) => {
     createdAt: Date.now()
   };
   await addDoc(moviesCol, data);
-  localStorage.removeItem('selvaflix_full_database');
-  localStorage.removeItem('selvaflix_cache_timestamp');
+  invalidarCacheCatalogo();
   alert("¡Sembrado con éxito! 🌴");
 };
 
@@ -10012,8 +10020,7 @@ window.confirmBatchSeed = async () => {
     }
   }
 
-  localStorage.removeItem('selvaflix_full_database');
-  localStorage.removeItem('selvaflix_cache_timestamp');
+  invalidarCacheCatalogo();
 
   if (overlay) overlay.style.display = 'none';
   if (window.showToast) {
@@ -11011,7 +11018,7 @@ window.quickSeedManual = async (data, type = 'movie') => {
   try {
     await addDoc(collection(db, "movies"), mData);
     if (window.showToast) window.showToast(`✅ "${finalTitle}" agregado con éxito.`, "success");
-    localStorage.removeItem('selvaflix_full_database');
+    invalidarCacheCatalogo();
   } catch (e) {
     console.error("Error en quickSeed:", e);
     if (window.showToast) window.showToast("❌ No se pudo agregar a la selva.", "error");
@@ -11280,8 +11287,7 @@ window.submitMovieForm = async () => {
     }
 
     window.closeUploadDrawer();
-    localStorage.removeItem('selvaflix_full_database');
-    localStorage.removeItem('selvaflix_cache_timestamp');
+    invalidarCacheCatalogo();
     await loadSelvaMovData();
     if (window.filterInventoryByCategory) window.filterInventoryByCategory();
   } catch (error) {
@@ -11646,8 +11652,7 @@ window.setDownloadUrlFromDrawer = async () => {
       document.getElementById('tmdb-results').innerHTML = '';
 
       // --- Sincronización Silenciosa ---
-      localStorage.removeItem('selvaflix_full_database');
-      localStorage.removeItem('selvaflix_cache_timestamp');
+      invalidarCacheCatalogo();
       await loadSelvaMovData();
       if (window.filterInventoryByCategory) window.filterInventoryByCategory();
 
@@ -13535,8 +13540,7 @@ window.previewVimeusAuto = async () => {
     updateDoc(doc(db, "movies", dbIdActual), { vimeusDisponible: true, vimeusFantasma: false }).then(() => {
       const movieActual = movieDatabase.trending.find(m => m.id === dbIdActual);
       if (movieActual) { movieActual.vimeusDisponible = true; movieActual.vimeusFantasma = false; }
-      localStorage.removeItem('selvaflix_full_database');
-      localStorage.removeItem('selvaflix_cache_timestamp');
+      invalidarCacheCatalogo();
     }).catch(e => console.warn('No se pudo guardar el estado de Vimeus:', e));
   }
 

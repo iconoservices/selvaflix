@@ -12,7 +12,7 @@
  *
  * Dependencias: se inyectan desde main.js con init() para que este módulo
  * no vuelva a inicializar Firebase ni cree un import circular.
- * Chart.js es global (viene por <script> en index.html).
+ * Chart.js lo carga bajo demanda window.renderGeoChart (main.js).
  */
 
 let db, collection, query, where, orderBy, getDocs, supabase;

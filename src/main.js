@@ -279,9 +279,17 @@ async function supaFetchAllMovieRowsDirect() {
 // de desplegar ANTES de correr el SQL.
 async function adminWorkerCall(path, payload, _retried) {
   // Sesión de Firebase (cuenta admin) → el Worker la valida y no hace falta
-  // clave. Si no hay sesión, cae a la clave manual de abajo.
+  // clave. Antes, si la sesión todavía no había cargado (o el token estaba
+  // vencido), salía directo el prompt de "Clave de administrador". Ahora se
+  // espera a la sesión y, si el Worker la rechaza, se renueva el token una
+  // vez antes de rendirse.
   let fbToken = '';
-  try { fbToken = auth.currentUser ? await auth.currentUser.getIdToken() : ''; } catch {}
+  try {
+    if (!auth.currentUser && window._authReadyPromise) {
+      await Promise.race([window._authReadyPromise, new Promise(r => setTimeout(r, 5000))]);
+    }
+    fbToken = auth.currentUser ? await auth.currentUser.getIdToken(_retried === 'refresh') : '';
+  } catch {}
   const res = await fetch(`${SelvaStream.MASTER_WORKER_URL}/flix/admin/${path}`, {
     method: 'POST',
     headers: {
@@ -296,14 +304,16 @@ async function adminWorkerCall(path, payload, _retried) {
   let data = null;
   try { data = text ? JSON.parse(text) : null; } catch { data = text; }
 
-  if (res.status === 403 && !_retried) {
-    // El Worker rechazó la clave (o todavía no había ninguna). Pedirla y
-    // reintentar una vez.
-    localStorage.removeItem('selva_admin_key');
-    const k = (prompt('🔑 Clave de administrador (para editar el catálogo):') || '').trim();
-    if (!k) throw new Error('Se necesita la clave de administrador para editar el catálogo');
-    localStorage.setItem('selva_admin_key', k);
-    return adminWorkerCall(path, payload, true);
+  if (res.status === 403) {
+    // 1) Había sesión pero el Worker la rechazó: token vencido → renovar y reintentar.
+    if (fbToken && !_retried) return adminWorkerCall(path, payload, 'refresh');
+    // 2) Hay sesión válida pero no es la cuenta admin, o sigue rechazada.
+    if (fbToken) {
+      throw new Error(`Tu sesión (${auth.currentUser?.email || '?'}) no tiene permiso de administrador. Entra con la cuenta admin.`);
+    }
+    // 3) Sin sesión de Firebase: avisar en vez de pedir una clave misteriosa.
+    //    La clave manual queda solo como respaldo si ya estaba guardada.
+    throw new Error('No has iniciado sesión con tu cuenta de administrador. Inicia sesión (arriba a la derecha) y vuelve a intentar.');
   }
   if (!res.ok) throw new Error((data && data.error) || `Worker admin respondió ${res.status}`);
   return data;
@@ -983,6 +993,16 @@ function _abrirEdicionDesdeRuta(slugOrId, intento) {
 }
 
 async function _iniciarPanelAdmin() {
+  // Entró por la marca guardada pero sin sesión de Firebase activa: el panel
+  // se ve, pero guardar/editar/borrar van a fallar. Avisarlo de entrada.
+  if (localStorage.getItem('selva_admin_auth') === 'true') {
+    (async () => {
+      try { if (window._authReadyPromise) await Promise.race([window._authReadyPromise, new Promise(r => setTimeout(r, 6000))]); } catch {}
+      if (!auth.currentUser) {
+        window.showToast?.('⚠️ No has iniciado sesión: para guardar cambios entra con tu cuenta de administrador.', 'error');
+      }
+    })();
+  }
   if (localStorage.getItem('selva_admin_auth') !== 'true') {
     try { if (window._authReadyPromise) await window._authReadyPromise; } catch (e) {}
     if (!window._esCuentaAdmin()) {

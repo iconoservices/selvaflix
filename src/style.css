@@ -5753,6 +5753,11 @@ body.admin-locked {
 .admin-form-drawer.drawer-bulk-mode .single-only,
 .admin-form-drawer.drawer-bulk-mode .drawer-col-right,
 .admin-form-drawer.drawer-bulk-mode .drawer-header-save-group .btn-save-drawer { display: none !important; }
+/* Feedback del botón Guardar: se hunde al tocar y queda "ocupado" mientras guarda. */
+.btn-save-drawer { transition: transform .08s ease, filter .15s ease, opacity .15s ease; }
+.btn-save-drawer:active { transform: scale(0.96); filter: brightness(0.85); }
+.btn-save-drawer.is-saving { opacity: 0.75; cursor: wait; pointer-events: none; }
+.btn-save-drawer .spin { display: inline-block; animation: spin 0.9s linear infinite; }
 .admin-form-drawer.drawer-bulk-mode .drawer-two-col-body { grid-template-columns: minmax(0, 1fr); }
 .drawer-more-options { margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 10px; }
 .drawer-more-options > summary { cursor: pointer; font-size: 0.8rem; color: #aaa; font-weight: 700; }

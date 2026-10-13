@@ -11291,8 +11291,26 @@ window.submitMovieForm = async () => {
   if (!title) { window.showToast('¡Falta el título! 🌴', 'error'); return; }
   if (!img) { window.showToast('¡Falta la imagen del póster!', 'error'); return; }
 
-  const submitBtn = document.getElementById('submit-btn');
-  if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '<span class="material-symbols-outlined">hourglass_empty</span> Saving...'; }
+  // Hay dos botones de guardar (cabecera fija + final del formulario) y
+  // antes solo el de abajo mostraba "guardando": el de arriba, que es el que
+  // más se usa, no reaccionaba y se apretaba varias veces (duplicados).
+  if (window._guardandoTitulo) return;
+  window._guardandoTitulo = true;
+  const saveBtns = [...document.querySelectorAll('#admin-form-drawer .btn-save-drawer')];
+  const setSaveBtns = (html, busy) => saveBtns.forEach(b => {
+    b.disabled = busy;
+    b.classList.toggle('is-saving', busy);
+    b.innerHTML = html;
+  });
+  const submitBtn = { set innerHTML(html) { setSaveBtns(html, true); } };
+  setSaveBtns('<span class="material-symbols-outlined spin">progress_activity</span> Guardando...', true);
+  // El chequeo de Vimeus no tiene tope de tiempo propio (con reintentos
+  // podía colgar el guardado). Si no contesta en 6 s se guarda igual y el
+  // título queda "Sin Verificar" para la próxima auditoría.
+  const vimeusConTope = (...args) => Promise.race([
+    vimeusEstadoTitulo(...args),
+    new Promise(r => setTimeout(() => r(undefined), 6000))
+  ]);
 
   const movieData = {
     title,
@@ -11337,10 +11355,13 @@ window.submitMovieForm = async () => {
       if (movieActual && movieActual.vimeusDisponible === undefined && (movieData.tmdbId || movieData.imdbId)) {
         if (submitBtn) submitBtn.innerHTML = '<span class="material-symbols-outlined">hourglass_empty</span> Verificando Vimeus...';
         const tipoVimeus = movieData.type === 'anime' ? 'anime' : ((movieData.type === 'series' || movieData.type === 'tv') ? 'serie' : 'movie');
-        const estado = await vimeusEstadoTitulo(movieData.tmdbId, movieData.imdbId, tipoVimeus);
-        movieData.vimeusDisponible = estado === 'ok';
-        movieData.vimeusFantasma = estado === 'fantasma';
+        const estado = await vimeusConTope(movieData.tmdbId, movieData.imdbId, tipoVimeus);
+        if (estado !== undefined) {
+          movieData.vimeusDisponible = estado === 'ok';
+          movieData.vimeusFantasma = estado === 'fantasma';
+        }
       }
+      if (submitBtn) submitBtn.innerHTML = '<span class="material-symbols-outlined spin">progress_activity</span> Guardando...';
       await updateDoc(doc(db, "movies", dbId), movieData);
       window.showToast('¡Título actualizado! 🌴🔄', 'success');
     } else {
@@ -11364,8 +11385,7 @@ window.submitMovieForm = async () => {
       if (posibleDuplicado) {
         const motivo = normTmdbNuevo ? 'mismo ID de TMDB' : 'mismo título';
         if (!confirm(`⚠️ Ya existe "${posibleDuplicado.title}" en el catálogo (${motivo}).\n\n¿Agregar de todas formas y crear un duplicado?`)) {
-          if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = 'Guardar'; }
-          return;
+          return; // el finally restaura los botones
         }
       }
 
@@ -11378,10 +11398,13 @@ window.submitMovieForm = async () => {
       if (movieData.tmdbId || movieData.imdbId) {
         if (submitBtn) submitBtn.innerHTML = '<span class="material-symbols-outlined">hourglass_empty</span> Verificando Vimeus...';
         const tipoVimeus = movieData.type === 'anime' ? 'anime' : ((movieData.type === 'series' || movieData.type === 'tv') ? 'serie' : 'movie');
-        const estado = await vimeusEstadoTitulo(movieData.tmdbId, movieData.imdbId, tipoVimeus);
-        movieData.vimeusDisponible = estado === 'ok';
-        movieData.vimeusFantasma = estado === 'fantasma';
+        const estado = await vimeusConTope(movieData.tmdbId, movieData.imdbId, tipoVimeus);
+        if (estado !== undefined) {
+          movieData.vimeusDisponible = estado === 'ok';
+          movieData.vimeusFantasma = estado === 'fantasma';
+        }
       }
+      if (submitBtn) submitBtn.innerHTML = '<span class="material-symbols-outlined spin">progress_activity</span> Guardando...';
       movieData.createdAt = Date.now();
       await addDoc(moviesCol, movieData);
       window.showToast('¡Título añadido exitosamente! 🌴🍿', 'success');
@@ -11389,13 +11412,17 @@ window.submitMovieForm = async () => {
 
     window.closeUploadDrawer();
     invalidarCacheCatalogo();
-    await loadSelvaMovData();
-    if (window.filterInventoryByCategory) window.filterInventoryByCategory();
+    // Recarga del catálogo en segundo plano: ya está guardado, no hace falta
+    // tener al admin esperando a que baje todo el catálogo de nuevo.
+    loadSelvaMovData()
+      .then(() => { if (window.filterInventoryByCategory) window.filterInventoryByCategory(); })
+      .catch(e => console.warn('Recarga de catálogo tras guardar falló:', e));
   } catch (error) {
     console.error("Error guardando:", error);
     window.showToast(`Error al guardar: ${error.message}`, 'error');
   } finally {
-    if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<span class="material-symbols-outlined">save</span> Save Changes'; }
+    window._guardandoTitulo = false;
+    setSaveBtns('<span class="material-symbols-outlined">save</span> Guardar Cambios', false);
   }
 };
 

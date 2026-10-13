@@ -456,6 +456,77 @@ if (_esLocalDev && 'serviceWorker' in navigator) {
       .then(() => location.reload());
   }).catch(() => {});
 }
+// 🔔 Saca el token FCM del dispositivo y lo anota en el tema "todos" (vía el
+// Worker) para que le lleguen los avisos que manda el admin.
+async function _activarPush(reg) {
+  if (!messaging) return;
+  try {
+    const token = await getToken(messaging, {
+      vapidKey: 'BLqkFCsqZCYKUOauIQND6XOWbiDBPKKebs9kNDBI5YRnhJ6WuOy2b1EUCKlv8xstA-1AkNOobOwPKDT8i34ZSwQ',
+      serviceWorkerRegistration: reg
+    });
+    if (!token) return;
+    // Una vez por día alcanza (el Worker renueva la vigencia del token).
+    const hoy = new Date().toISOString().slice(0, 10);
+    const marca = `${hoy}:${token.slice(-16)}`;
+    if (localStorage.getItem('selva_push_sub') === marca) return;
+    const r = await fetch(`${SelvaStream.MASTER_WORKER_URL}/flix/push/subscribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-selva-auth': SelvaStream.AUTH_TOKEN },
+      body: JSON.stringify({ token })
+    });
+    if (r.ok) localStorage.setItem('selva_push_sub', marca);
+    else console.warn('🔕 Suscripción push falló:', r.status, await r.text().catch(() => ''));
+
+    // Copia en Firestore (la usa el contador de Analíticas).
+    let userId = localStorage.getItem('selva_user_id');
+    if (!userId) {
+      userId = "USR_" + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+      localStorage.setItem('selva_user_id', userId);
+    }
+    setDoc(doc(db, "users", userId), { fcmToken: token, lastActive: Date.now(), platform: navigator.platform || 'Unknown' }, { merge: true })
+      .catch(err => console.warn('Token push no guardado en Firestore:', err?.message || err));
+  } catch (err) {
+    console.warn('❌ No se pudo activar push:', err?.message || err);
+  }
+}
+
+// Aviso propio "¿Te avisamos de los estrenos?" antes del permiso del
+// navegador. Si dice "Ahora no", no se vuelve a ofrecer en 14 días.
+function _ofrecerAvisosPush(reg) {
+  if (Notification.permission !== 'default') return;
+  if (sessionStorage.getItem('selva_admin_active') === '1') return;
+  try {
+    const hasta = Number(localStorage.getItem('selva_push_snooze') || 0);
+    if (Date.now() < hasta) return;
+  } catch {}
+  if (document.getElementById('push-offer')) return;
+  const box = document.createElement('div');
+  box.id = 'push-offer';
+  box.className = 'push-offer';
+  box.innerHTML = `
+    <div class="push-offer-icon">🔔</div>
+    <div class="push-offer-txt"><b>¿Te avisamos de los estrenos?</b><span>Una notificación cuando subamos pelis nuevas. Nada de spam.</span></div>
+    <div class="push-offer-actions">
+      <button type="button" class="push-offer-no">Ahora no</button>
+      <button type="button" class="push-offer-si">Sí, avísame</button>
+    </div>`;
+  document.body.appendChild(box);
+  const cerrar = () => box.remove();
+  box.querySelector('.push-offer-no').onclick = () => {
+    try { localStorage.setItem('selva_push_snooze', String(Date.now() + 14 * 864e5)); } catch {}
+    cerrar();
+  };
+  box.querySelector('.push-offer-si').onclick = async () => {
+    cerrar();
+    const permiso = await Notification.requestPermission();
+    if (permiso === 'granted') {
+      await _activarPush(reg);
+      window.showToast?.('🔔 ¡Listo! Te avisaremos de los estrenos.', 'success');
+    }
+  };
+}
+
 if ('serviceWorker' in navigator && !_esLocalDev) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
@@ -467,59 +538,24 @@ if ('serviceWorker' in navigator && !_esLocalDev) {
           console.log('🔕 FCM no disponible, omitiendo push notifications.');
           return;
         }
-        Notification.requestPermission().then((permission) => {
-          if (permission === 'granted') {
-            console.log('🔔 Permiso de notificaciones concedido.');
-            
-            // Retraso intencional para asegurar que SW está bootado
-            setTimeout(() => {
-                getToken(messaging, { 
-                  vapidKey: 'BLqkFCsqZCYKUOauIQND6XOWbiDBPKKebs9kNDBI5YRnhJ6WuOy2b1EUCKlv8xstA-1AkNOobOwPKDT8i34ZSwQ',
-                  serviceWorkerRegistration: reg 
-                }).then((currentToken) => {
-                  if (currentToken) {
-                    console.log('📨 Token FCM Obtenido:', currentToken);
-                    // Guardar/Actualizar Token con setDoc (más robusto)
-                    let userId = localStorage.getItem('selva_user_id');
-                    if (!userId) {
-                        userId = "USR_" + Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-                        localStorage.setItem('selva_user_id', userId);
-                    }
-                    
-                    setDoc(doc(db, "users", userId), { 
-                        fcmToken: currentToken, 
-                        lastActive: Date.now(),
-                        platform: navigator.platform || 'Unknown' 
-                    }, { merge: true }).then(() => {
-                        console.log("✅ Usuario registrado para Push!");
-                    }).catch(err => console.error("Error guardando token en BD", err));
-                    
-                  } else {
-                    console.log('No token available. Request permission to generate one.');
-                  }
-                }).catch((err) => {
-                  console.log('❌ Error obteniendo token FCM. ', err);
-                });
-            }, 1000); // 1s Espera de seguridad
-          } else {
-            console.log('🔕 Permiso de notificaciones denegado.');
-          }
-        });
-
-        // 📬 FCM: Escuchar mensajes en primer plano (Foreground)
-        if (messaging) {
-          onMessage(messaging, (payload) => {
-            console.log('[main.js] Mensaje recibido en Foreground ', payload);
-            // Mostramos un Toast premium en vez de bloquear la pantalla con alert()
-            const title = payload.notification?.title || "Nueva alerta";
-            const body = payload.notification?.body || "";
-            if (window.showToast) {
-              window.showToast(`🔔 ${title} - ${body}`, "success");
-            } else {
-              console.log(`🔔 Notificación recibida: ${title} - ${body}`);
-            }
-          });
+        // Antes se pedía el permiso apenas cargaba la página: el navegador lo
+        // trata como spam (Chrome lo silencia) y casi nadie acepta. Ahora:
+        // si ya dio permiso → se renueva la suscripción en silencio; si no
+        // decidió todavía → se ofrece un aviso propio tras un rato de uso.
+        if (Notification.permission === 'granted') {
+          setTimeout(() => _activarPush(reg), 1000);
+        } else if (Notification.permission === 'default') {
+          setTimeout(() => _ofrecerAvisosPush(reg), 25000);
         }
+
+        // 📬 FCM: mensaje con la pestaña abierta → toast (la notificación del
+        // sistema la dibuja sw.js solo cuando la app está en segundo plano).
+        onMessage(messaging, (payload) => {
+          const d = payload.data || {};
+          const title = d.title || payload.notification?.title || 'Nueva alerta';
+          const body = d.body || payload.notification?.body || '';
+          window.showToast?.(`🔔 ${title}${body ? ' - ' + body : ''}`, 'success');
+        });
 
         // Lógica de Actualización Manual (Botón) - AlDía Style
         reg.addEventListener('updatefound', () => {
@@ -874,7 +910,7 @@ window.updateAdminUI = () => {
 // que lo usan (ver nota de "let de módulo tardío" en el build).
 const ADMIN_RUTAS = {
   dashboard: 'panel', catalog: 'catalogo', users: 'usuarios', analytics: 'analiticas',
-  ads: 'anuncios', plans: 'planes', actions: 'acciones', messages: 'mensajes'
+  ads: 'anuncios', plans: 'planes', actions: 'acciones', messages: 'mensajes', push: 'notificaciones'
 };
 var _adminTabActual = null;
 var _drawerRutaApilada = false;
@@ -2804,7 +2840,7 @@ window.updateSelectedCount = () => {
 };
 
 // ─── Admin Tab Navigation (CinePulse Portal) ────────────────────────────────
-const ADMIN_TABS = ['dashboard', 'catalog', 'users', 'analytics', 'ads', 'plans', 'actions', 'messages'];
+const ADMIN_TABS = ['dashboard', 'catalog', 'users', 'analytics', 'ads', 'plans', 'actions', 'messages', 'push'];
 
 // Carga perezosa del módulo de Analíticas: el import() solo se dispara la
 // primera vez que se abre esa pestaña, y la promesa queda cacheada para no
@@ -2892,12 +2928,122 @@ window.switchAdminTab = (tab) => {
     if (typeof window.loadRegisteredUsers === 'function') window.loadRegisteredUsers();
   } else if (tab === 'messages') {
     if (typeof window.loadAdminMessages === 'function') window.loadAdminMessages();
+  } else if (tab === 'push') {
+    window.pushCargarPestana();
   } else if (tab === 'dashboard') {
     // Refresh dashboard stats using already-loaded inventory
     if (_allInventoryItems && _allInventoryItems.length > 0) {
       _updateDetailedStats(_allInventoryItems);
     }
     if (typeof window.loadPremiumCount === 'function') window.loadPremiumCount();
+  }
+};
+
+// ─── Notificaciones push (pestaña del admin) ────────────────────────────────
+// El envío lo hace el Worker (/flix/admin/push-send) con la cuenta de
+// servicio de Firebase; acá solo se arma el aviso y se muestra el historial.
+const _pushEsc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+window.pushCargarPestana = async () => {
+  // Títulos del catálogo para el buscador "Sobre una peli"
+  const dl = document.getElementById('push-movie-datalist');
+  if (dl && !dl.children.length && movieDatabase?.trending?.length) {
+    dl.innerHTML = movieDatabase.trending
+      .filter(m => m.title).slice(0, 4000)
+      .map(m => `<option value="${_pushEsc(m.title)}${m.year ? ` (${_pushEsc(m.year)})` : ''}"></option>`).join('');
+  }
+  window.pushActualizarVista();
+  const hist = document.getElementById('push-history');
+  const pill = document.getElementById('push-subs-pill');
+  const warn = document.getElementById('push-config-warning');
+  try {
+    const data = await adminWorkerCall('push-history', {});
+    if (pill) pill.textContent = data.subscribers == null ? '— suscriptores' : `🔔 ${data.subscribers} suscriptor${data.subscribers === 1 ? '' : 'es'}`;
+    if (warn) {
+      warn.style.display = data.configured ? 'none' : 'block';
+      warn.innerHTML = '⚠️ Falta configurar el envío: hay que cargar el secreto <b>FCM_SERVICE_ACCOUNT</b> en el Worker de Cloudflare. Hasta entonces no se puede enviar.';
+    }
+    if (hist) hist.innerHTML = (data.history || []).length
+      ? data.history.map(h => `
+          <div class="push-history-item">
+            <div class="push-history-title">${_pushEsc(h.title)}</div>
+            <div class="push-history-body">${_pushEsc(h.body)}</div>
+            <div class="push-history-meta">${new Date(h.at).toLocaleString('es')}${h.link ? ' · ' + _pushEsc(h.link.replace(/^https?:\/\/[^/]+\/?/, '')) : ''}</div>
+          </div>`).join('')
+      : '<p class="drawer-hint">Todavía no se envió ninguna.</p>';
+  } catch (e) {
+    if (hist) hist.innerHTML = `<p class="drawer-hint">No se pudo cargar el historial: ${_pushEsc(e.message)}</p>`;
+    if (warn) {
+      warn.style.display = 'block';
+      warn.innerHTML = '⚠️ El Worker no respondió a las rutas de notificaciones. ¿Ya se desplegó la versión nueva del Worker?';
+    }
+  }
+};
+
+window.pushActualizarVista = () => {
+  const v = (id) => document.getElementById(id)?.value.trim() || '';
+  const title = v('push-title'), body = v('push-body'), img = v('push-image');
+  const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+  set('push-prev-title', title || '🍿 ¡Nuevo estreno en SelvaMov!');
+  set('push-prev-body', body || 'Ya puedes ver Hope: El primer impacto en latino.');
+  set('push-title-count', `${title.length}/60`);
+  set('push-body-count', `${body.length}/160`);
+  const imgEl = document.getElementById('push-prev-img');
+  if (imgEl) {
+    if (/^https:\/\//.test(img)) { imgEl.src = img; imgEl.style.display = 'block'; }
+    else imgEl.style.display = 'none';
+  }
+};
+
+// "Usar" una peli del catálogo: arma título, mensaje, imagen y link solos.
+window.pushUsarPeli = () => {
+  const q = document.getElementById('push-movie-search')?.value.trim().toLowerCase() || '';
+  if (!q) { window.showToast('Escribe el nombre de una peli del catálogo.', 'error'); return; }
+  const lista = movieDatabase?.trending || [];
+  const conAnio = (m) => `${m.title}${m.year ? ` (${m.year})` : ''}`.toLowerCase();
+  const m = lista.find(x => conAnio(x) === q) || lista.find(x => (x.title || '').toLowerCase() === q)
+    || lista.find(x => (x.title || '').toLowerCase().includes(q));
+  if (!m) { window.showToast('No encontré esa peli en el catálogo.', 'error'); return; }
+  const tipo = m.type === 'series' ? 'serie' : m.type === 'anime' ? 'anime' : 'peli';
+  const put = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+  put('push-title', `🍿 Nueva ${tipo}: ${m.title}`.slice(0, 60));
+  const sinopsis = (m.synopsis || m.description || m.overview || '').trim();
+  put('push-body', (sinopsis ? sinopsis : `Ya puedes verla en SelvaMov.`).slice(0, 157) + (sinopsis.length > 157 ? '...' : ''));
+  put('push-image', (m.backdrop && /^https:\/\//.test(m.backdrop)) ? m.backdrop : (/^https:\/\//.test(m.img || '') ? m.img : ''));
+  put('push-link', `#detail/${slugify(m.title, m.year)}`);
+  window.pushActualizarVista();
+};
+
+window.pushLimpiar = () => {
+  ['push-movie-search', 'push-title', 'push-body', 'push-image', 'push-link'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  window.pushActualizarVista();
+};
+
+window.pushEnviar = async () => {
+  const v = (id) => document.getElementById(id)?.value.trim() || '';
+  const title = v('push-title'), body = v('push-body');
+  if (!title || !body) { window.showToast('Falta el título o el mensaje.', 'error'); return; }
+  const linkTxt = v('push-link');
+  // Los links del sitio van absolutos (la notificación los abre fuera de la app).
+  const base = location.origin.startsWith('https://') ? location.origin : 'https://selvaflix.vercel.app';
+  const link = linkTxt ? new URL(linkTxt.startsWith('#') ? '/' + linkTxt : linkTxt, base).href : base + '/';
+  const subs = document.getElementById('push-subs-pill')?.textContent || '';
+  if (!confirm(`¿Enviar este aviso a todos los suscriptores?\n${subs}\n\n${title}\n${body}`)) return;
+
+  const btn = document.getElementById('push-send-btn');
+  const htmlBtn = btn?.innerHTML;
+  if (btn) { btn.disabled = true; btn.classList.add('is-saving'); btn.innerHTML = '<span class="material-symbols-outlined spin">progress_activity</span> Enviando...'; }
+  try {
+    await adminWorkerCall('push-send', { title, body, image: v('push-image'), link });
+    window.showToast('🔔 ¡Aviso enviado!', 'success');
+    window.pushLimpiar();
+    window.pushCargarPestana();
+  } catch (e) {
+    window.showToast('No se pudo enviar: ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.classList.remove('is-saving'); btn.innerHTML = htmlBtn; }
   }
 };
 

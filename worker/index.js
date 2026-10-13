@@ -71,6 +71,61 @@ async function isAdminRequest(request, url, env) {
     return !!(env.ADMIN_KEY && key === env.ADMIN_KEY);
 }
 
+// ═══ Notificaciones push (FCM HTTP v1) ═════════════════════════════════════════
+// Envío a TODOS por el tema "todos": cada dispositivo se suscribe al tema al
+// dar permiso (/flix/push/subscribe), y el admin manda un solo mensaje al tema
+// (/flix/admin/push-send) — no importa cuántos suscriptores haya.
+// ⚙️ REQUIERE el secreto FCM_SERVICE_ACCOUNT = JSON completo de una cuenta de
+// servicio de Firebase (Consola Firebase → Configuración del proyecto →
+// Cuentas de servicio → Generar nueva clave privada).
+const PUSH_TOPIC = 'todos';
+let _gAccessToken = null;   // { token, exp } — se reusa ~55 min por isolate
+
+function bytesToB64url(bytes) {
+    let bin = '';
+    const arr = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+    for (let i = 0; i < arr.length; i++) bin += String.fromCharCode(arr[i]);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function pushServiceAccount(env) {
+    if (!env.FCM_SERVICE_ACCOUNT) throw new Error('Falta el secreto FCM_SERVICE_ACCOUNT en el Worker');
+    const sa = typeof env.FCM_SERVICE_ACCOUNT === 'string' ? JSON.parse(env.FCM_SERVICE_ACCOUNT) : env.FCM_SERVICE_ACCOUNT;
+    if (!sa.client_email || !sa.private_key) throw new Error('FCM_SERVICE_ACCOUNT inválido (falta client_email/private_key)');
+    return sa;
+}
+
+async function googleAccessToken(env) {
+    const now = Math.floor(Date.now() / 1000);
+    if (_gAccessToken && _gAccessToken.exp - 300 > now) return _gAccessToken.token;
+    const sa = pushServiceAccount(env);
+    const enc = (o) => bytesToB64url(new TextEncoder().encode(JSON.stringify(o)));
+    const unsigned = `${enc({ alg: 'RS256', typ: 'JWT' })}.${enc({
+        iss: sa.client_email,
+        scope: 'https://www.googleapis.com/auth/firebase.messaging',
+        aud: 'https://oauth2.googleapis.com/token',
+        iat: now, exp: now + 3600
+    })}`;
+    const pem = sa.private_key.replace(/-----[^-]+-----/g, '').replace(/\s+/g, '');
+    const key = await crypto.subtle.importKey('pkcs8', b64urlToBytes(pem),
+        { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
+    const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(unsigned));
+    const r = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `grant_type=${encodeURIComponent('urn:ietf:params:oauth:grant-type:jwt-bearer')}&assertion=${unsigned}.${bytesToB64url(sig)}`
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok || !data.access_token) throw new Error(`Google OAuth falló: ${data.error_description || data.error || r.status}`);
+    _gAccessToken = { token: data.access_token, exp: now + (data.expires_in || 3600) };
+    return data.access_token;
+}
+
+async function sha256Hex(str) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 // ═══ Catálogo cacheado (KV global + refresh por Cron) ══════════════════════════
 const CATALOG_KV_KEY = 'catalog:v2';           // valor = JSON del catálogo, gzipeado
 const CATALOG_REFRESH_MIN_MS = 90_000;         // tras escritura del admin, refrescar como mucho 1 vez / 90 s
@@ -713,6 +768,100 @@ export default {
                     return new Response(JSON.stringify({ count: out.length, signups: out }), { headers: corsHeaders });
                 }
                 return new Response(JSON.stringify({ error: 'método no permitido' }), { status: 405, headers: corsHeaders });
+            }
+
+            // --- 🔔 RUTA: suscribir un dispositivo a las notificaciones ---
+            // POST { token } — el sitio la llama al obtener el token FCM. Se
+            // anota en el tema "todos" (IID API) y se guarda una copia en KV
+            // para poder contar suscriptores desde el admin.
+            if (url.pathname === '/flix/push/subscribe' && request.method === 'POST') {
+                let body = {};
+                try { body = await request.json(); } catch {}
+                const token = String(body.token || '').trim();
+                if (token.length < 100 || token.length > 4096) {
+                    return new Response(JSON.stringify({ error: 'token inválido' }), { status: 400, headers: corsHeaders });
+                }
+                const access = await googleAccessToken(env);
+                const r = await fetch('https://iid.googleapis.com/iid/v1:batchAdd', {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${access}`, 'access_token_auth': 'true', 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ to: `/topics/${PUSH_TOPIC}`, registration_tokens: [token] })
+                });
+                const out = await r.json().catch(() => ({}));
+                const err = out?.results?.[0]?.error;
+                if (!r.ok || err) {
+                    return new Response(JSON.stringify({ error: `suscripción falló: ${err || r.status}` }), { status: 502, headers: corsHeaders });
+                }
+                if (env.CATALOG_KV) {
+                    const id = (await sha256Hex(token)).slice(0, 32);
+                    ctx.waitUntil(env.CATALOG_KV.put(`push:tok:${id}`, '1', {
+                        expirationTtl: 60 * 60 * 24 * 120, // se renueva en cada visita; 120 días sin volver = fuera de la cuenta
+                        metadata: { at: Date.now() }
+                    }));
+                }
+                return new Response(JSON.stringify({ ok: true }), { headers: corsHeaders });
+            }
+
+            // --- 🔔 RUTAS ADMIN: enviar notificación / ver historial ---
+            if (url.pathname === '/flix/admin/push-send' || url.pathname === '/flix/admin/push-history') {
+                if (!(await isAdminRequest(request, url, env))) {
+                    return new Response(JSON.stringify({ error: 'Admin no autorizado' }), { status: 403, headers: corsHeaders });
+                }
+                if (url.pathname === '/flix/admin/push-history') {
+                    const out = { subscribers: null, history: [] };
+                    if (env.CATALOG_KV) {
+                        let count = 0, cursor;
+                        do {
+                            const page = await env.CATALOG_KV.list({ prefix: 'push:tok:', cursor });
+                            count += page.keys.length;
+                            cursor = page.list_complete ? null : page.cursor;
+                        } while (cursor);
+                        out.subscribers = count;
+                        const logs = await env.CATALOG_KV.list({ prefix: 'push:log:' });
+                        out.history = logs.keys.map(k => k.metadata).filter(Boolean)
+                            .sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 30);
+                    }
+                    out.configured = !!env.FCM_SERVICE_ACCOUNT;
+                    return new Response(JSON.stringify(out), { headers: corsHeaders });
+                }
+
+                let p = {};
+                try { p = await request.json(); } catch {}
+                const title = String(p.title || '').trim().slice(0, 80);
+                const body = String(p.body || '').trim().slice(0, 240);
+                const image = /^https:\/\//.test(p.image || '') ? String(p.image).slice(0, 600) : '';
+                const link = /^https:\/\//.test(p.link || '') ? String(p.link).slice(0, 600) : '';
+                if (!title || !body) {
+                    return new Response(JSON.stringify({ error: 'Faltan título o mensaje' }), { status: 400, headers: corsHeaders });
+                }
+                const sa = pushServiceAccount(env);
+                const access = await googleAccessToken(env);
+                // Solo "data" (sin bloque notification): si va notification, el
+                // SDK de Firebase la muestra solo Y sw.js muestra otra → llegaban
+                // duplicadas. Así la dibuja únicamente sw.js (con imagen y link).
+                const message = {
+                    topic: PUSH_TOPIC,
+                    data: { title, body, image, link },
+                    webpush: { headers: { Urgency: 'high', TTL: String(60 * 60 * 24 * 2) } }
+                };
+                const r = await fetch(`https://fcm.googleapis.com/v1/projects/${sa.project_id || FB_PROJECT_ID}/messages:send`, {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${access}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message })
+                });
+                const out = await r.json().catch(() => ({}));
+                if (!r.ok) {
+                    return new Response(JSON.stringify({ error: `FCM: ${out?.error?.message || r.status}` }), { status: 502, headers: corsHeaders });
+                }
+                if (env.CATALOG_KV) {
+                    const at = Date.now();
+                    ctx.waitUntil(env.CATALOG_KV.put(`push:log:${at}`, '1', {
+                        expirationTtl: 60 * 60 * 24 * 180,
+                        // metadata de KV: máx 1024 bytes → se guarda recortado
+                        metadata: { at, title, body: body.slice(0, 80), link: link.slice(0, 250) }
+                    }));
+                }
+                return new Response(JSON.stringify({ ok: true, id: out.name || null }), { headers: corsHeaders });
             }
 
             // --- 🔐 RUTAS: /flix/admin/*  (escrituras al catálogo) ---

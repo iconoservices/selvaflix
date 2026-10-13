@@ -5766,6 +5766,51 @@ body.admin-locked {
 .admin-form-drawer.drawer-edit-mode .drawer-details-wrap > summary { display: none !important; }
 .admin-form-drawer:not(.drawer-edit-mode) .edit-only { display: none !important; }
 
+/* ── Admin · Notificaciones push ── */
+.push-layout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.push-side { display: flex; flex-direction: column; gap: 16px; }
+.push-subs-pill {
+  align-self: center; padding: 6px 14px; border-radius: 999px; font-size: 0.8rem; font-weight: 800;
+  background: rgba(255,87,26,0.12); color: #ff571a; border: 1px solid rgba(255,87,26,0.35); white-space: nowrap;
+}
+.push-warning {
+  margin-bottom: 16px; padding: 12px 14px; border-radius: 10px; font-size: 0.8rem; line-height: 1.5;
+  background: rgba(255,184,0,0.08); border: 1px solid rgba(255,184,0,0.35); color: #ffcf66;
+}
+.push-preview {
+  background: #1e1e22; border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 12px 14px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+}
+.push-preview-head { display: flex; align-items: center; gap: 6px; font-size: 0.68rem; color: #999; margin-bottom: 6px; }
+.push-preview-head img { width: 16px; height: 16px; border-radius: 4px; }
+.push-preview-title { font-size: 0.88rem; font-weight: 800; color: #fff; }
+.push-preview-body { font-size: 0.8rem; color: #ccc; margin-top: 2px; line-height: 1.4; }
+.push-preview-img { width: 100%; aspect-ratio: 2 / 1; object-fit: cover; border-radius: 8px; margin-top: 10px; }
+.push-history { display: flex; flex-direction: column; gap: 8px; max-height: 360px; overflow-y: auto; }
+.push-history-item { padding: 10px 12px; border-radius: 8px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); }
+.push-history-title { font-size: 0.8rem; font-weight: 800; color: #fff; }
+.push-history-body { font-size: 0.74rem; color: #bbb; margin-top: 2px; }
+.push-history-meta { font-size: 0.65rem; color: #777; margin-top: 4px; }
+@media (max-width: 900px) { .push-layout { grid-template-columns: minmax(0, 1fr); } }
+
+/* Aviso "¿Te avisamos de los estrenos?" (antes del permiso del navegador) */
+.push-offer {
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 30000;
+  width: min(460px, calc(100vw - 32px)); display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 14px 16px; border-radius: 14px; background: #141416; border: 1px solid rgba(255,87,26,0.35);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.55); animation: pushOfferIn .35s ease;
+}
+.push-offer-icon { font-size: 1.6rem; }
+.push-offer-txt { flex: 1; min-width: 180px; display: flex; flex-direction: column; gap: 2px; }
+.push-offer-txt b { color: #fff; font-size: 0.9rem; }
+.push-offer-txt span { color: #aaa; font-size: 0.75rem; }
+.push-offer-actions { display: flex; gap: 8px; margin-left: auto; }
+.push-offer-actions button { border-radius: 8px; padding: 8px 14px; font-weight: 800; font-size: 0.78rem; cursor: pointer; }
+.push-offer-no { background: transparent; border: 1px solid rgba(255,255,255,0.15); color: #ccc; }
+.push-offer-si { background: #ff571a; border: 1px solid #ff571a; color: #fff; }
+@keyframes pushOfferIn { from { opacity: 0; transform: translate(-50%, 16px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@media (max-width: 600px) { .push-offer { bottom: 84px; } }
+
 /* ── Botones y filas de enlaces del formulario (mismo lenguaje que el resto:
       naranja = acción principal; oscuro con borde = secundaria) ── */
 .link-row { display: flex; gap: 8px; align-items: stretch; }

@@ -14,15 +14,35 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
+// Los avisos del admin llegan como "data" (title/body/image/link) y se dibujan
+// solo acá — si vinieran con bloque "notification", Firebase mostraría otra
+// copia por su cuenta.
 messaging.onBackgroundMessage((payload) => {
-    console.log('[sw.js] Mensaje push recibido en background:', payload);
-    const notificationTitle = payload.notification?.title || 'SelvaMov';
-    const notificationOptions = {
-        body: payload.notification?.body || 'Nueva actualización',
+    const d = payload.data || {};
+    const title = d.title || payload.notification?.title || 'SelvaMov';
+    self.registration.showNotification(title, {
+        body: d.body || payload.notification?.body || 'Nueva actualización',
         icon: '/icon_192.png',
-        data: payload.data
-    };
-    self.registration.showNotification(notificationTitle, notificationOptions);
+        badge: '/icon_192.png',
+        ...(d.image ? { image: d.image } : {}),
+        tag: 'selva-aviso-' + (d.link || title),
+        data: { link: d.link || '/' }
+    });
+});
+
+// Tocar la notificación: abre (o enfoca) SelvaMov en el link del aviso.
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    const destino = new URL(event.notification.data?.link || '/', self.location.origin).href;
+    event.waitUntil((async () => {
+        const wins = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+        const propia = wins.find(w => new URL(w.url).origin === self.location.origin);
+        if (propia) {
+            await propia.focus();
+            return propia.navigate ? propia.navigate(destino) : null;
+        }
+        return clients.openWindow(destino);
+    })());
 });
 
 /* 
@@ -33,7 +53,7 @@ messaging.onBackgroundMessage((payload) => {
    4. Blindaje contra Opaque Responses (CORS).
 */
 
-const CACHE_NAME = 'selvamov-cache-v2.100';
+const CACHE_NAME = 'selvamov-cache-v2.101';
 const STATIC_ASSETS = [
     '/',
     '/index.html',

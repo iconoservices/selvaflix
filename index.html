@@ -727,6 +727,10 @@
               <span>Mensajes</span>
               <span id="admin-messages-badge" style="display:none; position:absolute; top:6px; right:10px; background:#e63946; color:#fff; font-size:0.6rem; font-weight:800; border-radius:10px; padding:1px 6px; line-height:1.4;"></span>
             </button>
+            <button id="btn-admin-push" class="sidebar-nav-item" onclick="window.switchAdminTab('push')">
+              <span class="material-symbols-outlined">notifications_active</span>
+              <span>Notificaciones</span>
+            </button>
           </nav>
 
           <div class="sidebar-footer">
@@ -1737,6 +1741,74 @@
                   <div id="admin-messages-reply-row" style="display:none; padding:12px; border-top:1px solid var(--glass-border); gap:8px;">
                     <input type="text" id="admin-messages-reply-input" placeholder="Escribe una respuesta..." style="flex:1; background:#000; border:1px solid #333; color:#fff; border-radius:8px; padding:10px 12px; outline:none; font-size:0.85rem;" onkeydown="if(event.key==='Enter'){window.sendAdminReply();}">
                     <button onclick="window.sendAdminReply()" style="background:var(--primary); color:#000; border:none; border-radius:8px; padding:0 18px; font-weight:800; cursor:pointer;">Enviar</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ── Notificaciones push a todos los usuarios ── -->
+            <div id="admin-push-tab" class="admin-tab-pane" style="display:none;">
+              <div class="tab-pane-header">
+                <div>
+                  <h1 class="portal-pane-title">Notificaciones</h1>
+                  <p class="portal-pane-desc">Manda un aviso al celular / compu de todos los que activaron las notificaciones.</p>
+                </div>
+                <div id="push-subs-pill" class="push-subs-pill">— suscriptores</div>
+              </div>
+
+              <div id="push-config-warning" class="push-warning" style="display:none;"></div>
+
+              <div class="push-layout">
+                <div class="admin-card push-compose">
+                  <h2 class="admin-title">✍️ Nuevo aviso</h2>
+
+                  <div class="form-group">
+                    <label>Sobre una peli del catálogo <small style="color:#666;">(opcional: rellena todo solo)</small></label>
+                    <div class="link-row">
+                      <input type="text" id="push-movie-search" class="form-control" placeholder="Busca un título del catálogo..." list="push-movie-datalist" autocomplete="off">
+                      <button type="button" class="btn-tool" onclick="window.pushUsarPeli()"><span class="material-symbols-outlined">auto_awesome</span> Usar</button>
+                    </div>
+                    <datalist id="push-movie-datalist"></datalist>
+                  </div>
+
+                  <div class="form-group">
+                    <label>Título <small id="push-title-count" style="color:#666;">0/60</small></label>
+                    <input type="text" id="push-title" class="form-control" maxlength="60" placeholder="🍿 ¡Nuevo estreno en SelvaMov!" oninput="window.pushActualizarVista()">
+                  </div>
+                  <div class="form-group">
+                    <label>Mensaje <small id="push-body-count" style="color:#666;">0/160</small></label>
+                    <textarea id="push-body" class="form-control" rows="3" maxlength="160" placeholder="Ya puedes ver Hope: El primer impacto en latino." oninput="window.pushActualizarVista()"></textarea>
+                  </div>
+                  <div class="form-group">
+                    <label>Imagen <small style="color:#666;">(opcional, URL https — se ve grande en Android/compu)</small></label>
+                    <input type="url" id="push-image" class="form-control" placeholder="https://image.tmdb.org/..." oninput="window.pushActualizarVista()">
+                  </div>
+                  <div class="form-group">
+                    <label>Al tocarla abre <small style="color:#666;">(opcional)</small></label>
+                    <input type="text" id="push-link" class="form-control" placeholder="#detail/hope-el-primer-impacto-2026  (vacío = inicio)">
+                  </div>
+
+                  <div style="display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap;">
+                    <button type="button" class="btn-tool" onclick="window.pushLimpiar()">Limpiar</button>
+                    <button type="button" id="push-send-btn" class="btn-tool btn-tool-primary" onclick="window.pushEnviar()">
+                      <span class="material-symbols-outlined">send</span> Enviar a todos
+                    </button>
+                  </div>
+                </div>
+
+                <div class="push-side">
+                  <div class="admin-card">
+                    <h2 class="admin-title">👁️ Así se verá</h2>
+                    <div class="push-preview">
+                      <div class="push-preview-head"><img src="/icon_192.png" alt=""> SelvaMov · ahora</div>
+                      <div class="push-preview-title" id="push-prev-title">🍿 ¡Nuevo estreno en SelvaMov!</div>
+                      <div class="push-preview-body" id="push-prev-body">Ya puedes ver Hope: El primer impacto en latino.</div>
+                      <img id="push-prev-img" class="push-preview-img" alt="" style="display:none;">
+                    </div>
+                  </div>
+                  <div class="admin-card">
+                    <h2 class="admin-title">🕒 Enviadas</h2>
+                    <div id="push-history" class="push-history"><p class="drawer-hint">Cargando...</p></div>
                   </div>
                 </div>
               </div>

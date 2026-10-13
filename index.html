@@ -2046,8 +2046,11 @@
             </div>
 
             <!-- General Information + Cast & Crew: lado a lado en escritorio -->
-            <p class="drawer-step-label single-only"><span class="step-num">3</span> Revisa los datos <small>(se rellenan solos al elegir el póster)</small></p>
-            <div class="info-cast-grid single-only">
+            <!-- Al agregar, los datos van plegados (se rellenan solos desde
+                 TMDb); al editar se abren siempre y se oculta el resumen. -->
+            <details id="drawer-details-wrap" class="drawer-details-wrap single-only">
+            <summary class="drawer-step-label"><span class="step-num">3</span> Datos de la peli <small>(opcional: se rellenan solos al elegir el póster · toca para ver/editar)</small></summary>
+            <div class="info-cast-grid">
             <div class="drawer-card">
               <h3 class="drawer-card-title">
                 <span class="material-symbols-outlined">info</span> Información General
@@ -2112,7 +2115,7 @@
             </div><!-- /info-cast-grid -->
 
             <!-- Metadata -->
-            <div class="drawer-card single-only">
+            <div class="drawer-card">
               <h3 class="drawer-card-title">
                 <span class="material-symbols-outlined">tune</span> Metadatos
               </h3>
@@ -2173,6 +2176,7 @@
                 </div>
               </div>
             </div>
+            </details><!-- /drawer-details-wrap -->
 
             <!-- Acciones finales -->
             <div class="single-only" style="display:flex; gap:10px; padding-bottom:30px;">

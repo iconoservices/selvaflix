@@ -2825,6 +2825,11 @@ window.openUploadDrawer = () => {
   if (formTitle) formTitle.textContent = 'Agregar Nuevo Título';
   if (breadcrumb) breadcrumb.textContent = 'Agregar Película';
   if (editingId) editingId.value = '';
+  // Modo agregar: buscador + enlace a la vista, datos plegados. editMovie()
+  // llama a esta función primero y después vuelve a poner el modo editar.
+  drawer?.classList.remove('drawer-edit-mode');
+  const detailsWrap = document.getElementById('drawer-details-wrap');
+  if (detailsWrap) detailsWrap.open = false;
 
   // Limpiar TODOS los campos del formulario: antes solo se reseteaban el
   // título/breadcrumb y las previsualizaciones de imagen, así que si venías
@@ -6900,7 +6905,9 @@ window.addManualTitle = () => {
   const t = window._manualTitleQuery || '';
   document.getElementById('m-title').value = t;
   document.getElementById('m-tmdb-id').value = '';
-  _tmdbMostrarElegida(t, '', '', '✍️ Agregada a mano: completa los datos del paso 3');
+  _tmdbMostrarElegida(t, '', '', '✍️ Agregada a mano: completa los datos del paso 3 y el póster');
+  const detailsWrap = document.getElementById('drawer-details-wrap');
+  if (detailsWrap) detailsWrap.open = true;
 };
 
 window.selectTMDBMovie = async (index) => {
@@ -9394,6 +9401,11 @@ window.editMovie = (id) => {
   // lo que se acababa de llenar acá abajo.
   window.openUploadDrawer();
 
+  // Modo editar: sin buscador ni pasos; todos los datos abiertos.
+  document.getElementById('admin-form-drawer')?.classList.add('drawer-edit-mode');
+  const detailsWrap = document.getElementById('drawer-details-wrap');
+  if (detailsWrap) detailsWrap.open = true;
+
   // Llenar formulario
   document.getElementById('m-db-id').value = movie.id;
   document.getElementById('m-title').value = movie.title;
@@ -11288,7 +11300,13 @@ window.submitMovieForm = async () => {
   const title = document.getElementById('m-title').value.trim();
   const img = document.getElementById('m-img').value.trim();
 
-  if (!title) { window.showToast('¡Falta el título! 🌴', 'error'); return; }
+  if (!title) {
+    const detailsWrap = document.getElementById('drawer-details-wrap');
+    if (detailsWrap) detailsWrap.open = true;
+    document.getElementById('m-title')?.focus();
+    window.showToast('¡Falta el título! 🌴', 'error');
+    return;
+  }
   if (!img) { window.showToast('¡Falta la imagen del póster!', 'error'); return; }
 
   // Hay dos botones de guardar (cabecera fija + final del formulario) y

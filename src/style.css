@@ -5753,6 +5753,17 @@ body.admin-locked {
 .admin-form-drawer.drawer-bulk-mode .single-only,
 .admin-form-drawer.drawer-bulk-mode .drawer-col-right,
 .admin-form-drawer.drawer-bulk-mode .drawer-header-save-group .btn-save-drawer { display: none !important; }
+/* Datos de la peli plegables (modo agregar) */
+.drawer-details-wrap > summary { cursor: pointer; list-style: none; margin: 4px 0 0; }
+.drawer-details-wrap > summary::-webkit-details-marker { display: none; }
+.drawer-details-wrap > summary::after { content: '▸'; margin-left: auto; color: #888; transition: transform .15s; }
+.drawer-details-wrap[open] > summary::after { transform: rotate(90deg); }
+.drawer-details-wrap > .info-cast-grid,
+.drawer-details-wrap > .drawer-card { margin-top: 16px; }
+/* Modo editar: sin buscador ni pasos numerados; datos siempre abiertos. */
+.admin-form-drawer.drawer-edit-mode .tmdb-import-card,
+.admin-form-drawer.drawer-edit-mode .step-num,
+.admin-form-drawer.drawer-edit-mode .drawer-details-wrap > summary { display: none !important; }
 /* Feedback del botón Guardar: se hunde al tocar y queda "ocupado" mientras guarda. */
 .btn-save-drawer { transition: transform .08s ease, filter .15s ease, opacity .15s ease; }
 .btn-save-drawer:active { transform: scale(0.96); filter: brightness(0.85); }

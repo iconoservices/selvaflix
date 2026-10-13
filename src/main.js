@@ -2387,7 +2387,7 @@ function renderRecommendedWide(data) {
         <div class="rec-content">
           <span class="cinepulse-rec-badge">${badge}</span>
           <h3 class="cinepulse-rec-title">${item.title}</h3>
-          <p class="cinepulse-rec-desc">${item.description || item.overview || ''}</p>
+          <p class="cinepulse-rec-desc">${item.synopsis || item.description || item.overview || ''}</p>
           <div class="cinepulse-rec-buttons">
             <button class="cinepulse-rec-btn-play" onclick="event.stopPropagation(); window.handleCardClick('${item.id}')">
               <span class="material-symbols-outlined" style="font-size:1rem;font-variation-settings:'FILL' 1;">play_arrow</span> Ver Ahora
@@ -7064,6 +7064,8 @@ window.selectTMDBMovie = async (index) => {
 
     const extData = await extResp.json();
     document.getElementById('m-imdb-id').value = extData.imdb_id || "";
+    // Con el IMDb ID ya se pueden listar los servidores para "Usar"/"Preferir".
+    if (extData.imdb_id) window.checkAdminPublicServers();
 
     const altData = await altResp.json();
     const titles = (altData.titles || altData.results || []).map(t => t.title);
@@ -9130,7 +9132,9 @@ window.openMovieDetail = (slugOrId, opts = {}) => {
 
     // 5. Sinopsis
     const synopsisEl = document.getElementById('detail-synopsis');
-    if (synopsisEl) synopsisEl.textContent = movie.description || movie.overview || 'Sin descripción disponible.';
+    // El admin guarda la sinopsis en `synopsis`; description/overview quedan
+    // como respaldo de títulos viejos.
+    if (synopsisEl) synopsisEl.textContent = movie.synopsis || movie.description || movie.overview || 'Sin descripción disponible.';
 
     // 5b. Los consejos (móvil vs escritorio) se muestran por CSS media query
     // (.consejo-movil / .consejo-escritorio), así siempre aciertan sin depender
@@ -10315,7 +10319,7 @@ async function updateHeroCarousel() {
   
   if (heroBg) heroBg.src = heroImg;
   if (heroTitle) heroTitle.textContent = item.title;
-  if (heroDesc) heroDesc.textContent = item.description || item.overview || 'Descubre esta increíble película disponible solo en SelvaMov.';
+  if (heroDesc) heroDesc.textContent = item.synopsis || item.description || item.overview || 'Descubre esta increíble película disponible solo en SelvaMov.';
   if (heroRating) heroRating.textContent = item.rating || '8.9';
   if (heroYear) heroYear.textContent = item.year || '2024';
   
@@ -11768,19 +11772,30 @@ window.checkAdminPublicServers = () => {
   listEl.innerHTML = servers.map(srv => {
     const esActual = srv.providerName === actual;
     return `
-    <div style="background:${esActual ? 'rgba(46,204,113,0.1)' : 'rgba(255,255,255,0.02)'}; border:1px solid ${esActual ? '#2ecc71' : 'rgba(255,255,255,0.06)'}; padding:8px 10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; gap:8px; transition:background 0.3s, border-color 0.3s;">
-      <span style="font-size:0.7rem; font-weight:bold; color:#00f2ff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0;">${srv.name}</span>
-      <button type="button" class="btn" style="font-size:0.65rem; padding:4px 6px; cursor:pointer; background:rgba(255,255,255,0.08); border:none; color:#ccc; font-weight:bold; border-radius:4px; flex-shrink:0;" onclick="window.previewServerLink('${srv.url}')" title="Vista previa (abre embebido)">👁️</button>
-      <button type="button" class="btn" style="font-size:0.65rem; padding:4px 6px; cursor:pointer; background:rgba(255,255,255,0.08); border:none; color:#ccc; font-weight:bold; border-radius:4px; flex-shrink:0;" onclick="window.copyServerLink('${srv.url}')" title="Copiar link">📋</button>
-      ${srv.searchUrl ? `<button type="button" class="btn" style="font-size:0.65rem; padding:4px 6px; cursor:pointer; background:rgba(255,255,255,0.08); border:none; color:#ccc; font-weight:bold; border-radius:4px; flex-shrink:0;" onclick="window.open('${srv.searchUrl}', '_blank', 'noopener')" title="Buscar en el sitio real">🔍</button>` : ''}
-      <button type="button" class="btn" style="font-size:0.65rem; padding:4px 8px; cursor:pointer; background:#ff571a; border:none; color:#fff; font-weight:bold; border-radius:4px; flex-shrink:0; white-space:nowrap;" onclick="window.selvaExecuteDirectExport(document.getElementById('m-db-id').value, '${srv.providerName.toLowerCase()}')" title="Extraer link real y subir a tu cuenta de VOE.sx">📤 Subir a VOE</button>
-      ${esActual
-        ? '<span style="font-size:0.65rem; padding:4px 8px; background:#2ecc71; color:#000; font-weight:900; border-radius:4px; flex-shrink:0;">✓ Actual</span>'
-        : `<button type="button" class="btn" style="font-size:0.65rem; padding:4px 8px; cursor:pointer; background:#00f2ff; border:none; color:#000; font-weight:bold; border-radius:4px; flex-shrink:0; white-space:nowrap;" onclick="window.preferirServidorPublico('${srv.providerName}')">⭐ Preferir</button>`}
+    <div class="src-row${esActual ? ' is-current' : ''}">
+      <span class="src-name">${srv.name}</span>
+      <div class="src-actions">
+        <button type="button" class="src-btn" onclick="window.usarServidorComoEnlace('${srv.url}')" title="Poner este link en tu enlace de video y probarlo">↑ Usar</button>
+        <button type="button" class="src-btn src-icon" onclick="window.previewServerLink('${srv.url}')" title="Vista previa (abre embebido)">👁️</button>
+        <button type="button" class="src-btn src-icon" onclick="window.copyServerLink('${srv.url}')" title="Copiar link">📋</button>
+        ${srv.searchUrl ? `<button type="button" class="src-btn src-icon" onclick="window.open('${srv.searchUrl}', '_blank', 'noopener')" title="Buscar en el sitio real">🔍</button>` : ''}
+        <button type="button" class="src-btn" onclick="window.selvaExecuteDirectExport(document.getElementById('m-db-id').value, '${srv.providerName.toLowerCase()}')" title="Extraer link real y subir a tu cuenta de VOE.sx">📤 VOE</button>
+        ${esActual
+          ? '<span class="src-badge">✓ Preferido</span>'
+          : `<button type="button" class="src-btn src-btn-primary" onclick="window.preferirServidorPublico('${srv.providerName}')" title="Que el reproductor arranque por este servidor">⭐ Preferir</button>`}
+      </div>
     </div>
-
   `;
-  }).join('') + (isTv ? '<p style="color:#aaa; font-size:0.65rem; margin:4px 0 0;">Nota: para series arma la URL con T1E1 por defecto, igual que el link manual.</p>' : '');
+  }).join('') + (isTv ? '<p class="drawer-hint">Nota: para series arma la URL con T1E1 por defecto, igual que el link manual.</p>' : '');
+};
+
+// "Usar" en un servidor: lo pasa al campo de enlace manual y lo prueba.
+window.usarServidorComoEnlace = (url) => {
+  const embed = document.getElementById('m-embed');
+  if (!embed) return;
+  embed.value = url;
+  embed.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  window.testEmbedLink();
 };
 
 // Vista previa embebida (no pestaña nueva): varios servidores (PelisMart,
@@ -11825,7 +11840,8 @@ window.preferirServidorPublico = async (providerName) => {
 window.setAdminPriorityFromDrawer = async () => {
   const id = document.getElementById('m-db-id').value;
   const url = document.getElementById('m-embed').value.trim();
-  if (!id || !url) { window.showToast('Necesitas un ID de película y un enlace en "Enlace de Video"', 'error'); return; }
+  if (!url) { window.showToast('Pega un enlace primero.', 'error'); return; }
+  if (!id) { window.showToast('Esta peli aún no está guardada: usa "Guardar Cambios".', 'error'); return; }
   try {
     await updateDoc(doc(db, "movies", id), { embed: url, status: 'healthy', updatedAt: Date.now() });
     document.getElementById('m-status').value = 'healthy';

@@ -1962,59 +1962,37 @@
 
               <div class="form-group">
                 <label>Pega el enlace (embed, M3U8 o URL directa)</label>
-                <div style="display:flex; gap:8px;">
-                  <input type="url" id="m-embed" class="form-control" placeholder="https://..." style="flex:1;">
-                  <button type="button" class="btn btn-primary" onclick="window.testEmbedLink()" title="Verlo en la vista previa de la derecha" style="white-space:nowrap;">
-                    <span class="material-symbols-outlined" style="font-size:16px; vertical-align:middle;">play_arrow</span> Probar
+                <div class="link-row">
+                  <input type="url" id="m-embed" class="form-control" placeholder="https://...">
+                  <button type="button" class="btn-tool btn-tool-primary" onclick="window.testEmbedLink()" title="Verlo en la vista previa de la derecha">
+                    <span class="material-symbols-outlined">play_arrow</span> Probar
+                  </button>
+                  <!-- Solo al editar: guarda ya este enlace como el manual de la
+                       peli. Al agregar no hace falta: lo guarda "Guardar Cambios". -->
+                  <button type="button" class="btn-tool edit-only" onclick="window.setAdminPriorityFromDrawer()" title="Guarda ya mismo este enlace como el principal de la peli">
+                    <span class="material-symbols-outlined">lock</span> Fijar
                   </button>
                 </div>
-                <p style="color:#888; font-size:0.68rem; margin:6px 0 0;">Si lo dejas vacío, la peli usa las fuentes automáticas (Vimeus / Respaldo).</p>
+                <p class="drawer-hint">Pega tu enlace (o usa uno de los servidores de abajo) y pulsa <b>Probar</b> para verlo a la derecha. Si lo dejas vacío, la peli usa las fuentes automáticas (Vimeus / Respaldo).</p>
               </div>
 
-              <!-- Todo lo demás (descarga, servidores, torrents, fijar) va
-                   plegado: no hace falta para el alta normal. -->
-              <details class="drawer-more-options">
-                <summary>⚙️ Más opciones (descarga, servidores, torrents)</summary>
+              <!-- Servidores y descarga, a la vista (sin plegar), en orden:
+                   enlace → de dónde sacar uno → descarga. -->
+              <div class="drawer-more-options">
 
-              <div class="form-group" style="margin-top:12px;">
-                <label>Fijar el enlace sin guardar todo</label>
-                <button type="button" class="btn" style="background:#00f2ff; color:#000; font-weight:900; font-size:0.72rem; cursor:pointer; border:none; padding:8px 14px; border-radius:6px; white-space:nowrap;"
-                  onclick="window.setAdminPriorityFromDrawer()" title="Guarda ya mismo este enlace como prioritario (solo para pelis ya guardadas)">
-                  🔒 Fijar Enlace
-                </button>
-              </div>
-
-              <div class="form-group">
-                <label>Enlace de Descarga (opcional, MP4/M3U8 directo)</label>
-                <div style="display:flex; gap:8px;">
-                  <input type="url" id="m-download-url" class="form-control" placeholder="https://... (archivo descargable directo)" style="flex:1;">
-                  <button type="button" class="btn btn-primary" onclick="window.open(document.getElementById('m-download-url').value.trim(), '_blank', 'noopener')" title="Abrir para probar">
-                    <span class="material-symbols-outlined" style="font-size:16px;">open_in_new</span>
+              <div class="form-group" style="margin-bottom:10px;">
+                <label>¿No tienes enlace? Búscalo aquí <small style="color:#666;">(pulsa "Usar" para pasarlo arriba)</small></label>
+                <div class="tool-grid">
+                  <button type="button" class="btn-tool" onclick="window.checkAdminPublicServers()">
+                    <span class="material-symbols-outlined">dns</span> Servidores públicos
                   </button>
-                  <button type="button" class="btn" style="background:#2ecc71; color:#000; font-weight:900; font-size:0.72rem; cursor:pointer; border:none; padding:0 14px; border-radius:6px; white-space:nowrap;"
-                    onclick="window.setDownloadUrlFromDrawer()" title="Guarda ya mismo este link de descarga (necesita la película ya guardada)">
-                    🔒 Fijar Link
-                  </button>
-                </div>
-                <p style="color:#888; font-size:0.65rem; margin:6px 0 0;">Alimenta el botón "DESCARGAR" que ve el usuario. Tiene que ser un archivo directo (no un iframe/embed), si no, al usuario no le va a descargar nada.</p>
-              </div>
-
-              <!-- Fuentes: etiqueta a la izquierda, botones a la derecha, todo en una fila -->
-              <div style="display:flex; align-items:center; gap:10px; margin-top:10px;">
-                <label class="drawer-advanced-label" style="white-space:nowrap; flex-shrink:0; margin:0;">
-                  <span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle;">tune</span> Opciones de fuente
-                </label>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; flex:1; min-width:0;">
-                  <button type="button" class="btn" style="width:100%; background:#2ecc71; color:#000; font-weight:900; font-size:0.72rem; padding:8px 4px; border-radius:6px; cursor:pointer; border:none; display:flex; align-items:center; justify-content:center; gap:4px;" onclick="window.checkAdminPublicServers()">
-                    <span class="material-symbols-outlined" style="font-size:16px;">dns</span> Servidores Públicos
-                  </button>
-                  <button type="button" class="btn" style="width:100%; background:#ff571a; color:#fff; font-weight:bold; font-size:0.72rem; padding:8px 4px; border-radius:6px; cursor:pointer; border:none; display:flex; align-items:center; justify-content:center; gap:4px;" onclick="window.runAdminScraper()">
-                    <span class="material-symbols-outlined" style="font-size:16px;">search</span> Buscar Torrents
+                  <button type="button" class="btn-tool" onclick="window.runAdminScraper()">
+                    <span class="material-symbols-outlined">search</span> Buscar torrents
                   </button>
                 </div>
               </div>
 
-              <div id="drawer-public-servers-list" style="display:flex; flex-direction:column; gap:6px; max-height:200px; overflow-y:auto; padding-right:4px; margin-top:10px;"></div>
+              <div id="drawer-public-servers-list" style="display:flex; flex-direction:column; gap:6px; max-height:220px; overflow-y:auto; padding-right:4px; margin-bottom:12px;"></div>
 
               <!-- Enlaces Encontrados / Scrapeados (Debrid / Automáticos) -->
               <div id="drawer-scraped-links-section" style="display:none; margin-top:10px;">
@@ -2023,7 +2001,21 @@
                   <!-- Inyectado dinámicamente -->
                 </div>
               </div>
-              </details>
+
+              <div class="form-group" style="margin-top:12px; margin-bottom:0;">
+                <label>Enlace de descarga <small style="color:#666;">(opcional, MP4/M3U8 directo)</small></label>
+                <div class="link-row">
+                  <input type="url" id="m-download-url" class="form-control" placeholder="https://... (archivo descargable directo)">
+                  <button type="button" class="btn-tool" onclick="window.open(document.getElementById('m-download-url').value.trim(), '_blank', 'noopener')" title="Abrir para probar">
+                    <span class="material-symbols-outlined">open_in_new</span> Abrir
+                  </button>
+                  <button type="button" class="btn-tool edit-only" onclick="window.setDownloadUrlFromDrawer()" title="Guarda ya mismo este link de descarga">
+                    <span class="material-symbols-outlined">lock</span> Fijar
+                  </button>
+                </div>
+                <p class="drawer-hint">Alimenta el botón "DESCARGAR" que ve el usuario. Tiene que ser un archivo directo (no un iframe/embed).</p>
+              </div>
+              </div>
 
             </div>
 

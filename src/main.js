@@ -869,9 +869,84 @@ window.updateAdminUI = () => {
   if (adminMenuBtn) adminMenuBtn.style.display = isAdmin ? 'flex' : 'none';
 };
 
+// Rutas del panel: #admin/<pestaña> en español (se aceptan también los
+// nombres internos en inglés). Declarado acá arriba, antes de las funciones
+// que lo usan (ver nota de "let de módulo tardío" en el build).
+const ADMIN_RUTAS = {
+  dashboard: 'panel', catalog: 'catalogo', users: 'usuarios', analytics: 'analiticas',
+  ads: 'anuncios', plans: 'planes', actions: 'acciones', messages: 'mensajes'
+};
+var _adminTabActual = null;
+var _drawerRutaApilada = false;
+const _rutaATabAdmin = (seg) => seg ? Object.keys(ADMIN_RUTAS).find(t => ADMIN_RUTAS[t] === seg || t === seg) : null;
+function _adminSetHash(h) {
+  if (window.location.hash === '#' + h) return;
+  // Pasar de un formulario a otro (nuevo → editar) reemplaza, no apila.
+  const deDrawerADrawer = /^#admin\/(nuevo|editar\/)/.test(window.location.hash) && /^admin\/(nuevo|editar\/)/.test(h);
+  if (window._adminRouting || deDrawerADrawer) history.replaceState(null, '', '#' + h);
+  else history.pushState(null, '', '#' + h);
+  _rutaActual = h; // pushState no dispara hashchange: mantener el enrutador al día
+}
+const _esHashDrawer = () => /^#admin\/(nuevo|editar\/)/.test(window.location.hash);
+
 // Entrada a la ruta #admin. Gatea contra la cuenta de Firebase (no una
 // contraseña en el bundle). Si Firebase todavía no resolvió la sesión, espera.
-window._enterAdminRoute = async () => {
+window._enterAdminRoute = async (partes = [], yaDentro = false) => {
+  if (!yaDentro) await _iniciarPanelAdmin();
+  if (localStorage.getItem('selva_admin_auth') !== 'true') return; // no es admin
+  _aplicarSubrutaAdmin(partes, yaDentro);
+};
+
+// Sub-rutas del panel. Los cambios que dispara el enrutador reemplazan la
+// entrada del historial (no apilan); los clics del admin sí apilan, así
+// "Atrás" vuelve a la pestaña o cierra el formulario.
+function _aplicarSubrutaAdmin(partes, yaDentro) {
+  window._adminRouting = true;
+  try {
+    const [seg, arg] = partes;
+    const drawer = document.getElementById('admin-form-drawer');
+    const drawerAbierto = drawer?.classList.contains('open');
+
+    if (seg === 'nuevo') {
+      if (!_adminTabActual) window.switchAdminTab('catalog');
+      if (!drawerAbierto || drawer.classList.contains('drawer-edit-mode')) window.openUploadDrawer();
+      _adminSetHash('admin/nuevo');
+      return;
+    }
+
+    if (seg === 'editar' && arg) {
+      if (!_adminTabActual) window.switchAdminTab('catalog');
+      _abrirEdicionDesdeRuta(decodeURIComponent(arg), 0);
+      return;
+    }
+
+    if (drawerAbierto) window.closeUploadDrawer();
+    const tab = _rutaATabAdmin(seg) || _adminTabActual || 'dashboard';
+    if (tab !== _adminTabActual || !yaDentro) window.switchAdminTab(tab);
+    else _adminSetHash(`admin/${ADMIN_RUTAS[tab]}`);
+  } finally {
+    window._adminRouting = false;
+  }
+}
+
+// Al recargar sobre #admin/editar/<slug> el catálogo todavía no llegó:
+// se reintenta hasta que esté (mismo criterio que openMovieDetail).
+function _abrirEdicionDesdeRuta(slugOrId, intento) {
+  const movie = findMovieBySlugOrId(slugOrId);
+  if (!movie) {
+    if (!movieDatabase?.trending?.length && intento < 40) {
+      setTimeout(() => _abrirEdicionDesdeRuta(slugOrId, intento + 1), 250);
+      return;
+    }
+    window.showToast?.('Ese título ya no está en el catálogo.', 'info');
+    history.replaceState(null, '', '#admin/catalogo');
+    return;
+  }
+  window._adminRouting = true;
+  try { window.editMovie(movie.id); } finally { window._adminRouting = false; }
+}
+
+async function _iniciarPanelAdmin() {
   if (localStorage.getItem('selva_admin_auth') !== 'true') {
     try { if (window._authReadyPromise) await window._authReadyPromise; } catch (e) {}
     if (!window._esCuentaAdmin()) {
@@ -1777,7 +1852,14 @@ function handleRouting() {
   // Recordar de dónde se entró a la ficha (el 1er #detail tras otra ruta); entre
   // episodios (#detail/slug/s1e2) no se pisa.
   if (hash.startsWith('detail/') && !_rutaActual.startsWith('detail/')) _rutaAntesDeFicha = _rutaActual;
+  const _rutaPrev = _rutaActual;
   _rutaActual = hash;
+  const _esRutaAdmin = (h) => h === 'admin' || h.startsWith('admin/');
+
+  // Saliendo del panel con el formulario de título abierto: cerrarlo.
+  if (!_esRutaAdmin(hash) && document.getElementById('admin-form-drawer')?.classList.contains('open')) {
+    window.closeUploadDrawer();
+  }
   if (!hash.startsWith('detail/')) _hayRutaPrevia = true;
 
   // El player-modal es un overlay independiente del hash. Con la ruta única
@@ -1817,8 +1899,10 @@ function handleRouting() {
       autoPlay: true,
       ...(ep ? { season: parseInt(ep[1], 10), episode: parseInt(ep[2], 10) } : {})
     });
-  } else if (hash === 'admin') {
-    window._enterAdminRoute();
+  } else if (_esRutaAdmin(hash)) {
+    // #admin, #admin/<pestaña>, #admin/nuevo, #admin/editar/<slug>. Todas
+    // comparten la barra lateral del panel; solo cambia el contenido.
+    window._enterAdminRoute(hash.split('/').slice(1), _esRutaAdmin(_rutaPrev));
   } else if (hash === 'mylist') {
     showView('my-list-view');
     marcarNavEscritorio('mylist');
@@ -2111,7 +2195,7 @@ window.openMobileSearch = () => {
 
   // Los resultados se pintan en el Home, así que nos aseguramos de estar ahí.
   const hash = window.location.hash.substring(1) || '';
-  if (hash.startsWith('detail/') || hash === 'admin' || hash === 'mylist') {
+  if (hash.startsWith('detail/') || hash === 'admin' || hash.startsWith('admin/') || hash === 'mylist') {
     if (typeof SelvaStream !== 'undefined') SelvaStream.close();
     showView('home-view');
   }
@@ -2770,6 +2854,12 @@ window.switchAdminTab = (tab) => {
   const activeBtn = document.getElementById(`btn-admin-${tab}`);
   if (activeBtn) activeBtn.classList.add('active');
 
+  // Ruta propia por pestaña (#admin/catalogo, ...): F5 y "Atrás" la respetan.
+  _adminTabActual = tab;
+  if (ADMIN_RUTAS[tab] && !document.getElementById('admin-form-drawer')?.classList.contains('open')) {
+    _adminSetHash(`admin/${ADMIN_RUTAS[tab]}`);
+  }
+
   // Tab-specific logic
   if (tab === 'catalog') {
     renderInventory();
@@ -2911,6 +3001,12 @@ window.openUploadDrawer = () => {
 
   // Detener y resetear mini reproductor
   window.stopMiniPlayer();
+
+  // Ruta #admin/nuevo (editMovie pone la suya enseguida, por eso se salta).
+  if (!window._abriendoEdicion) {
+    if (!window._adminRouting && !_esHashDrawer()) _drawerRutaApilada = true;
+    _adminSetHash('admin/nuevo');
+  }
 };
 
 window.closeUploadDrawer = () => {
@@ -2920,6 +3016,16 @@ window.closeUploadDrawer = () => {
   if (overlay) overlay.style.display = 'none';
   // El modo "varias" no debe quedar pegado al abrir luego una peli para editar.
   window.setTMDBMode('single');
+
+  // Salir de #admin/nuevo o #admin/editar/...: si esa entrada la apiló un
+  // clic, "Atrás" la saca (no queda la pestaña repetida en el historial);
+  // si se llegó por enlace/F5, se reemplaza por la pestaña de fondo.
+  if (_esHashDrawer()) {
+    const destino = `admin/${ADMIN_RUTAS[_adminTabActual || 'catalog']}`;
+    if (_drawerRutaApilada) { _drawerRutaApilada = false; history.back(); }
+    else { history.replaceState(null, '', '#' + destino); _rutaActual = destino; }
+  }
+  _drawerRutaApilada = false;
 
   // Detener mini reproductor al cerrar
   window.stopMiniPlayer();
@@ -9399,7 +9505,14 @@ window.editMovie = (id) => {
   // recién después pisar esos valores por defecto con los datos reales de
   // la película. Si se llama al final (como antes), el reset borra todo
   // lo que se acababa de llenar acá abajo.
-  window.openUploadDrawer();
+  window._abriendoEdicion = true;
+  try { window.openUploadDrawer(); } finally { window._abriendoEdicion = false; }
+
+  // Ruta #admin/editar/<slug> (o el id si el slug se repite en el catálogo).
+  const slugEdicion = slugify(movie.title, movie.year);
+  const slugUnico = movieDatabase.trending.filter(m => slugify(m.title, m.year) === slugEdicion).length === 1;
+  if (!window._adminRouting && !_esHashDrawer()) _drawerRutaApilada = true;
+  _adminSetHash(`admin/editar/${encodeURIComponent(slugUnico && slugEdicion ? slugEdicion : movie.id)}`);
 
   // Modo editar: sin buscador ni pasos; todos los datos abiertos.
   document.getElementById('admin-form-drawer')?.classList.add('drawer-edit-mode');

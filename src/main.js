@@ -246,7 +246,9 @@ async function supaFetchAllMovieRowsDirect() {
   const traerPagina = async (from) => {
     let data, error;
     for (let intento = 0; intento < 2; intento++) {
-      ({ data, error } = await supabase.from('movies').select('*').range(from, from + PAGE_SIZE - 1));
+      // Orden fijo: sin ORDER BY, Postgres puede devolver una fila editada en
+      // dos páginas distintas (y saltearse otra) → títulos duplicados/perdidos.
+      ({ data, error } = await supabase.from('movies').select('*').order('id', { ascending: true }).range(from, from + PAGE_SIZE - 1));
       if (!error) break;
       console.warn(`Supabase catálogo: fallo página ${from}-${from + PAGE_SIZE - 1} (intento ${intento + 1})`, error.message || error);
       await new Promise(r => setTimeout(r, 600));
@@ -2589,7 +2591,12 @@ const _inventoryPerPage = 50;
 
 function renderInventory() {
   // Incluir TODOS para admin (incluyendo review), ordenados por fecha
-  _allInventoryItems = [...movieDatabase.trending].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  // Una fila por id aunque la memoria tenga copias (realtime + recarga +
+  // alta optimista pueden cruzarse): la tabla nunca muestra el mismo título repetido.
+  const _vistos = new Set();
+  _allInventoryItems = movieDatabase.trending
+    .filter(m => m && m.id && !_vistos.has(m.id) && _vistos.add(m.id))
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   _inventoryPage = 1;
 
   // La tabla y los contadores salen YA de lo que hay en memoria: no dependen
@@ -11732,7 +11739,13 @@ window.submitMovieForm = async () => {
       }
       if (submitBtn) submitBtn.innerHTML = '<span class="material-symbols-outlined spin">progress_activity</span> Guardando...';
       movieData.createdAt = Date.now();
-      await addDoc(moviesCol, movieData);
+      const nuevo = await addDoc(moviesCol, movieData);
+      // Reflejarlo YA en memoria: así un segundo "Guardar" (o volver a
+      // agregarla) salta el aviso de duplicado aunque el catálogo todavía no
+      // se haya recargado. Antes se creaban varias copias del mismo título.
+      if (nuevo?.id && !movieDatabase.trending.some(m => m.id === nuevo.id)) {
+        movieDatabase.trending.push({ id: nuevo.id, ...movieData });
+      }
       window.showToast('¡Título añadido exitosamente! 🌴🍿', 'success');
     }
 

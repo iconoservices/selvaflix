@@ -700,6 +700,29 @@ export default {
 
                 const cache = caches.default;
                 const cacheKey = new Request(`${url.origin}/flix/catalog`);
+
+                // Edición del admin que quedó pendiente (cayó dentro de los 90 s
+                // del refresco anterior): antes esperaba al Cron de las 3 am, así
+                // que un "Fijar enlace" no se veía en la ficha hasta el otro día.
+                // Ahora el primer pedido pasados los 90 s la refresca por detrás
+                // (este pedido recibe la copia actual; el siguiente, la nueva).
+                const dirty = await env.CATALOG_KV.get('catalog:dirty', { cacheTtl: 60 });
+                if (dirty) {
+                    const m = await catalogKVMeta(env);
+                    if (!m?.at || Date.now() - m.at > CATALOG_REFRESH_MIN_MS) {
+                        ctx.waitUntil((async () => {
+                            try {
+                                await env.CATALOG_KV.delete('catalog:dirty'); // evita refrescos en paralelo
+                                await refreshCatalogKV(env);
+                                await cache.delete(cacheKey);
+                            } catch (e) {
+                                console.error('refresh pendiente falló:', e.message);
+                                await env.CATALOG_KV.put('catalog:dirty', '1');
+                            }
+                        })());
+                    }
+                }
+
                 const hit = await cache.match(cacheKey);
                 if (hit) return hit;
 

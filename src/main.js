@@ -752,7 +752,23 @@ function _traerCatalogoFresco() {
         // try/finally: pase lo que pase, la carga NO puede quedar colgada.
         let fallo = null;
         try {
-          const moviesArray = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          let moviesArray = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          // La copia del Worker puede ir unos minutos atrás de lo que el admin
+          // acaba de guardar: no pisar en memoria una versión más nueva (si no,
+          // un "Fijar enlace" recién hecho desaparecía de la ficha), y no
+          // perder altas de los últimos 10 min que la copia aún no trae.
+          if (Array.isArray(movieDatabase.trending) && movieDatabase.trending.length) {
+            const enMemoria = new Map(movieDatabase.trending.map(m => [m.id, m]));
+            moviesArray = moviesArray.map(m => {
+              const local = enMemoria.get(m.id);
+              return local && (local.updatedAt || 0) > (m.updatedAt || 0) ? local : m;
+            });
+            const llegados = new Set(moviesArray.map(m => m.id));
+            const hace10min = Date.now() - 10 * 60 * 1000;
+            for (const m of movieDatabase.trending) {
+              if (!llegados.has(m.id) && (m.createdAt || 0) > hace10min) moviesArray.push(m);
+            }
+          }
           // Vacío = Worker y Supabase sin respuesta útil: se trata como error
           // para que _cargarCatalogo use la copia local si existe.
           if (moviesArray.length === 0) { fallo = new Error('El catálogo llegó vacío'); return; }
@@ -11730,6 +11746,9 @@ window.submitMovieForm = async () => {
       // verifica cada título al sembrarlo.
       if (movieData.tmdbId || movieData.imdbId) {
         if (submitBtn) submitBtn.innerHTML = '<span class="material-symbols-outlined">hourglass_empty</span> Verificando Vimeus...';
+      // Aplicarlo ya en memoria (la ficha lo ve sin esperar al catálogo nuevo).
+      const idxEditado = movieDatabase.trending.findIndex(m => m.id === dbId);
+      if (idxEditado !== -1) movieDatabase.trending[idxEditado] = { ...movieDatabase.trending[idxEditado], ...movieData };
         const tipoVimeus = movieData.type === 'anime' ? 'anime' : ((movieData.type === 'series' || movieData.type === 'tv') ? 'serie' : 'movie');
         const estado = await vimeusConTope(movieData.tmdbId, movieData.imdbId, tipoVimeus);
         if (estado !== undefined) {
@@ -12047,7 +12066,13 @@ window.setAdminPriorityFromDrawer = async () => {
   if (!url) { window.showToast('Pega un enlace primero.', 'error'); return; }
   if (!id) { window.showToast('Esta peli aún no está guardada: usa "Guardar Cambios".', 'error'); return; }
   try {
-    await updateDoc(doc(db, "movies", id), { embed: url, status: 'healthy', updatedAt: Date.now() });
+    const cambio = { embed: url, status: 'healthy', updatedAt: Date.now() };
+    await updateDoc(doc(db, "movies", id), cambio);
+    // Reflejarlo ya en memoria: si no, la ficha seguía sin el enlace fijado
+    // hasta que llegara un catálogo nuevo del Worker.
+    const idxFijado = movieDatabase.trending.findIndex(m => m.id === id);
+    if (idxFijado !== -1) Object.assign(movieDatabase.trending[idxFijado], cambio);
+    invalidarCacheCatalogo();
     document.getElementById('m-status').value = 'healthy';
     window.showToast('🔒 Enlace fijado con éxito.', 'success');
   } catch(e) { window.showToast('Error: ' + e.message, 'error'); }

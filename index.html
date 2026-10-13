@@ -1910,20 +1910,30 @@
           <!-- ── COLUMNA IZQUIERDA (formulario) ── -->
           <div class="drawer-col-left">
 
-            <!-- Importar desde TMDb -->
+            <!-- PASO 1 · Buscar el título en TMDb -->
             <div class="drawer-card tmdb-import-card">
               <h3 class="drawer-card-title">
-                <span class="material-symbols-outlined">search</span> Importar desde TMDb
+                <span class="step-num">1</span> Buscar el título
               </h3>
+              <!-- Modo: una peli (rellena el formulario de abajo) o varias a la
+                   vez (casillas + "Agregar todos"). Antes estaban los dos
+                   mezclados en la misma tira de pósters. -->
+              <div class="tmdb-mode-switch" role="tablist">
+                <button type="button" class="tmdb-mode-btn active" data-mode="single" onclick="window.setTMDBMode('single')">🎬 Una peli</button>
+                <button type="button" class="tmdb-mode-btn" data-mode="bulk" onclick="window.setTMDBMode('bulk')">📚 Varias a la vez</button>
+              </div>
               <div style="display:flex; gap:8px; margin-bottom:10px;">
-                <input type="text" id="tmdb-search-input" class="form-control" placeholder="Buscar título en TMDb...">
+                <input type="text" id="tmdb-search-input" class="form-control" placeholder="Escribe el nombre y pulsa Buscar...">
                 <button class="btn btn-primary" id="btn-tmdb-search" style="padding:0 16px; white-space:nowrap;">Buscar</button>
               </div>
-              <label style="display:flex; align-items:center; gap:6px; margin-bottom:10px; font-size:0.78rem; color:var(--text-muted); cursor:pointer;" title="Muestra todos los resultados de TMDb clasificados en Vimeus, Respaldo o Externos.">
-                <input type="checkbox" id="chk-fuentes-externas" checked>
-                Mostrar todos los resultados (Vimeus, Respaldo y Externos)
-              </label>
+              <!-- Siempre se muestran todos los resultados de TMDb (tengan o no
+                   fuentes automáticas). El checkbox queda oculto porque
+                   searchTMDB lo sigue leyendo. -->
+              <input type="checkbox" id="chk-fuentes-externas" checked style="display:none !important;">
+              <p id="tmdb-mode-hint" class="tmdb-mode-hint">Toca el póster de la peli para rellenar todo automáticamente.</p>
+              <div id="tmdb-picked" class="tmdb-picked" style="display:none;"></div>
               <div id="tmdb-results" style="display:flex; gap:8px; overflow-x:auto; padding-bottom:6px;"></div>
+              <div id="tmdb-manual-add" class="single-only"></div>
               <div id="tmdb-bulk-toolbar" style="display:none; align-items:center; justify-content:space-between; gap:8px; margin-top:8px; padding:8px 10px; background:rgba(255,255,255,0.03); border-radius:6px;">
                 <label style="display:flex; align-items:center; gap:6px; font-size:0.78rem; color:var(--text-muted); cursor:pointer; white-space:nowrap;">
                   <input type="checkbox" id="chk-tmdb-select-all" onclick="window.toggleAllTMDBCheckboxes(this.checked)">
@@ -1944,24 +1954,34 @@
               <div id="tmdb-bulk-fuentes-result" style="display:none; flex-direction:column; gap:8px; margin-top:8px; max-height:280px; overflow-y:auto;"></div>
             </div>
 
-            <!-- Origen del Video y Enlaces -->
-            <div class="drawer-card source-file-card">
+            <!-- PASO 2 · Tu enlace de video -->
+            <div class="drawer-card source-file-card single-only">
               <h3 class="drawer-card-title">
-                <span class="material-symbols-outlined">play_circle</span> Origen de Video y Enlaces
+                <span class="step-num">2</span> Tu enlace de video
               </h3>
 
               <div class="form-group">
-                <label>Enlace de Video (Embed / M3U8 / URL Directa)</label>
+                <label>Pega el enlace (embed, M3U8 o URL directa)</label>
                 <div style="display:flex; gap:8px;">
                   <input type="url" id="m-embed" class="form-control" placeholder="https://..." style="flex:1;">
-                  <button type="button" class="btn btn-primary" onclick="window.testEmbedLink()" title="Probar enlace">
-                    <span class="material-symbols-outlined" style="font-size:16px;">play_arrow</span>
-                  </button>
-                  <button type="button" class="btn" style="background:#00f2ff; color:#000; font-weight:900; font-size:0.72rem; cursor:pointer; border:none; padding:0 14px; border-radius:6px; white-space:nowrap;"
-                    onclick="window.setAdminPriorityFromDrawer()" title="Guarda ya mismo este enlace como prioritario">
-                    🔒 Fijar Enlace
+                  <button type="button" class="btn btn-primary" onclick="window.testEmbedLink()" title="Verlo en la vista previa de la derecha" style="white-space:nowrap;">
+                    <span class="material-symbols-outlined" style="font-size:16px; vertical-align:middle;">play_arrow</span> Probar
                   </button>
                 </div>
+                <p style="color:#888; font-size:0.68rem; margin:6px 0 0;">Si lo dejas vacío, la peli usa las fuentes automáticas (Vimeus / Respaldo).</p>
+              </div>
+
+              <!-- Todo lo demás (descarga, servidores, torrents, fijar) va
+                   plegado: no hace falta para el alta normal. -->
+              <details class="drawer-more-options">
+                <summary>⚙️ Más opciones (descarga, servidores, torrents)</summary>
+
+              <div class="form-group" style="margin-top:12px;">
+                <label>Fijar el enlace sin guardar todo</label>
+                <button type="button" class="btn" style="background:#00f2ff; color:#000; font-weight:900; font-size:0.72rem; cursor:pointer; border:none; padding:8px 14px; border-radius:6px; white-space:nowrap;"
+                  onclick="window.setAdminPriorityFromDrawer()" title="Guarda ya mismo este enlace como prioritario (solo para pelis ya guardadas)">
+                  🔒 Fijar Enlace
+                </button>
               </div>
 
               <div class="form-group">
@@ -1977,22 +1997,6 @@
                   </button>
                 </div>
                 <p style="color:#888; font-size:0.65rem; margin:6px 0 0;">Alimenta el botón "DESCARGAR" que ve el usuario. Tiene que ser un archivo directo (no un iframe/embed), si no, al usuario no le va a descargar nada.</p>
-              </div>
-
-              <!-- Admin Player Mini Preview (visible solo si hay embed activo) -->
-              <div id="admin-embed-preview" class="admin-embed-preview" style="display:none;">
-                <div class="embed-preview-file">
-                  <span class="material-symbols-outlined" style="color:#ff571a;">movie</span>
-                  <span id="admin-embed-filename" class="embed-filename">enlace_embed</span>
-                </div>
-                <div class="embed-preview-actions">
-                  <button type="button" class="btn btn-success-sm" onclick="window.handleCardClick(document.getElementById('m-db-id').value)">
-                    <span class="material-symbols-outlined" style="font-size:14px;">play_arrow</span> Reproducir
-                  </button>
-                  <button type="button" class="btn btn-danger-sm" onclick="window.clearEmbedLink()">
-                    <span class="material-symbols-outlined" style="font-size:14px;">close</span> Limpiar
-                  </button>
-                </div>
               </div>
 
               <!-- Fuentes: etiqueta a la izquierda, botones a la derecha, todo en una fila -->
@@ -2019,11 +2023,12 @@
                   <!-- Inyectado dinámicamente -->
                 </div>
               </div>
+              </details>
 
             </div>
 
             <!-- Episodios (solo Series/Anime): enlaces manuales por capítulo -->
-            <div class="drawer-card" id="episodes-editor-card" style="display:none;">
+            <div class="drawer-card single-only" id="episodes-editor-card" style="display:none;">
               <h3 class="drawer-card-title">
                 <span class="material-symbols-outlined">video_library</span> Episodios (enlaces por capítulo)
               </h3>
@@ -2041,7 +2046,8 @@
             </div>
 
             <!-- General Information + Cast & Crew: lado a lado en escritorio -->
-            <div class="info-cast-grid">
+            <p class="drawer-step-label single-only"><span class="step-num">3</span> Revisa los datos <small>(se rellenan solos al elegir el póster)</small></p>
+            <div class="info-cast-grid single-only">
             <div class="drawer-card">
               <h3 class="drawer-card-title">
                 <span class="material-symbols-outlined">info</span> Información General
@@ -2106,7 +2112,7 @@
             </div><!-- /info-cast-grid -->
 
             <!-- Metadata -->
-            <div class="drawer-card">
+            <div class="drawer-card single-only">
               <h3 class="drawer-card-title">
                 <span class="material-symbols-outlined">tune</span> Metadatos
               </h3>
@@ -2169,7 +2175,7 @@
             </div>
 
             <!-- Acciones finales -->
-            <div style="display:flex; gap:10px; padding-bottom:30px;">
+            <div class="single-only" style="display:flex; gap:10px; padding-bottom:30px;">
               <button type="button" id="submit-btn" class="btn btn-save-drawer" style="flex:1; padding:14px; font-size:0.9rem;" onclick="window.submitMovieForm()">
                 <span class="material-symbols-outlined">save</span> Guardar Cambios
               </button>
@@ -2191,15 +2197,12 @@
               <div id="mini-player-container" style="position:relative; aspect-ratio:16/9; background:#000; border-radius:10px; overflow:hidden; border:1px solid rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:center;">
                 <div id="mini-player-placeholder" style="color:rgba(255,255,255,0.4); font-size:0.75rem; text-align:center; padding:10px;">
                   <span class="material-symbols-outlined" style="font-size:32px; display:block; margin-bottom:6px; color:#555;">play_circle</span>
-                  Ningún video activo.<br>Introduce una URL y haz clic en "Verificar" o "Actualizar".
+                  Ningún video activo.<br>Pega tu enlace en el paso 2 y pulsa "Probar".
                 </div>
                 <iframe id="mini-player-iframe" style="display:none; width:100%; height:100%; border:none;" allowfullscreen></iframe>
               </div>
               <div style="display:flex; gap:8px; margin-top:10px;">
-                <button type="button" class="btn btn-primary" onclick="window.updateMiniPlayer()" style="flex:1; font-size:0.75rem; padding:8px 12px; font-weight:700; background:#ff571a; border:none; color:#fff; border-radius:6px; cursor:pointer;">
-                  🔄 Actualizar Vista
-                </button>
-                <button type="button" class="btn btn-cancel-drawer" onclick="window.stopMiniPlayer()" style="font-size:0.75rem; padding:8px 12px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#ccc; border-radius:6px; cursor:pointer;" title="Detener Reproducción">
+                <button type="button" class="btn btn-cancel-drawer" onclick="window.stopMiniPlayer()" style="flex:1; font-size:0.75rem; padding:8px 12px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#ccc; border-radius:6px; cursor:pointer;" title="Detener Reproducción">
                   ⏹️ Detener
                 </button>
               </div>

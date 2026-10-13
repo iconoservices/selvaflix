@@ -2869,7 +2869,12 @@ window.openUploadDrawer = () => {
   const tmdbResults = document.getElementById('tmdb-results');
   const tmdbImgSuggestions = document.getElementById('tmdb-img-suggestions');
   if (tmdbSearchInput) tmdbSearchInput.value = '';
-  if (tmdbResults) tmdbResults.innerHTML = '';
+  if (tmdbResults) { tmdbResults.innerHTML = ''; tmdbResults.style.display = 'flex'; }
+  const tmdbPicked = document.getElementById('tmdb-picked');
+  if (tmdbPicked) { tmdbPicked.innerHTML = ''; tmdbPicked.style.display = 'none'; }
+  const tmdbManual = document.getElementById('tmdb-manual-add');
+  if (tmdbManual) { tmdbManual.innerHTML = ''; tmdbManual.style.display = ''; }
+  window.setTMDBMode('single');
   if (tmdbImgSuggestions) tmdbImgSuggestions.innerHTML = '';
 
   // Reset de la cola de alta desde TMDb
@@ -2908,6 +2913,8 @@ window.closeUploadDrawer = () => {
   const overlay = document.getElementById('admin-drawer-overlay');
   if (drawer) drawer.classList.remove('open');
   if (overlay) overlay.style.display = 'none';
+  // El modo "varias" no debe quedar pegado al abrir luego una peli para editar.
+  window.setTMDBMode('single');
 
   // Detener mini reproductor al cerrar
   window.stopMiniPlayer();
@@ -6644,6 +6651,11 @@ window.searchTMDB = async function (query, isSuggestion = false) {
   if (!resultsDiv) return;
   if (!isSuggestion) {
     resultsDiv.innerHTML = '<p style="color: var(--primary);">Buscando en Hollywood... 📡</p>';
+    resultsDiv.style.display = 'flex';
+    const picked = document.getElementById('tmdb-picked');
+    if (picked) picked.style.display = 'none';
+    const manual = document.getElementById('tmdb-manual-add');
+    if (manual) { manual.innerHTML = ''; manual.style.display = ''; }
     const bulkToolbar = document.getElementById('tmdb-bulk-toolbar');
     const selectAllChk = document.getElementById('chk-tmdb-select-all');
     if (bulkToolbar) bulkToolbar.style.display = 'none';
@@ -6665,13 +6677,22 @@ window.searchTMDB = async function (query, isSuggestion = false) {
       data = { results: [movie] };
     } else {
       // Búsqueda multi (Películas y Series)
-      const res = await fetch(`${TMDB_URL}/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=${lang}`);
-      if (!res.ok) throw new Error("Error en API");
-      data = await res.json();
+      // Se busca también en inglés y se mezcla: una peli recién estrenada
+      // a veces solo tiene título en inglés/original en TMDb y la búsqueda
+      // en es-MX no la devolvía.
+      const buscar = (l) => fetch(`${TMDB_URL}/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=${l}`)
+        .then(r => r.ok ? r.json() : { results: [] }).catch(() => ({ results: [] }));
+      const [dEs, dEn] = await Promise.all([buscar(lang), lang === 'en-US' ? Promise.resolve({ results: [] }) : buscar('en-US')]);
+      if (!dEs.results?.length && !dEn.results?.length && !(await fetch(`${TMDB_URL}/configuration?api_key=${TMDB_API_KEY}`).then(r => r.ok).catch(() => false))) throw new Error("Error en API");
+      const vistos = new Set();
+      data = { results: [...(dEs.results || []), ...(dEn.results || [])].filter(m => !vistos.has(m.id) && vistos.add(m.id)) };
     }
 
     if (!data.results || data.results.length === 0) {
-      if (!isSuggestion) resultsDiv.innerHTML = '<p style="color: var(--text-muted);">No encontramos esa joya en la selva 🧐</p>';
+      if (!isSuggestion) {
+        resultsDiv.innerHTML = '<p style="color: var(--text-muted);">No encontramos esa joya en TMDb 🧐</p>';
+        _tmdbMostrarBotonManual(query, '');
+      }
       return;
     }
 
@@ -6801,6 +6822,7 @@ window.searchTMDB = async function (query, isSuggestion = false) {
           </div>
         `;
       }).join('');
+      _tmdbMostrarBotonManual(query, '¿No está?');
       window.updateTMDBBulkBar();
     }
 
@@ -6812,9 +6834,89 @@ window.searchTMDB = async function (query, isSuggestion = false) {
 
 // Re-defining as global window.searchTMDB for consistency
 
+// Modo del alta: "single" (tocar póster rellena el formulario) o "bulk"
+// (casillas + "Agregar todos"; el formulario de una peli se oculta).
+window.setTMDBMode = (mode) => {
+  const drawer = document.getElementById('admin-form-drawer');
+  if (!drawer) return;
+  const bulk = mode === 'bulk';
+  drawer.classList.toggle('drawer-bulk-mode', bulk);
+  drawer.querySelectorAll('.tmdb-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+  const hint = document.getElementById('tmdb-mode-hint');
+  if (hint) hint.textContent = bulk
+    ? 'Marca las casillas de los pósters y pulsa "Agregar todos". Toca una línea de la lista para ponerle su enlace.'
+    : 'Toca el póster de la peli para rellenar todo automáticamente.';
+  if (bulk) {
+    const picked = document.getElementById('tmdb-picked');
+    const results = document.getElementById('tmdb-results');
+    if (picked) picked.style.display = 'none';
+    if (results) results.style.display = 'flex';
+  }
+};
+
+// Tras elegir un título: tira de resultados plegada en una línea "Elegiste X"
+// y foco directo al paso 2 (el enlace).
+function _tmdbMostrarElegida(title, year, posterUrl, nota) {
+  const picked = document.getElementById('tmdb-picked');
+  const results = document.getElementById('tmdb-results');
+  if (!picked) return;
+  picked.innerHTML = `
+    ${posterUrl ? `<img src="${_escHtml(posterUrl)}" alt="">` : ''}
+    <div class="tmdb-picked-txt">${_escHtml(title)}${year ? ` (${_escHtml(year)})` : ''}<small>${nota}</small></div>
+    <button type="button" onclick="window.tmdbCambiarEleccion()">Cambiar</button>`;
+  picked.style.display = 'flex';
+  if (results) results.style.display = 'none';
+  const manual = document.getElementById('tmdb-manual-add');
+  if (manual) manual.style.display = 'none';
+  const tituloHeader = document.getElementById('drawer-form-title');
+  if (tituloHeader) tituloHeader.textContent = title || 'Sin Título';
+  const embed = document.getElementById('m-embed');
+  if (embed) {
+    embed.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => embed.focus({ preventScroll: true }), 350);
+  }
+}
+
+function _tmdbMostrarBotonManual(query, prefijo) {
+  const box = document.getElementById('tmdb-manual-add');
+  window._manualTitleQuery = query;
+  if (!box) return;
+  box.innerHTML = query
+    ? `<button type="button" class="btn btn-secondary" onclick="window.addManualTitle()" style="margin-top:8px; font-size:0.75rem;">✍️ ${prefijo ? prefijo + ' ' : ''}Agregar "${_escHtml(query)}" a mano (pones tu propio enlace)</button>`
+    : '';
+}
+
+window.tmdbCambiarEleccion = () => {
+  const picked = document.getElementById('tmdb-picked');
+  const results = document.getElementById('tmdb-results');
+  if (picked) picked.style.display = 'none';
+  if (results) results.style.display = 'flex';
+  const manual = document.getElementById('tmdb-manual-add');
+  if (manual) manual.style.display = '';
+  document.getElementById('tmdb-search-input')?.focus();
+};
+
+window.addManualTitle = () => {
+  const t = window._manualTitleQuery || '';
+  document.getElementById('m-title').value = t;
+  document.getElementById('m-tmdb-id').value = '';
+  _tmdbMostrarElegida(t, '', '', '✍️ Agregada a mano: completa los datos del paso 3');
+};
+
 window.selectTMDBMovie = async (index) => {
   const m = _tmdbLastResults[index];
   if (!m) return;
+
+  // En modo "varias", tocar el póster marca/desmarca su casilla.
+  if (document.getElementById('admin-form-drawer')?.classList.contains('drawer-bulk-mode')) {
+    const chk = document.querySelector(`.tmdb-bulk-check[data-index="${index}"]`);
+    if (chk && !chk.disabled) { chk.checked = !chk.checked; window.updateTMDBBulkBar(); }
+    return;
+  }
+
+  _tmdbMostrarElegida(m.title || m.name, (m.release_date || m.first_air_date || '').split('-')[0],
+    m.poster_path ? TMDB_IMG_URL + m.poster_path : '',
+    m._yaEnCatalogo ? '⚠️ Ojo: ya está en el catálogo' : '✔ Datos cargados de TMDb');
 
   const title = m.title || m.name;
   const originalTitle = m.original_title || m.original_name || "";
@@ -6879,7 +6981,6 @@ window.selectTMDBMovie = async (index) => {
     backdropPreview.src = m.backdrop_path ? (TMDB_IMG_URL + m.backdrop_path) : 'https://via.placeholder.com/600x338/111/555?text=Sin+Banner';
   }
 
-  alert(`Cosechada info de: ${title} 🥥🍹 (Metadatos Pro Activos)`);
 };
 
 // ¿Ya tenemos este tmdbId en el catálogo? Se usa para marcar "YA AGREGADA"

@@ -5712,6 +5712,52 @@ body.admin-locked {
 
 .tmdb-import-card { border-color: rgba(255,87,26,0.15); background: rgba(255,87,26,0.02); }
 
+/* ── Flujo por pasos del alta (1 Buscar · 2 Enlace · 3 Datos) ── */
+.step-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: #ff571a; color: #fff; font-size: 0.75rem; font-weight: 900; flex-shrink: 0;
+}
+.drawer-step-label {
+  display: flex; align-items: center; gap: 8px; margin: 4px 0 -4px;
+  font-size: 0.95rem; font-weight: 700; color: #ff571a;
+}
+.drawer-step-label small { color: #777; font-weight: 400; font-size: 0.72rem; }
+.tmdb-mode-switch {
+  display: inline-flex; gap: 4px; padding: 3px; margin-bottom: 10px;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;
+}
+.tmdb-mode-btn {
+  background: transparent; border: none; color: #aaa; font-size: 0.78rem; font-weight: 700;
+  padding: 6px 12px; border-radius: 6px; cursor: pointer;
+}
+.tmdb-mode-btn.active { background: #ff571a; color: #fff; }
+.tmdb-mode-hint { font-size: 0.72rem; color: #888; margin: 0 0 8px; }
+.tmdb-picked {
+  align-items: center; gap: 10px; padding: 8px 10px; margin-bottom: 6px;
+  background: rgba(46,204,113,0.08); border: 1px solid rgba(46,204,113,0.3); border-radius: 8px;
+}
+.tmdb-picked img { width: 34px; height: 50px; object-fit: cover; border-radius: 4px; }
+.tmdb-picked .tmdb-picked-txt { flex: 1; min-width: 0; font-size: 0.8rem; color: #fff; }
+.tmdb-picked .tmdb-picked-txt small { display: block; color: #2ecc71; font-size: 0.68rem; }
+.tmdb-picked button {
+  background: transparent; border: 1px solid rgba(255,255,255,0.15); color: #ccc;
+  font-size: 0.72rem; padding: 4px 10px; border-radius: 6px; cursor: pointer;
+}
+/* Modo "una peli": sin casillas ni barra de lote. */
+.admin-form-drawer:not(.drawer-bulk-mode) .tmdb-bulk-check,
+.admin-form-drawer:not(.drawer-bulk-mode) #tmdb-bulk-toolbar,
+.admin-form-drawer:not(.drawer-bulk-mode) #tmdb-selected-list,
+.admin-form-drawer:not(.drawer-bulk-mode) #tmdb-bulk-fuentes-result { display: none !important; }
+/* Modo "varias": solo el buscador y la lista de seleccionadas. */
+.admin-form-drawer.drawer-bulk-mode .single-only,
+.admin-form-drawer.drawer-bulk-mode .drawer-col-right,
+.admin-form-drawer.drawer-bulk-mode .drawer-header-save-group .btn-save-drawer { display: none !important; }
+.admin-form-drawer.drawer-bulk-mode .drawer-two-col-body { grid-template-columns: minmax(0, 1fr); }
+.drawer-more-options { margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 10px; }
+.drawer-more-options > summary { cursor: pointer; font-size: 0.8rem; color: #aaa; font-weight: 700; }
+.drawer-more-options[open] > summary { color: #fff; }
+
 .info-cast-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

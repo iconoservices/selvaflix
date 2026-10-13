@@ -839,8 +839,11 @@ export default {
                 // Solo "data" (sin bloque notification): si va notification, el
                 // SDK de Firebase la muestra solo Y sw.js muestra otra → llegaban
                 // duplicadas. Así la dibuja únicamente sw.js (con imagen y link).
+                // Modo prueba (idea copiada de Boga Market): solo al dispositivo
+                // del admin, sin tocar a nadie más ni quedar en el historial.
+                const pruebaToken = typeof p.test_token === 'string' && p.test_token.length > 100 ? p.test_token : '';
                 const message = {
-                    topic: PUSH_TOPIC,
+                    ...(pruebaToken ? { token: pruebaToken } : { topic: PUSH_TOPIC }),
                     data: { title, body, image, link },
                     webpush: { headers: { Urgency: 'high', TTL: String(60 * 60 * 24 * 2) } }
                 };
@@ -853,7 +856,7 @@ export default {
                 if (!r.ok) {
                     return new Response(JSON.stringify({ error: `FCM: ${out?.error?.message || r.status}` }), { status: 502, headers: corsHeaders });
                 }
-                if (env.CATALOG_KV) {
+                if (env.CATALOG_KV && !pruebaToken) {
                     const at = Date.now();
                     ctx.waitUntil(env.CATALOG_KV.put(`push:log:${at}`, '1', {
                         expirationTtl: 60 * 60 * 24 * 180,
@@ -861,7 +864,7 @@ export default {
                         metadata: { at, title, body: body.slice(0, 80), link: link.slice(0, 250) }
                     }));
                 }
-                return new Response(JSON.stringify({ ok: true, id: out.name || null }), { headers: corsHeaders });
+                return new Response(JSON.stringify({ ok: true, prueba: !!pruebaToken, id: out.name || null }), { headers: corsHeaders });
             }
 
             // --- 🔐 RUTAS: /flix/admin/*  (escrituras al catálogo) ---

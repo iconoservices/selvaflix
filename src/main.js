@@ -3021,7 +3021,22 @@ window.pushLimpiar = () => {
   window.pushActualizarVista();
 };
 
-window.pushEnviar = async () => {
+// Token FCM de ESTE navegador (para la prueba "solo a mí").
+async function _pushTokenPropio() {
+  if (!messaging || !('serviceWorker' in navigator)) throw new Error('este navegador no admite notificaciones');
+  const permiso = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission;
+  if (permiso !== 'granted') throw new Error('primero permite las notificaciones en este navegador');
+  const reg = await navigator.serviceWorker.getRegistration('/');
+  if (!reg) throw new Error('el service worker no está activo (en local no se registra)');
+  const token = await getToken(messaging, {
+    vapidKey: 'BLqkFCsqZCYKUOauIQND6XOWbiDBPKKebs9kNDBI5YRnhJ6WuOy2b1EUCKlv8xstA-1AkNOobOwPKDT8i34ZSwQ',
+    serviceWorkerRegistration: reg
+  });
+  if (!token) throw new Error('no se obtuvo el token de este navegador');
+  return token;
+}
+
+window.pushEnviar = async (prueba = false) => {
   const v = (id) => document.getElementById(id)?.value.trim() || '';
   const title = v('push-title'), body = v('push-body');
   if (!title || !body) { window.showToast('Falta el título o el mensaje.', 'error'); return; }
@@ -3029,14 +3044,24 @@ window.pushEnviar = async () => {
   // Los links del sitio van absolutos (la notificación los abre fuera de la app).
   const base = location.origin.startsWith('https://') ? location.origin : 'https://selvaflix.vercel.app';
   const link = linkTxt ? new URL(linkTxt.startsWith('#') ? '/' + linkTxt : linkTxt, base).href : base + '/';
-  const subs = document.getElementById('push-subs-pill')?.textContent || '';
-  if (!confirm(`¿Enviar este aviso a todos los suscriptores?\n${subs}\n\n${title}\n${body}`)) return;
+  let test_token;
+  if (prueba) {
+    try { test_token = await _pushTokenPropio(); }
+    catch (e) { window.showToast('No se puede probar: ' + e.message, 'error'); return; }
+  } else {
+    const subs = document.getElementById('push-subs-pill')?.textContent || '';
+    if (!confirm(`¿Enviar este aviso a todos los suscriptores?\n${subs}\n\n${title}\n${body}`)) return;
+  }
 
-  const btn = document.getElementById('push-send-btn');
+  const btn = prueba ? null : document.getElementById('push-send-btn');
   const htmlBtn = btn?.innerHTML;
   if (btn) { btn.disabled = true; btn.classList.add('is-saving'); btn.innerHTML = '<span class="material-symbols-outlined spin">progress_activity</span> Enviando...'; }
   try {
-    await adminWorkerCall('push-send', { title, body, image: v('push-image'), link });
+    await adminWorkerCall('push-send', { title, body, image: v('push-image'), link, ...(test_token ? { test_token } : {}) });
+    if (prueba) {
+      window.showToast('📱 Prueba enviada a este dispositivo (si la pestaña está abierta, sale como aviso aquí).', 'success');
+      return;
+    }
     window.showToast('🔔 ¡Aviso enviado!', 'success');
     window.pushLimpiar();
     window.pushCargarPestana();

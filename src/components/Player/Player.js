@@ -34,8 +34,8 @@ export const SelvaStream = {
     STREAMTAPE_LOGIN: import.meta.env.VITE_STREAMTAPE_LOGIN || '',
     STREAMTAPE_KEY: import.meta.env.VITE_STREAMTAPE_KEY || '',
     DOODSTREAM_KEY: import.meta.env.VITE_DOODSTREAM_KEY || '',
-    VOE_API_KEY: import.meta.env.VITE_VOE_API_KEY || '',
-    EARNVIDS_KEY: import.meta.env.VITE_EARNVIDS_KEY || localStorage.getItem('selva_earnvids_key') || '',
+    VOE_API_KEY: import.meta.env.VITE_VOE_API_KEY || 'NanEKZVbkWymnPY3V48vr7OIEjCbhhWGUu66PYxhCwM6iUt5sgprQlrDaDFTpvRi',
+    EARNVIDS_KEY: import.meta.env.VITE_EARNVIDS_KEY || localStorage.getItem('selva_earnvids_key') || '46965id2bbmonatu85cli',
 
     // 🎬 Vimeus (el reproductor real detrás de LaMovie): a diferencia de la
     // API Key (ak_..., server-only, NUNCA en el cliente), el view_key es fijo

@@ -1475,14 +1475,22 @@ window.enriquecerCatalogoDesdeTMDB = async () => {
   }, 800);
 };
 
-// ─── 🔥 Conversión Masiva a VOE ─────────────────────────────────────────────
-// Recorre el catálogo (o un subconjunto) y sube cada película a VOE.sx usando
-// el mismo pipeline de extracción del botón individual ("Subir a VOE").
+// ─── 🚀 Conversión Masiva a Servidor Propio (EarnVids / VOE) ───────────────
+// Recorre el catálogo (o un subconjunto) y sube cada película al hosting elegido
+// extrayendo los mejores links de FlixLatam/Vimeus/PelisMart/RepelisHD.
 window.convertirCatalogoAVoe = async () => {
   if (localStorage.getItem('selva_admin_auth') !== 'true') return;
 
+  const serverChoice = prompt(
+    '🚀 MIGRACIÓN DE CATÁLOGO A SERVIDOR PROPIO\n\n¿A qué servidor deseas migrar?\n\n1 → 💰 EarnVids (earnvids.com - Baja publicidad / PPD)\n2 → 🔥 VOE.sx (voe.sx - Rápido)\n\nEscribe el número:',
+    '1'
+  );
+  if (!serverChoice) return;
+  const targetHost = serverChoice.trim() === '2' ? 'voe' : 'earnvids';
+  const targetHostName = targetHost === 'earnvids' ? 'EarnVids' : 'VOE.sx';
+
   const providerChoice = prompt(
-    '🔥 CONVERTIR CATÁLOGO A VOE\n\n¿Qué fuente usar para extraer los links?\n\n1 → FlixLatam\n2 → PelisMart\n3 → RepelisHD\n4 → Vimeus\n\nEscribe el número:',
+    `🔍 FUENTE DE ORIGEN PARA ${targetHostName}\n\n¿De qué fuente extraer los links?\n\n1 → FlixLatam\n2 → PelisMart\n3 → RepelisHD\n4 → Vimeus\n\nEscribe el número:`,
     '1'
   );
   if (!providerChoice) return;
@@ -1491,40 +1499,63 @@ window.convertirCatalogoAVoe = async () => {
   if (!provider) { alert('Opción inválida. Ingresa 1, 2, 3 o 4.'); return; }
 
   const limitStr = prompt(
-    '¿Cuántas películas subir en esta tanda?\n(Escribe un número, ej: 20 — o "todo" para todas)',
+    `¿Cuántas películas subir a ${targetHostName} en esta tanda?\n(Escribe un número, ej: 20 — o "todo" para todas)`,
     '20'
   );
   if (!limitStr) return;
   const limit = limitStr.trim().toLowerCase() === 'todo' ? Infinity : parseInt(limitStr.trim(), 10);
   if (isNaN(limit) || limit <= 0) { alert('Número inválido.'); return; }
 
-  const skipDone = confirm('¿Saltear películas que ya tienen enlace de VOE.sx guardado? (Recomendado: Aceptar)');
+  const skipDone = confirm(`¿Saltear películas que ya tengan enlace propio de ${targetHostName}? (Recomendado: Aceptar)`);
+
+  const { SelvaStream } = await import('./components/Player/Player.js');
+  const { ExportManager } = await import('./utils/exportManager.js');
+
+  // Asegurar credenciales
+  let apiKey = '';
+  if (targetHost === 'earnvids') {
+    apiKey = SelvaStream.EARNVIDS_KEY || localStorage.getItem('selva_earnvids_key') || '';
+    if (!apiKey) {
+      const asked = prompt('🔑 Ingresa tu EarnVids API Key (la encuentras en https://earnvids.com/api.html o en My Account):');
+      if (asked && asked.trim()) {
+        apiKey = asked.trim();
+        localStorage.setItem('selva_earnvids_key', apiKey);
+      }
+    }
+    if (!apiKey) {
+      if (window.showToast) window.showToast('❌ Falta la EarnVids API Key.', 'error');
+      return;
+    }
+  } else {
+    apiKey = SelvaStream.VOE_API_KEY;
+    if (!apiKey) {
+      if (window.showToast) window.showToast('❌ Falta VITE_VOE_API_KEY en la configuración.', 'error');
+      return;
+    }
+  }
+
+  // Si _allInventoryItems está vacío, usar el catálogo en memoria
+  if ((!_allInventoryItems || !_allInventoryItems.length) && window.movieDatabase?.trending) {
+    _allInventoryItems = [...window.movieDatabase.trending];
+  }
 
   let candidatos = (_allInventoryItems || []).filter(m => {
     if (!m.id) return false;
-    if (skipDone && m.embed && m.embed.includes('voe')) return false;
+    if (skipDone && m.embed && m.embed.toLowerCase().includes(targetHost)) return false;
     const hasId = m.imdbId || m.imdb_id || m.tmdbId || m.tmdb_id;
     return !!hasId;
   });
   if (limit !== Infinity) candidatos = candidatos.slice(0, limit);
 
   if (candidatos.length === 0) {
-    if (window.showToast) window.showToast('No hay películas pendientes para convertir. 🌴', 'info');
+    if (window.showToast) window.showToast(`No hay películas pendientes para subir a ${targetHostName}. 🌴`, 'info');
     return;
   }
 
-  if (!confirm(`🔥 Se van a encolar ${candidatos.length} película(s) a VOE usando "${provider}".\n\nEl proceso corre de fondo (una por una, cada 4 segundos) y puedes seguir usando la app.\n\n¿Continuar?`)) return;
+  if (!confirm(`🚀 Se van a encolar ${candidatos.length} película(s) a ${targetHostName} usando "${provider}".\n\nEl proceso corre de fondo en segundo plano y puedes seguir usando la app.\n\n¿Continuar?`)) return;
 
-  if (window.showToast) window.showToast(`🚀 Iniciando conversión masiva de ${candidatos.length} películas a VOE...`, 'info');
-  console.log(`[ConvertirVOE] Iniciando: ${candidatos.length} películas con proveedor "${provider}"`);
-
-  const { SelvaStream } = await import('./components/Player/Player.js');
-  const { ExportManager } = await import('./utils/exportManager.js');
-  const voeKey = SelvaStream.VOE_API_KEY;
-  if (!voeKey) {
-    if (window.showToast) window.showToast('❌ Falta VITE_VOE_API_KEY en la configuración.', 'error');
-    return;
-  }
+  if (window.showToast) window.showToast(`🚀 Iniciando conversión de ${candidatos.length} títulos a ${targetHostName}...`, 'info');
+  console.log(`[ConvertirServidor] Iniciando: ${candidatos.length} títulos para ${targetHostName} con fuente "${provider}"`);
 
   let ok = 0, fail = 0, skip = 0;
 
@@ -1551,14 +1582,17 @@ window.convertirCatalogoAVoe = async () => {
       const best = ExportManager.pickBestLink(links);
       if (!best) {
         skip++;
-        console.warn(`[ConvertirVOE] Sin links: ${title}`);
+        console.warn(`[ConvertirServidor] Sin links: ${title}`);
         continue;
       }
 
-      await ExportManager.startVoeUpload({
+      const uploadHandler = targetHost === 'earnvids' ? ExportManager.startEarnvidsUpload.bind(ExportManager) : ExportManager.startVoeUpload.bind(ExportManager);
+      const keyParam = targetHost === 'earnvids' ? { earnvidsKey: apiKey } : { voeKey: apiKey };
+
+      await uploadHandler({
         movieId: movie.id,
         sourceUrl: best.link,
-        voeKey,
+        ...keyParam,
         onUpdate: async (update) => {
           if (update.phase === 'done' || update.url) {
             try {
@@ -1570,7 +1604,7 @@ window.convertirCatalogoAVoe = async () => {
               await updateDoc(doc(db, 'movies', movie.id), updObj);
               const memItem = _allInventoryItems.find(m => m.id === movie.id);
               if (memItem) { memItem.exportStatus = update.phase; if (update.url) memItem.embed = update.url; }
-            } catch(e) { console.warn('[ConvertirVOE] Firestore error:', e); }
+            } catch(e) { console.warn('[ConvertirServidor] Firestore error:', e); }
           }
         }
       });
@@ -1584,11 +1618,11 @@ window.convertirCatalogoAVoe = async () => {
       } catch(e) {}
 
       ok++;
-      console.log(`[ConvertirVOE] ✅ Encolada: ${title} → ${best.link}`);
+      console.log(`[ConvertirServidor] ✅ Encolada en ${targetHostName}: ${title} → ${best.link}`);
 
     } catch (err) {
       fail++;
-      console.error(`[ConvertirVOE] ❌ Error en "${title}":`, err.message);
+      console.error(`[ConvertirServidor] ❌ Error en "${title}":`, err.message);
     }
 
     if (i < candidatos.length - 1) await new Promise(r => setTimeout(r, 4000));
@@ -10059,22 +10093,45 @@ async function chequearVimeusDisponible(tmdbId, tipo) {
 // Completa s.disponibleVimeus para los items de pendingSeeds que todavia no
 // lo tengan, en tandas (no todo junto de una: la Carga Masiva puede traer
 // cientos de items, y bombardear a Vimeus de golpe no es buena idea).
-async function marcarDisponibilidadVimeus(items) {
-  const pendientes = items.filter(s => s.disponibleVimeus === undefined);
-  const TANDA = 15;
+// Completa s.disponibleFlixlatam y s.disponibleVimeus para los items de pendingSeeds
+async function marcarDisponibilidadFuentes(items) {
+  const { SelvaStream } = await import('./components/Player/Player.js');
+  const pendientes = items.filter(s => s.disponibleFlixlatam === undefined && s.disponibleVimeus === undefined);
+  const TANDA = 6;
   for (let i = 0; i < pendientes.length; i += TANDA) {
     const tanda = pendientes.slice(i, i + TANDA);
     await Promise.all(tanda.map(async (s) => {
+      // 1. Obtener IMDb ID si aún no lo tiene
+      if (!s.imdbId) {
+        try {
+          const extResp = await fetch(`${TMDB_URL}/${s.type === 'movie' ? 'movie' : 'tv'}/${s.tmdbId}/external_ids?api_key=${TMDB_API_KEY}`);
+          const extData = await extResp.json();
+          s.imdbId = extData.imdb_id || '';
+        } catch (e) {}
+      }
+
+      // 2. Chequear FlixLatam via worker
+      if (s.imdbId) {
+        try {
+          const r = await fetch(`${SelvaStream.MASTER_WORKER_URL}/flix/check?provider=flixlatam&imdb=${s.imdbId}`, {
+            headers: { 'x-selva-auth': SelvaStream.AUTH_TOKEN }
+          });
+          const d = await r.json();
+          s.disponibleFlixlatam = !!d.available;
+        } catch (e) {
+          s.disponibleFlixlatam = false;
+        }
+      } else {
+        s.disponibleFlixlatam = false;
+      }
+
+      // 3. Chequear Vimeus
       s.disponibleVimeus = await chequearVimeusDisponible(s.tmdbId, s.type);
     }));
   }
 }
 
 // Pinta la grilla de checkboxes de "pendingSeeds" en el contenedor dado.
-// Compartida entre massSeedMovies y loadRecommendedMix para no duplicar el template.
-// Re-renderizamos esta lista dos veces (antes y después de chequear Vimeus,
-// ver marcarDisponibilidadVimeus): si el usuario desmarcó algo en el medio,
-// el segundo render no debe pisarle esa elección y volver a tildar todo.
 function guardarEstadoChecks(list) {
   list.querySelectorAll('.seed-check').forEach(chk => {
     const idx = Number(chk.dataset.idx);
@@ -10082,32 +10139,39 @@ function guardarEstadoChecks(list) {
   });
 }
 
-// Si el admin marcó "Solo Vimeus" (#chk-solo-vimeus), descarta de pendingSeeds
-// todo lo que no venga confirmado por Vimeus (mismo criterio que "Fuentes
-// externas" en el buscador de un solo título). Se llama después de
-// marcarDisponibilidadVimeus, cuando s.disponibleVimeus ya está resuelto.
-function aplicarFiltroSoloVimeus(status, confirmBtn) {
-  if (!document.getElementById('chk-solo-vimeus')?.checked) return;
+function aplicarFiltroSoloFuentes(status, confirmBtn) {
+  const soloFlix = document.getElementById('chk-solo-flixlatam')?.checked;
+  const soloVimeus = document.getElementById('chk-solo-vimeus')?.checked;
 
-  pendingSeeds = pendingSeeds.filter(s => s.disponibleVimeus);
+  if (soloFlix && soloVimeus) {
+    pendingSeeds = pendingSeeds.filter(s => s.disponibleFlixlatam || s.disponibleVimeus);
+  } else if (soloFlix) {
+    pendingSeeds = pendingSeeds.filter(s => s.disponibleFlixlatam);
+  } else if (soloVimeus) {
+    pendingSeeds = pendingSeeds.filter(s => s.disponibleVimeus);
+  }
 
   if (pendingSeeds.length === 0) {
-    if (status) status.innerText = '🍃 Ninguno de estos títulos está confirmado en Vimeus todavía. Desmarca "Solo Vimeus" para ver el resto, o prueba con otra página/filtro.';
+    if (status) status.innerText = '🍃 Ninguno de estos títulos está confirmado en las fuentes seleccionadas todavía. Desmarca los filtros o prueba con otro año/categoría.';
     if (confirmBtn) confirmBtn.style.display = 'none';
   } else {
-    if (status) status.innerText = `✅ ${pendingSeeds.length} confirmados en Vimeus. Desmarca los que no quieras:`;
-    if (confirmBtn) confirmBtn.innerText = `✅ Sembrar ${pendingSeeds.length} Coconas`;
+    if (status) status.innerText = `✅ ${pendingSeeds.length} confirmados con video disponible. Desmarca los que no quieras:`;
+    if (confirmBtn) confirmBtn.innerText = `✅ Sembrar ${pendingSeeds.length} Títulos`;
   }
 }
 
 function renderSeedList(list) {
   list.innerHTML = pendingSeeds.map((s, idx) => {
-    const tieneVoe = s.embed && s.embed.includes('voe');
-    const distintivo = tieneVoe
-      ? `<span style="display:inline-block; margin-top:2px; padding:1px 6px; border-radius:4px; background:rgba(255,102,0,0.25); color:#FF6600; font-size:0.58rem; font-weight:700;">🔥 VOE.sx</span>`
-      : (s.disponibleVimeus
-          ? `<span style="display:inline-block; margin-top:2px; padding:1px 6px; border-radius:4px; background:rgba(46,204,113,0.15); color:#2ECC71; font-size:0.58rem; font-weight:700;">✅ VIMEUS</span>`
-          : `<span style="display:inline-block; margin-top:2px; padding:1px 6px; border-radius:4px; background:rgba(0,242,255,0.12); color:#00f2ff; font-size:0.58rem; font-weight:700;">🔗 RESPALDO</span>`);
+    let distintivo = '';
+    if (s.disponibleFlixlatam) {
+      distintivo += `<span style="display:inline-block; margin-top:2px; margin-right:4px; padding:1px 6px; border-radius:4px; background:rgba(16,216,106,0.2); color:#10d86a; font-size:0.58rem; font-weight:700;">🟢 FLIXLATAM</span>`;
+    }
+    if (s.disponibleVimeus) {
+      distintivo += `<span style="display:inline-block; margin-top:2px; margin-right:4px; padding:1px 6px; border-radius:4px; background:rgba(46,204,113,0.15); color:#2ECC71; font-size:0.58rem; font-weight:700;">✅ VIMEUS</span>`;
+    }
+    if (!distintivo) {
+      distintivo = `<span style="display:inline-block; margin-top:2px; padding:1px 6px; border-radius:4px; background:rgba(0,242,255,0.12); color:#00f2ff; font-size:0.58rem; font-weight:700;">🔗 RESPALDO</span>`;
+    }
 
     const marcado = s.selected !== false ? 'checked' : '';
     return `
@@ -10117,7 +10181,7 @@ function renderSeedList(list) {
       <div style="flex: 1; overflow: hidden;">
         <p style="font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: bold; color:white;">${s.title}</p>
         <p style="font-size: 0.6rem; color: var(--text-muted);">${s.year} · ${s.type} · ${DUB_LABELS[s.lang] || s.lang}</p>
-        ${distintivo}
+        <div>${distintivo}</div>
       </div>
     </div>
   `;
@@ -10216,10 +10280,10 @@ window.loadRecommendedMix = async () => {
       status.innerText = `✨ ${pendingSeeds.length} recomendados para empezar (pelis + series + anime). Desmarca lo que no quieras, o busca algo específico con los botones de abajo:`;
       renderSeedList(list); // primero sin distintivo, para no hacer esperar la lista
     }
-    await marcarDisponibilidadVimeus(pendingSeeds);
+    await marcarDisponibilidadFuentes(pendingSeeds);
     if (!soloVimeus1) guardarEstadoChecks(list); // por si el usuario ya desmarcó algo mientras se chequeaba
-    aplicarFiltroSoloVimeus(status, confirmBtn);
-    renderSeedList(list); // y de nuevo ya con "VIMEUS"/"RESPALDO" resuelto
+    aplicarFiltroSoloFuentes(status, confirmBtn);
+    renderSeedList(list);
   } catch (err) {
     console.error('Error cargando recomendados:', err);
     status.innerText = `❌ Error cargando recomendados: ${err.message}`;
@@ -10366,19 +10430,19 @@ window.massSeedMovies = async (contentType) => {
     }
 
     confirmBtn.style.display = 'block';
-    confirmBtn.innerText = `✅ Sembrar ${pendingSeeds.length} Coconas`;
-    const soloVimeus2 = document.getElementById('chk-solo-vimeus')?.checked;
-    if (soloVimeus2) {
-      status.innerText = `🔎 Verificando cuáles de los ${pendingSeeds.length} títulos están en Vimeus...`;
+    confirmBtn.innerText = `✅ Sembrar ${pendingSeeds.length} Títulos`;
+    const soloFuentes = document.getElementById('chk-solo-flixlatam')?.checked || document.getElementById('chk-solo-vimeus')?.checked;
+    if (soloFuentes) {
+      status.innerText = `🔎 Radar activado: escaneando FlixLatam y Vimeus para ${pendingSeeds.length} títulos...`;
       list.innerHTML = '';
     } else {
-      status.innerText = `✅ ¡${pendingSeeds.length} coconas nuevas! Desmarca las que no quieras:`;
-      renderSeedList(list); // primero sin distintivo, para no hacer esperar la lista
+      status.innerText = `✅ ¡${pendingSeeds.length} títulos nuevos! Desmarca los que no quieras:`;
+      renderSeedList(list);
     }
-    await marcarDisponibilidadVimeus(pendingSeeds);
-    if (!soloVimeus2) guardarEstadoChecks(list); // por si el usuario ya desmarcó algo mientras se chequeaba
-    aplicarFiltroSoloVimeus(status, confirmBtn);
-    renderSeedList(list); // y de nuevo ya con "VIMEUS"/"RESPALDO" resuelto
+    await marcarDisponibilidadFuentes(pendingSeeds);
+    if (!soloFuentes) guardarEstadoChecks(list);
+    aplicarFiltroSoloFuentes(status, confirmBtn);
+    renderSeedList(list);
 
   } catch (err) {
     console.error('Error en massSeedMovies:', err);
@@ -11712,6 +11776,9 @@ window.submitMovieForm = async () => {
       }
       if (submitBtn) submitBtn.innerHTML = '<span class="material-symbols-outlined spin">progress_activity</span> Guardando...';
       await updateDoc(doc(db, "movies", dbId), movieData);
+      // Aplicarlo ya en memoria (la ficha lo ve sin esperar al catálogo nuevo).
+      const idxEditado = movieDatabase.trending.findIndex(m => m.id === dbId);
+      if (idxEditado !== -1) movieDatabase.trending[idxEditado] = { ...movieDatabase.trending[idxEditado], ...movieData };
       window.showToast('¡Título actualizado! 🌴🔄', 'success');
     } else {
       // Chequeo de duplicados: este formulario era el único de los ~6 puntos
@@ -11746,9 +11813,6 @@ window.submitMovieForm = async () => {
       // verifica cada título al sembrarlo.
       if (movieData.tmdbId || movieData.imdbId) {
         if (submitBtn) submitBtn.innerHTML = '<span class="material-symbols-outlined">hourglass_empty</span> Verificando Vimeus...';
-      // Aplicarlo ya en memoria (la ficha lo ve sin esperar al catálogo nuevo).
-      const idxEditado = movieDatabase.trending.findIndex(m => m.id === dbId);
-      if (idxEditado !== -1) movieDatabase.trending[idxEditado] = { ...movieDatabase.trending[idxEditado], ...movieData };
         const tipoVimeus = movieData.type === 'anime' ? 'anime' : ((movieData.type === 'series' || movieData.type === 'tv') ? 'serie' : 'movie');
         const estado = await vimeusConTope(movieData.tmdbId, movieData.imdbId, tipoVimeus);
         if (estado !== undefined) {
@@ -13889,14 +13953,19 @@ function _renderFuentesList(resultados, primeraDisponible) {
     const color = r.ok ? '#2ecc71' : (esFantasma ? '#9b59b6' : '#666');
     const esLaCargada = primeraDisponible && r === primeraDisponible;
     
-    // Botón para subir a VOE directamente desde el modal de Admin
+    // Botones para subir a EarnVids o VOE directamente desde el modal de Admin
     const providerKey = (r.name || '').toLowerCase().replace(/\s+/g, '');
     const esExportable = r.ok && dbIdActual && ['vimeus', 'flixlatam', 'pelismart', 'repelishd'].includes(providerKey);
     const exportBtnHtml = esExportable ? `
-      <button type="button" class="btn" style="font-size:0.65rem; padding:3px 8px; cursor:pointer; background:#ff571a; border:none; color:#fff; font-weight:bold; border-radius:4px; margin-left:6px;"
-              onclick="window.selvaExecuteDirectExport('${dbIdActual}', '${providerKey}')"
+      <button type="button" class="btn" style="font-size:0.65rem; padding:3px 8px; cursor:pointer; background:#10d86a; border:none; color:#000; font-weight:bold; border-radius:4px; margin-left:6px;"
+              onclick="window.selvaExecuteDirectExport('${dbIdActual}', '${providerKey}', 'earnvids')"
+              title="Extraer link real y subir a tu cuenta de EarnVids">
+        💰 EarnVids
+      </button>
+      <button type="button" class="btn" style="font-size:0.65rem; padding:3px 8px; cursor:pointer; background:#ff571a; border:none; color:#fff; font-weight:bold; border-radius:4px; margin-left:4px;"
+              onclick="window.selvaExecuteDirectExport('${dbIdActual}', '${providerKey}', 'voe')"
               title="Extraer link real y subir a tu cuenta de VOE.sx">
-        📤 Subir a VOE
+        🔥 VOE
       </button>
     ` : '';
 
@@ -13912,15 +13981,15 @@ function _renderFuentesList(resultados, primeraDisponible) {
   }).join('');
 }
 
-// Direct export helper desde el modal de Admin — va directo al pipeline sin
-// pasar por selvaExecuteExportToHosting (que requiere lastScrapedStreams con title y url válidos).
-window.selvaExecuteDirectExport = async (movieId, providerKey) => {
+// Direct export helper desde el modal de Admin hacia EarnVids o VOE
+window.selvaExecuteDirectExport = async (movieId, providerKey, targetHost = 'earnvids') => {
   if (localStorage.getItem('selva_admin_auth') !== 'true') return;
   const nameMap = { vimeus: 'Vimeus', flixlatam: 'FlixLatam', pelismart: 'PelisMart', repelishd: 'RepelisHD' };
   const providerName = nameMap[providerKey] || providerKey;
+  const hostLabel = targetHost === 'earnvids' ? 'EarnVids' : 'VOE.sx';
 
   if (!movieId) {
-    if (window.showToast) window.showToast('❌ Guarda la película primero antes de subir a VOE.', 'error');
+    if (window.showToast) window.showToast(`❌ Guarda la película primero antes de subir a ${hostLabel}.`, 'error');
     return;
   }
 
@@ -13931,7 +14000,7 @@ window.selvaExecuteDirectExport = async (movieId, providerKey) => {
     const { ExportManager } = await import('./utils/exportManager.js');
 
     // 1. Buscar datos del título en el inventario local
-    const movie = _allInventoryItems.find(m => m.id === movieId);
+    const movie = (_allInventoryItems || []).find(m => m.id === movieId);
     const imdbId = movie?.imdbId || movie?.imdb_id || '';
     const tmdbId = String(movie?.tmdbId || movie?.tmdb_id || '');
     const type = movie?.type || 'movie';
@@ -13957,40 +14026,78 @@ window.selvaExecuteDirectExport = async (movieId, providerKey) => {
       return;
     }
 
-    if (window.showToast) window.showToast(`✅ Link extraído (${best.servername}). Enviando a VOE.sx...`, 'success');
-    console.log('[DirectExport] Mejor link:', best);
+    if (window.showToast) window.showToast(`✅ Link extraído (${best.servername}). Enviando a ${hostLabel}...`, 'success');
+    console.log(`[DirectExport] Mejor link para ${hostLabel}:`, best);
 
-    // 3. Subir a VOE
-    const voeKey = SelvaStream.VOE_API_KEY;
-    if (!voeKey) {
-      if (window.showToast) window.showToast('❌ Falta VITE_VOE_API_KEY en la configuración.', 'error');
-      return;
-    }
-
-    await ExportManager.startVoeUpload({
-      movieId,
-      sourceUrl: best.link,
-      voeKey,
-      onUpdate: async (update) => {
-        if (update.message && window.showToast) {
-          window.showToast(update.message, update.phase === 'done' ? 'success' : 'info');
-        }
-        // Guardar en Firestore cuando termina
-        if (update.phase === 'done' || update.url) {
-          try {
-            const { getFirestore, doc, updateDoc } = await import('firebase/firestore');
-            const db = getFirestore();
-            const updObj = { exportStatus: update.phase, updatedAt: Date.now() };
-            if (update.url) updObj.embed = update.url;
-            if (update.fileCode) updObj.exportFileId = update.fileCode;
-            await updateDoc(doc(db, 'movies', movieId), updObj);
-            const memItem = _allInventoryItems.find(m => m.id === movieId);
-            if (memItem) { memItem.exportStatus = update.phase; if (update.url) memItem.embed = update.url; }
-            if (window.filterInventoryByCategory) window.filterInventoryByCategory();
-          } catch(e) { console.warn('[DirectExport] Error guardando en Firestore:', e); }
+    // 3. Subir según host elegido
+    if (targetHost === 'earnvids') {
+      let earnvidsKey = SelvaStream.EARNVIDS_KEY || localStorage.getItem('selva_earnvids_key') || '';
+      if (!earnvidsKey) {
+        const inputKey = prompt('🔑 Ingresa tu EarnVids API Key:');
+        if (inputKey && inputKey.trim()) {
+          earnvidsKey = inputKey.trim();
+          localStorage.setItem('selva_earnvids_key', earnvidsKey);
         }
       }
-    });
+      if (!earnvidsKey) {
+        if (window.showToast) window.showToast('❌ Falta la EarnVids API Key.', 'error');
+        return;
+      }
+
+      await ExportManager.startEarnvidsUpload({
+        movieId,
+        sourceUrl: best.link,
+        earnvidsKey,
+        onUpdate: async (update) => {
+          if (update.message && window.showToast) {
+            window.showToast(update.message, update.phase === 'done' ? 'success' : 'info');
+          }
+          if (update.phase === 'done' || update.url) {
+            try {
+              const { getFirestore, doc, updateDoc } = await import('firebase/firestore');
+              const db = getFirestore();
+              const updObj = { exportStatus: update.phase, updatedAt: Date.now() };
+              if (update.url) updObj.embed = update.url;
+              if (update.fileCode) updObj.exportFileId = update.fileCode;
+              await updateDoc(doc(db, 'movies', movieId), updObj);
+              const memItem = _allInventoryItems.find(m => m.id === movieId);
+              if (memItem) { memItem.exportStatus = update.phase; if (update.url) memItem.embed = update.url; }
+            } catch (e) { console.warn('[DirectExport EarnVids] Error actualizando doc:', e); }
+          }
+        }
+      });
+    } else {
+      const voeKey = SelvaStream.VOE_API_KEY;
+      if (!voeKey) {
+        if (window.showToast) window.showToast('❌ Falta VITE_VOE_API_KEY en la configuración.', 'error');
+        return;
+      }
+
+      await ExportManager.startVoeUpload({
+        movieId,
+        sourceUrl: best.link,
+        voeKey,
+        onUpdate: async (update) => {
+          if (update.message && window.showToast) {
+            window.showToast(update.message, update.phase === 'done' ? 'success' : 'info');
+          }
+          if (update.phase === 'done' || update.url) {
+            try {
+              const { getFirestore, doc, updateDoc } = await import('firebase/firestore');
+              const db = getFirestore();
+              const updObj = { exportStatus: update.phase, updatedAt: Date.now() };
+              if (update.url) updObj.embed = update.url;
+              if (update.fileCode) updObj.exportFileId = update.fileCode;
+              await updateDoc(doc(db, 'movies', movieId), updObj);
+              const memItem = _allInventoryItems.find(m => m.id === movieId);
+              if (memItem) { memItem.exportStatus = update.phase; if (update.url) memItem.embed = update.url; }
+            } catch (e) { console.warn('[DirectExport VOE] Error actualizando doc:', e); }
+          }
+        }
+      });
+    }
+
+    if (window.filterInventoryByCategory) window.filterInventoryByCategory();
 
     // Marcar como 'processing' en Firestore inmediatamente
     try {

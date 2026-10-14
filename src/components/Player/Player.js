@@ -35,6 +35,7 @@ export const SelvaStream = {
     STREAMTAPE_KEY: import.meta.env.VITE_STREAMTAPE_KEY || '',
     DOODSTREAM_KEY: import.meta.env.VITE_DOODSTREAM_KEY || '',
     VOE_API_KEY: import.meta.env.VITE_VOE_API_KEY || '',
+    EARNVIDS_KEY: import.meta.env.VITE_EARNVIDS_KEY || localStorage.getItem('selva_earnvids_key') || '',
 
     // 🎬 Vimeus (el reproductor real detrás de LaMovie): a diferencia de la
     // API Key (ak_..., server-only, NUNCA en el cliente), el view_key es fijo
@@ -1581,6 +1582,9 @@ export const SelvaStream = {
             if (m) url = m[1];
         }
         if (url.includes('streamtape.com/v/')) url = url.replace('/v/', '/e/');
+        if (url.includes('earnvids.com/watch/')) url = url.replace('/watch/', '/e/');
+        if (url.includes('earnvids.com/d/')) url = url.replace('/d/', '/e/');
+        if (url.includes('earnvids.com/embed-')) url = url.replace('/embed-', '/e/');
         return url.trim();
     },
 

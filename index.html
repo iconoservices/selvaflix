@@ -1003,8 +1003,8 @@
                   <button class="btn btn-secondary-outline" onclick="window.limpiarDuplicadosManual()" title="Busca títulos repetidos (mismo ID de TMDB o mismo nombre) y borra las copias de más, quedándose con la más sana/reciente de cada una. Esto ya corre solo en segundo plano cada vez que alguien visita la página; este botón lo corre a mano y te muestra qué se borró.">
                     🧹 Limpiar Duplicados
                   </button>
-                  <button class="btn btn-secondary-outline" onclick="window.convertirCatalogoAVoe()" title="Extrae los links reales de FlixLatam/Vimeus/RepelisHD de cada película y los sube a tu cuenta de VOE.sx. Puedes seleccionar cuántas películas subir y con qué fuente.">
-                    🔥 Convertir a VOE
+                  <button class="btn btn-secondary-outline" onclick="window.convertirCatalogoAVoe()" title="Extrae los links reales de cada película y los sube a tu cuenta de EarnVids o VOE.sx. Puedes elegir cuántas subir y el servidor destino.">
+                    💰 Migrar a Servidor (EarnVids / VOE)
                   </button>
                   <button class="btn btn-danger-outline" onclick="window.nukeDatabase()">
                     🔥 Limpiar Selva
@@ -1888,9 +1888,14 @@
           <label style="display:flex; align-items:center; gap:8px; font-size:0.75rem; color:var(--admin-text-muted); margin-bottom:10px; cursor:pointer;">
             <input type="checkbox" id="discover-send-to-review"> Enviar todo a "En Revisión" en vez de publicar directo
           </label>
-          <label style="display:flex; align-items:center; gap:8px; font-size:0.75rem; color:var(--admin-text-muted); margin-bottom:15px; cursor:pointer;" title="Prendido: de todo lo que traiga TMDB, solo se deja en la lista lo que Vimeus ya tiene confirmado. Apagado: se muestra todo, aunque dependa de las fuentes de respaldo.">
-            <input type="checkbox" id="chk-solo-vimeus"> ✅ Solo Vimeus (descartar lo que dependa de Respaldo)
-          </label>
+          <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:15px;">
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.75rem; color:var(--admin-text-muted); cursor:pointer;" title="Radar FlixLatam: escanea en tiempo real con el código IMDb y filtra solo las películas que ya tienen video disponible para ver o subir a EarnVids.">
+              <input type="checkbox" id="chk-solo-flixlatam" checked> 🟢 Radar FlixLatam (solo con video disponible)
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.75rem; color:var(--admin-text-muted); cursor:pointer;" title="Prendido: de todo lo que traiga TMDB, solo se deja en la lista lo que Vimeus ya tiene confirmado.">
+              <input type="checkbox" id="chk-solo-vimeus"> ✅ Solo Vimeus
+            </label>
+          </div>
 
           <div style="display:flex; gap:8px; margin-bottom:15px; flex-wrap:wrap; align-items:center;">
             <button class="btn btn-secondary" onclick="window.massSeedMovies('movie')">🎬 Buscar Películas</button>
